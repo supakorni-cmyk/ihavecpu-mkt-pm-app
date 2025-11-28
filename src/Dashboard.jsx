@@ -131,11 +131,11 @@ export default function Dashboard() {
       {/* --- Top Navigation --- */}
       <nav className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
         <div className="flex items-center gap-3">
-            <div className="bg-blue-600 p-2 rounded-lg text-white">
+            <div className="bg-red-600 p-2 rounded-lg text-white">
                 <Layout size={20} />
             </div>
             <div>
-                <h1 className="text-xl font-bold text-gray-900 tracking-tight">iHAVECPU <span className="text-blue-600">Board</span></h1>
+                <h1 className="text-xl font-bold text-gray-900 tracking-tight">iHAVECPU <span className="text-red-600">Marketing</span></h1>
                 <p className="text-xs text-gray-400 font-medium">Project Management</p>
             </div>
         </div>
@@ -253,9 +253,9 @@ export default function Dashboard() {
                             value={newTaskTag}
                             onChange={e => setNewTaskTag(e.target.value)}
                         >
-                            <option value="Marketing">Marketing</option>
-                            <option value="Design">Design</option>
-                            <option value="Dev">Dev</option>
+                            <option value="Marketing">Project</option>
+                            <option value="Design">Event</option>
+                            <option value="Dev">Review</option>
                             <option value="Planning">Planning</option>
                         </select>
                     </div>
