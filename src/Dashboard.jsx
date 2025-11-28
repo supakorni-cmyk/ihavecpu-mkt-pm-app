@@ -1,19 +1,41 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
 import { db } from './firebase';
-import { collection, addDoc, query, onSnapshot, deleteDoc, doc, updateDoc, orderBy } from 'firebase/firestore';
+import { 
+  collection, 
+  addDoc, 
+  query, 
+  onSnapshot, 
+  deleteDoc, 
+  doc, 
+  updateDoc, 
+  orderBy 
+} from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
-import { Trash2, CheckCircle, Circle, LogOut, Plus, Menu } from 'lucide-react';
+import { 
+  MoreHorizontal, 
+  Plus, 
+  Calendar, 
+  Trash2, 
+  LogOut, 
+  Layout, 
+  ArrowRight,
+  ArrowLeft
+} from 'lucide-react';
 
 export default function Dashboard() {
   const [tasks, setTasks] = useState([]);
-  const [newTask, setNewTask] = useState('');
-  const [category, setCategory] = useState('Marketing');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [newTaskTag, setNewTaskTag] = useState('Marketing');
+  
   const { currentUser, logout } = useAuth();
   const navigate = useNavigate();
 
-  // READ: Fetch tasks real-time
+  // --- 1. READ: Fetch tasks from Firebase ---
   useEffect(() => {
+    // Determine user query based on need. Currently fetching all tasks.
+    // To fetch only user's tasks: query(collection(db, 'tasks'), where("author", "==", currentUser.email));
     const q = query(collection(db, 'tasks'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const taskData = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
@@ -22,131 +44,229 @@ export default function Dashboard() {
     return unsubscribe;
   }, []);
 
-  // CREATE: Add new task
-  const addTask = async (e) => {
+  // --- 2. CREATE: Add Task ---
+  const handleAddTask = async (e) => {
     e.preventDefault();
-    if (!newTask) return;
+    if (!newTaskTitle) return;
+
     await addDoc(collection(db, 'tasks'), {
-      title: newTask,
-      category,
-      status: 'pending',
+      title: newTaskTitle,
+      tag: newTaskTag,
+      status: 'todo', // Default status
       createdAt: new Date(),
-      author: currentUser.email
+      author: currentUser.email,
+      dueDate: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
     });
-    setNewTask('');
+
+    setNewTaskTitle('');
+    setIsModalOpen(false);
   };
 
-  // UPDATE: Toggle status
-  const toggleStatus = async (task) => {
-    const taskRef = doc(db, 'tasks', task.id);
-    await updateDoc(taskRef, {
-      status: task.status === 'completed' ? 'pending' : 'completed'
-    });
+  // --- 3. UPDATE: Move Task (Change Status) ---
+  const moveTask = async (taskId, currentStatus, direction) => {
+    const statusOrder = ['todo', 'inprogress', 'review', 'done'];
+    const currentIndex = statusOrder.indexOf(currentStatus);
+    
+    // Fallback if status isn't recognized (e.g. old data)
+    if (currentIndex === -1) {
+        await updateDoc(doc(db, 'tasks', taskId), { status: 'todo' });
+        return;
+    }
+
+    let nextIndex = direction === 'next' ? currentIndex + 1 : currentIndex - 1;
+
+    // Boundary checks
+    if (nextIndex >= 0 && nextIndex < statusOrder.length) {
+      await updateDoc(doc(db, 'tasks', taskId), {
+        status: statusOrder[nextIndex]
+      });
+    }
   };
 
-  // DELETE: Remove task
+  // --- 4. DELETE: Remove Task ---
   const deleteTask = async (id) => {
-    await deleteDoc(doc(db, 'tasks', id));
+    if (window.confirm("Are you sure you want to delete this task?")) {
+      await deleteDoc(doc(db, 'tasks', id));
+    }
   };
 
+  // Logout Handler
   const handleLogout = async () => {
-    await logout();
-    navigate('/');
+    try {
+      await logout();
+      navigate('/');
+    } catch {
+      alert("Failed to log out");
+    }
+  };
+
+  // --- Visual Configuration ---
+  const columns = [
+    { id: 'todo', title: 'To Do', color: 'bg-gray-100' },
+    { id: 'inprogress', title: 'In Progress', color: 'bg-blue-50' },
+    { id: 'review', title: 'Review', color: 'bg-purple-50' },
+    { id: 'done', title: 'Done', color: 'bg-green-50' },
+  ];
+
+  const tagColors = {
+    'Marketing': 'bg-pink-100 text-pink-600',
+    'Design': 'bg-purple-100 text-purple-600',
+    'Dev': 'bg-blue-100 text-blue-600',
+    'Planning': 'bg-yellow-100 text-yellow-600',
+  };
+
+  // Filter tasks into columns
+  const getTasksByStatus = (status) => {
+    return tasks.filter(task => {
+      // Handle legacy data that might have 'pending' or 'completed'
+      if (status === 'todo' && (task.status === 'pending' || !task.status)) return true;
+      if (status === 'done' && task.status === 'completed') return true;
+      return task.status === status;
+    });
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 pb-10">
-      {/* Header - Responsive Layout */}
-      <nav className="bg-gray-900 text-white p-4 shadow-md sticky top-0 z-50">
-        <div className="max-w-4xl mx-auto flex justify-between items-center">
-          <h1 className="text-lg sm:text-xl font-bold tracking-wider text-red-500 truncate">
-            iHAVECPU <span className="text-white hidden xs:inline">Manager</span>
-          </h1>
-          
-          <div className="flex items-center gap-3">
-            {/* Hide email on very small screens (xs) */}
-            <span className="text-xs sm:text-sm text-gray-400 hidden sm:block max-w-[150px] truncate">
-              {currentUser.email}
-            </span>
-            <button 
-              onClick={handleLogout} 
-              className="flex items-center gap-2 bg-gray-800 px-3 py-1.5 rounded hover:bg-gray-700 border border-gray-600 text-sm transition-colors"
-            >
-              <LogOut size={16} /> <span className="hidden xs:inline">Logout</span>
+    <div className="min-h-screen bg-white text-gray-800 font-sans">
+      
+      {/* --- Top Navigation --- */}
+      <nav className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+        <div className="flex items-center gap-3">
+            <div className="bg-blue-600 p-2 rounded-lg text-white">
+                <Layout size={20} />
+            </div>
+            <div>
+                <h1 className="text-xl font-bold text-gray-900 tracking-tight">iHAVECPU <span className="text-blue-600">Board</span></h1>
+                <p className="text-xs text-gray-400 font-medium">Project Management</p>
+            </div>
+        </div>
+        
+        <div className="flex items-center gap-4">
+            <div className="hidden md:flex flex-col items-end">
+                <span className="text-sm font-semibold text-gray-700">{currentUser?.email?.split('@')[0]}</span>
+                <span className="text-[10px] text-gray-400">Admin</span>
+            </div>
+            <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 flex items-center justify-center text-white text-xs font-bold shadow-md">
+                {currentUser?.email?.charAt(0).toUpperCase()}
+            </div>
+            <button onClick={handleLogout} className="p-2 text-gray-400 hover:text-red-500 transition-colors">
+                <LogOut size={20} />
             </button>
-          </div>
         </div>
       </nav>
 
-      <div className="max-w-4xl mx-auto p-4 sm:p-6">
-        
-        {/* Create Task Form - Stacks on mobile, Row on Desktop */}
-        <form onSubmit={addTask} className="bg-white p-4 sm:p-6 rounded-lg shadow-sm mb-6 flex flex-col sm:flex-row gap-3 border border-gray-200">
-          <select 
-            className="border p-3 rounded bg-gray-50 text-gray-700 w-full sm:w-auto focus:ring-2 focus:ring-red-500 outline-none"
-            value={category} onChange={(e) => setCategory(e.target.value)}
-          >
-            <option>Marketing</option>
-            <option>Project</option>
-            <option>Sales</option>
-            <option>IT Support</option>
-          </select>
-          
-          <input 
-            type="text" 
-            placeholder="Add a new task..." 
-            className="flex-1 border p-3 rounded bg-gray-50 focus:outline-none focus:ring-2 focus:ring-red-500 w-full"
-            value={newTask} onChange={(e) => setNewTask(e.target.value)}
-          />
-          
-          <button type="submit" className="bg-red-600 text-white px-6 py-3 rounded font-semibold hover:bg-red-700 flex items-center justify-center gap-2 w-full sm:w-auto transition-colors">
-            <Plus size={20} /> <span className="sm:hidden">Add Task</span> <span className="hidden sm:inline">Add</span>
-          </button>
-        </form>
+      {/* --- Board Actions --- */}
+      <div className="px-6 py-6 flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-gray-800">Marketing Sprint</h2>
+        <button 
+          onClick={() => setIsModalOpen(true)}
+          className="flex items-center gap-2 bg-black text-white px-5 py-2.5 rounded-full font-medium hover:bg-gray-800 transition shadow-lg shadow-gray-200"
+        >
+          <Plus size={18} /> New Task
+        </button>
+      </div>
 
-        {/* Task List */}
-        <div className="space-y-3">
-          {tasks.map((task) => (
-            <div key={task.id} className={`flex items-start justify-between p-4 bg-white rounded-lg shadow-sm border-l-4 transition-all hover:shadow-md ${task.status === 'completed' ? 'border-green-500 opacity-75' : 'border-red-500'}`}>
-              
-              <div className="flex gap-3 sm:gap-4 items-start w-full">
-                {/* Checkbox Icon */}
-                <button onClick={() => toggleStatus(task)} className="mt-1 flex-shrink-0 text-gray-400 hover:text-red-500 transition-colors">
-                  {task.status === 'completed' ? <CheckCircle className="text-green-500" size={24} /> : <Circle size={24} />}
-                </button>
-                
-                {/* Task Content */}
-                <div className="flex-1 min-w-0">
-                  <h3 className={`font-medium text-sm sm:text-base break-words ${task.status === 'completed' ? 'line-through text-gray-400' : 'text-gray-800'}`}>
-                    {task.title}
-                  </h3>
-                  <div className="mt-1 flex flex-wrap gap-2 items-center">
-                    <span className="text-[10px] sm:text-xs text-gray-600 px-2 py-0.5 bg-gray-100 rounded-full border border-gray-200">
-                      {task.category}
+      {/* --- Kanban Columns --- */}
+      <div className="px-6 pb-10 overflow-x-auto">
+        <div className="flex gap-6 min-w-[1000px]"> {/* Min width ensures columns don't squish on small screens */}
+          {columns.map(col => (
+            <div key={col.id} className="flex-1 min-w-[280px]">
+              {/* Column Header */}
+              <div className="flex items-center justify-between mb-4 px-1">
+                <div className="flex items-center gap-2">
+                    <h3 className="text-gray-600 font-bold text-sm uppercase tracking-wider">{col.title}</h3>
+                    <span className="bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full text-xs font-bold">
+                        {getTasksByStatus(col.id).length}
                     </span>
-                    <span className="text-[10px] text-gray-400">
-                      {/* Simple date display */}
-                      {task.createdAt?.seconds ? new Date(task.createdAt.seconds * 1000).toLocaleDateString() : ''}
-                    </span>
-                  </div>
                 </div>
+                <button className="text-gray-300 hover:text-gray-600"><MoreHorizontal size={16} /></button>
               </div>
 
-              {/* Delete Button */}
-              <button onClick={() => deleteTask(task.id)} className="ml-2 sm:ml-4 text-gray-300 hover:text-red-600 transition-colors p-1">
-                <Trash2 size={20} />
-              </button>
+              {/* Column Content */}
+              <div className={`h-full min-h-[500px] rounded-2xl p-2 ${col.color}`}> {/* Removed border-dashed, added colored bg */}
+                 <div className="flex flex-col gap-3">
+                    {getTasksByStatus(col.id).map(task => (
+                        <div key={task.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all group relative">
+                            {/* Tags */}
+                            <div className="flex justify-between items-start mb-3">
+                                <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold tracking-wide uppercase ${tagColors[task.tag] || 'bg-gray-100 text-gray-500'}`}>
+                                    {task.tag}
+                                </span>
+                                <button onClick={() => deleteTask(task.id)} className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <Trash2 size={14} />
+                                </button>
+                            </div>
+
+                            {/* Title */}
+                            <h4 className="text-gray-800 font-semibold text-sm mb-4 leading-relaxed">{task.title}</h4>
+
+                            {/* Footer */}
+                            <div className="flex items-center justify-between pt-3 border-t border-gray-50">
+                                <div className="flex items-center gap-1.5 text-gray-400 text-xs font-medium">
+                                    <Calendar size={12} />
+                                    <span>{task.dueDate || 'No Date'}</span>
+                                </div>
+                                
+                                {/* Movement Controls */}
+                                <div className="flex gap-1">
+                                    {col.id !== 'todo' && (
+                                        <button onClick={() => moveTask(task.id, task.status || 'todo', 'prev')} className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-blue-600" title="Move Back">
+                                            <ArrowLeft size={14} />
+                                        </button>
+                                    )}
+                                    {col.id !== 'done' && (
+                                        <button onClick={() => moveTask(task.id, task.status || 'todo', 'next')} className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-blue-600" title="Move Forward">
+                                            <ArrowRight size={14} />
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                 </div>
+              </div>
             </div>
           ))}
-
-          {tasks.length === 0 && (
-            <div className="text-center py-10 bg-white rounded-lg border border-dashed border-gray-300">
-              <p className="text-gray-400">No tasks found.</p>
-              <p className="text-sm text-gray-300">Start planning your marketing projects!</p>
-            </div>
-          )}
         </div>
       </div>
+
+      {/* --- Add Task Modal --- */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 transform transition-all scale-100">
+                <h3 className="text-xl font-bold mb-4 text-gray-800">Add New Task</h3>
+                <form onSubmit={handleAddTask} className="flex flex-col gap-4">
+                    <div>
+                        <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 block">Title</label>
+                        <input 
+                            autoFocus
+                            type="text" 
+                            className="w-full border-gray-200 bg-gray-50 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-700"
+                            placeholder="e.g., Launch Facebook Ads"
+                            value={newTaskTitle}
+                            onChange={e => setNewTaskTitle(e.target.value)}
+                        />
+                    </div>
+                    <div>
+                        <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 block">Tag</label>
+                        <select 
+                            className="w-full border-gray-200 bg-gray-50 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-700"
+                            value={newTaskTag}
+                            onChange={e => setNewTaskTag(e.target.value)}
+                        >
+                            <option value="Marketing">Marketing</option>
+                            <option value="Design">Design</option>
+                            <option value="Dev">Dev</option>
+                            <option value="Planning">Planning</option>
+                        </select>
+                    </div>
+                    <div className="flex gap-3 mt-4">
+                        <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 rounded-xl font-bold text-gray-500 hover:bg-gray-100 transition">Cancel</button>
+                        <button type="submit" className="flex-1 py-3 rounded-xl font-bold bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-200 transition">Create Task</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+      )}
     </div>
   );
 }
