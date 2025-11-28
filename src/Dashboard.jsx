@@ -109,9 +109,9 @@ export default function Dashboard() {
   ];
 
   const tagColors = {
-    'Marketing': 'bg-pink-100 text-pink-600',
-    'Design': 'bg-purple-100 text-purple-600',
-    'Dev': 'bg-blue-100 text-blue-600',
+    'Project': 'bg-pink-100 text-pink-600',
+    'Event': 'bg-purple-100 text-purple-600',
+    'Review': 'bg-blue-100 text-blue-600',
     'Planning': 'bg-yellow-100 text-yellow-600',
   };
 
@@ -135,14 +135,14 @@ export default function Dashboard() {
                 <Layout size={20} />
             </div>
             <div>
-                <h1 className="text-xl font-bold text-gray-900 tracking-tight">iHAVECPU <span className="text-red-600">Marketing</span></h1>
+                <h1 className="text-xl font-bold text-gray-900 tracking-tight">iHAVECPU <span className="text-red-600">MARKETING</span></h1>
                 <p className="text-xs text-gray-400 font-medium">Project Management</p>
             </div>
         </div>
         
         <div className="flex items-center gap-4">
             <div className="hidden md:flex flex-col items-end">
-                <span className="text-sm font-semibold text-gray-700">{currentUser?.email?.split('@')[0]}</span>
+                <span className="text-sm font-semibold text-gray-700">Welcome! {currentUser?.email?.split('@')[0]}</span>
                 <span className="text-[10px] text-gray-400">Admin</span>
             </div>
             <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 flex items-center justify-center text-white text-xs font-bold shadow-md">
