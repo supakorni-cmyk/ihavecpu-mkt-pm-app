@@ -1,7 +1,14 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useEffect, useState } from "react";
 import { auth } from "./firebase";
-import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "firebase/auth";
+import { 
+  onAuthStateChanged, 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  signOut,
+  GoogleAuthProvider,
+  signInWithPopup
+} from "firebase/auth";
 
 const AuthContext = createContext();
 
@@ -13,12 +20,20 @@ export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Initialize Google Provider
+  const googleProvider = new GoogleAuthProvider();
+
   function signup(email, password) {
     return createUserWithEmailAndPassword(auth, email, password);
   }
 
   function login(email, password) {
     return signInWithEmailAndPassword(auth, email, password);
+  }
+
+  // NEW: Google Login Function
+  function loginWithGoogle() {
+    return signInWithPopup(auth, googleProvider);
   }
 
   function logout() {
@@ -33,7 +48,14 @@ export function AuthProvider({ children }) {
     return unsubscribe;
   }, []);
 
-  const value = { currentUser, signup, login, logout };
+  // Add loginWithGoogle to the value object
+  const value = { 
+    currentUser, 
+    signup, 
+    login, 
+    loginWithGoogle, 
+    logout 
+  };
 
   return (
     <AuthContext.Provider value={value}>
