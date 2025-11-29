@@ -113,6 +113,7 @@ export default function Dashboard() {
     'Event': 'bg-purple-100 text-purple-600',
     'Review': 'bg-blue-100 text-blue-600',
     'Planning': 'bg-yellow-100 text-yellow-600',
+    'Guest Speaker': 'bg-green-100 text-green-600',
   };
 
   // Filter tasks into columns
@@ -142,8 +143,8 @@ export default function Dashboard() {
         
         <div className="flex items-center gap-4">
             <div className="hidden md:flex flex-col items-end">
-                <span className="text-sm font-semibold text-gray-700">Welcome! {currentUser?.email?.split('@')[0]}</span>
-                <span className="text-[10px] text-gray-400">Admin</span>
+                <span className="text-sm font-semibold text-gray-700">Welcome! {currentUser?.email?.split('@')[0].toUpperCase}</span>
+                <span className="text-[10px] text-gray-400">Nice Marketing Team</span>
             </div>
             <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 flex items-center justify-center text-white text-xs font-bold shadow-md">
                 {currentUser?.email?.charAt(0).toUpperCase()}
@@ -253,10 +254,11 @@ export default function Dashboard() {
                             value={newTaskTag}
                             onChange={e => setNewTaskTag(e.target.value)}
                         >
-                            <option value="Marketing">Project</option>
-                            <option value="Design">Event</option>
-                            <option value="Dev">Review</option>
+                            <option value="Project">Project</option>
+                            <option value="Event">Event</option>
+                            <option value="Review">Review</option>
                             <option value="Planning">Planning</option>
+                            <option value="Guest Speaker">Guest Speaker</option>
                         </select>
                     </div>
                     <div className="flex gap-3 mt-4">
