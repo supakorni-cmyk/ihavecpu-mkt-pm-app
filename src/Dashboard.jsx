@@ -143,7 +143,7 @@ export default function Dashboard() {
         
         <div className="flex items-center gap-4">
             <div className="hidden md:flex flex-col items-end">
-                <span className="text-sm font-semibold text-gray-700">Welcome! {currentUser?.email?.split('@')[0].toUpperCase}</span>
+                <span className="text-sm font-semibold text-gray-700">Welcome! {currentUser?.email?.split('@')[0].toUpperCase()}</span>
                 <span className="text-[10px] text-gray-400">Nice Marketing Team</span>
             </div>
             <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 flex items-center justify-center text-white text-xs font-bold shadow-md">
