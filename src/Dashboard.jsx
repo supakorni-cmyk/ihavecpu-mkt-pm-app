@@ -227,7 +227,7 @@ export default function Dashboard() {
     };
 
     return (
-        <div className="p-6 h-full flex flex-col">
+        <div className="p-6 h-full w-full flex flex-col">
             <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
                     <CalendarIcon className="text-blue-600" />
@@ -303,7 +303,7 @@ export default function Dashboard() {
     };
 
     return (
-        <div className="h-full flex flex-col items-center justify-center p-6 bg-gradient-to-br from-indigo-50 to-purple-50">
+        <div className="h-full w-full flex flex-col items-center justify-center p-6 bg-gradient-to-br from-indigo-50 to-purple-50">
             <div className="text-center mb-8">
                 <h2 className="text-4xl font-bold text-gray-800 mb-2 flex items-center justify-center gap-3">
                     <Heart className="text-pink-500 fill-pink-500" size={32} />
@@ -336,7 +336,7 @@ export default function Dashboard() {
 
   // --- RENDER ---
   return (
-    <div className="flex h-screen bg-gray-50 font-sans overflow-hidden">
+    <div className="flex h-screen w-full bg-gray-50 font-sans overflow-hidden">
       
       {/* --- SIDEBAR --- */}
       <aside className="w-20 md:w-64 bg-white border-r border-gray-200 flex flex-col justify-between flex-shrink-0 z-20">
@@ -390,11 +390,11 @@ export default function Dashboard() {
       </aside>
 
       {/* --- MAIN CONTENT AREA --- */}
-      <main className="flex-1 flex flex-col h-full overflow-hidden bg-white relative">
+      <main className="flex-1 flex flex-col h-full w-full overflow-hidden bg-white relative">
         
         {/* VIEW: BOARD */}
         {currentView === 'board' && (
-            <div className="flex flex-col h-full">
+            <div className="flex flex-col h-full w-full">
                 {/* Board Header */}
                 <header className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-white/80 backdrop-blur-md z-10">
                      <h2 className="text-2xl font-bold text-gray-800">Marketing Sprint</h2>
