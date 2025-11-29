@@ -15,7 +15,7 @@ import { useNavigate } from 'react-router-dom';
 import { 
   MoreHorizontal, 
   Plus, 
-  Calendar, 
+  Calendar as CalendarIcon, 
   Trash2, 
   LogOut, 
   Layout, 
@@ -30,11 +30,17 @@ import {
   ExternalLink,
   X,
   Edit2,
-  Save
+  Save,
+  Heart,
+  ChevronLeft,
+  ChevronRight,
+  RefreshCw,
+  Video
 } from 'lucide-react';
 
 export default function Dashboard() {
   const [tasks, setTasks] = useState([]);
+  const [currentView, setCurrentView] = useState('board'); // 'board', 'calendar', 'selfheal'
   
   // Modal States
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -43,7 +49,6 @@ export default function Dashboard() {
   const [editedTask, setEditedTask] = useState({}); // State for editing
   
   // Form States
-  // Start Date automatically computed to today
   const [newTask, setNewTask] = useState({
     title: '',
     tag: 'Planning',
@@ -67,7 +72,6 @@ export default function Dashboard() {
       const taskData = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
       setTasks(taskData);
       
-      // Update selectedTask if it exists (for real-time updates while viewing)
       if (selectedTask) {
          const currentSelected = taskData.find(t => t.id === selectedTask.id);
          if (currentSelected) setSelectedTask(currentSelected);
@@ -88,7 +92,6 @@ export default function Dashboard() {
       author: currentUser.email,
     });
 
-    // Reset Form
     setNewTask({
         title: '',
         tag: 'Planning',
@@ -106,7 +109,7 @@ export default function Dashboard() {
 
   // --- 3. UPDATE: Move Task ---
   const moveTask = async (e, taskId, currentStatus, direction) => {
-    e.stopPropagation(); // Prevent opening the details modal
+    e.stopPropagation();
     const statusOrder = ['todo', 'inprogress', 'review', 'done'];
     const currentIndex = statusOrder.indexOf(currentStatus);
     
@@ -133,24 +136,22 @@ export default function Dashboard() {
         ...editedTask
     });
     
-    // Update local selected task immediately for UI responsiveness
     setSelectedTask({ ...selectedTask, ...editedTask });
     setIsEditing(false);
   };
 
   // --- 4. DELETE: Remove Task ---
   const deleteTask = async (e, id) => {
-    e.stopPropagation(); // Prevent opening details modal
+    e.stopPropagation();
     if (window.confirm("Are you sure you want to delete this task?")) {
       await deleteDoc(doc(db, 'tasks', id));
       if (selectedTask?.id === id) {
-          setSelectedTask(null); // Close modal if open
+          setSelectedTask(null);
           setIsEditing(false);
       }
     }
   };
 
-  // Logout Handler
   const handleLogout = async () => {
     try {
       await logout();
@@ -160,7 +161,6 @@ export default function Dashboard() {
     }
   };
 
-  // Initialize Edit Mode
   const startEditing = () => {
     setEditedTask(selectedTask);
     setIsEditing(true);
@@ -190,123 +190,305 @@ export default function Dashboard() {
     });
   };
 
-  return (
-    <div className="min-h-screen w-full bg-white text-gray-800 font-sans flex flex-col">
-      
-      {/* --- Top Navigation --- */}
-      <nav className="w-full flex items-center justify-between px-4 md:px-6 py-4 border-b border-gray-100 sticky top-0 bg-white/80 backdrop-blur-md z-10">
-        <div className="flex items-center gap-3">
-            <div className="bg-blue-600 p-2 rounded-lg text-white">
-                <Layout size={20} />
-            </div>
-            <div>
-                <h1 className="text-xl font-bold text-gray-900 tracking-tight">iHAVECPU <span className="text-blue-600">Board</span></h1>
-                <p className="text-xs text-gray-400 font-medium">Project Management</p>
-            </div>
-        </div>
-        
-        <div className="flex items-center gap-4">
-            <div className="hidden md:flex flex-col items-end">
-                <span className="text-sm font-semibold text-gray-700">{currentUser?.email?.split('@')[0]}</span>
-                <span className="text-[10px] text-gray-400">Admin</span>
-            </div>
-            <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 flex items-center justify-center text-white text-xs font-bold shadow-md">
-                {currentUser?.email?.charAt(0).toUpperCase()}
-            </div>
-            <button onClick={handleLogout} className="p-2 text-gray-400 hover:text-red-500 transition-colors">
-                <LogOut size={20} />
-            </button>
-        </div>
-      </nav>
+  // --- VIEW COMPONENTS ---
 
-      {/* --- Board Actions --- */}
-      <div className="w-full px-4 md:px-6 py-6 flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-800">Marketing Sprint</h2>
-        <button 
-          onClick={() => setIsAddModalOpen(true)}
-          className="flex items-center gap-2 bg-black text-white px-5 py-2.5 rounded-full font-medium hover:bg-gray-800 transition shadow-lg shadow-gray-200"
-        >
-          <Plus size={18} /> New Task
-        </button>
-      </div>
+  const CalendarView = () => {
+    const [currentDate, setCurrentDate] = useState(new Date());
 
-      {/* --- Kanban Columns --- */}
-      <div className="w-full flex-1 overflow-x-auto px-4 md:px-6 pb-10">
-        <div className="flex gap-4 md:gap-6 min-w-full">
-          {columns.map(col => (
-            <div key={col.id} className="flex-1 min-w-[280px] md:min-w-[320px]">
-              {/* Header */}
-              <div className="flex items-center justify-between mb-4 px-1">
-                <div className="flex items-center gap-2">
-                    <h3 className="text-gray-600 font-bold text-sm uppercase tracking-wider">{col.title}</h3>
-                    <span className="bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full text-xs font-bold">
-                        {getTasksByStatus(col.id).length}
-                    </span>
+    const getDaysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
+    const getFirstDayOfMonth = (year, month) => new Date(year, month, 1).getDay();
+
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    const daysInMonth = getDaysInMonth(year, month);
+    const firstDay = getFirstDayOfMonth(year, month);
+
+    const monthNames = ["January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December"
+    ];
+
+    const prevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
+    const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
+
+    // Check if a task is active on a specific day
+    const getTasksForDay = (day) => {
+        const currentDayDate = new Date(year, month, day);
+        // Reset time to ensure accurate comparison
+        currentDayDate.setHours(0,0,0,0);
+
+        return tasks.filter(task => {
+            if (!task.startDate || !task.deadline) return false;
+            const start = new Date(task.startDate);
+            const end = new Date(task.deadline);
+            start.setHours(0,0,0,0);
+            end.setHours(0,0,0,0);
+            return currentDayDate >= start && currentDayDate <= end;
+        });
+    };
+
+    return (
+        <div className="p-6 h-full flex flex-col">
+            <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                    <CalendarIcon className="text-blue-600" />
+                    {monthNames[month]} {year}
+                </h2>
+                <div className="flex gap-2">
+                    <button onClick={prevMonth} className="p-2 hover:bg-gray-100 rounded-full"><ChevronLeft /></button>
+                    <button onClick={nextMonth} className="p-2 hover:bg-gray-100 rounded-full"><ChevronRight /></button>
                 </div>
-                <button className="text-gray-300 hover:text-gray-600"><MoreHorizontal size={16} /></button>
-              </div>
+            </div>
 
-              {/* Column Content */}
-              <div className={`h-full min-h-[500px] rounded-2xl p-2 ${col.color}`}>
-                 <div className="flex flex-col gap-3">
-                    {getTasksByStatus(col.id).map(task => (
-                        <div 
-                            key={task.id} 
-                            onClick={() => { setSelectedTask(task); setIsEditing(false); }}
-                            className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all group relative cursor-pointer"
-                        >
-                            {/* Tags & Delete */}
-                            <div className="flex justify-between items-start mb-3">
-                                <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold tracking-wide uppercase ${tagColors[task.tag] || 'bg-gray-100 text-gray-500'}`}>
-                                    {task.tag}
-                                </span>
-                                <button onClick={(e) => deleteTask(e, task.id)} className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1">
-                                    <Trash2 size={14} />
-                                </button>
-                            </div>
-
-                            {/* Title */}
-                            <h4 className="text-gray-800 font-semibold text-sm mb-4 leading-relaxed line-clamp-2">{task.title}</h4>
-
-                            {/* Attachments Indicators */}
-                            {(task.description || task.link || task.fileUrl) && (
-                                <div className="flex gap-2 mb-3 text-gray-400">
-                                    {task.description && <AlignLeft size={14} />}
-                                    {(task.link || task.reference) && <LinkIcon size={14} />}
-                                    {(task.fileUrl || task.imageUrl) && <Paperclip size={14} />}
-                                </div>
-                            )}
-
-                            {/* Footer */}
-                            <div className="flex items-center justify-between pt-3 border-t border-gray-50">
-                                <div className="flex items-center gap-1.5 text-gray-400 text-xs font-medium">
-                                    <Clock size={12} />
-                                    <span>{task.deadline ? new Date(task.deadline).toLocaleDateString('en-GB', {day: 'numeric', month: 'short'}) : 'No Date'}</span>
-                                </div>
-                                
-                                <div className="flex gap-1">
-                                    {col.id !== 'todo' && (
-                                        <button onClick={(e) => moveTask(e, task.id, task.status || 'todo', 'prev')} className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-blue-600">
-                                            <ArrowLeft size={14} />
-                                        </button>
-                                    )}
-                                    {col.id !== 'done' && (
-                                        <button onClick={(e) => moveTask(e, task.id, task.status || 'todo', 'next')} className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-blue-600">
-                                            <ArrowRight size={14} />
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
+            <div className="flex-1 border rounded-xl overflow-hidden shadow-sm bg-white">
+                <div className="grid grid-cols-7 bg-gray-50 border-b">
+                    {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                        <div key={day} className="p-3 text-center text-sm font-bold text-gray-500 uppercase tracking-wide">
+                            {day}
                         </div>
                     ))}
-                 </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+                </div>
+                <div className="grid grid-cols-7 auto-rows-fr h-full bg-gray-50 gap-px border-gray-200">
+                    {/* Empty cells for days before start of month */}
+                    {Array.from({ length: firstDay }).map((_, i) => (
+                        <div key={`empty-${i}`} className="bg-white min-h-[100px]"></div>
+                    ))}
+                    
+                    {/* Days of month */}
+                    {Array.from({ length: daysInMonth }).map((_, i) => {
+                        const day = i + 1;
+                        const dayTasks = getTasksForDay(day);
+                        const isToday = new Date().getDate() === day && new Date().getMonth() === month && new Date().getFullYear() === year;
 
-      {/* --- ADD TASK MODAL --- */}
+                        return (
+                            <div key={day} className={`bg-white p-2 min-h-[100px] hover:bg-gray-50 transition relative ${isToday ? 'bg-blue-50/30' : ''}`}>
+                                <div className={`text-sm font-medium mb-1 ${isToday ? 'bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center shadow-sm' : 'text-gray-700'}`}>
+                                    {day}
+                                </div>
+                                <div className="flex flex-col gap-1 overflow-y-auto max-h-[80px]">
+                                    {dayTasks.map(task => (
+                                        <div 
+                                            key={task.id}
+                                            onClick={() => { setSelectedTask(task); setIsEditing(false); }}
+                                            className={`text-[10px] truncate px-1.5 py-0.5 rounded cursor-pointer hover:opacity-80 ${tagColors[task.tag] ? tagColors[task.tag].replace('text-', 'bg-').split(' ')[0] + ' text-gray-700' : 'bg-gray-100'}`}
+                                            title={`${task.title} (${task.status})`}
+                                        >
+                                            {task.title}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        </div>
+    );
+  };
+
+  const SelfHealView = () => {
+    const videos = [
+        "jfKfPfyJRdk", // Lofi Girl
+        "eKFTSSKCzWA", // Nature Sounds
+        "inpok4MKVLM", // Meditation
+        "Dx5qFachd3A", // Jazz
+        "tEmt1Znux58", // Box Breathing
+        "lTRiuFIWV54", // Sleep Music
+    ];
+    
+    const [currentVideoId, setCurrentVideoId] = useState(videos[0]);
+
+    const randomizeVideo = () => {
+        const randomIndex = Math.floor(Math.random() * videos.length);
+        setCurrentVideoId(videos[randomIndex]);
+    };
+
+    return (
+        <div className="h-full flex flex-col items-center justify-center p-6 bg-gradient-to-br from-indigo-50 to-purple-50">
+            <div className="text-center mb-8">
+                <h2 className="text-4xl font-bold text-gray-800 mb-2 flex items-center justify-center gap-3">
+                    <Heart className="text-pink-500 fill-pink-500" size={32} />
+                    Self Heal & Relax
+                </h2>
+                <p className="text-gray-500">Take a moment to breathe. You are doing great.</p>
+            </div>
+
+            <div className="w-full max-w-4xl aspect-video bg-black rounded-2xl shadow-2xl overflow-hidden mb-8 border-4 border-white">
+                <iframe 
+                    width="100%" 
+                    height="100%" 
+                    src={`https://www.youtube.com/embed/${currentVideoId}?autoplay=1`} 
+                    title="YouTube video player" 
+                    frameBorder="0" 
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                    allowFullScreen
+                ></iframe>
+            </div>
+
+            <button 
+                onClick={randomizeVideo}
+                className="flex items-center gap-2 bg-white px-6 py-3 rounded-full shadow-lg hover:shadow-xl hover:bg-gray-50 transition-all font-bold text-indigo-600"
+            >
+                <RefreshCw size={20} /> Change Atmosphere
+            </button>
+        </div>
+    );
+  };
+
+  // --- RENDER ---
+  return (
+    <div className="flex h-screen bg-gray-50 font-sans overflow-hidden">
+      
+      {/* --- SIDEBAR --- */}
+      <aside className="w-20 md:w-64 bg-white border-r border-gray-200 flex flex-col justify-between flex-shrink-0 z-20">
+        <div>
+            <div className="p-6 flex items-center gap-3 mb-6">
+                <div className="bg-blue-600 p-2 rounded-lg text-white">
+                    <Layout size={24} />
+                </div>
+                <div className="hidden md:block">
+                    <h1 className="text-lg font-bold text-gray-900 leading-none">iHAVECPU</h1>
+                    <span className="text-xs text-blue-600 font-bold tracking-wider">WORKSPACE</span>
+                </div>
+            </div>
+
+            <nav className="px-3 space-y-2">
+                <button 
+                    onClick={() => setCurrentView('board')}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${currentView === 'board' ? 'bg-blue-50 text-blue-600 font-bold' : 'text-gray-500 hover:bg-gray-50'}`}
+                >
+                    <Layout size={20} /> <span className="hidden md:inline">Board</span>
+                </button>
+                <button 
+                    onClick={() => setCurrentView('calendar')}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${currentView === 'calendar' ? 'bg-blue-50 text-blue-600 font-bold' : 'text-gray-500 hover:bg-gray-50'}`}
+                >
+                    <CalendarIcon size={20} /> <span className="hidden md:inline">Calendar</span>
+                </button>
+                <button 
+                    onClick={() => setCurrentView('selfheal')}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${currentView === 'selfheal' ? 'bg-pink-50 text-pink-500 font-bold' : 'text-gray-500 hover:bg-gray-50'}`}
+                >
+                    <Heart size={20} /> <span className="hidden md:inline">Self Heal</span>
+                </button>
+            </nav>
+        </div>
+
+        <div className="p-4 border-t border-gray-100">
+             <div className="flex items-center gap-3 px-4 py-3 mb-2">
+                <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 flex items-center justify-center text-white text-xs font-bold shadow-md shrink-0">
+                    {currentUser?.email?.charAt(0).toUpperCase()}
+                </div>
+                <div className="hidden md:block overflow-hidden">
+                    <p className="text-sm font-bold text-gray-700 truncate">{currentUser?.email?.split('@')[0]}</p>
+                    <p className="text-[10px] text-gray-400">Admin</p>
+                </div>
+             </div>
+             <button onClick={handleLogout} className="w-full flex items-center gap-2 text-gray-400 hover:text-red-500 px-4 py-2 rounded-lg hover:bg-red-50 transition text-sm">
+                <LogOut size={16} /> <span className="hidden md:inline">Log out</span>
+             </button>
+        </div>
+      </aside>
+
+      {/* --- MAIN CONTENT AREA --- */}
+      <main className="flex-1 flex flex-col h-full overflow-hidden bg-white relative">
+        
+        {/* VIEW: BOARD */}
+        {currentView === 'board' && (
+            <div className="flex flex-col h-full">
+                {/* Board Header */}
+                <header className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-white/80 backdrop-blur-md z-10">
+                     <h2 className="text-2xl font-bold text-gray-800">Marketing Sprint</h2>
+                     <button 
+                        onClick={() => setIsAddModalOpen(true)}
+                        className="flex items-center gap-2 bg-black text-white px-5 py-2.5 rounded-full font-medium hover:bg-gray-800 transition shadow-lg shadow-gray-200"
+                     >
+                        <Plus size={18} /> New Task
+                     </button>
+                </header>
+
+                {/* Columns */}
+                <div className="flex-1 overflow-x-auto overflow-y-hidden px-6 pb-4 pt-6">
+                    <div className="flex gap-6 h-full min-w-full">
+                    {columns.map(col => (
+                        <div key={col.id} className="flex-1 min-w-[300px] flex flex-col h-full">
+                        {/* Header */}
+                        <div className="flex items-center justify-between mb-4 px-1">
+                            <div className="flex items-center gap-2">
+                                <h3 className="text-gray-600 font-bold text-sm uppercase tracking-wider">{col.title}</h3>
+                                <span className="bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full text-xs font-bold">
+                                    {getTasksByStatus(col.id).length}
+                                </span>
+                            </div>
+                            <button className="text-gray-300 hover:text-gray-600"><MoreHorizontal size={16} /></button>
+                        </div>
+
+                        {/* Column Content (Scrollable) */}
+                        <div className={`flex-1 rounded-2xl p-2 ${col.color} overflow-y-auto custom-scrollbar`}>
+                            <div className="flex flex-col gap-3 pb-2">
+                                {getTasksByStatus(col.id).map(task => (
+                                    <div 
+                                        key={task.id} 
+                                        onClick={() => { setSelectedTask(task); setIsEditing(false); }}
+                                        className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all group relative cursor-pointer"
+                                    >
+                                        <div className="flex justify-between items-start mb-3">
+                                            <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold tracking-wide uppercase ${tagColors[task.tag] || 'bg-gray-100 text-gray-500'}`}>
+                                                {task.tag}
+                                            </span>
+                                            <button onClick={(e) => deleteTask(e, task.id)} className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1">
+                                                <Trash2 size={14} />
+                                            </button>
+                                        </div>
+
+                                        <h4 className="text-gray-800 font-semibold text-sm mb-4 leading-relaxed line-clamp-2">{task.title}</h4>
+
+                                        {(task.description || task.link || task.fileUrl) && (
+                                            <div className="flex gap-2 mb-3 text-gray-400">
+                                                {task.description && <AlignLeft size={14} />}
+                                                {(task.link || task.reference) && <LinkIcon size={14} />}
+                                                {(task.fileUrl || task.imageUrl) && <Paperclip size={14} />}
+                                            </div>
+                                        )}
+
+                                        <div className="flex items-center justify-between pt-3 border-t border-gray-50">
+                                            <div className="flex items-center gap-1.5 text-gray-400 text-xs font-medium">
+                                                <Clock size={12} />
+                                                <span>{task.deadline ? new Date(task.deadline).toLocaleDateString('en-GB', {day: 'numeric', month: 'short'}) : 'No Date'}</span>
+                                            </div>
+                                            
+                                            <div className="flex gap-1">
+                                                {col.id !== 'todo' && (
+                                                    <button onClick={(e) => moveTask(e, task.id, task.status || 'todo', 'prev')} className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-blue-600">
+                                                        <ArrowLeft size={14} />
+                                                    </button>
+                                                )}
+                                                {col.id !== 'done' && (
+                                                    <button onClick={(e) => moveTask(e, task.id, task.status || 'todo', 'next')} className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-blue-600">
+                                                        <ArrowRight size={14} />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        </div>
+                    ))}
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {/* VIEW: CALENDAR */}
+        {currentView === 'calendar' && <CalendarView />}
+
+        {/* VIEW: SELF HEAL */}
+        {currentView === 'selfheal' && <SelfHealView />}
+
+      </main>
+
+      {/* --- ADD TASK MODAL (Reused) --- */}
         {isAddModalOpen && (
             <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                 <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 md:p-8">
@@ -318,7 +500,6 @@ export default function Dashboard() {
                     </div>
                     
                     <form onSubmit={handleAddTask} className="flex flex-col gap-6">
-                        {/* Basic Info */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 block">Task Title</label>
@@ -338,8 +519,6 @@ export default function Dashboard() {
                                 </select>
                             </div>
                         </div>
-
-                        {/* Timeline */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 block">Start Date (Auto)</label>
@@ -352,23 +531,18 @@ export default function Dashboard() {
                                     value={newTask.deadline} onChange={e => setNewTask({...newTask, deadline: e.target.value})} />
                             </div>
                         </div>
-
-                        {/* Details */}
                         <div>
                             <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 block">Description (Long Text)</label>
                             <textarea className="w-full border-gray-200 bg-gray-50 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 min-h-[100px]"
                                 placeholder="Detailed explanation of the task..."
                                 value={newTask.description} onChange={e => setNewTask({...newTask, description: e.target.value})} />
                         </div>
-
                         <div>
                             <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 block">Requirements</label>
                             <textarea className="w-full border-gray-200 bg-gray-50 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 min-h-[80px]"
                                 placeholder="- Must include vector logo&#10;- Dark mode compatible"
                                 value={newTask.requirements} onChange={e => setNewTask({...newTask, requirements: e.target.value})} />
                         </div>
-
-                        {/* Attachments */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 block">Link / Reference URL</label>
@@ -399,21 +573,17 @@ export default function Dashboard() {
             </div>
         )}
 
-      {/* --- TASK DETAILS MODAL (VIEW & EDIT) --- */}
+      {/* --- TASK DETAILS MODAL (Reused) --- */}
       {selectedTask && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => { setSelectedTask(null); setIsEditing(false); }}>
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto p-0 flex flex-col" onClick={e => e.stopPropagation()}>
-                
-                {/* Header Image if exists (View Mode only) */}
                 {!isEditing && selectedTask.imageUrl && (
                     <div className="h-48 w-full bg-gray-100 overflow-hidden relative">
                          <img src={selectedTask.imageUrl} alt="Task attachment" className="w-full h-full object-cover" />
                          <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
                     </div>
                 )}
-
                 <div className="p-8">
-                    {/* Header & Edit Toggle */}
                     <div className="flex justify-between items-start mb-6">
                         <div className="flex-1">
                             {!isEditing ? (
@@ -439,7 +609,6 @@ export default function Dashboard() {
                                 </div>
                             )}
                         </div>
-                        
                         <div className="flex gap-2 ml-4">
                             {!isEditing ? (
                                 <button onClick={startEditing} className="p-2 hover:bg-blue-50 text-blue-600 rounded-full transition" title="Edit Task">
@@ -453,9 +622,7 @@ export default function Dashboard() {
                             </button>
                         </div>
                     </div>
-
                     {isEditing ? (
-                        /* --- EDIT FORM --- */
                         <form onSubmit={handleUpdateTask} className="flex flex-col gap-6">
                              <div className="grid grid-cols-2 gap-4">
                                 <div>
@@ -475,19 +642,16 @@ export default function Dashboard() {
                                         value={editedTask.deadline} onChange={e => setEditedTask({...editedTask, deadline: e.target.value})} />
                                 </div>
                              </div>
-                             
                              <div>
                                 <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Description</label>
                                 <textarea className="w-full border-gray-200 bg-gray-50 rounded-lg px-4 py-3 min-h-[100px]"
                                     value={editedTask.description} onChange={e => setEditedTask({...editedTask, description: e.target.value})} />
                              </div>
-
                              <div>
                                 <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Requirements</label>
                                 <textarea className="w-full border-gray-200 bg-gray-50 rounded-lg px-4 py-3 min-h-[80px]"
                                     value={editedTask.requirements} onChange={e => setEditedTask({...editedTask, requirements: e.target.value})} />
                              </div>
-
                              <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Link</label>
@@ -500,20 +664,17 @@ export default function Dashboard() {
                                         value={editedTask.imageUrl} onChange={e => setEditedTask({...editedTask, imageUrl: e.target.value})} />
                                 </div>
                              </div>
-
                              <button type="submit" className="w-full py-3 rounded-xl font-bold bg-blue-600 text-white hover:bg-blue-700 shadow-lg flex items-center justify-center gap-2">
                                 <Save size={18} /> Save Changes
                              </button>
                         </form>
                     ) : (
-                        /* --- VIEW MODE --- */
                         <>
-                            {/* Timeline Grid */}
                             <div className="grid grid-cols-2 gap-4 mb-8 bg-gray-50 p-4 rounded-xl border border-gray-100">
                                 <div>
                                     <span className="text-xs font-bold text-gray-400 uppercase block mb-1">Start Date</span>
                                     <div className="flex items-center gap-2 text-gray-700 font-medium">
-                                        <Calendar size={16} className="text-blue-500" />
+                                        <Clock size={16} className="text-blue-500" />
                                         {selectedTask.startDate ? new Date(selectedTask.startDate).toLocaleDateString() : 'Not set'}
                                     </div>
                                 </div>
@@ -525,10 +686,7 @@ export default function Dashboard() {
                                     </div>
                                 </div>
                             </div>
-
-                            {/* Main Content */}
                             <div className="space-y-8">
-                                {/* Description */}
                                 <div>
                                     <h4 className="flex items-center gap-2 text-lg font-bold text-gray-800 mb-3">
                                         <AlignLeft size={20} className="text-gray-400" /> Description
@@ -537,8 +695,6 @@ export default function Dashboard() {
                                         {selectedTask.description || <span className="italic text-gray-400">No description provided.</span>}
                                     </p>
                                 </div>
-
-                                {/* Requirements */}
                                 {selectedTask.requirements && (
                                     <div>
                                         <h4 className="flex items-center gap-2 text-lg font-bold text-gray-800 mb-3">
@@ -549,8 +705,6 @@ export default function Dashboard() {
                                         </div>
                                     </div>
                                 )}
-
-                                {/* Links & Files */}
                                 {(selectedTask.link || selectedTask.fileUrl || selectedTask.reference) && (
                                     <div>
                                         <h4 className="flex items-center gap-2 text-lg font-bold text-gray-800 mb-3">
@@ -584,8 +738,6 @@ export default function Dashboard() {
                         </>
                     )}
                 </div>
-                
-                {/* Footer Actions (Only show in view mode) */}
                 {!isEditing && (
                     <div className="bg-gray-50 p-4 border-t border-gray-100 flex justify-end gap-3 rounded-b-2xl">
                         <button onClick={() => setSelectedTask(null)} className="px-6 py-2 rounded-lg font-bold text-gray-600 hover:bg-gray-200 transition">Close</button>
