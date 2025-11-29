@@ -191,10 +191,10 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-white text-gray-800 font-sans">
+    <div className="min-h-screen w-full bg-white text-gray-800 font-sans flex flex-col">
       
       {/* --- Top Navigation --- */}
-      <nav className="flex items-center justify-between px-6 py-4 border-b border-gray-100 sticky top-0 bg-white/80 backdrop-blur-md z-10">
+      <nav className="w-full flex items-center justify-between px-4 md:px-6 py-4 border-b border-gray-100 sticky top-0 bg-white/80 backdrop-blur-md z-10">
         <div className="flex items-center gap-3">
             <div className="bg-blue-600 p-2 rounded-lg text-white">
                 <Layout size={20} />
@@ -220,7 +220,7 @@ export default function Dashboard() {
       </nav>
 
       {/* --- Board Actions --- */}
-      <div className="px-6 py-6 flex justify-between items-center">
+      <div className="w-full px-4 md:px-6 py-6 flex justify-between items-center">
         <h2 className="text-2xl font-bold text-gray-800">Marketing Sprint</h2>
         <button 
           onClick={() => setIsAddModalOpen(true)}
@@ -231,10 +231,10 @@ export default function Dashboard() {
       </div>
 
       {/* --- Kanban Columns --- */}
-      <div className="px-6 pb-10 overflow-x-auto">
-        <div className="flex gap-6 min-w-[1000px]">
+      <div className="w-full flex-1 overflow-x-auto px-4 md:px-6 pb-10">
+        <div className="flex gap-4 md:gap-6 min-w-full">
           {columns.map(col => (
-            <div key={col.id} className="flex-1 min-w-[280px]">
+            <div key={col.id} className="flex-1 min-w-[280px] md:min-w-[320px]">
               {/* Header */}
               <div className="flex items-center justify-between mb-4 px-1">
                 <div className="flex items-center gap-2">
