@@ -95,17 +95,82 @@ export default function Dashboard() {
     return unsubscribe;
   }, []);
 
+   // --- EMAIL NOTIFICATION LOGIC ---
+  const sendEmail = (to, subject, body) => {
+    // In a real app, integrate EmailJS or a backend API here.
+    // For now, we simulate the email sending.
+    console.log(`%c[EMAIL SENT]`, "color: green; font-weight: bold; font-size: 14px;");
+    console.log(`To: ${to}\nSubject: ${subject}\nBody: ${body}`);
+    // alert(`📧 Email Notification Sent to ${to}:\n${subject}`); 
+  };
+
+  // --- DUE DATE MONITORING ---
+  useEffect(() => {
+    if (!currentUser || tasks.length === 0) return;
+
+    const checkDueDates = () => {
+        const today = new Date();
+        const twoDaysFromNow = new Date();
+        twoDaysFromNow.setDate(today.getDate() + 2); // Check window: 48 hours
+
+        tasks.forEach(async (task) => {
+            // Check if task has a deadline, isn't done, and hasn't already notified us
+            if (task.deadline && task.status !== 'done' && !task.dueNotificationSent) {
+                const dueDate = new Date(task.deadline);
+                
+                // Compare dates (ignoring time for simple comparison)
+                const isApproaching = dueDate >= today && dueDate <= twoDaysFromNow;
+                const isOverdue = dueDate < today;
+
+                if (isApproaching || isOverdue) {
+                    const statusMsg = isOverdue ? "OVERDUE" : "due soon";
+                    
+                    // 1. Send Email
+                    sendEmail(
+                        currentUser.email,
+                        `Task Alert: "${task.title}" is ${statusMsg}`,
+                        `Hello,\n\nYour task "${task.title}" is ${statusMsg} (${task.deadline}).\nPlease update the status on your dashboard.\n\n- iHAVECPU Manager`
+                    );
+
+                    // 2. Update DB to prevent spamming loops
+                    // We mark this specific task as notified
+                    try {
+                        await updateDoc(doc(db, 'tasks', task.id), {
+                            dueNotificationSent: true
+                        });
+                    } catch (err) {
+                        console.error("Error updating notification status", err);
+                    }
+                }
+            }
+        });
+    };
+
+    checkDueDates();
+  }, [tasks, currentUser]);
+
+
   // --- 2. CREATE: Add Task ---
   const handleAddTask = async (e) => {
     e.preventDefault();
     if (!newTask.title) return;
 
-    await addDoc(collection(db, 'tasks'), {
+   const taskData = {
       ...newTask,
       status: 'todo',
       createdAt: new Date(),
       author: currentUser.email,
-    });
+      dueNotificationSent: false // Initialize notification flag
+    };
+
+    await addDoc(collection(db, 'tasks'), taskData);
+
+    // Send "New Task" Email
+    sendEmail(
+        currentUser.email,
+        `New Task Created: ${newTask.title}`,
+        `A new task has been added to the board under ${newTask.tag}.\nDeadline: ${newTask.deadline || 'None'}`
+    );
 
     setNewTask({
         title: '',
