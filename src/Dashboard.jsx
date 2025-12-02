@@ -14,6 +14,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { 
   MoreHorizontal, 
+  Computer,
   Plus, 
   Calendar as CalendarIcon, 
   Trash2, 
@@ -230,7 +231,7 @@ export default function Dashboard() {
             <div className="max-w-6xl mx-auto space-y-8">
                 <div className="flex justify-between items-end">
                     <div>
-                        <h2 className="text-3xl font-bold text-gray-800 text-uppercase">Welcome Back! {currentUser?.email?.split('.')[0]}</h2>
+                        <h2 className="text-3xl font-bold text-gray-800">Welcome Back! {currentUser?.email?.split('.')[0]}</h2>
                         <p className="text-gray-500 mt-1">Here is your project overview at a glance.</p>
                     </div>
                     <div className="text-right hidden sm:block">
@@ -601,7 +602,7 @@ export default function Dashboard() {
                                     <button type="button" onClick={() => setIsCreatingAlbum(false)} className="text-gray-500 hover:bg-gray-100 px-2 rounded-lg"><X size={18}/></button>
                                 </form>
                             ) : (
-                                <button onClick={() => setIsCreatingAlbum(true)} className="flex items-center gap-2 bg-purple-600 text-white px-5 py-2.5 rounded-full font-bold shadow-lg hover:bg-purple-700 transition">
+                                <button onClick={() => setIsCreatingAlbum(true)} className="flex items-center gap-2 bg-red-600 text-white px-5 py-2.5 rounded-full font-bold shadow-lg hover:bg-purple-700 transition">
                                     <Plus size={20} /> Create Album
                                 </button>
                             )}
@@ -811,7 +812,7 @@ export default function Dashboard() {
                         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
                             <div className="flex justify-between items-center mb-4">
                                 <label className="text-xs font-bold text-gray-500 uppercase">Slides</label>
-                                <button onClick={addNewPage} className="text-blue-600 hover:text-blue-700 text-xs font-bold flex items-center gap-1">
+                                <button onClick={addNewPage} className="text-red-600 hover:text-red-700 text-xs font-bold flex items-center gap-1">
                                     <Plus size={14} /> Add Slide
                                 </button>
                             </div>
@@ -1010,11 +1011,11 @@ export default function Dashboard() {
         <div>
             <div className="p-6 flex items-center gap-3 mb-6">
                 <div className="bg-red-600 p-2 rounded-lg text-white">
-                    <Layout size={24} />
+                    <Computer size={24} />
                 </div>
                 <div className="hidden md:block">
                     <h1 className="text-lg font-bold text-gray-900 leading-none">iHAVECPU</h1>
-                    <span className="text-xs text-blue-600 font-bold tracking-wider">MAARKETING WORKSPACE</span>
+                    <span className="text-xs text-blue-600 font-bold tracking-wider">WORKSPACE</span>
                 </div>
             </div>
 
