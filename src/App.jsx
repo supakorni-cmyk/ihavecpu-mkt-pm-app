@@ -6,6 +6,7 @@ import Dashboard from './Dashboard';
 // Protect routes so unauthenticated users can't see the dashboard
 const PrivateRoute = ({ children }) => {
   const { currentUser } = useAuth();
+  // Wait for auth to load, or redirect
   return currentUser ? children : <Navigate to="/" />;
 };
 
