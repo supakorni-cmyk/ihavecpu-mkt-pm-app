@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from './AuthContext';
 import { db } from './firebase';
 import { 
@@ -40,12 +40,16 @@ import {
   PieChart,
   Activity,
   CheckCircle2,
-  ListTodo
+  ListTodo,
+  Presentation,
+  Printer,
+  Upload,
+  Image as ImageIcon
 } from 'lucide-react';
 
 export default function Dashboard() {
   const [tasks, setTasks] = useState([]);
-  const [currentView, setCurrentView] = useState('home'); // Default to home
+  const [currentView, setCurrentView] = useState('home'); // 'home', 'board', 'calendar', 'selfheal', 'report'
   
   // Modal States
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -195,23 +199,20 @@ export default function Dashboard() {
     });
   };
 
-  // Helper function for date formatting
   const formatDate = (dateString) => {
     if (!dateString) return 'No Date';
-    return new Date(dateString).toLocaleDateString('en-GB'); // Formats as DD/MM/YYYY
+    return new Date(dateString).toLocaleDateString('en-GB'); 
   };
 
   // --- VIEW COMPONENTS ---
 
   const HomeView = () => {
-    // Calculations
     const totalTasks = tasks.length;
     const completedTasks = getTasksByStatus('done').length;
     const inProgressTasks = getTasksByStatus('inprogress').length;
     const reviewTasks = getTasksByStatus('review').length;
     const todoTasks = getTasksByStatus('todo').length;
     
-    // Tag Calculations
     const tagCounts = tasks.reduce((acc, task) => {
         acc[task.tag] = (acc[task.tag] || 0) + 1;
         return acc;
@@ -222,8 +223,6 @@ export default function Dashboard() {
     return (
         <div className="p-6 md:p-10 h-full w-full overflow-y-auto bg-gray-50/50">
             <div className="max-w-6xl mx-auto space-y-8">
-                
-                {/* Welcome Section */}
                 <div className="flex justify-between items-end">
                     <div>
                         <h2 className="text-3xl font-bold text-gray-800">Welcome Back!</h2>
@@ -235,7 +234,6 @@ export default function Dashboard() {
                     </div>
                 </div>
 
-                {/* KPI Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between h-32 hover:shadow-md transition">
                         <div className="flex justify-between items-start">
@@ -279,10 +277,7 @@ export default function Dashboard() {
                     </div>
                 </div>
 
-                {/* Charts Section */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    
-                    {/* Status Distribution */}
                     <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
                         <h3 className="text-lg font-bold text-gray-800 mb-6">Task Status</h3>
                         <div className="flex items-end justify-between h-64 gap-4">
@@ -304,13 +299,11 @@ export default function Dashboard() {
                         </div>
                     </div>
 
-                    {/* Tag Distribution */}
                     <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
                         <h3 className="text-lg font-bold text-gray-800 mb-6">Workload by Department</h3>
                         <div className="space-y-5">
                             {Object.keys(tagColors).map((tag) => {
                                 const count = tagCounts[tag] || 0;
-                                const percentage = totalTasks > 0 ? (count / totalTasks) * 100 : 0;
                                 const barColor = tagColors[tag].split(' ')[0].replace('bg-', 'bg-');
                                 
                                 return (
@@ -354,10 +347,8 @@ export default function Dashboard() {
     const prevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
     const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
 
-    // Check if a task is active on a specific day
     const getTasksForDay = (day) => {
         const currentDayDate = new Date(year, month, day);
-        // Reset time to ensure accurate comparison
         currentDayDate.setHours(0,0,0,0);
 
         return tasks.filter(task => {
@@ -392,12 +383,10 @@ export default function Dashboard() {
                     ))}
                 </div>
                 <div className="grid grid-cols-7 auto-rows-fr h-full bg-gray-50 gap-px border-gray-200">
-                    {/* Empty cells for days before start of month */}
                     {Array.from({ length: firstDay }).map((_, i) => (
                         <div key={`empty-${i}`} className="bg-white min-h-[100px]"></div>
                     ))}
                     
-                    {/* Days of month */}
                     {Array.from({ length: daysInMonth }).map((_, i) => {
                         const day = i + 1;
                         const dayTasks = getTasksForDay(day);
@@ -431,12 +420,12 @@ export default function Dashboard() {
 
   const SelfHealView = () => {
     const videos = [
-        "jfKfPfyJRdk", // Lofi Girl
-        "eKFTSSKCzWA", // Nature Sounds
-        "inpok4MKVLM", // Meditation
-        "Dx5qFachd3A", // Jazz
-        "tEmt1Znux58", // Box Breathing
-        "lTRiuFIWV54", // Sleep Music
+        "jfKfPfyJRdk", 
+        "eKFTSSKCzWA", 
+        "inpok4MKVLM", 
+        "Dx5qFachd3A", 
+        "tEmt1Znux58", 
+        "lTRiuFIWV54", 
     ];
     
     const [currentVideoId, setCurrentVideoId] = useState(videos[0]);
@@ -478,12 +467,186 @@ export default function Dashboard() {
     );
   };
 
+  const ReportView = () => {
+    const [selectedBrand, setSelectedBrand] = useState('iHAVECPU');
+    const [reportTitle, setReportTitle] = useState('Marketing Strategy Report');
+    const [uploadedImage, setUploadedImage] = useState(null);
+    const [reportDate] = useState(new Date().toLocaleDateString('en-GB'));
+
+    const brands = [
+        { name: 'iHAVECPU', color: 'bg-gray-900 text-white', logo: null },
+        { name: 'Intel', color: 'bg-blue-600 text-white', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e8/Intel_logo.svg/1200px-Intel_logo.svg.png' },
+        { name: 'AMD', color: 'bg-black text-white', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7c/AMD_Logo.svg/2560px-AMD_Logo.svg.png' },
+        { name: 'NVIDIA', color: 'bg-green-500 text-white', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/21/Nvidia_logo.svg/2560px-Nvidia_logo.svg.png' },
+        { name: 'ASUS', color: 'bg-blue-800 text-white', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2e/ASUS_Logo.svg/2560px-ASUS_Logo.svg.png' },
+        { name: 'MSI', color: 'bg-red-600 text-white', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9e/MSI_Logo_2019.svg/2560px-MSI_Logo_2019.svg.png' }
+    ];
+
+    const handleImageUpload = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setUploadedImage(reader.result);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const handlePrint = () => {
+        window.print();
+    };
+
+    return (
+        <div className="p-6 md:p-10 h-full w-full bg-gray-100 overflow-y-auto">
+            
+            {/* Controls (Hidden when printing) */}
+            <div className="max-w-5xl mx-auto mb-8 print:hidden">
+                <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-3xl font-bold text-gray-800 flex items-center gap-2">
+                        <Presentation className="text-blue-600" /> Presentation Builder
+                    </h2>
+                    <div className="flex gap-3">
+                        <button 
+                            onClick={() => window.open('https://www.canva.com', '_blank')}
+                            className="bg-purple-600 text-white px-4 py-2 rounded-lg font-bold shadow-lg hover:bg-purple-700 transition flex items-center gap-2"
+                        >
+                            <ExternalLink size={18} /> Open Canva
+                        </button>
+                        <button 
+                            onClick={handlePrint}
+                            className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold shadow-lg hover:bg-blue-700 transition flex items-center gap-2"
+                        >
+                            <Printer size={18} /> Export PDF
+                        </button>
+                    </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Select Brand</label>
+                        <div className="grid grid-cols-3 gap-2">
+                            {brands.map(brand => (
+                                <button 
+                                    key={brand.name}
+                                    onClick={() => setSelectedBrand(brand.name)}
+                                    className={`p-2 rounded-lg border-2 text-sm font-bold transition ${selectedBrand === brand.name ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-100 hover:bg-gray-50 text-gray-600'}`}
+                                >
+                                    {brand.name}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Report Title</label>
+                        <input 
+                            type="text" 
+                            value={reportTitle}
+                            onChange={(e) => setReportTitle(e.target.value)}
+                            className="w-full border border-gray-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                    </div>
+                    <div className="md:col-span-2">
+                        <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Upload Visual</label>
+                        <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:bg-gray-50 transition cursor-pointer relative">
+                            <input type="file" accept="image/*" onChange={handleImageUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                            <div className="flex flex-col items-center gap-2 text-gray-400">
+                                <Upload size={24} />
+                                <span className="font-medium">Click to upload image</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Preview Slide (This is what gets printed) */}
+            <div className="max-w-5xl mx-auto bg-white aspect-video shadow-2xl rounded-xl overflow-hidden relative print:shadow-none print:w-full print:h-screen print:rounded-none flex flex-col">
+                {/* Brand Header */}
+                <div className={`h-24 flex items-center px-10 justify-between ${brands.find(b => b.name === selectedBrand)?.color || 'bg-gray-900 text-white'}`}>
+                    <h1 className="text-3xl font-bold tracking-wider uppercase">Project Report</h1>
+                    {brands.find(b => b.name === selectedBrand)?.logo ? (
+                        <img src={brands.find(b => b.name === selectedBrand).logo} alt="Logo" className="h-12 object-contain bg-white/10 p-1 rounded" />
+                    ) : (
+                        <span className="text-xl font-black">{selectedBrand}</span>
+                    )}
+                </div>
+
+                <div className="flex-1 p-10 flex gap-8">
+                    {/* Left Content */}
+                    <div className="flex-1 flex flex-col justify-center space-y-6">
+                        <div>
+                            <span className="inline-block px-3 py-1 rounded bg-gray-100 text-gray-500 text-xs font-bold uppercase tracking-wide mb-2">
+                                {reportDate}
+                            </span>
+                            <h2 className="text-5xl font-extrabold text-gray-800 leading-tight">{reportTitle}</h2>
+                        </div>
+                        
+                        <div className="space-y-4 pt-4">
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-lg">
+                                    {tasks.length}
+                                </div>
+                                <div>
+                                    <p className="text-sm text-gray-400 font-bold uppercase">Total Tasks</p>
+                                    <p className="text-lg font-bold text-gray-800">Active Scope</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center text-green-600 font-bold text-lg">
+                                    {getTasksByStatus('done').length}
+                                </div>
+                                <div>
+                                    <p className="text-sm text-gray-400 font-bold uppercase">Completed</p>
+                                    <p className="text-lg font-bold text-gray-800">Milestones Met</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="pt-8">
+                            <p className="text-gray-400 text-sm font-medium">Prepared by</p>
+                            <p className="text-gray-800 font-bold text-lg">{currentUser?.email}</p>
+                        </div>
+                    </div>
+
+                    {/* Right Visual */}
+                    <div className="flex-1 bg-gray-100 rounded-2xl overflow-hidden flex items-center justify-center border border-gray-200">
+                        {uploadedImage ? (
+                            <img src={uploadedImage} alt="Report Visual" className="w-full h-full object-cover" />
+                        ) : (
+                            <div className="text-gray-300 flex flex-col items-center">
+                                <ImageIcon size={48} />
+                                <span className="mt-2 font-medium">Visual Placeholder</span>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Footer */}
+                <div className="bg-gray-50 border-t border-gray-100 p-4 text-center text-gray-400 text-xs font-medium uppercase tracking-widest">
+                    Confidential • Internal Use Only • {selectedBrand} Marketing
+                </div>
+            </div>
+
+            {/* Print Styles */}
+            <style>{`
+                @media print {
+                    @page { size: landscape; margin: 0; }
+                    body { -webkit-print-color-adjust: exact; }
+                    aside, nav, .print\\:hidden { display: none !important; }
+                    main { width: 100vw; height: 100vh; overflow: hidden; background: white; }
+                    .p-6, .md\\:p-10 { padding: 0 !important; }
+                }
+            `}</style>
+        </div>
+    );
+  };
+
   // --- RENDER ---
   return (
     <div className="flex h-screen w-full bg-gray-50 font-sans overflow-hidden">
       
       {/* --- SIDEBAR --- */}
-      <aside className="w-20 md:w-64 bg-white border-r border-gray-200 flex flex-col justify-between flex-shrink-0 z-20">
+      <aside className="w-20 md:w-64 bg-white border-r border-gray-200 flex flex-col justify-between flex-shrink-0 z-20 print:hidden">
         <div>
             <div className="p-6 flex items-center gap-3 mb-6">
                 <div className="bg-blue-600 p-2 rounded-lg text-white">
@@ -513,6 +676,12 @@ export default function Dashboard() {
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${currentView === 'calendar' ? 'bg-blue-50 text-blue-600 font-bold' : 'text-gray-500 hover:bg-gray-50'}`}
                 >
                     <CalendarIcon size={20} /> <span className="hidden md:inline">Calendar</span>
+                </button>
+                <button 
+                    onClick={() => setCurrentView('report')}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${currentView === 'report' ? 'bg-blue-50 text-blue-600 font-bold' : 'text-gray-500 hover:bg-gray-50'}`}
+                >
+                    <Presentation size={20} /> <span className="hidden md:inline">Report</span>
                 </button>
                 <button 
                     onClick={() => setCurrentView('selfheal')}
@@ -548,7 +717,6 @@ export default function Dashboard() {
         {/* VIEW: BOARD */}
         {currentView === 'board' && (
             <div className="flex flex-col h-full w-full">
-                {/* Board Header */}
                 <header className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-white/80 backdrop-blur-md z-10">
                      <h2 className="text-2xl font-bold text-gray-800">Marketing Sprint</h2>
                      <button 
@@ -559,12 +727,10 @@ export default function Dashboard() {
                      </button>
                 </header>
 
-                {/* Columns */}
                 <div className="flex-1 overflow-x-auto overflow-y-hidden px-6 pb-4 pt-6">
                     <div className="flex gap-6 h-full min-w-full">
                     {columns.map(col => (
                         <div key={col.id} className="flex-1 min-w-[300px] flex flex-col h-full">
-                        {/* Header */}
                         <div className="flex items-center justify-between mb-4 px-1">
                             <div className="flex items-center gap-2">
                                 <h3 className="text-gray-600 font-bold text-sm uppercase tracking-wider">{col.title}</h3>
@@ -575,7 +741,6 @@ export default function Dashboard() {
                             <button className="text-gray-300 hover:text-gray-600"><MoreHorizontal size={16} /></button>
                         </div>
 
-                        {/* Column Content (Scrollable) */}
                         <div className={`flex-1 rounded-2xl p-2 ${col.color} overflow-y-auto custom-scrollbar`}>
                             <div className="flex flex-col gap-3 pb-2">
                                 {getTasksByStatus(col.id).map(task => (
@@ -638,6 +803,9 @@ export default function Dashboard() {
 
         {/* VIEW: SELF HEAL */}
         {currentView === 'selfheal' && <SelfHealView />}
+
+        {/* VIEW: REPORT */}
+        {currentView === 'report' && <ReportView />}
 
       </main>
 
