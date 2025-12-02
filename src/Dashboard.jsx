@@ -1173,7 +1173,7 @@ export default function Dashboard() {
         {currentView === 'board' && (
             <div className="flex flex-col h-full w-full">
                 <header className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-white/80 backdrop-blur-md z-10">
-                     <h2 className="text-2xl font-bold text-gray-800">Marketing Sprint</h2>
+                     <h2 className="text-2xl font-bold text-gray-800">マーケティングチームの皆さん、頑張ってください！</h2>
                      <button 
                         onClick={() => setIsAddModalOpen(true)}
                         className="flex items-center gap-2 bg-black text-white px-5 py-2.5 rounded-full font-medium hover:bg-gray-800 transition shadow-lg shadow-gray-200"
