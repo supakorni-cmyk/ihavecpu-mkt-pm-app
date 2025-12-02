@@ -35,12 +35,17 @@ import {
   ChevronLeft,
   ChevronRight,
   RefreshCw,
-  Video
+  Video,
+  Home,
+  PieChart,
+  Activity,
+  CheckCircle2,
+  ListTodo
 } from 'lucide-react';
 
 export default function Dashboard() {
   const [tasks, setTasks] = useState([]);
-  const [currentView, setCurrentView] = useState('board'); // 'board', 'calendar', 'selfheal'
+  const [currentView, setCurrentView] = useState('home'); // Default to home
   
   // Modal States
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -190,7 +195,146 @@ export default function Dashboard() {
     });
   };
 
+  // Helper function for date formatting
+  const formatDate = (dateString) => {
+    if (!dateString) return 'No Date';
+    return new Date(dateString).toLocaleDateString('en-GB'); // Formats as DD/MM/YYYY
+  };
+
   // --- VIEW COMPONENTS ---
+
+  const HomeView = () => {
+    // Calculations
+    const totalTasks = tasks.length;
+    const completedTasks = getTasksByStatus('done').length;
+    const inProgressTasks = getTasksByStatus('inprogress').length;
+    const reviewTasks = getTasksByStatus('review').length;
+    const todoTasks = getTasksByStatus('todo').length;
+    
+    // Tag Calculations
+    const tagCounts = tasks.reduce((acc, task) => {
+        acc[task.tag] = (acc[task.tag] || 0) + 1;
+        return acc;
+    }, {});
+
+    const maxTagCount = Math.max(...Object.values(tagCounts), 1);
+
+    return (
+        <div className="p-6 md:p-10 h-full w-full overflow-y-auto bg-gray-50/50">
+            <div className="max-w-6xl mx-auto space-y-8">
+                
+                {/* Welcome Section */}
+                <div className="flex justify-between items-end">
+                    <div>
+                        <h2 className="text-3xl font-bold text-gray-800">Welcome Back!</h2>
+                        <p className="text-gray-500 mt-1">Here is your project overview at a glance.</p>
+                    </div>
+                    <div className="text-right hidden sm:block">
+                        <p className="text-sm font-bold text-gray-400 uppercase tracking-wider">Today</p>
+                        <p className="text-xl font-bold text-gray-800">{new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+                    </div>
+                </div>
+
+                {/* KPI Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between h-32 hover:shadow-md transition">
+                        <div className="flex justify-between items-start">
+                            <div className="bg-blue-50 text-blue-600 p-2 rounded-lg"><ListTodo size={24} /></div>
+                            <span className="text-xs font-bold text-gray-400 uppercase">Total Tasks</span>
+                        </div>
+                        <div>
+                            <span className="text-3xl font-bold text-gray-800">{totalTasks}</span>
+                            <span className="text-sm text-gray-400 ml-2">tasks</span>
+                        </div>
+                    </div>
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between h-32 hover:shadow-md transition">
+                        <div className="flex justify-between items-start">
+                            <div className="bg-yellow-50 text-yellow-600 p-2 rounded-lg"><Activity size={24} /></div>
+                            <span className="text-xs font-bold text-gray-400 uppercase">In Progress</span>
+                        </div>
+                        <div>
+                            <span className="text-3xl font-bold text-gray-800">{inProgressTasks}</span>
+                            <span className="text-sm text-gray-400 ml-2">active</span>
+                        </div>
+                    </div>
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between h-32 hover:shadow-md transition">
+                        <div className="flex justify-between items-start">
+                            <div className="bg-purple-50 text-purple-600 p-2 rounded-lg"><PieChart size={24} /></div>
+                            <span className="text-xs font-bold text-gray-400 uppercase">Review</span>
+                        </div>
+                        <div>
+                            <span className="text-3xl font-bold text-gray-800">{reviewTasks}</span>
+                            <span className="text-sm text-gray-400 ml-2">pending</span>
+                        </div>
+                    </div>
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between h-32 hover:shadow-md transition">
+                        <div className="flex justify-between items-start">
+                            <div className="bg-green-50 text-green-600 p-2 rounded-lg"><CheckCircle2 size={24} /></div>
+                            <span className="text-xs font-bold text-gray-400 uppercase">Completed</span>
+                        </div>
+                        <div>
+                            <span className="text-3xl font-bold text-gray-800">{completedTasks}</span>
+                            <span className="text-sm text-gray-400 ml-2">finished</span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Charts Section */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    
+                    {/* Status Distribution */}
+                    <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
+                        <h3 className="text-lg font-bold text-gray-800 mb-6">Task Status</h3>
+                        <div className="flex items-end justify-between h-64 gap-4">
+                            {[
+                                { label: 'To Do', count: todoTasks, color: 'bg-gray-200' },
+                                { label: 'In Progress', count: inProgressTasks, color: 'bg-blue-500' },
+                                { label: 'Review', count: reviewTasks, color: 'bg-purple-500' },
+                                { label: 'Done', count: completedTasks, color: 'bg-green-500' }
+                            ].map((stat) => (
+                                <div key={stat.label} className="flex flex-col items-center gap-2 flex-1 h-full justify-end group">
+                                    <div className="font-bold text-gray-800 mb-1 opacity-0 group-hover:opacity-100 transition-opacity transform translate-y-2 group-hover:translate-y-0">{stat.count}</div>
+                                    <div 
+                                        className={`w-full rounded-t-xl transition-all duration-500 ${stat.color} hover:opacity-90`}
+                                        style={{ height: `${totalTasks > 0 ? (stat.count / totalTasks) * 100 : 0}%`, minHeight: '8px' }}
+                                    ></div>
+                                    <div className="text-xs font-bold text-gray-400 uppercase text-center mt-2">{stat.label}</div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Tag Distribution */}
+                    <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
+                        <h3 className="text-lg font-bold text-gray-800 mb-6">Workload by Department</h3>
+                        <div className="space-y-5">
+                            {Object.keys(tagColors).map((tag) => {
+                                const count = tagCounts[tag] || 0;
+                                const percentage = totalTasks > 0 ? (count / totalTasks) * 100 : 0;
+                                const barColor = tagColors[tag].split(' ')[0].replace('bg-', 'bg-');
+                                
+                                return (
+                                    <div key={tag}>
+                                        <div className="flex justify-between text-sm font-bold mb-2">
+                                            <span className="text-gray-600">{tag}</span>
+                                            <span className="text-gray-400">{count} Tasks</span>
+                                        </div>
+                                        <div className="h-3 w-full bg-gray-100 rounded-full overflow-hidden">
+                                            <div 
+                                                className={`h-full rounded-full transition-all duration-500 ${tagColors[tag].split(' ')[0]}`} 
+                                                style={{ width: `${(count / maxTagCount) * 100}%` }}
+                                            ></div>
+                                        </div>
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+  };
 
   const CalendarView = () => {
     const [currentDate, setCurrentDate] = useState(new Date());
@@ -353,6 +497,12 @@ export default function Dashboard() {
 
             <nav className="px-3 space-y-2">
                 <button 
+                    onClick={() => setCurrentView('home')}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${currentView === 'home' ? 'bg-blue-50 text-blue-600 font-bold' : 'text-gray-500 hover:bg-gray-50'}`}
+                >
+                    <Home size={20} /> <span className="hidden md:inline">Home</span>
+                </button>
+                <button 
                     onClick={() => setCurrentView('board')}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${currentView === 'board' ? 'bg-blue-50 text-blue-600 font-bold' : 'text-gray-500 hover:bg-gray-50'}`}
                 >
@@ -392,6 +542,9 @@ export default function Dashboard() {
       {/* --- MAIN CONTENT AREA --- */}
       <main className="flex-1 flex flex-col h-full w-full overflow-hidden bg-white relative">
         
+        {/* VIEW: HOME */}
+        {currentView === 'home' && <HomeView />}
+
         {/* VIEW: BOARD */}
         {currentView === 'board' && (
             <div className="flex flex-col h-full w-full">
@@ -453,7 +606,7 @@ export default function Dashboard() {
                                         <div className="flex items-center justify-between pt-3 border-t border-gray-50">
                                             <div className="flex items-center gap-1.5 text-gray-400 text-xs font-medium">
                                                 <Clock size={12} />
-                                                <span>{task.deadline ? new Date(task.deadline).toLocaleDateString('en-GB', {day: 'numeric', month: 'short'}) : 'No Date'}</span>
+                                                <span>{formatDate(task.deadline)}</span>
                                             </div>
                                             
                                             <div className="flex gap-1">
@@ -593,7 +746,7 @@ export default function Dashboard() {
                                             {selectedTask.tag}
                                         </span>
                                         <span className="text-gray-400 text-xs flex items-center gap-1">
-                                            <Clock size={12} /> Created {new Date(selectedTask.createdAt?.seconds * 1000).toLocaleDateString()}
+                                            <Clock size={12} /> Created {formatDate(selectedTask.createdAt?.seconds ? new Date(selectedTask.createdAt.seconds * 1000) : selectedTask.createdAt)}
                                         </span>
                                     </div>
                                     <h2 className="text-3xl font-bold text-gray-900 leading-tight">{selectedTask.title}</h2>
@@ -675,14 +828,14 @@ export default function Dashboard() {
                                     <span className="text-xs font-bold text-gray-400 uppercase block mb-1">Start Date</span>
                                     <div className="flex items-center gap-2 text-gray-700 font-medium">
                                         <Clock size={16} className="text-blue-500" />
-                                        {selectedTask.startDate ? new Date(selectedTask.startDate).toLocaleDateString() : 'Not set'}
+                                        {formatDate(selectedTask.startDate)}
                                     </div>
                                 </div>
                                 <div>
                                      <span className="text-xs font-bold text-gray-400 uppercase block mb-1">Due Date</span>
                                      <div className="flex items-center gap-2 text-gray-700 font-medium">
                                         <Clock size={16} className="text-red-500" />
-                                        {selectedTask.deadline ? new Date(selectedTask.deadline).toLocaleDateString() : 'No Date'}
+                                        {formatDate(selectedTask.deadline)}
                                     </div>
                                 </div>
                             </div>
