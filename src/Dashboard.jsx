@@ -45,7 +45,8 @@ import {
   Printer,
   Upload,
   Image as ImageIcon,
-  GripVertical
+  GripVertical,
+  LayoutTemplate
 } from 'lucide-react';
 
 export default function Dashboard() {
@@ -472,7 +473,7 @@ export default function Dashboard() {
     const [selectedBrand, setSelectedBrand] = useState('iHAVECPU');
     // Pages State
     const [pages, setPages] = useState([
-        { id: 1, title: 'Marketing Strategy Report', bodyText: 'Summarize your key points here...', image: null }
+        { id: 1, title: 'Marketing Strategy Report', bodyText: 'Summarize your key points here...', image: null, image2: null, template: '1-landscape' }
     ]);
     const [activePageId, setActivePageId] = useState(1);
     const [reportDate] = useState(new Date().toLocaleDateString('en-GB'));
@@ -492,16 +493,23 @@ export default function Dashboard() {
         { name: 'MSI', color: 'bg-red-600 text-white', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9e/MSI_Logo_2019.svg/2560px-MSI_Logo_2019.svg.png' }
     ];
 
+    const templates = [
+        { id: '1-landscape', name: '1 Landscape', icon: '1L' },
+        { id: '2-landscape', name: '2 Landscape', icon: '2L' },
+        { id: '1-portrait', name: '1 Portrait', icon: '1P' },
+        { id: '2-portrait', name: '2 Portrait', icon: '2P' },
+    ];
+
     const updatePage = (field, value) => {
         setPages(prev => prev.map(p => p.id === activePageId ? { ...p, [field]: value } : p));
     };
 
-    const handleImageUpload = (e) => {
+    const handleImageUpload = (e, slot) => {
         const file = e.target.files[0];
         if (file) {
             const reader = new FileReader();
             reader.onloadend = () => {
-                updatePage('image', reader.result);
+                updatePage(slot, reader.result);
             };
             reader.readAsDataURL(file);
         }
@@ -509,7 +517,7 @@ export default function Dashboard() {
 
     const addNewPage = () => {
         const newId = Date.now();
-        setPages([...pages, { id: newId, title: 'New Slide', bodyText: 'Enter slide content...', image: null }]);
+        setPages([...pages, { id: newId, title: 'New Slide', bodyText: 'Enter slide content...', image: null, image2: null, template: '1-landscape' }]);
         setActivePageId(newId);
     };
 
@@ -629,23 +637,47 @@ export default function Dashboard() {
                                     className="w-full border border-gray-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 />
                             </div>
+                            
                             <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Layout Template</label>
+                                <select 
+                                    value={activePage.template}
+                                    onChange={(e) => updatePage('template', e.target.value)}
+                                    className="w-full border border-gray-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                    {templates.map(t => (
+                                        <option key={t.id} value={t.id}>{t.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="md:col-span-2">
                                 <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Slide Content</label>
                                 <textarea 
                                     value={activePage.bodyText}
                                     onChange={(e) => updatePage('bodyText', e.target.value)}
-                                    className="w-full border border-gray-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 h-12 resize-none"
+                                    className="w-full border border-gray-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 h-20 resize-none"
                                 />
                             </div>
-                            <div className="md:col-span-2">
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Upload Visual</label>
-                                <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:bg-gray-50 transition cursor-pointer relative group">
-                                    <input type="file" accept="image/*" onChange={handleImageUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+
+                            {/* Dynamic Uploads based on Template */}
+                            <div className="md:col-span-2 grid grid-cols-2 gap-4">
+                                <div className={`border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:bg-gray-50 transition cursor-pointer relative group ${activePage.template.startsWith('2') ? '' : 'col-span-2'}`}>
+                                    <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'image')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                                     <div className="flex flex-col items-center gap-2 text-gray-400 group-hover:text-blue-500">
                                         <Upload size={24} />
-                                        <span className="font-medium">Click to upload image for this slide</span>
+                                        <span className="font-medium text-xs">Image 1</span>
                                     </div>
                                 </div>
+                                {activePage.template.startsWith('2') && (
+                                    <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:bg-gray-50 transition cursor-pointer relative group">
+                                        <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'image2')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                                        <div className="flex flex-col items-center gap-2 text-gray-400 group-hover:text-blue-500">
+                                            <Upload size={24} />
+                                            <span className="font-medium text-xs">Image 2</span>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -668,7 +700,7 @@ export default function Dashboard() {
                         </div>
 
                         <div className="flex-1 p-10 flex gap-8">
-                            {/* Left Content */}
+                            {/* Left Content (Text) */}
                             <div className="flex-1 flex flex-col justify-center space-y-6">
                                 <div>
                                     <span className="inline-block px-3 py-1 rounded bg-gray-100 text-gray-500 text-xs font-bold uppercase tracking-wide mb-2">
@@ -677,7 +709,6 @@ export default function Dashboard() {
                                     <h2 className="text-5xl font-extrabold text-gray-800 leading-tight">{page.title}</h2>
                                 </div>
                                 
-                                {/* Custom Body Text replaces Stats */}
                                 <div className="pt-4">
                                     <p className="text-gray-600 text-lg leading-relaxed whitespace-pre-wrap">
                                         {page.bodyText}
@@ -690,14 +721,38 @@ export default function Dashboard() {
                                 </div>
                             </div>
 
-                            {/* Right Visual - Unique per page */}
-                            <div className="flex-1 bg-gray-100 rounded-2xl overflow-hidden flex items-center justify-center border border-gray-200">
-                                {page.image ? (
-                                    <img src={page.image} alt="Report Visual" className="w-full h-full object-cover" />
-                                ) : (
-                                    <div className="text-gray-300 flex flex-col items-center">
-                                        <ImageIcon size={48} />
-                                        <span className="mt-2 font-medium">Visual Placeholder</span>
+                            {/* Right Content (Images based on Template) */}
+                            <div className="flex-1 h-full flex flex-col gap-4">
+                                {page.template === '1-landscape' && (
+                                    <div className="flex-1 bg-gray-100 rounded-2xl overflow-hidden flex items-center justify-center border border-gray-200">
+                                        {page.image ? <img src={page.image} className="w-full h-full object-cover" /> : <div className="text-gray-300 flex flex-col items-center"><ImageIcon size={48} /><span className="mt-2 text-xs">1 Landscape</span></div>}
+                                    </div>
+                                )}
+                                {page.template === '2-landscape' && (
+                                    <>
+                                        <div className="flex-1 bg-gray-100 rounded-2xl overflow-hidden flex items-center justify-center border border-gray-200">
+                                            {page.image ? <img src={page.image} className="w-full h-full object-cover" /> : <div className="text-gray-300 flex flex-col items-center"><ImageIcon size={32} /><span className="mt-1 text-xs">Img 1</span></div>}
+                                        </div>
+                                        <div className="flex-1 bg-gray-100 rounded-2xl overflow-hidden flex items-center justify-center border border-gray-200">
+                                            {page.image2 ? <img src={page.image2} className="w-full h-full object-cover" /> : <div className="text-gray-300 flex flex-col items-center"><ImageIcon size={32} /><span className="mt-1 text-xs">Img 2</span></div>}
+                                        </div>
+                                    </>
+                                )}
+                                {page.template === '1-portrait' && (
+                                    <div className="flex-1 flex justify-center h-full">
+                                        <div className="h-full aspect-[3/4] bg-gray-100 rounded-2xl overflow-hidden flex items-center justify-center border border-gray-200">
+                                            {page.image ? <img src={page.image} className="w-full h-full object-cover" /> : <div className="text-gray-300 flex flex-col items-center"><ImageIcon size={48} /><span className="mt-2 text-xs">1 Portrait</span></div>}
+                                        </div>
+                                    </div>
+                                )}
+                                {page.template === '2-portrait' && (
+                                    <div className="flex-1 flex gap-4 h-full">
+                                        <div className="flex-1 bg-gray-100 rounded-2xl overflow-hidden flex items-center justify-center border border-gray-200">
+                                            {page.image ? <img src={page.image} className="w-full h-full object-cover" /> : <div className="text-gray-300 flex flex-col items-center"><ImageIcon size={32} /><span className="mt-1 text-xs">P1</span></div>}
+                                        </div>
+                                        <div className="flex-1 bg-gray-100 rounded-2xl overflow-hidden flex items-center justify-center border border-gray-200">
+                                            {page.image2 ? <img src={page.image2} className="w-full h-full object-cover" /> : <div className="text-gray-300 flex flex-col items-center"><ImageIcon size={32} /><span className="mt-1 text-xs">P2</span></div>}
+                                        </div>
                                     </div>
                                 )}
                             </div>
