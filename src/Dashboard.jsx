@@ -46,12 +46,14 @@ import {
   Upload,
   Image as ImageIcon,
   GripVertical,
-  LayoutTemplate
+  LayoutTemplate,
+  Camera,
+  Loader2
 } from 'lucide-react';
 
 export default function Dashboard() {
   const [tasks, setTasks] = useState([]);
-  const [currentView, setCurrentView] = useState('home'); // 'home', 'board', 'calendar', 'selfheal', 'report'
+  const [currentView, setCurrentView] = useState('home'); // 'home', 'board', 'calendar', 'selfheal', 'report', 'album'
   
   // Modal States
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -469,6 +471,113 @@ export default function Dashboard() {
     );
   };
 
+  const PhotoAlbumView = () => {
+    const [photos, setPhotos] = useState([]);
+    const [uploading, setUploading] = useState(false);
+
+    useEffect(() => {
+        // Create the 'photos' collection if it doesn't exist by adding the first doc
+        const q = query(collection(db, 'photos'), orderBy('createdAt', 'desc'));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            setPhotos(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })));
+        });
+        return unsubscribe;
+    }, []);
+
+    const handleUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        // Simple size check (2MB)
+        if (file.size > 2 * 1024 * 1024) {
+            alert("File is too large! Please upload images under 2MB.");
+            return;
+        }
+
+        setUploading(true);
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+            try {
+                await addDoc(collection(db, 'photos'), {
+                    url: reader.result,
+                    name: file.name,
+                    createdAt: new Date(),
+                    uploader: currentUser.email
+                });
+            } catch (error) {
+                console.error("Error uploading:", error);
+                alert("Failed to upload photo. Ensure you have network connectivity.");
+            }
+            setUploading(false);
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const handleDelete = async (id) => {
+        if (confirm("Delete this photo permanently?")) {
+            await deleteDoc(doc(db, 'photos', id));
+        }
+    };
+
+    return (
+        <div className="p-6 md:p-10 h-full w-full bg-gray-50/50 overflow-y-auto">
+            <div className="max-w-6xl mx-auto">
+                <div className="flex justify-between items-center mb-8">
+                    <div>
+                        <h2 className="text-3xl font-bold text-gray-800 flex items-center gap-3">
+                            <ImageIcon className="text-purple-600" /> Photo Album
+                        </h2>
+                        <p className="text-gray-500 mt-1">Shared gallery for marketing assets and event photos.</p>
+                    </div>
+                    <div className="relative">
+                        <input 
+                            type="file" 
+                            accept="image/*" 
+                            onChange={handleUpload} 
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                            disabled={uploading}
+                        />
+                        <button className={`flex items-center gap-2 bg-purple-600 text-white px-5 py-2.5 rounded-full font-bold shadow-lg hover:bg-purple-700 transition ${uploading ? 'opacity-70 cursor-wait' : ''}`}>
+                            {uploading ? <Loader2 className="animate-spin" size={20} /> : <Upload size={20} />}
+                            {uploading ? 'Uploading...' : 'Upload Photo'}
+                        </button>
+                    </div>
+                </div>
+
+                {photos.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-64 border-2 border-dashed border-gray-300 rounded-2xl bg-white text-gray-400">
+                        <ImageIcon size={48} className="mb-4 opacity-50" />
+                        <p>No photos yet. Click "Upload Photo" to add one.</p>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                        {photos.map(photo => (
+                            <div key={photo.id} className="group relative bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition aspect-square">
+                                <img src={photo.url} alt="Album" className="w-full h-full object-cover transition duration-500 group-hover:scale-105" />
+                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2">
+                                    <a href={photo.url} download={photo.name} className="p-2 bg-white/20 text-white rounded-full hover:bg-white/40 backdrop-blur-sm transition">
+                                        <ExternalLink size={20} />
+                                    </a>
+                                    <button 
+                                        onClick={() => handleDelete(photo.id)}
+                                        className="p-2 bg-red-500/80 text-white rounded-full hover:bg-red-600 backdrop-blur-sm transition"
+                                    >
+                                        <Trash2 size={20} />
+                                    </button>
+                                </div>
+                                <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/70 to-transparent text-white opacity-0 group-hover:opacity-100 transition">
+                                    <p className="text-xs font-medium truncate">{photo.name}</p>
+                                    <p className="text-[10px] opacity-75">{new Date(photo.createdAt?.seconds * 1000).toLocaleDateString()}</p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+  };
+
   const ReportView = () => {
     const [selectedBrand, setSelectedBrand] = useState('iHAVECPU');
     // Pages State
@@ -824,6 +933,12 @@ export default function Dashboard() {
                     <Presentation size={20} /> <span className="hidden md:inline">Report</span>
                 </button>
                 <button 
+                    onClick={() => setCurrentView('album')}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${currentView === 'album' ? 'bg-purple-50 text-purple-600 font-bold' : 'text-gray-500 hover:bg-gray-50'}`}
+                >
+                    <ImageIcon size={20} /> <span className="hidden md:inline">Photo Album</span>
+                </button>
+                <button 
                     onClick={() => setCurrentView('selfheal')}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${currentView === 'selfheal' ? 'bg-pink-50 text-pink-500 font-bold' : 'text-gray-500 hover:bg-gray-50'}`}
                 >
@@ -940,6 +1055,9 @@ export default function Dashboard() {
 
         {/* VIEW: CALENDAR */}
         {currentView === 'calendar' && <CalendarView />}
+
+        {/* VIEW: PHOTO ALBUM */}
+        {currentView === 'album' && <PhotoAlbumView />}
 
         {/* VIEW: SELF HEAL */}
         {currentView === 'selfheal' && <SelfHealView />}
