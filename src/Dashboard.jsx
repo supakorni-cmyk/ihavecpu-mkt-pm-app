@@ -469,9 +469,14 @@ export default function Dashboard() {
 
   const ReportView = () => {
     const [selectedBrand, setSelectedBrand] = useState('iHAVECPU');
-    const [reportTitle, setReportTitle] = useState('Marketing Strategy Report');
-    const [uploadedImage, setUploadedImage] = useState(null);
+    // Pages State
+    const [pages, setPages] = useState([
+        { id: 1, title: 'Marketing Strategy Report', subtitle: 'Project Report', image: null }
+    ]);
+    const [activePageId, setActivePageId] = useState(1);
     const [reportDate] = useState(new Date().toLocaleDateString('en-GB'));
+
+    const activePage = pages.find(p => p.id === activePageId) || pages[0];
 
     const brands = [
         { name: 'iHAVECPU', color: 'bg-gray-900 text-white', logo: null },
@@ -482,15 +487,33 @@ export default function Dashboard() {
         { name: 'MSI', color: 'bg-red-600 text-white', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9e/MSI_Logo_2019.svg/2560px-MSI_Logo_2019.svg.png' }
     ];
 
+    const updatePage = (field, value) => {
+        setPages(prev => prev.map(p => p.id === activePageId ? { ...p, [field]: value } : p));
+    };
+
     const handleImageUpload = (e) => {
         const file = e.target.files[0];
         if (file) {
             const reader = new FileReader();
             reader.onloadend = () => {
-                setUploadedImage(reader.result);
+                updatePage('image', reader.result);
             };
             reader.readAsDataURL(file);
         }
+    };
+
+    const addNewPage = () => {
+        const newId = Date.now();
+        setPages([...pages, { id: newId, title: 'New Slide', subtitle: 'Subtitle', image: null }]);
+        setActivePageId(newId);
+    };
+
+    const removePage = (id, e) => {
+        e.stopPropagation();
+        if (pages.length === 1) return;
+        const newPages = pages.filter(p => p.id !== id);
+        setPages(newPages);
+        if (activePageId === id) setActivePageId(newPages[0].id);
     };
 
     const handlePrint = () => {
@@ -522,109 +545,163 @@ export default function Dashboard() {
                     </div>
                 </div>
 
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Select Brand</label>
-                        <div className="grid grid-cols-3 gap-2">
-                            {brands.map(brand => (
-                                <button 
-                                    key={brand.name}
-                                    onClick={() => setSelectedBrand(brand.name)}
-                                    className={`p-2 rounded-lg border-2 text-sm font-bold transition ${selectedBrand === brand.name ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-100 hover:bg-gray-50 text-gray-600'}`}
-                                >
-                                    {brand.name}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Left Col: Global & Page Nav */}
+                    <div className="lg:col-span-1 space-y-6">
+                        {/* Brands */}
+                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+                             <label className="block text-xs font-bold text-gray-500 uppercase mb-3">Select Brand Style</label>
+                             <div className="grid grid-cols-2 gap-2">
+                                {brands.map(brand => (
+                                    <button 
+                                        key={brand.name}
+                                        onClick={() => setSelectedBrand(brand.name)}
+                                        className={`p-2 rounded-lg border-2 text-xs font-bold transition ${selectedBrand === brand.name ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-100 hover:bg-gray-50 text-gray-600'}`}
+                                    >
+                                        {brand.name}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Page Navigation */}
+                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+                            <div className="flex justify-between items-center mb-4">
+                                <label className="text-xs font-bold text-gray-500 uppercase">Slides</label>
+                                <button onClick={addNewPage} className="text-blue-600 hover:text-blue-700 text-xs font-bold flex items-center gap-1">
+                                    <Plus size={14} /> Add Slide
                                 </button>
-                            ))}
+                            </div>
+                            <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar pr-1">
+                                {pages.map((p, idx) => (
+                                    <div 
+                                        key={p.id}
+                                        onClick={() => setActivePageId(p.id)}
+                                        className={`flex justify-between items-center p-3 rounded-lg border cursor-pointer transition ${activePageId === p.id ? 'border-blue-500 bg-blue-50' : 'border-gray-100 hover:bg-gray-50'}`}
+                                    >
+                                        <span className="text-sm font-medium truncate w-32">#{idx+1} {p.title}</span>
+                                        {pages.length > 1 && (
+                                            <button onClick={(e) => removePage(p.id, e)} className="text-gray-400 hover:text-red-500">
+                                                <Trash2 size={14} />
+                                            </button>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     </div>
-                    <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Report Title</label>
-                        <input 
-                            type="text" 
-                            value={reportTitle}
-                            onChange={(e) => setReportTitle(e.target.value)}
-                            className="w-full border border-gray-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                    </div>
-                    <div className="md:col-span-2">
-                        <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Upload Visual</label>
-                        <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:bg-gray-50 transition cursor-pointer relative">
-                            <input type="file" accept="image/*" onChange={handleImageUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                            <div className="flex flex-col items-center gap-2 text-gray-400">
-                                <Upload size={24} />
-                                <span className="font-medium">Click to upload image</span>
+
+                    {/* Right Col: Active Page Editor */}
+                    <div className="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+                        <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2 border-b border-gray-100 pb-3">
+                            <Edit2 size={16} /> Editing Slide #{pages.findIndex(p => p.id === activePageId) + 1}
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Report Title</label>
+                                <input 
+                                    type="text" 
+                                    value={activePage.title}
+                                    onChange={(e) => updatePage('title', e.target.value)}
+                                    className="w-full border border-gray-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Subtitle (Header)</label>
+                                <input 
+                                    type="text" 
+                                    value={activePage.subtitle}
+                                    onChange={(e) => updatePage('subtitle', e.target.value)}
+                                    className="w-full border border-gray-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                            </div>
+                            <div className="md:col-span-2">
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Upload Visual</label>
+                                <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:bg-gray-50 transition cursor-pointer relative group">
+                                    <input type="file" accept="image/*" onChange={handleImageUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                                    <div className="flex flex-col items-center gap-2 text-gray-400 group-hover:text-blue-500">
+                                        <Upload size={24} />
+                                        <span className="font-medium">Click to upload image for this slide</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Preview Slide (This is what gets printed) */}
-            <div className="max-w-5xl mx-auto bg-white aspect-video shadow-2xl rounded-xl overflow-hidden relative print:shadow-none print:w-full print:h-screen print:rounded-none flex flex-col">
-                {/* Brand Header */}
-                <div className={`h-24 flex items-center px-10 justify-between ${brands.find(b => b.name === selectedBrand)?.color || 'bg-gray-900 text-white'}`}>
-                    <h1 className="text-3xl font-bold tracking-wider uppercase">Project Report</h1>
-                    {brands.find(b => b.name === selectedBrand)?.logo ? (
-                        <img src={brands.find(b => b.name === selectedBrand).logo} alt="Logo" className="h-12 object-contain bg-white/10 p-1 rounded" />
-                    ) : (
-                        <span className="text-xl font-black">{selectedBrand}</span>
-                    )}
-                </div>
-
-                <div className="flex-1 p-10 flex gap-8">
-                    {/* Left Content */}
-                    <div className="flex-1 flex flex-col justify-center space-y-6">
-                        <div>
-                            <span className="inline-block px-3 py-1 rounded bg-gray-100 text-gray-500 text-xs font-bold uppercase tracking-wide mb-2">
-                                {reportDate}
-                            </span>
-                            <h2 className="text-5xl font-extrabold text-gray-800 leading-tight">{reportTitle}</h2>
-                        </div>
-                        
-                        <div className="space-y-4 pt-4">
-                            <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-lg">
-                                    {tasks.length}
-                                </div>
-                                <div>
-                                    <p className="text-sm text-gray-400 font-bold uppercase">Total Tasks</p>
-                                    <p className="text-lg font-bold text-gray-800">Active Scope</p>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center text-green-600 font-bold text-lg">
-                                    {getTasksByStatus('done').length}
-                                </div>
-                                <div>
-                                    <p className="text-sm text-gray-400 font-bold uppercase">Completed</p>
-                                    <p className="text-lg font-bold text-gray-800">Milestones Met</p>
-                                </div>
-                            </div>
+            {/* Preview Section - Renders ALL pages */}
+            <div className="space-y-8 print:space-y-0">
+                {pages.map((page, index) => (
+                    <div key={page.id} className="max-w-5xl mx-auto bg-white aspect-video shadow-2xl rounded-xl overflow-hidden relative print:shadow-none print:w-full print:h-screen print:rounded-none flex flex-col print:break-after-page">
+                        {/* Brand Header with Subtitle */}
+                        <div className={`h-24 flex items-center px-10 justify-between ${brands.find(b => b.name === selectedBrand)?.color || 'bg-gray-900 text-white'}`}>
+                            {/* Dynamic Subtitle Input */}
+                            <h1 className="text-3xl font-bold tracking-wider uppercase">{page.subtitle}</h1>
+                            {brands.find(b => b.name === selectedBrand)?.logo ? (
+                                <img src={brands.find(b => b.name === selectedBrand).logo} alt="Logo" className="h-12 object-contain bg-white/10 p-1 rounded" />
+                            ) : (
+                                <span className="text-xl font-black">{selectedBrand}</span>
+                            )}
                         </div>
 
-                        <div className="pt-8">
-                            <p className="text-gray-400 text-sm font-medium">Prepared by</p>
-                            <p className="text-gray-800 font-bold text-lg">{currentUser?.email}</p>
+                        <div className="flex-1 p-10 flex gap-8">
+                            {/* Left Content */}
+                            <div className="flex-1 flex flex-col justify-center space-y-6">
+                                <div>
+                                    <span className="inline-block px-3 py-1 rounded bg-gray-100 text-gray-500 text-xs font-bold uppercase tracking-wide mb-2">
+                                        {reportDate}
+                                    </span>
+                                    <h2 className="text-5xl font-extrabold text-gray-800 leading-tight">{page.title}</h2>
+                                </div>
+                                
+                                {/* Stats - Global Data */}
+                                <div className="space-y-4 pt-4">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-lg">
+                                            {tasks.length}
+                                        </div>
+                                        <div>
+                                            <p className="text-sm text-gray-400 font-bold uppercase">Total Tasks</p>
+                                            <p className="text-lg font-bold text-gray-800">Active Scope</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center text-green-600 font-bold text-lg">
+                                            {getTasksByStatus('done').length}
+                                        </div>
+                                        <div>
+                                            <p className="text-sm text-gray-400 font-bold uppercase">Completed</p>
+                                            <p className="text-lg font-bold text-gray-800">Milestones Met</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="pt-8">
+                                    <p className="text-gray-400 text-sm font-medium">Prepared by</p>
+                                    <p className="text-gray-800 font-bold text-lg">{currentUser?.email}</p>
+                                </div>
+                            </div>
+
+                            {/* Right Visual - Unique per page */}
+                            <div className="flex-1 bg-gray-100 rounded-2xl overflow-hidden flex items-center justify-center border border-gray-200">
+                                {page.image ? (
+                                    <img src={page.image} alt="Report Visual" className="w-full h-full object-cover" />
+                                ) : (
+                                    <div className="text-gray-300 flex flex-col items-center">
+                                        <ImageIcon size={48} />
+                                        <span className="mt-2 font-medium">Visual Placeholder</span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="bg-gray-50 border-t border-gray-100 p-4 text-center text-gray-400 text-xs font-medium uppercase tracking-widest">
+                            Confidential • Internal Use Only • {selectedBrand} Marketing • Slide {index + 1}
                         </div>
                     </div>
-
-                    {/* Right Visual */}
-                    <div className="flex-1 bg-gray-100 rounded-2xl overflow-hidden flex items-center justify-center border border-gray-200">
-                        {uploadedImage ? (
-                            <img src={uploadedImage} alt="Report Visual" className="w-full h-full object-cover" />
-                        ) : (
-                            <div className="text-gray-300 flex flex-col items-center">
-                                <ImageIcon size={48} />
-                                <span className="mt-2 font-medium">Visual Placeholder</span>
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* Footer */}
-                <div className="bg-gray-50 border-t border-gray-100 p-4 text-center text-gray-400 text-xs font-medium uppercase tracking-widest">
-                    Confidential • Internal Use Only • {selectedBrand} Marketing
-                </div>
+                ))}
             </div>
 
             {/* Print Styles */}
@@ -633,8 +710,9 @@ export default function Dashboard() {
                     @page { size: landscape; margin: 0; }
                     body { -webkit-print-color-adjust: exact; }
                     aside, nav, .print\\:hidden { display: none !important; }
-                    main { width: 100vw; height: 100vh; overflow: hidden; background: white; }
+                    main { width: 100vw; height: auto; overflow: visible; background: white; }
                     .p-6, .md\\:p-10 { padding: 0 !important; }
+                    .print\\:break-after-page { break-after: page; height: 100vh; width: 100vw; border-radius: 0; }
                 }
             `}</style>
         </div>
