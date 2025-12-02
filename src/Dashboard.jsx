@@ -11,6 +11,7 @@ import {
   updateDoc, 
   orderBy 
 } from 'firebase/firestore';
+import emailjs from '@emailjs/browser'; // IMPORT EMAILJS
 import { useNavigate } from 'react-router-dom';
 import { 
   MoreHorizontal, 
@@ -57,6 +58,13 @@ export default function Dashboard() {
   const [tasks, setTasks] = useState([]);
   const [currentView, setCurrentView] = useState('home'); // 'home', 'board', 'calendar', 'selfheal', 'report', 'album'
   
+ // --- EMAILJS CONFIGURATION ---
+  // REPLACE THESE WITH YOUR ACTUAL KEYS FROM EMAILJS DASHBOARD
+  const EMAIL_SERVICE_ID = "service_ld9gdun"; 
+  const EMAIL_TEMPLATE_ID = "template_y1drpcl"; 
+  const EMAIL_PUBLIC_KEY = "jDQgm1SiqFlSBF9d3";
+
+
   // Modal States
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null); // For viewing details
@@ -96,15 +104,27 @@ export default function Dashboard() {
   }, []);
 
    // --- EMAIL NOTIFICATION LOGIC ---
-  const sendEmail = (to, subject, body) => {
-    // In a real app, integrate EmailJS or a backend API here.
-    // For now, we simulate the email sending.
-    console.log(`%c[EMAIL SENT]`, "color: green; font-weight: bold; font-size: 14px;");
-    console.log(`To: ${to}\nSubject: ${subject}\nBody: ${body}`);
-    // alert(`📧 Email Notification Sent to ${to}:\n${subject}`); 
-  };
+ const sendEmail = (to, subject, body) => {
+    if (EMAIL_SERVICE_ID === "service_ld9gdun") {
+        console.warn("EmailJS keys not set. Check src/Dashboard.jsx");
+        return;
+    }
 
-  // --- DUE DATE MONITORING ---
+    const templateParams = {
+        to_email: to,
+        subject: subject,
+        message: body,
+        to_name: currentUser?.email?.split('@')[0] || 'User'
+    };
+
+    emailjs.send(EMAIL_SERVICE_ID, EMAIL_TEMPLATE_ID, templateParams, EMAIL_PUBLIC_KEY)
+      .then((response) => {
+         console.log('SUCCESS! Email sent.', response.status, response.text);
+      }, (err) => {
+         console.error('FAILED to send email.', err);
+      });
+  };
+   // --- DUE DATE MONITORING ---
   useEffect(() => {
     if (!currentUser || tasks.length === 0) return;
 
@@ -125,15 +145,14 @@ export default function Dashboard() {
                 if (isApproaching || isOverdue) {
                     const statusMsg = isOverdue ? "OVERDUE" : "due soon";
                     
-                    // 1. Send Email
+                    // 1. Send Real Email
                     sendEmail(
                         currentUser.email,
-                        `Task Alert: "${task.title}" is ${statusMsg}`,
-                        `Hello,\n\nYour task "${task.title}" is ${statusMsg} (${task.deadline}).\nPlease update the status on your dashboard.\n\n- iHAVECPU Manager`
+                        `URGENT: "${task.title}" is ${statusMsg}`,
+                        `Hello,\n\nYour task "${task.title}" is currently ${statusMsg}.\nDue Date: ${formatDate(task.deadline)}.\n\nPlease update the status on your dashboard.\n\n- iHAVECPU Manager`
                     );
 
                     // 2. Update DB to prevent spamming loops
-                    // We mark this specific task as notified
                     try {
                         await updateDoc(doc(db, 'tasks', task.id), {
                             dueNotificationSent: true
@@ -146,7 +165,11 @@ export default function Dashboard() {
         });
     };
 
-    checkDueDates();
+    // Run check every time tasks change, or every minute via interval if needed
+    // Simple check on load/update is usually sufficient for this scale
+    const timeoutId = setTimeout(checkDueDates, 5000); // 5 sec delay to let auth load
+    return () => clearTimeout(timeoutId);
+
   }, [tasks, currentUser]);
 
 
@@ -168,8 +191,8 @@ export default function Dashboard() {
     // Send "New Task" Email
     sendEmail(
         currentUser.email,
-        `New Task Created: ${newTask.title}`,
-        `A new task has been added to the board under ${newTask.tag}.\nDeadline: ${newTask.deadline || 'None'}`
+        `New Task: ${newTask.title}`,
+        `A new task has been created.\n\nTitle: ${newTask.title}\nCategory: ${newTask.tag}\nDue Date: ${newTask.deadline ? formatDate(newTask.deadline) : 'None'}\n\nLogin to view details.`
     );
 
     setNewTask({
