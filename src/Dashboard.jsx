@@ -230,7 +230,7 @@ export default function Dashboard() {
             <div className="max-w-6xl mx-auto space-y-8">
                 <div className="flex justify-between items-end">
                     <div>
-                        <h2 className="text-3xl font-bold text-gray-800">Welcome Back!</h2>
+                        <h2 className="text-3xl font-bold text-gray-800 text-uppercase">Welcome Back! {currentUser?.email?.split('.')[0]}</h2>
                         <p className="text-gray-500 mt-1">Here is your project overview at a glance.</p>
                     </div>
                     <div className="text-right hidden sm:block">
@@ -305,7 +305,7 @@ export default function Dashboard() {
                     </div>
 
                     <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
-                        <h3 className="text-lg font-bold text-gray-800 mb-6">Workload by Department</h3>
+                        <h3 className="text-lg font-bold text-gray-800 mb-6">Workload</h3>
                         <div className="space-y-5">
                             {Object.keys(tagColors).map((tag) => {
                                 const count = tagCounts[tag] || 0;
@@ -1009,12 +1009,12 @@ export default function Dashboard() {
       <aside className="w-20 md:w-64 bg-white border-r border-gray-200 flex flex-col justify-between flex-shrink-0 z-20 print:hidden">
         <div>
             <div className="p-6 flex items-center gap-3 mb-6">
-                <div className="bg-blue-600 p-2 rounded-lg text-white">
+                <div className="bg-red-600 p-2 rounded-lg text-white">
                     <Layout size={24} />
                 </div>
                 <div className="hidden md:block">
                     <h1 className="text-lg font-bold text-gray-900 leading-none">iHAVECPU</h1>
-                    <span className="text-xs text-blue-600 font-bold tracking-wider">WORKSPACE</span>
+                    <span className="text-xs text-blue-600 font-bold tracking-wider">MAARKETING WORKSPACE</span>
                 </div>
             </div>
 
@@ -1029,7 +1029,7 @@ export default function Dashboard() {
                     onClick={() => setCurrentView('board')}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${currentView === 'board' ? 'bg-blue-50 text-blue-600 font-bold' : 'text-gray-500 hover:bg-gray-50'}`}
                 >
-                    <Layout size={20} /> <span className="hidden md:inline">Board</span>
+                    <Layout size={20} /> <span className="hidden md:inline">Kanban Board</span>
                 </button>
                 <button 
                     onClick={() => setCurrentView('calendar')}
@@ -1041,7 +1041,7 @@ export default function Dashboard() {
                     onClick={() => setCurrentView('report')}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${currentView === 'report' ? 'bg-blue-50 text-blue-600 font-bold' : 'text-gray-500 hover:bg-gray-50'}`}
                 >
-                    <Presentation size={20} /> <span className="hidden md:inline">Report</span>
+                    <Presentation size={20} /> <span className="hidden md:inline">Report Builder</span>
                 </button>
                 <button 
                     onClick={() => setCurrentView('album')}
