@@ -48,7 +48,8 @@ import {
   GripVertical,
   LayoutTemplate,
   Camera,
-  Loader2
+  Loader2,
+  Folder
 } from 'lucide-react';
 
 export default function Dashboard() {
@@ -472,11 +473,22 @@ export default function Dashboard() {
   };
 
   const PhotoAlbumView = () => {
+    const [albums, setAlbums] = useState([]);
     const [photos, setPhotos] = useState([]);
+    const [currentAlbum, setCurrentAlbum] = useState(null);
     const [uploading, setUploading] = useState(false);
+    const [isCreatingAlbum, setIsCreatingAlbum] = useState(false);
+    const [newAlbumName, setNewAlbumName] = useState('');
 
     useEffect(() => {
-        // Create the 'photos' collection if it doesn't exist by adding the first doc
+        const q = query(collection(db, 'albums'), orderBy('createdAt', 'desc'));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            setAlbums(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })));
+        });
+        return unsubscribe;
+    }, []);
+
+    useEffect(() => {
         const q = query(collection(db, 'photos'), orderBy('createdAt', 'desc'));
         const unsubscribe = onSnapshot(q, (snapshot) => {
             setPhotos(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })));
@@ -484,11 +496,26 @@ export default function Dashboard() {
         return unsubscribe;
     }, []);
 
+    const createAlbum = async (e) => {
+        e.preventDefault();
+        if (!newAlbumName) return;
+        try {
+            await addDoc(collection(db, 'albums'), {
+                name: newAlbumName,
+                createdAt: new Date(),
+                createdBy: currentUser.email
+            });
+            setNewAlbumName('');
+            setIsCreatingAlbum(false);
+        } catch (error) {
+            console.error("Error creating album:", error);
+        }
+    };
+
     const handleUpload = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
         
-        // Simple size check (2MB)
         if (file.size > 2 * 1024 * 1024) {
             alert("File is too large! Please upload images under 2MB.");
             return;
@@ -502,75 +529,159 @@ export default function Dashboard() {
                     url: reader.result,
                     name: file.name,
                     createdAt: new Date(),
-                    uploader: currentUser.email
+                    uploader: currentUser.email,
+                    albumId: currentAlbum.id
                 });
             } catch (error) {
                 console.error("Error uploading:", error);
-                alert("Failed to upload photo. Ensure you have network connectivity.");
+                alert("Failed to upload photo.");
             }
             setUploading(false);
         };
         reader.readAsDataURL(file);
     };
 
-    const handleDelete = async (id) => {
+    const handleDeletePhoto = async (id) => {
         if (confirm("Delete this photo permanently?")) {
             await deleteDoc(doc(db, 'photos', id));
         }
     };
 
+    const handleDeleteAlbum = async (e, id) => {
+        e.stopPropagation();
+        if (confirm("Delete this album? Photos will need manual cleanup.")) {
+            await deleteDoc(doc(db, 'albums', id));
+            if (currentAlbum?.id === id) setCurrentAlbum(null);
+        }
+    };
+
+    const albumPhotos = photos.filter(p => p.albumId === currentAlbum?.id);
+
     return (
         <div className="p-6 md:p-10 h-full w-full bg-gray-50/50 overflow-y-auto">
             <div className="max-w-6xl mx-auto">
                 <div className="flex justify-between items-center mb-8">
-                    <div>
-                        <h2 className="text-3xl font-bold text-gray-800 flex items-center gap-3">
-                            <ImageIcon className="text-purple-600" /> Photo Album
-                        </h2>
-                        <p className="text-gray-500 mt-1">Shared gallery for marketing assets and event photos.</p>
+                    <div className="flex items-center gap-3">
+                        {currentAlbum && (
+                            <button onClick={() => setCurrentAlbum(null)} className="p-2 hover:bg-gray-200 rounded-full text-gray-500">
+                                <ArrowLeft size={24} />
+                            </button>
+                        )}
+                        <div>
+                            <h2 className="text-3xl font-bold text-gray-800 flex items-center gap-3">
+                                {currentAlbum ? (
+                                    <>
+                                        <Folder className="text-purple-600" /> {currentAlbum.name}
+                                    </>
+                                ) : (
+                                    <>
+                                        <ImageIcon className="text-purple-600" /> Photo Albums
+                                    </>
+                                )}
+                            </h2>
+                            <p className="text-gray-500 mt-1">
+                                {currentAlbum ? `${albumPhotos.length} photos in this album` : 'Manage your team galleries'}
+                            </p>
+                        </div>
                     </div>
-                    <div className="relative">
-                        <input 
-                            type="file" 
-                            accept="image/*" 
-                            onChange={handleUpload} 
-                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                            disabled={uploading}
-                        />
-                        <button className={`flex items-center gap-2 bg-purple-600 text-white px-5 py-2.5 rounded-full font-bold shadow-lg hover:bg-purple-700 transition ${uploading ? 'opacity-70 cursor-wait' : ''}`}>
-                            {uploading ? <Loader2 className="animate-spin" size={20} /> : <Upload size={20} />}
-                            {uploading ? 'Uploading...' : 'Upload Photo'}
-                        </button>
-                    </div>
+
+                    {!currentAlbum ? (
+                        <div className="relative">
+                            {isCreatingAlbum ? (
+                                <form onSubmit={createAlbum} className="flex gap-2">
+                                    <input 
+                                        autoFocus
+                                        type="text" 
+                                        placeholder="Album Name"
+                                        className="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 outline-none"
+                                        value={newAlbumName}
+                                        onChange={e => setNewAlbumName(e.target.value)}
+                                    />
+                                    <button type="submit" className="bg-purple-600 text-white px-4 py-2 rounded-lg font-bold text-sm">Save</button>
+                                    <button type="button" onClick={() => setIsCreatingAlbum(false)} className="text-gray-500 hover:bg-gray-100 px-2 rounded-lg"><X size={18}/></button>
+                                </form>
+                            ) : (
+                                <button onClick={() => setIsCreatingAlbum(true)} className="flex items-center gap-2 bg-purple-600 text-white px-5 py-2.5 rounded-full font-bold shadow-lg hover:bg-purple-700 transition">
+                                    <Plus size={20} /> Create Album
+                                </button>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="relative">
+                            <input 
+                                type="file" 
+                                accept="image/*" 
+                                onChange={handleUpload} 
+                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                disabled={uploading}
+                            />
+                            <button className={`flex items-center gap-2 bg-purple-600 text-white px-5 py-2.5 rounded-full font-bold shadow-lg hover:bg-purple-700 transition ${uploading ? 'opacity-70 cursor-wait' : ''}`}>
+                                {uploading ? <Loader2 className="animate-spin" size={20} /> : <Upload size={20} />}
+                                {uploading ? 'Uploading...' : 'Upload Photo'}
+                            </button>
+                        </div>
+                    )}
                 </div>
 
-                {photos.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-64 border-2 border-dashed border-gray-300 rounded-2xl bg-white text-gray-400">
-                        <ImageIcon size={48} className="mb-4 opacity-50" />
-                        <p>No photos yet. Click "Upload Photo" to add one.</p>
-                    </div>
-                ) : (
+                {!currentAlbum ? (
+                    /* ALBUM LIST */
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                        {photos.map(photo => (
-                            <div key={photo.id} className="group relative bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition aspect-square">
-                                <img src={photo.url} alt="Album" className="w-full h-full object-cover transition duration-500 group-hover:scale-105" />
-                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2">
-                                    <a href={photo.url} download={photo.name} className="p-2 bg-white/20 text-white rounded-full hover:bg-white/40 backdrop-blur-sm transition">
-                                        <ExternalLink size={20} />
-                                    </a>
-                                    <button 
-                                        onClick={() => handleDelete(photo.id)}
-                                        className="p-2 bg-red-500/80 text-white rounded-full hover:bg-red-600 backdrop-blur-sm transition"
-                                    >
-                                        <Trash2 size={20} />
-                                    </button>
-                                </div>
-                                <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/70 to-transparent text-white opacity-0 group-hover:opacity-100 transition">
-                                    <p className="text-xs font-medium truncate">{photo.name}</p>
-                                    <p className="text-[10px] opacity-75">{new Date(photo.createdAt?.seconds * 1000).toLocaleDateString()}</p>
-                                </div>
+                        {albums.map(album => (
+                            <div 
+                                key={album.id} 
+                                onClick={() => setCurrentAlbum(album)}
+                                className="group bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition cursor-pointer flex flex-col items-center justify-center aspect-square relative"
+                            >
+                                <Folder size={64} className="text-purple-200 group-hover:text-purple-300 transition mb-4" />
+                                <h3 className="font-bold text-gray-700 text-center">{album.name}</h3>
+                                <p className="text-xs text-gray-400 mt-1">{new Date(album.createdAt?.seconds * 1000).toLocaleDateString()}</p>
+                                
+                                <button 
+                                    onClick={(e) => handleDeleteAlbum(e, album.id)}
+                                    className="absolute top-3 right-3 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition"
+                                >
+                                    <Trash2 size={18} />
+                                </button>
                             </div>
                         ))}
+                        {albums.length === 0 && (
+                            <div className="col-span-full text-center py-10 text-gray-400">
+                                <p>No albums yet. Create one to get started.</p>
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    /* PHOTO GRID */
+                    <div>
+                        {albumPhotos.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center h-64 border-2 border-dashed border-gray-300 rounded-2xl bg-white text-gray-400">
+                                <ImageIcon size={48} className="mb-4 opacity-50" />
+                                <p>No photos in this album yet.</p>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                                {albumPhotos.map(photo => (
+                                    <div key={photo.id} className="group relative bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition aspect-square">
+                                        <img src={photo.url} alt="Album" className="w-full h-full object-cover transition duration-500 group-hover:scale-105" />
+                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2">
+                                            <a href={photo.url} download={photo.name} className="p-2 bg-white/20 text-white rounded-full hover:bg-white/40 backdrop-blur-sm transition">
+                                                <ExternalLink size={20} />
+                                            </a>
+                                            <button 
+                                                onClick={() => handleDeletePhoto(photo.id)}
+                                                className="p-2 bg-red-500/80 text-white rounded-full hover:bg-red-600 backdrop-blur-sm transition"
+                                            >
+                                                <Trash2 size={20} />
+                                            </button>
+                                        </div>
+                                        <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/70 to-transparent text-white opacity-0 group-hover:opacity-100 transition">
+                                            <p className="text-xs font-medium truncate">{photo.name}</p>
+                                            <p className="text-[10px] opacity-75">{new Date(photo.createdAt?.seconds * 1000).toLocaleDateString()}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
