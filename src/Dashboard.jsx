@@ -44,7 +44,8 @@ import {
   Presentation,
   Printer,
   Upload,
-  Image as ImageIcon
+  Image as ImageIcon,
+  GripVertical
 } from 'lucide-react';
 
 export default function Dashboard() {
@@ -471,10 +472,14 @@ export default function Dashboard() {
     const [selectedBrand, setSelectedBrand] = useState('iHAVECPU');
     // Pages State
     const [pages, setPages] = useState([
-        { id: 1, title: 'Marketing Strategy Report', subtitle: 'Project Report', image: null }
+        { id: 1, title: 'Marketing Strategy Report', bodyText: 'Summarize your key points here...', image: null }
     ]);
     const [activePageId, setActivePageId] = useState(1);
     const [reportDate] = useState(new Date().toLocaleDateString('en-GB'));
+
+    // Drag References
+    const dragItem = useRef(null);
+    const dragOverItem = useRef(null);
 
     const activePage = pages.find(p => p.id === activePageId) || pages[0];
 
@@ -504,7 +509,7 @@ export default function Dashboard() {
 
     const addNewPage = () => {
         const newId = Date.now();
-        setPages([...pages, { id: newId, title: 'New Slide', subtitle: 'Subtitle', image: null }]);
+        setPages([...pages, { id: newId, title: 'New Slide', bodyText: 'Enter slide content...', image: null }]);
         setActivePageId(newId);
     };
 
@@ -514,6 +519,16 @@ export default function Dashboard() {
         const newPages = pages.filter(p => p.id !== id);
         setPages(newPages);
         if (activePageId === id) setActivePageId(newPages[0].id);
+    };
+
+    // Handle Drag Sort
+    const handleSort = () => {
+        let _pages = [...pages];
+        const draggedItemContent = _pages.splice(dragItem.current, 1)[0];
+        _pages.splice(dragOverItem.current, 0, draggedItemContent);
+        dragItem.current = null;
+        dragOverItem.current = null;
+        setPages(_pages);
     };
 
     const handlePrint = () => {
@@ -576,10 +591,18 @@ export default function Dashboard() {
                                 {pages.map((p, idx) => (
                                     <div 
                                         key={p.id}
+                                        draggable
+                                        onDragStart={(e) => (dragItem.current = idx)}
+                                        onDragEnter={(e) => (dragOverItem.current = idx)}
+                                        onDragEnd={handleSort}
+                                        onDragOver={(e) => e.preventDefault()}
                                         onClick={() => setActivePageId(p.id)}
-                                        className={`flex justify-between items-center p-3 rounded-lg border cursor-pointer transition ${activePageId === p.id ? 'border-blue-500 bg-blue-50' : 'border-gray-100 hover:bg-gray-50'}`}
+                                        className={`flex justify-between items-center p-3 rounded-lg border cursor-pointer transition group ${activePageId === p.id ? 'border-blue-500 bg-blue-50' : 'border-gray-100 hover:bg-gray-50'}`}
                                     >
-                                        <span className="text-sm font-medium truncate w-32">#{idx+1} {p.title}</span>
+                                        <div className="flex items-center gap-2 overflow-hidden">
+                                            <GripVertical className="text-gray-300 cursor-move flex-shrink-0 group-hover:text-gray-500" size={16} />
+                                            <span className="text-sm font-medium truncate">#{idx+1} {p.title}</span>
+                                        </div>
                                         {pages.length > 1 && (
                                             <button onClick={(e) => removePage(p.id, e)} className="text-gray-400 hover:text-red-500">
                                                 <Trash2 size={14} />
@@ -607,12 +630,11 @@ export default function Dashboard() {
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Subtitle (Header)</label>
-                                <input 
-                                    type="text" 
-                                    value={activePage.subtitle}
-                                    onChange={(e) => updatePage('subtitle', e.target.value)}
-                                    className="w-full border border-gray-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Slide Content</label>
+                                <textarea 
+                                    value={activePage.bodyText}
+                                    onChange={(e) => updatePage('bodyText', e.target.value)}
+                                    className="w-full border border-gray-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 h-12 resize-none"
                                 />
                             </div>
                             <div className="md:col-span-2">
@@ -634,10 +656,10 @@ export default function Dashboard() {
             <div className="space-y-8 print:space-y-0">
                 {pages.map((page, index) => (
                     <div key={page.id} className="max-w-5xl mx-auto bg-white aspect-video shadow-2xl rounded-xl overflow-hidden relative print:shadow-none print:w-full print:h-screen print:rounded-none flex flex-col print:break-after-page">
-                        {/* Brand Header with Subtitle */}
+                        {/* Brand Header (Subtitle removed) */}
                         <div className={`h-24 flex items-center px-10 justify-between ${brands.find(b => b.name === selectedBrand)?.color || 'bg-gray-900 text-white'}`}>
-                            {/* Dynamic Subtitle Input */}
-                            <h1 className="text-3xl font-bold tracking-wider uppercase">{page.subtitle}</h1>
+                            {/* Empty title area where subtitle was */}
+                            <div></div>
                             {brands.find(b => b.name === selectedBrand)?.logo ? (
                                 <img src={brands.find(b => b.name === selectedBrand).logo} alt="Logo" className="h-12 object-contain bg-white/10 p-1 rounded" />
                             ) : (
@@ -655,29 +677,14 @@ export default function Dashboard() {
                                     <h2 className="text-5xl font-extrabold text-gray-800 leading-tight">{page.title}</h2>
                                 </div>
                                 
-                                {/* Stats - Global Data */}
-                                <div className="space-y-4 pt-4">
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-lg">
-                                            {tasks.length}
-                                        </div>
-                                        <div>
-                                            <p className="text-sm text-gray-400 font-bold uppercase">Total Tasks</p>
-                                            <p className="text-lg font-bold text-gray-800">Active Scope</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center text-green-600 font-bold text-lg">
-                                            {getTasksByStatus('done').length}
-                                        </div>
-                                        <div>
-                                            <p className="text-sm text-gray-400 font-bold uppercase">Completed</p>
-                                            <p className="text-lg font-bold text-gray-800">Milestones Met</p>
-                                        </div>
-                                    </div>
+                                {/* Custom Body Text replaces Stats */}
+                                <div className="pt-4">
+                                    <p className="text-gray-600 text-lg leading-relaxed whitespace-pre-wrap">
+                                        {page.bodyText}
+                                    </p>
                                 </div>
 
-                                <div className="pt-8">
+                                <div className="pt-8 mt-auto">
                                     <p className="text-gray-400 text-sm font-medium">Prepared by</p>
                                     <p className="text-gray-800 font-bold text-lg">{currentUser?.email}</p>
                                 </div>
