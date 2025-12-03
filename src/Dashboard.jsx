@@ -62,7 +62,6 @@ export default function Dashboard() {
   const [currentView, setCurrentView] = useState('home'); 
   
   // --- EMAILJS CONFIGURATION ---
-  // Replace with your actual keys
   const EMAIL_SERVICE_ID = "YOUR_SERVICE_ID"; 
   const EMAIL_TEMPLATE_ID = "YOUR_TEMPLATE_ID"; 
   const EMAIL_PUBLIC_KEY = "YOUR_PUBLIC_KEY";
@@ -88,40 +87,49 @@ export default function Dashboard() {
     fileUrl: ''
   });
   
-  // Helper state for adding requirements in the modal
   const [tempReqInput, setTempReqInput] = useState('');
 
   const { currentUser, logout } = useAuth();
   const navigate = useNavigate();
 
-  // --- 1. READ: Fetch tasks ---
+  // --- 1. READ: Fetch tasks (FIXED: Removed dependency loop) ---
   useEffect(() => {
     const q = query(collection(db, 'tasks'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const taskData = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
       setTasks(taskData);
-      
-      // Update selectedTask live if open
-      if (selectedTask) {
-         const currentSelected = taskData.find(t => t.id === selectedTask.id);
-         if (currentSelected) {
-             setSelectedTask(currentSelected);
-             if (activeRequirement) {
-                 const updatedReq = Array.isArray(currentSelected.requirements) 
-                    ? currentSelected.requirements.find(r => r.id === activeRequirement.id) 
-                    : null;
-                 if (updatedReq) setActiveRequirement(updatedReq);
-             }
-         }
-      }
     });
     return unsubscribe;
-  }, [selectedTask, activeRequirement]);
+  }, []);
+
+  // --- 1.5. SYNC: Update selected task when data changes ---
+  useEffect(() => {
+    if (selectedTask) {
+       const currentSelected = tasks.find(t => t.id === selectedTask.id);
+       if (currentSelected) {
+           // Only update if actually different to avoid render cycles
+           if (JSON.stringify(currentSelected) !== JSON.stringify(selectedTask)) {
+               setSelectedTask(currentSelected);
+           }
+           
+           // Sync active requirement for sheet view
+           if (activeRequirement) {
+               const reqs = Array.isArray(currentSelected.requirements) 
+                  ? currentSelected.requirements 
+                  : []; // Safe fallback
+               const updatedReq = reqs.find(r => r.id === activeRequirement.id);
+               
+               if (updatedReq && JSON.stringify(updatedReq) !== JSON.stringify(activeRequirement)) {
+                   setActiveRequirement(updatedReq);
+               }
+           }
+       }
+    }
+  }, [tasks]); // Runs when database updates tasks
 
   // --- EMAIL LOGIC ---
   const sendEmail = (to, subject, body) => {
     if (EMAIL_SERVICE_ID === "YOUR_SERVICE_ID") {
-        console.warn("EmailJS keys not set.");
         return;
     }
     const templateParams = {
@@ -131,8 +139,7 @@ export default function Dashboard() {
         to_name: currentUser?.email?.split('@')[0] || 'User'
     };
     emailjs.send(EMAIL_SERVICE_ID, EMAIL_TEMPLATE_ID, templateParams, EMAIL_PUBLIC_KEY)
-      .then((response) => console.log('SUCCESS! Email sent.', response.status, response.text), 
-            (err) => console.error('FAILED to send email.', err));
+      .then((response) => console.log('Email sent'), (err) => console.error('Email failed', err));
   };
 
   // --- DUE DATE MONITORING ---
@@ -165,7 +172,7 @@ export default function Dashboard() {
     return () => clearTimeout(timeoutId);
   }, [tasks, currentUser]);
 
-  // --- 2. CREATE: Add Task ---
+  // --- 2. CREATE ---
   const handleAddTask = async (e) => {
     e.preventDefault();
     if (!newTask.title) return;
@@ -209,6 +216,8 @@ export default function Dashboard() {
 
   // --- 3. UPDATE Logic ---
   const toggleRequirement = async (taskId, reqId, currentRequirements) => {
+      if (!currentRequirements) return; // Safety check
+      
       let updatedReqs = [];
       if (typeof currentRequirements === 'string') {
           // Migration for legacy string data
@@ -257,6 +266,7 @@ export default function Dashboard() {
   const getSafeRequirements = (task) => {
       if (!task.requirements) return [];
       if (Array.isArray(task.requirements)) return task.requirements;
+      // Handle legacy string format gracefully
       return task.requirements.split('\n').filter(r => r.trim()).map((text, idx) => ({
           id: `legacy-${idx}`, text: text.replace(/^- /, ''), isDone: false, tableData: []
       }));
