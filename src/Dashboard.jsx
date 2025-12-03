@@ -199,163 +199,35 @@ const CalendarView = ({ tasks, setSelectedTaskId }) => {
     );
 };
 
-// --- NEW FEED-STYLE PHOTO ALBUM VIEW (LIGHT MODE) ---
 const PhotoAlbumView = ({ currentUser }) => {
     const [albums, setAlbums] = useState([]);
     const [photos, setPhotos] = useState([]);
+    const [currentAlbum, setCurrentAlbum] = useState(null);
     const [uploading, setUploading] = useState(false);
-    const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
     const [isCreatingAlbum, setIsCreatingAlbum] = useState(false);
     const [newAlbumName, setNewAlbumName] = useState('');
-    const [targetAlbumId, setTargetAlbumId] = useState('');
-    const [activeFilter, setActiveFilter] = useState('All');
 
-    useEffect(() => {
-        const unsubAlbums = onSnapshot(query(collection(db, 'albums'), orderBy('createdAt', 'desc')), (s) => {
-            setAlbums(s.docs.map(d => ({...d.data(), id: d.id})));
-        });
-        const unsubPhotos = onSnapshot(query(collection(db, 'photos'), orderBy('createdAt', 'desc')), (s) => {
-            setPhotos(s.docs.map(d => ({...d.data(), id: d.id})));
-        });
-        return () => { unsubAlbums(); unsubPhotos(); };
-    }, []);
+    useEffect(() => { const u = onSnapshot(query(collection(db, 'albums'), orderBy('createdAt', 'desc')), (s) => setAlbums(s.docs.map(d => ({...d.data(), id: d.id})))); return u; }, []);
+    useEffect(() => { const u = onSnapshot(query(collection(db, 'photos'), orderBy('createdAt', 'desc')), (s) => setPhotos(s.docs.map(d => ({...d.data(), id: d.id})))); return u; }, []);
 
-    const heroPhoto = photos.length > 0 ? photos[0] : null;
-
-    const handleCreateAlbum = async (e) => {
-        e.preventDefault();
-        if (!newAlbumName) return;
-        try {
-            const docRef = await addDoc(collection(db, 'albums'), { name: newAlbumName, createdAt: new Date(), createdBy: currentUser.email });
-            setNewAlbumName('');
-            setIsCreatingAlbum(false);
-            setTargetAlbumId(docRef.id);
-        } catch (error) { console.error("Error creating album:", error); }
+    const createAlbum = async (e) => { e.preventDefault(); if (!newAlbumName) return; await addDoc(collection(db, 'albums'), { name: newAlbumName, createdAt: new Date(), createdBy: currentUser.email }); setNewAlbumName(''); setIsCreatingAlbum(false); };
+    const handleUpload = async (e) => {
+        const file = e.target.files[0]; if (!file || file.size > 2e6) return alert("File too large (>2MB)"); setUploading(true);
+        const reader = new FileReader(); reader.onloadend = async () => { await addDoc(collection(db, 'photos'), { url: reader.result, name: file.name, createdAt: new Date(), uploader: currentUser.email, albumId: currentAlbum.id }); setUploading(false); }; reader.readAsDataURL(file);
     };
-
-    const handleMultipleUpload = async (e) => {
-        const files = Array.from(e.target.files);
-        if (files.length === 0) return;
-        if (!targetAlbumId) return alert("Please select an album first.");
-        setUploading(true);
-        const uploadPromises = files.map(file => {
-            return new Promise((resolve, reject) => {
-                if (file.size > 5 * 1024 * 1024) { resolve(null); return; }
-                const reader = new FileReader();
-                reader.onloadend = async () => {
-                    try {
-                        await addDoc(collection(db, 'photos'), { url: reader.result, name: file.name, createdAt: new Date(), uploader: currentUser.email, albumId: targetAlbumId });
-                        resolve(true);
-                    } catch (err) { reject(err); }
-                };
-                reader.readAsDataURL(file);
-            });
-        });
-        try { await Promise.all(uploadPromises); setIsUploadModalOpen(false); } catch (error) { console.error(error); } finally { setUploading(false); }
-    };
-
-    const handleDeleteAlbum = async (e, id) => { e.stopPropagation(); if(confirm("Delete album?")) await deleteDoc(doc(db, 'albums', id)); }
-    const handleDeletePhoto = async (id) => { if(confirm("Delete photo?")) await deleteDoc(doc(db, 'photos', id)); }
-
-    const displayPhotos = activeFilter === 'All' ? photos : photos.filter(p => p.albumId === activeFilter);
+    const handleDeletePhoto = async (id) => { if (confirm("Delete photo?")) await deleteDoc(doc(db, 'photos', id)); };
+    const handleDeleteAlbum = async (e, id) => { e.stopPropagation(); if (confirm("Delete album?")) { await deleteDoc(doc(db, 'albums', id)); if (currentAlbum?.id === id) setCurrentAlbum(null); } };
+    const albumPhotos = photos.filter(p => p.albumId === currentAlbum?.id);
 
     return (
-        <div className="h-full w-full bg-gray-50 overflow-y-auto overflow-x-hidden text-gray-900 font-sans">
-            {/* Cover & Profile Header */}
-            <div className="relative h-48 md:h-60 w-full bg-cyan-500">
-                 <img src="https://placehold.co/1200x400/06b6d4/ffffff?text=iHAVECPU+Official" className="w-full h-full object-cover opacity-80" alt="Cover" />
-                 <div className="absolute -bottom-16 left-6 md:left-12">
-                     <div className="w-32 h-32 rounded-full border-4 border-white bg-white overflow-hidden shadow-md">
-                         <div className="w-full h-full bg-gray-200 flex items-center justify-center text-3xl font-bold text-gray-400">
-                             {currentUser?.email?.[0].toUpperCase()}
-                         </div>
-                     </div>
-                 </div>
+        <div className="p-6 md:p-10 h-full w-full bg-gray-50/50 overflow-y-auto"><div className="max-w-6xl mx-auto">
+            <div className="flex justify-between items-center mb-8">
+                <div className="flex items-center gap-3">{currentAlbum && <button onClick={() => setCurrentAlbum(null)} className="p-2 hover:bg-gray-200 rounded-full text-gray-500"><ArrowLeft size={24} /></button>}<div><h2 className="text-3xl font-bold text-gray-800 flex items-center gap-3">{currentAlbum ? <><Folder className="text-purple-600" /> {currentAlbum.name}</> : <><ImageIcon className="text-purple-600" /> Photo Albums</>}</h2></div></div>
+                {!currentAlbum ? <div className="relative">{isCreatingAlbum ? <form onSubmit={createAlbum} className="flex gap-2"><input autoFocus type="text" placeholder="Album Name" className="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 outline-none" value={newAlbumName} onChange={e => setNewAlbumName(e.target.value)} /><button type="submit" className="bg-purple-600 text-white px-4 py-2 rounded-lg font-bold text-sm">Save</button></form> : <button onClick={() => setIsCreatingAlbum(true)} className="flex items-center gap-2 bg-purple-600 text-white px-5 py-2.5 rounded-full font-bold shadow-lg hover:bg-purple-700 transition"><Plus size={20} /> Create Album</button>}</div> : <div className="relative"><input type="file" accept="image/*" onChange={handleUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" disabled={uploading} /><button className="flex items-center gap-2 bg-purple-600 text-white px-5 py-2.5 rounded-full font-bold shadow-lg">{uploading ? <Loader2 className="animate-spin" size={20} /> : <Upload size={20} />} Upload</button></div>}
             </div>
-
-            <div className="max-w-3xl mx-auto px-4 pt-20 pb-10">
-                {/* Profile Info */}
-                <div className="flex justify-between items-start mb-6">
-                    <div>
-                        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-1">
-                            iHAVECPU Official <CheckCircle2 size={20} className="text-cyan-500 fill-cyan-50" />
-                        </h1>
-                        <p className="text-gray-500 text-sm">@{currentUser?.email?.split('@')[0]}</p>
-                    </div>
-                    <div className="flex gap-3">
-                         <button onClick={() => setIsCreatingAlbum(true)} className="border border-cyan-500 text-cyan-500 hover:bg-cyan-50 px-4 py-2 rounded-full font-bold text-sm transition">NEW ALBUM</button>
-                         <button onClick={() => setIsUploadModalOpen(true)} className="bg-cyan-500 hover:bg-cyan-600 text-white px-4 py-2 rounded-full font-bold text-sm transition flex items-center gap-2"><Plus size={16}/> POST PHOTO</button>
-                    </div>
-                </div>
-
-                <div className="text-gray-700 mb-6 text-sm leading-relaxed">
-                    <p>Official repository for all iHAVECPU marketing assets, event highlights, and promotional materials. 🚀</p>
-                    <div className="flex gap-6 mt-3 text-gray-500">
-                        <span><strong className="text-gray-900">{photos.length}</strong> Posts</span>
-                        <span><strong className="text-gray-900">{albums.length}</strong> Albums</span>
-                    </div>
-                </div>
-
-                {/* Navigation Tabs */}
-                <div className="flex border-b border-gray-200 mb-6 overflow-x-auto scrollbar-hide">
-                    <button onClick={() => setActiveFilter('All')} className={`px-8 py-4 font-bold text-sm uppercase border-b-2 transition whitespace-nowrap ${activeFilter === 'All' ? 'border-cyan-500 text-cyan-500' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>POSTS</button>
-                    {albums.map(album => (
-                        <div key={album.id} className="relative group">
-                            <button onClick={() => setActiveFilter(album.id)} className={`px-8 py-4 font-bold text-sm uppercase border-b-2 transition whitespace-nowrap ${activeFilter === album.id ? 'border-cyan-500 text-cyan-500' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>{album.name}</button>
-                            <button onClick={(e) => handleDeleteAlbum(e, album.id)} className="absolute top-2 right-2 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 p-1" title="Delete Album"><X size={12} /></button>
-                        </div>
-                    ))}
-                </div>
-
-                {/* Feed Stream */}
-                <div className="flex flex-col gap-6">
-                    {displayPhotos.length === 0 && (<div className="p-10 text-center text-gray-400 bg-white border border-gray-200 rounded-lg"><p>No posts yet.</p></div>)}
-                    {displayPhotos.map(photo => (
-                        <div key={photo.id} className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-                             <div className="p-4 flex items-center gap-3">
-                                 <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold">{currentUser?.email?.[0].toUpperCase()}</div>
-                                 <div><p className="text-sm font-bold text-gray-900 flex items-center gap-1">iHAVECPU Official <span className="text-gray-400 font-normal">@{currentUser?.email?.split('@')[0]}</span></p><p className="text-xs text-gray-400 hover:underline cursor-pointer">{new Date(photo.createdAt?.seconds * 1000).toLocaleDateString()}</p></div>
-                                 <button onClick={() => handleDeletePhoto(photo.id)} className="ml-auto text-gray-400 hover:text-red-500 p-2 rounded-full hover:bg-red-50 transition"><Trash2 size={18} /></button>
-                             </div>
-                             <div className="px-4 pb-3 text-sm text-gray-800">{photo.name} <span className="text-cyan-500 cursor-pointer hover:underline">#{albums.find(a => a.id === photo.albumId)?.name || 'General'}</span></div>
-                             <img src={photo.url} className="w-full h-auto object-cover max-h-[600px]" loading="lazy" />
-                             <div className="p-3 flex gap-6 text-gray-500 border-t border-gray-100">
-                                 <button className="flex items-center gap-2 hover:text-red-500 transition"><Heart size={20} /> <span className="text-xs font-bold">Like</span></button>
-                                 <button className="flex items-center gap-2 hover:text-cyan-500 transition"><MessageCircle size={20} /> <span className="text-xs font-bold">Comment</span></button>
-                                 <div className="flex-1"></div>
-                                 <a href={photo.url} download={photo.name} className="flex items-center gap-2 hover:text-cyan-500 transition"><Download size={20} /></a>
-                                 <button className="hover:text-cyan-500 transition"><Share2 size={20} /></button>
-                             </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-
-            {/* Modals */}
-            {isUploadModalOpen && (
-                <div className="fixed inset-0 bg-black/60 z-[80] flex items-center justify-center p-4 backdrop-blur-sm">
-                    <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl">
-                        <div className="flex justify-between items-center mb-6"><h3 className="text-xl font-bold text-gray-900">Create Post</h3><button onClick={() => setIsUploadModalOpen(false)} className="text-gray-400 hover:text-gray-900"><X size={24}/></button></div>
-                        <div className="space-y-4">
-                            <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Album</label><select className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-cyan-500" value={targetAlbumId} onChange={(e) => setTargetAlbumId(e.target.value)}><option value="">Select Album...</option>{albums.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}</select></div>
-                            <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:bg-gray-50 transition relative group"><input type="file" multiple accept="image/*" onChange={handleMultipleUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" disabled={uploading} />{uploading ? <div className="flex flex-col items-center text-cyan-600"><Loader2 className="animate-spin mb-2" size={32} /><span>Posting...</span></div> : <div className="flex flex-col items-center text-gray-400 group-hover:text-cyan-600 transition"><ImageIcon size={32} className="mb-2" /><span className="font-bold text-sm">Select Media</span></div>}</div>
-                        </div>
-                    </div>
-                </div>
-            )}
-            {isCreatingAlbum && (
-                 <div className="fixed inset-0 bg-black/60 z-[80] flex items-center justify-center p-4 backdrop-blur-sm">
-                    <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl">
-                         <h3 className="text-lg font-bold text-gray-900 mb-4">New Album</h3>
-                         <form onSubmit={handleCreateAlbum} className="flex flex-col gap-4">
-                             <input autoFocus type="text" placeholder="Album Name" className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-cyan-500" value={newAlbumName} onChange={e => setNewAlbumName(e.target.value)} />
-                             <div className="flex justify-end gap-2"><button type="button" onClick={() => setIsCreatingAlbum(false)} className="px-4 py-2 text-gray-500 hover:bg-gray-100 rounded-lg text-sm font-bold">Cancel</button><button type="submit" className="bg-cyan-500 text-white px-6 py-2 rounded-lg font-bold text-sm hover:bg-cyan-600 shadow-lg shadow-cyan-200">Create</button></div>
-                         </form>
-                    </div>
-                 </div>
-            )}
-        </div>
-    )
+            {!currentAlbum ? <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{albums.map(album => (<div key={album.id} onClick={() => setCurrentAlbum(album)} className="group bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition cursor-pointer flex flex-col items-center justify-center aspect-square relative"><Folder size={64} className="text-purple-200 group-hover:text-purple-300 transition mb-4" /><h3 className="font-bold text-gray-700 text-center">{album.name}</h3><button onClick={(e) => handleDeleteAlbum(e, album.id)} className="absolute top-3 right-3 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition"><Trash2 size={18} /></button></div>))}</div> : <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{albumPhotos.map(photo => (<div key={photo.id} className="group relative bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition aspect-square"><img src={photo.url} className="w-full h-full object-cover" /><div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2"><a href={photo.url} download={photo.name} className="p-2 bg-white/20 text-white rounded-full"><ExternalLink size={20} /></a><button onClick={() => handleDeletePhoto(photo.id)} className="p-2 bg-red-500/80 text-white rounded-full"><Trash2 size={20} /></button></div></div>))}</div>}
+        </div></div>
+    );
 };
 
 const SelfHealView = () => {
