@@ -294,9 +294,9 @@ export default function Dashboard() {
   const [tasks, setTasks] = useState([]);
   const [currentView, setCurrentView] = useState('home'); 
   
-  const EMAIL_SERVICE_ID = "YOUR_SERVICE_ID"; 
-  const EMAIL_TEMPLATE_ID = "YOUR_TEMPLATE_ID"; 
-  const EMAIL_PUBLIC_KEY = "YOUR_PUBLIC_KEY";
+  const EMAIL_SERVICE_ID = "service_ld9gdun"; 
+  const EMAIL_TEMPLATE_ID = "template_y1drpcl"; 
+  const EMAIL_PUBLIC_KEY = "jDQgm1SiqFlSBF9d3";
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null); 
@@ -341,7 +341,7 @@ export default function Dashboard() {
   }, [tasks]);
 
   const sendEmail = (to, subject, body) => {
-    if (EMAIL_SERVICE_ID === "YOUR_SERVICE_ID") return;
+    if (EMAIL_SERVICE_ID === "service_ld9gdun") return;
     const templateParams = { to_email: to, subject: subject, message: body, to_name: currentUser?.email?.split('@')[0] || 'User' };
     emailjs.send(EMAIL_SERVICE_ID, EMAIL_TEMPLATE_ID, templateParams, EMAIL_PUBLIC_KEY).catch(e => console.error(e));
   };
