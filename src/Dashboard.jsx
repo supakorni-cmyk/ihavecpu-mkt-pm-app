@@ -50,14 +50,16 @@ const getSafeRequirements = (task) => {
     return [];
 };
 
-// --- SUB-COMPONENTS (Defined Outside) ---
+// --- SUB-COMPONENTS ---
 
 const RequirementSheetModal = ({ task, requirement, onClose }) => {
     const [newRow, setNewRow] = useState({ col1: '', col2: '', col3: '', notes: '' });
 
     const handleAddRow = () => {
         if(!newRow.col1 && !newRow.col2) return;
-        const updatedReqs = task.requirements.map(r => {
+        // Ensure we handle requirements as an array
+        const safeReqs = getSafeRequirements(task);
+        const updatedReqs = safeReqs.map(r => {
             if (r.id === requirement.id) {
                 return { ...r, tableData: [...(r.tableData || []), { id: Date.now(), ...newRow }] };
             }
@@ -68,7 +70,8 @@ const RequirementSheetModal = ({ task, requirement, onClose }) => {
     };
 
     const handleDeleteRow = (rowId) => {
-        const updatedReqs = task.requirements.map(r => {
+        const safeReqs = getSafeRequirements(task);
+        const updatedReqs = safeReqs.map(r => {
             if (r.id === requirement.id) {
                 return { ...r, tableData: r.tableData.filter(row => row.id !== rowId) };
             }
@@ -135,7 +138,13 @@ const HomeView = ({ tasks }) => {
     const inProgressTasks = getTasksByStatus('inprogress').length;
     const reviewTasks = getTasksByStatus('review').length;
     const todoTasks = getTasksByStatus('todo').length;
-    const tagCounts = tasks.reduce((acc, task) => { acc[task.tag] = (acc[task.tag] || 0) + 1; return acc; }, {});
+    
+    // Safe Tag Counting
+    const tagCounts = tasks.reduce((acc, task) => { 
+        const tag = task.tag || 'Uncategorized';
+        acc[tag] = (acc[tag] || 0) + 1; 
+        return acc; 
+    }, {});
     const maxTagCount = Math.max(...Object.values(tagCounts), 1);
 
     return (
@@ -148,14 +157,14 @@ const HomeView = ({ tasks }) => {
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100"><h3 className="text-lg font-bold text-gray-800 mb-6">Task Status</h3><div className="flex items-end justify-between h-64 gap-4">{[{ label: 'To Do', count: todoTasks, color: 'bg-gray-200' }, { label: 'In Progress', count: inProgressTasks, color: 'bg-blue-500' }, { label: 'Review', count: reviewTasks, color: 'bg-purple-500' }, { label: 'Done', count: completedTasks, color: 'bg-green-500' }].map((stat) => (<div key={stat.label} className="flex flex-col items-center gap-2 flex-1 h-full justify-end group"><div className="font-bold text-gray-800 mb-1 opacity-0 group-hover:opacity-100 transition-opacity transform translate-y-2 group-hover:translate-y-0">{stat.count}</div><div className={`w-full rounded-t-xl transition-all duration-500 ${stat.color} hover:opacity-90`} style={{ height: `${totalTasks > 0 ? (stat.count / totalTasks) * 100 : 0}%`, minHeight: '8px' }}></div><div className="text-xs font-bold text-gray-400 uppercase text-center mt-2">{stat.label}</div></div>))}</div></div>
-                    <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100"><h3 className="text-lg font-bold text-gray-800 mb-6">Workload</h3><div className="space-y-5">{Object.keys(TAG_COLORS).map((tag) => { const count = tagCounts[tag] || 0; return (<div key={tag}><div className="flex justify-between text-sm font-bold mb-2"><span className="text-gray-600">{tag}</span><span className="text-gray-400">{count} Tasks</span></div><div className="h-3 w-full bg-gray-100 rounded-full overflow-hidden"><div className={`h-full rounded-full transition-all duration-500 ${TAG_COLORS[tag].split(' ')[0]}`} style={{ width: `${(count / maxTagCount) * 100}%` }}></div></div></div>) })}</div></div>
+                    <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100"><h3 className="text-lg font-bold text-gray-800 mb-6">Workload</h3><div className="space-y-5">{Object.keys(TAG_COLORS).map((tag) => { const count = tagCounts[tag] || 0; return (<div key={tag}><div className="flex justify-between text-sm font-bold mb-2"><span className="text-gray-600">{tag}</span><span className="text-gray-400">{count} Tasks</span></div><div className="h-3 w-full bg-gray-100 rounded-full overflow-hidden"><div className={`h-full rounded-full transition-all duration-500 ${(TAG_COLORS[tag] || 'bg-gray-200').split(' ')[0]}`} style={{ width: `${(count / maxTagCount) * 100}%` }}></div></div></div>) })}</div></div>
                 </div>
             </div>
         </div>
     );
 };
 
-const CalendarView = ({ tasks, setSelectedTask, setIsEditing }) => {
+const CalendarView = ({ tasks, setSelectedTaskId }) => {
     const [currentDate, setCurrentDate] = useState(new Date());
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
@@ -184,7 +193,7 @@ const CalendarView = ({ tasks, setSelectedTask, setIsEditing }) => {
                     {Array.from({ length: firstDay }).map((_, i) => <div key={`empty-${i}`} className="bg-white min-h-[100px]"></div>)}
                     {Array.from({ length: daysInMonth }).map((_, i) => {
                         const day = i + 1; const dayTasks = getTasksForDay(day);
-                        return (<div key={day} className="bg-white p-2 min-h-[100px] hover:bg-gray-50 transition relative"><div className="text-sm font-medium mb-1 text-gray-700">{day}</div><div className="flex flex-col gap-1 overflow-y-auto max-h-[80px]">{dayTasks.map(task => (<div key={task.id} onClick={() => { setSelectedTask(task); setIsEditing(false); }} className={`text-[10px] truncate px-1.5 py-0.5 rounded cursor-pointer hover:opacity-80 ${TAG_COLORS[task.tag] ? TAG_COLORS[task.tag].replace('text-', 'bg-').split(' ')[0] + ' text-gray-700' : 'bg-gray-100'}`}>{task.title}</div>))}</div></div>);
+                        return (<div key={day} className="bg-white p-2 min-h-[100px] hover:bg-gray-50 transition relative"><div className="text-sm font-medium mb-1 text-gray-700">{day}</div><div className="flex flex-col gap-1 overflow-y-auto max-h-[80px]">{dayTasks.map(task => (<div key={task.id} onClick={() => setSelectedTaskId(task.id)} className={`text-[10px] truncate px-1.5 py-0.5 rounded cursor-pointer hover:opacity-80 ${TAG_COLORS[task.tag] ? TAG_COLORS[task.tag].replace('text-', 'bg-').split(' ')[0] + ' text-gray-700' : 'bg-gray-100'}`}>{task.title}</div>))}</div></div>);
                     })}
                 </div>
             </div>
@@ -245,7 +254,6 @@ const ReportView = ({ tasks, currentUser }) => {
     const addNewPage = () => { const newId = Date.now(); setPages([...pages, { id: newId, title: 'New Slide', bodyText: 'Enter slide content...', image: null, image2: null, template: '1-landscape' }]); setActivePageId(newId); };
     const removePage = (id, e) => { e.stopPropagation(); if (pages.length === 1) return; const newPages = pages.filter(p => p.id !== id); setPages(newPages); if (activePageId === id) setActivePageId(newPages[0].id); };
     const handleSort = () => { let _pages = [...pages]; const item = _pages.splice(dragItem.current, 1)[0]; _pages.splice(dragOverItem.current, 0, item); setPages(_pages); };
-    const getTasksByStatus = (status) => tasks.filter(task => (status === 'todo' && (task.status === 'pending' || !task.status)) ? true : (status === 'done' && task.status === 'completed') ? true : task.status === status);
 
     return (
         <div className="p-6 md:p-10 h-full w-full bg-gray-100 overflow-y-auto">
@@ -294,15 +302,19 @@ export default function Dashboard() {
   const [tasks, setTasks] = useState([]);
   const [currentView, setCurrentView] = useState('home'); 
   
-  const EMAIL_SERVICE_ID = "service_ld9gdun"; 
-  const EMAIL_TEMPLATE_ID = "template_y1drpcl"; 
-  const EMAIL_PUBLIC_KEY = "jDQgm1SiqFlSBF9d3";
+  // Replace with your actual keys
+  const EMAIL_SERVICE_ID = "YOUR_SERVICE_ID"; 
+  const EMAIL_TEMPLATE_ID = "YOUR_TEMPLATE_ID"; 
+  const EMAIL_PUBLIC_KEY = "YOUR_PUBLIC_KEY";
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [selectedTask, setSelectedTask] = useState(null); 
+  
+  // ID-based selection to prevent infinite loops
+  const [selectedTaskId, setSelectedTaskId] = useState(null);
+  const [activeRequirementId, setActiveRequirementId] = useState(null);
+  
   const [isEditing, setIsEditing] = useState(false); 
   const [editedTask, setEditedTask] = useState({}); 
-  const [activeRequirement, setActiveRequirement] = useState(null); 
   
   const [newTask, setNewTask] = useState({
     title: '', tag: 'Planning', startDate: new Date().toISOString().split('T')[0],
@@ -312,6 +324,10 @@ export default function Dashboard() {
   const [tempReqInput, setTempReqInput] = useState('');
   const { currentUser, logout } = useAuth();
   const navigate = useNavigate();
+
+  // Derived Data
+  const selectedTask = tasks.find(t => t.id === selectedTaskId);
+  const activeRequirement = selectedTask ? getSafeRequirements(selectedTask).find(r => r.id === activeRequirementId) : null;
 
   // READ Tasks
   useEffect(() => {
@@ -323,25 +339,34 @@ export default function Dashboard() {
     return unsubscribe;
   }, []);
 
-  // Sync Selected Task
+  // DUE DATE MONITORING
   useEffect(() => {
-    if (selectedTask) {
-       const currentSelected = tasks.find(t => t.id === selectedTask.id);
-       if (currentSelected && JSON.stringify(currentSelected) !== JSON.stringify(selectedTask)) {
-           setSelectedTask(currentSelected);
-       }
-       if (activeRequirement && currentSelected) {
-           const reqs = getSafeRequirements(currentSelected);
-           const updatedReq = reqs.find(r => r.id === activeRequirement.id);
-           if (updatedReq && JSON.stringify(updatedReq) !== JSON.stringify(activeRequirement)) {
-               setActiveRequirement(updatedReq);
-           }
-       }
-    }
-  }, [tasks]);
+    if (!currentUser || tasks.length === 0) return;
+    const checkDueDates = () => {
+        const today = new Date();
+        const twoDaysFromNow = new Date();
+        twoDaysFromNow.setDate(today.getDate() + 2); 
+
+        tasks.forEach(async (task) => {
+            if (task.deadline && task.status !== 'done' && !task.dueNotificationSent) {
+                const dueDate = new Date(task.deadline);
+                const isApproaching = dueDate >= today && dueDate <= twoDaysFromNow;
+                const isOverdue = dueDate < today;
+
+                if (isApproaching || isOverdue) {
+                    const statusMsg = isOverdue ? "OVERDUE" : "due soon";
+                    sendEmail(currentUser.email, `URGENT: "${task.title}" is ${statusMsg}`, `Hello,\n\nYour task "${task.title}" is currently ${statusMsg}.\nDue Date: ${formatDate(task.deadline)}.\n\nPlease update the status on your dashboard.`);
+                    try { await updateDoc(doc(db, 'tasks', task.id), { dueNotificationSent: true }); } catch (err) { console.error(err); }
+                }
+            }
+        });
+    };
+    const timeoutId = setTimeout(checkDueDates, 5000); 
+    return () => clearTimeout(timeoutId);
+  }, [tasks, currentUser]);
 
   const sendEmail = (to, subject, body) => {
-    if (EMAIL_SERVICE_ID === "service_ld9gdun") return;
+    if (EMAIL_SERVICE_ID === "YOUR_SERVICE_ID") return;
     const templateParams = { to_email: to, subject: subject, message: body, to_name: currentUser?.email?.split('@')[0] || 'User' };
     emailjs.send(EMAIL_SERVICE_ID, EMAIL_TEMPLATE_ID, templateParams, EMAIL_PUBLIC_KEY).catch(e => console.error(e));
   };
@@ -376,9 +401,9 @@ export default function Dashboard() {
   };
 
   const moveTask = async (e, taskId, currentStatus, direction) => { e.stopPropagation(); const statusOrder = ['todo', 'inprogress', 'review', 'done']; const currentIndex = statusOrder.indexOf(currentStatus); let nextIndex = direction === 'next' ? currentIndex + 1 : currentIndex - 1; if (nextIndex >= 0 && nextIndex < statusOrder.length) { await updateDoc(doc(db, 'tasks', taskId), { status: statusOrder[nextIndex] }); } };
-  const deleteTask = async (e, id) => { e.stopPropagation(); if (confirm("Delete?")) { await deleteDoc(doc(db, 'tasks', id)); if (selectedTask?.id === id) setSelectedTask(null); } };
+  const deleteTask = async (e, id) => { e.stopPropagation(); if (confirm("Delete?")) { await deleteDoc(doc(db, 'tasks', id)); if (selectedTaskId === id) setSelectedTaskId(null); } };
   const handleUpdateTask = async (e) => { e.preventDefault(); await updateDoc(doc(db, 'tasks', selectedTask.id), { ...editedTask }); setIsEditing(false); };
-
+  
   const getTasksByStatus = (status) => tasks.filter(task => (status === 'todo' && (task.status === 'pending' || !task.status)) ? true : (status === 'done' && task.status === 'completed') ? true : task.status === status);
 
   return (
@@ -400,10 +425,10 @@ export default function Dashboard() {
         {currentView === 'board' && (
             <div className="flex flex-col h-full w-full">
                 <header className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-white/80 backdrop-blur-md z-10"><h2 className="text-2xl font-bold text-gray-800">Marketing Sprint</h2><button onClick={() => setIsAddModalOpen(true)} className="flex items-center gap-2 bg-black text-white px-5 py-2.5 rounded-full font-medium hover:bg-gray-800 transition shadow-lg shadow-gray-200"><Plus size={18} /> New Task</button></header>
-                <div className="flex-1 overflow-x-auto overflow-y-hidden px-6 pb-4 pt-6"><div className="flex gap-6 h-full min-w-full">{COLUMNS.map(col => (<div key={col.id} className="flex-1 min-w-[300px] flex flex-col h-full"><div className="flex items-center justify-between mb-4 px-1"><div className="flex items-center gap-2"><h3 className="text-gray-600 font-bold text-sm uppercase tracking-wider">{col.title}</h3><span className="bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full text-xs font-bold">{getTasksByStatus(col.id).length}</span></div><MoreHorizontal size={16} className="text-gray-300" /></div><div className={`flex-1 rounded-2xl p-2 ${col.color} overflow-y-auto custom-scrollbar`}><div className="flex flex-col gap-3 pb-2">{getTasksByStatus(col.id).map(task => (<div key={task.id} onClick={() => { setSelectedTask(task); setIsEditing(false); }} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all group relative cursor-pointer"><div className="flex justify-between items-start mb-3"><span className={`px-2.5 py-1 rounded-md text-[10px] font-bold tracking-wide uppercase ${TAG_COLORS[task.tag] || 'bg-gray-100 text-gray-500'}`}>{task.tag}</span><button onClick={(e) => deleteTask(e, task.id)} className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1"><Trash2 size={14} /></button></div><h4 className="text-gray-800 font-semibold text-sm mb-4 leading-relaxed line-clamp-2">{task.title}</h4>{task.requirements && (<div className="mb-3"><div className="flex items-center gap-1.5 text-xs text-gray-500 font-medium mb-1"><CheckSquare size={12} className="text-green-600" /><span>Requirements</span></div><div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden"><div className="bg-green-500 h-full w-1/2"></div></div></div>)}<div className="flex items-center justify-between pt-3 border-t border-gray-50"><div className="flex items-center gap-1.5 text-gray-400 text-xs font-medium"><Clock size={12} /><span>{formatDate(task.deadline)}</span></div><div className="flex gap-1">{col.id !== 'todo' && <button onClick={(e) => moveTask(e, task.id, task.status || 'todo', 'prev')} className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-blue-600"><ArrowLeft size={14} /></button>}{col.id !== 'done' && <button onClick={(e) => moveTask(e, task.id, task.status || 'todo', 'next')} className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-blue-600"><ArrowRight size={14} /></button>}</div></div></div>))}</div></div></div>))}</div></div>
+                <div className="flex-1 overflow-x-auto overflow-y-hidden px-6 pb-4 pt-6"><div className="flex gap-6 h-full min-w-full">{COLUMNS.map(col => (<div key={col.id} className="flex-1 min-w-[300px] flex flex-col h-full"><div className="flex items-center justify-between mb-4 px-1"><div className="flex items-center gap-2"><h3 className="text-gray-600 font-bold text-sm uppercase tracking-wider">{col.title}</h3><span className="bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full text-xs font-bold">{getTasksByStatus(col.id).length}</span></div><MoreHorizontal size={16} className="text-gray-300" /></div><div className={`flex-1 rounded-2xl p-2 ${col.color} overflow-y-auto custom-scrollbar`}><div className="flex flex-col gap-3 pb-2">{getTasksByStatus(col.id).map(task => (<div key={task.id} onClick={() => { setSelectedTaskId(task.id); setIsEditing(false); }} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all group relative cursor-pointer"><div className="flex justify-between items-start mb-3"><span className={`px-2.5 py-1 rounded-md text-[10px] font-bold tracking-wide uppercase ${TAG_COLORS[task.tag] || 'bg-gray-100 text-gray-500'}`}>{task.tag}</span><button onClick={(e) => deleteTask(e, task.id)} className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1"><Trash2 size={14} /></button></div><h4 className="text-gray-800 font-semibold text-sm mb-4 leading-relaxed line-clamp-2">{task.title}</h4>{task.requirements && (<div className="mb-3"><div className="flex items-center gap-1.5 text-xs text-gray-500 font-medium mb-1"><CheckSquare size={12} className="text-green-600" /><span>Requirements</span></div><div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden"><div className="bg-green-500 h-full w-1/2"></div></div></div>)}<div className="flex items-center justify-between pt-3 border-t border-gray-50"><div className="flex items-center gap-1.5 text-gray-400 text-xs font-medium"><Clock size={12} /><span>{formatDate(task.deadline)}</span></div><div className="flex gap-1">{col.id !== 'todo' && <button onClick={(e) => moveTask(e, task.id, task.status || 'todo', 'prev')} className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-blue-600"><ArrowLeft size={14} /></button>}{col.id !== 'done' && <button onClick={(e) => moveTask(e, task.id, task.status || 'todo', 'next')} className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-blue-600"><ArrowRight size={14} /></button>}</div></div></div>))}</div></div></div>))}</div></div>
             </div>
         )}
-        {currentView === 'calendar' && <CalendarView tasks={tasks} setSelectedTask={setSelectedTask} setIsEditing={setIsEditing} />}
+        {currentView === 'calendar' && <CalendarView tasks={tasks} setSelectedTaskId={setSelectedTaskId} setIsEditing={setIsEditing} />}
         {currentView === 'album' && <PhotoAlbumView currentUser={currentUser} />}
         {currentView === 'selfheal' && <SelfHealView />}
         {currentView === 'report' && <ReportView tasks={tasks} currentUser={currentUser} />}
@@ -413,45 +438,12 @@ export default function Dashboard() {
             <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"><div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 md:p-8"><div className="flex justify-between items-center mb-6"><h3 className="text-2xl font-bold text-gray-800">Create New Task</h3><button onClick={() => setIsAddModalOpen(false)} className="p-2 hover:bg-gray-100 rounded-full text-gray-500"><X size={24} /></button></div><form onSubmit={handleAddTask} className="flex flex-col gap-6"><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><input autoFocus type="text" className="w-full border-gray-200 bg-gray-50 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 font-medium" placeholder="Task Title" value={newTask.title} onChange={e => setNewTask({...newTask, title: e.target.value})} /><select className="w-full border-gray-200 bg-gray-50 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800" value={newTask.tag} onChange={e => setNewTask({...newTask, tag: e.target.value})}><option value="Planning">Planning</option><option value="Project">Project</option><option value="Product Review">Product Review</option><option value="Event">Event</option><option value="Guest Speaker">Guest Speaker</option></select></div><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><input type="date" className="w-full border-2 border-blue-200 bg-blue-50 rounded-lg px-4 py-3 font-bold" value={newTask.deadline} onChange={e => setNewTask({...newTask, deadline: e.target.value})} /></div><div><label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 block">Requirements List</label><div className="flex gap-2 mb-2"><input type="text" placeholder="Add requirement..." className="flex-1 border-gray-200 bg-gray-50 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" value={tempReqInput} onChange={e => setTempReqInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addRequirementLine())} /><button type="button" onClick={addRequirementLine} className="bg-gray-100 hover:bg-gray-200 text-gray-600 p-2 rounded-lg transition"><Plus size={20} /></button></div><div className="space-y-2 max-h-32 overflow-y-auto">{newTask.requirements.map((req, idx) => (<div key={idx} className="flex justify-between items-center bg-gray-50 p-2 rounded border border-gray-100"><span className="text-sm text-gray-700">{req.text}</span><button type="button" onClick={() => removeRequirementLine(idx)} className="text-gray-400 hover:text-red-500"><X size={14} /></button></div>))}</div></div><button type="submit" className="w-full py-3 rounded-xl font-bold bg-blue-600 text-white hover:bg-blue-700 shadow-lg transition">Create Task</button></form></div></div>
       )}
 
-      {selectedTask && !isChecklistModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setSelectedTask(null)}>
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto p-0 flex flex-col" onClick={e => e.stopPropagation()}>
-                <div className="p-8">
-                    <div className="flex justify-between items-start mb-6">
-                        <div className="flex-1">
-                            {!isEditing ? (
-                                <><div className="flex items-center gap-3 mb-3"><span className={`px-3 py-1 rounded-md text-xs font-bold tracking-wide uppercase ${TAG_COLORS[selectedTask.tag]}`}>{selectedTask.tag}</span></div><h2 className="text-3xl font-bold text-gray-900">{selectedTask.title}</h2></>
-                            ) : (<input type="text" className="w-full border p-2" value={editedTask.title} onChange={e => setEditedTask({...editedTask, title: e.target.value})} />)}
-                        </div>
-                        <div className="flex gap-2">
-                            {!isEditing ? <button onClick={() => { setEditedTask(selectedTask); setIsEditing(true); }} className="p-2 hover:bg-blue-50 text-blue-600 rounded"><Edit2 size={20} /></button> : <button onClick={() => setIsEditing(false)} className="px-4 py-2 text-sm text-gray-500">Cancel</button>}
-                            <button onClick={() => setSelectedTask(null)} className="p-2 hover:bg-gray-100 rounded"><X size={24} /></button>
-                        </div>
-                    </div>
-                    {!isEditing ? (
-                        <div className="space-y-8">
-                            <div>
-                                <h4 className="flex items-center gap-2 text-lg font-bold text-gray-800 mb-4"><CheckSquare size={20} className="text-green-600" /> Requirements Checklist</h4>
-                                <div className="space-y-3 ml-1">
-                                    {getSafeRequirements(selectedTask).map((req) => (
-                                        <div key={req.id} className="flex items-start gap-3 group">
-                                            <input type="checkbox" checked={req.isDone} onChange={() => toggleRequirement(selectedTask.id, req.id, selectedTask.requirements)} className="mt-1 w-5 h-5 rounded border-gray-300 text-green-600 focus:ring-green-500 cursor-pointer" />
-                                            <div className="flex-1"><span onClick={() => setActiveRequirement(req)} className={`text-sm font-medium cursor-pointer transition px-2 py-1 rounded hover:bg-blue-50 hover:text-blue-600 ${req.isDone ? 'text-gray-400 line-through' : 'text-gray-700'}`}>{req.text}</span></div>
-                                            <button onClick={() => setActiveRequirement(req)} className="text-blue-500 text-xs font-bold hover:underline">Open Table</button>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    ) : (<form onSubmit={handleUpdateTask}><button type="submit" className="w-full py-3 rounded bg-blue-600 text-white">Save Changes</button></form>)}
-                </div>
-            </div>
-        </div>
+      {selectedTask && !activeRequirement && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setSelectedTaskId(null)}><div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto p-0 flex flex-col" onClick={e => e.stopPropagation()}><div className="p-8"><div className="flex justify-between items-start mb-6"><div className="flex-1">{!isEditing ? (<><div className="flex items-center gap-3 mb-3"><span className={`px-3 py-1 rounded-md text-xs font-bold tracking-wide uppercase ${TAG_COLORS[selectedTask.tag]}`}>{selectedTask.tag}</span></div><h2 className="text-3xl font-bold text-gray-900">{selectedTask.title}</h2></>) : (<input type="text" className="w-full border p-2" value={editedTask.title} onChange={e => setEditedTask({...editedTask, title: e.target.value})} />)}</div><div className="flex gap-2">{!isEditing ? <button onClick={() => { setEditedTask(selectedTask); setIsEditing(true); }} className="p-2 hover:bg-blue-50 text-blue-600 rounded"><Edit2 size={20} /></button> : <button onClick={() => setIsEditing(false)} className="px-4 py-2 text-sm text-gray-500">Cancel</button>}<button onClick={() => setSelectedTaskId(null)} className="p-2 hover:bg-gray-100 rounded"><X size={24} /></button></div></div>{!isEditing ? (<div className="space-y-8"><div><h4 className="flex items-center gap-2 text-lg font-bold text-gray-800 mb-4"><CheckSquare size={20} className="text-green-600" /> Requirements Checklist</h4><div className="space-y-3 ml-1">{getSafeRequirements(selectedTask).map((req) => (<div key={req.id} className="flex items-start gap-3 group"><input type="checkbox" checked={req.isDone} onChange={() => toggleRequirement(selectedTask.id, req.id, selectedTask.requirements)} className="mt-1 w-5 h-5 rounded border-gray-300 text-green-600 focus:ring-green-500 cursor-pointer" /><div className="flex-1"><span onClick={() => setActiveRequirementId(req.id)} className={`text-sm font-medium cursor-pointer transition px-2 py-1 rounded hover:bg-blue-50 hover:text-blue-600 ${req.isDone ? 'text-gray-400 line-through' : 'text-gray-700'}`}>{req.text}</span></div><button onClick={() => setActiveRequirementId(req.id)} className="text-blue-500 text-xs font-bold hover:underline">Open Table</button></div>))}</div></div></div>) : (<form onSubmit={handleUpdateTask}><button type="submit" className="w-full py-3 rounded bg-blue-600 text-white">Save Changes</button></form>)}</div></div></div>
       )}
 
-      {/* Requirement Sheet Modal */}
       {activeRequirement && selectedTask && (
-          <RequirementSheetModal task={selectedTask} requirement={activeRequirement} onClose={() => setActiveRequirement(null)} />
+          <RequirementSheetModal task={selectedTask} requirement={activeRequirement} onClose={() => setActiveRequirementId(null)} />
       )}
     </div>
   );
