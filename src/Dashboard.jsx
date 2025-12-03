@@ -620,7 +620,7 @@ export default function Dashboard() {
     );
   };
 
-   // --- RENDER ---
+  // --- RENDER ---
   return (
     <div className="flex h-screen w-full bg-gray-50 font-sans overflow-hidden">
       
@@ -672,12 +672,9 @@ export default function Dashboard() {
       {/* --- MAIN CONTENT AREA --- */}
       <main className="flex-1 flex flex-col h-full w-full overflow-hidden bg-white relative">
         
-<<<<<<< HEAD
         {/* VIEW: HOME */}
         {currentView === 'home' && <HomeView />}
 
-=======
->>>>>>> 830a64ab739f54a106301a0c4471963ec825264b
         {/* VIEW: BOARD (Only showing Board view detail as it's the main logic change) */}
         {currentView === 'board' && (
             <div className="flex flex-col h-full w-full">
@@ -746,7 +743,6 @@ export default function Dashboard() {
             </div>
         )}
 
-<<<<<<< HEAD
         {/* VIEW: CALENDAR */}
         {currentView === 'calendar' && <CalendarView />}
 
@@ -782,48 +778,10 @@ export default function Dashboard() {
                         <textarea className="w-full border-gray-200 bg-gray-50 rounded-lg px-4 py-3 min-h-[100px]" placeholder="Requirements (One per line)..." value={newTask.requirements} onChange={e => setNewTask({...newTask, requirements: e.target.value})} />
                         <button type="submit" className="w-full py-3 rounded-xl font-bold bg-blue-600 text-white hover:bg-blue-700 shadow-lg transition">Create Task</button>
                     </form>
-=======
-        {/* --- PLACEHOLDERS FOR OTHER VIEWS --- */}
-        {currentView !== 'board' && (
-            <div className="flex items-center justify-center h-full text-gray-400">
-                <div className="text-center">
-                    <p className="text-xl font-bold mb-2">View: {currentView.charAt(0).toUpperCase() + currentView.slice(1)}</p>
-                    <p className="text-sm">Content hidden to focus on Task Checklist features.</p>
->>>>>>> 830a64ab739f54a106301a0c4471963ec825264b
                 </div>
             </div>
       )}
 
-<<<<<<< HEAD
-=======
-      </main>
-
-      {/* --- ADD TASK MODAL (Same as before) --- */}
-      {isAddModalOpen && (
-            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 md:p-8">
-                    <div className="flex justify-between items-center mb-6">
-                        <h3 className="text-2xl font-bold text-gray-800">Create New Task</h3>
-                        <button onClick={() => setIsAddModalOpen(false)} className="p-2 hover:bg-gray-100 rounded-full text-gray-500"><X size={24} /></button>
-                    </div>
-                    <form onSubmit={handleAddTask} className="flex flex-col gap-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <input autoFocus type="text" className="w-full border-gray-200 bg-gray-50 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 font-medium" placeholder="Task Title" value={newTask.title} onChange={e => setNewTask({...newTask, title: e.target.value})} />
-                            <select className="w-full border-gray-200 bg-gray-50 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800" value={newTask.tag} onChange={e => setNewTask({...newTask, tag: e.target.value})}>
-                                <option value="Planning">Planning</option><option value="Project">Project</option><option value="Product Review">Product Review</option><option value="Event">Event</option><option value="Guest Speaker">Guest Speaker</option>
-                            </select>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <input type="date" className="w-full border-2 border-blue-200 bg-blue-50 rounded-lg px-4 py-3 font-bold" value={newTask.deadline} onChange={e => setNewTask({...newTask, deadline: e.target.value})} />
-                        </div>
-                        <textarea className="w-full border-gray-200 bg-gray-50 rounded-lg px-4 py-3 min-h-[100px]" placeholder="Requirements (One per line)..." value={newTask.requirements} onChange={e => setNewTask({...newTask, requirements: e.target.value})} />
-                        <button type="submit" className="w-full py-3 rounded-xl font-bold bg-blue-600 text-white hover:bg-blue-700 shadow-lg transition">Create Task</button>
-                    </form>
-                </div>
-            </div>
-      )}
-
->>>>>>> 830a64ab739f54a106301a0c4471963ec825264b
       {/* --- TASK DETAILS MODAL --- */}
       {selectedTask && !isChecklistModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => { setSelectedTask(null); setIsEditing(false); }}>
