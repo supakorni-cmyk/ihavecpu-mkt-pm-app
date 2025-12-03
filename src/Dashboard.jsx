@@ -292,12 +292,12 @@ const PhotoAlbumView = ({ currentUser }) => {
     }
 
     return (
-        <div className="h-full w-full bg-zinc-950 overflow-y-auto overflow-x-hidden text-white font-sans">
+        <div className="h-full w-full bg-zinc-950 overflow-y-auto overflow-x-hidden text-white font-sans relative">
             
-            {/* Navbar / Actions */}
-            <div className="fixed top-0 w-full z-50 bg-gradient-to-b from-black/80 to-transparent px-8 py-4 flex justify-between items-center">
+            {/* Navbar / Actions - ABSOLUTE POSITIONING FIX */}
+            <div className="absolute top-0 w-full z-50 bg-gradient-to-b from-black/80 to-transparent px-8 py-4 flex justify-between items-center">
                 <div className="flex items-center gap-4">
-                    <h1 className="text-red-600 text-3xl font-black tracking-tighter uppercase">NETFLIX<span className="text-white text-xs opacity-50 font-normal tracking-normal ml-1">ALBUMS</span></h1>
+                    <h1 className="text-red-600 text-3xl font-black tracking-tighter uppercase">iHAVECPU<span className="text-white text-xs opacity-50 font-normal tracking-normal ml-1">ALBUMS</span></h1>
                     <nav className="hidden md:flex gap-4 text-sm font-medium text-zinc-300 ml-8">
                         <button className="hover:text-white transition">Home</button>
                         <button className="hover:text-white transition">TV Shows</button>
@@ -354,7 +354,7 @@ const PhotoAlbumView = ({ currentUser }) => {
                 {/* Albums Rows */}
                 {albums.map((album) => {
                     const albumPhotos = photos.filter(p => p.albumId === album.id);
-                    if (albumPhotos.length === 0) return null; // Skip empty albums or show placeholder?
+                    if (albumPhotos.length === 0) return null; 
                     
                     return (
                         <div key={album.id} className="group/row">
@@ -547,6 +547,7 @@ export default function Dashboard() {
   const [tasks, setTasks] = useState([]);
   const [currentView, setCurrentView] = useState('home'); 
   
+  // Replace with your actual keys
   const EMAIL_SERVICE_ID = "YOUR_SERVICE_ID"; 
   const EMAIL_TEMPLATE_ID = "YOUR_TEMPLATE_ID"; 
   const EMAIL_PUBLIC_KEY = "YOUR_PUBLIC_KEY";
