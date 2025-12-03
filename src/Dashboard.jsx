@@ -18,7 +18,7 @@ import {
   Paperclip, Link as LinkIcon, FileText, Clock, AlignLeft, CheckSquare, ExternalLink, X, Edit2,
   Save, Heart, ChevronLeft, ChevronRight, RefreshCw, Video, Home, PieChart, Activity, CheckCircle2,
   ListTodo, Presentation, Printer, Upload, Image as ImageIcon, GripVertical, LayoutTemplate, Camera,
-  Loader2, Folder, Mail, Table, Download, Minus, Play, Info, MessageCircle, Share2
+  Loader2, Folder, Mail, Table, Download, Minus
 } from 'lucide-react';
 
 // --- CONSTANTS & HELPERS ---
@@ -53,37 +53,90 @@ const getSafeRequirements = (task) => {
 // --- SUB-COMPONENTS (Defined Outside) ---
 
 const RequirementSheetModal = ({ task, requirement, onClose }) => {
-    const [newRow, setNewRow] = useState({ col1: '', col2: '', col3: '', notes: '' });
+    // Default columns for legacy data compatibility
+    const DEFAULT_COLUMNS = [
+        { id: 'col1', name: 'Item / Name' },
+        { id: 'col2', name: 'Description' },
+        { id: 'col3', name: 'Status' },
+        { id: 'notes', name: 'Notes' }
+    ];
 
-    const handleAddRow = () => {
-        if(!newRow.col1 && !newRow.col2) return;
+    // Initialize columns state from DB or defaults
+    const [columns, setColumns] = useState(requirement.columns || DEFAULT_COLUMNS);
+    const [newRow, setNewRow] = useState({});
+
+    // Sync local columns state if prop updates (e.g. from another user)
+    useEffect(() => {
+        if (requirement.columns) {
+            setColumns(requirement.columns);
+        }
+    }, [requirement.columns]);
+
+    const updateRequirementInDb = (updates) => {
         const updatedReqs = task.requirements.map(r => {
             if (r.id === requirement.id) {
-                return { ...r, tableData: [...(r.tableData || []), { id: Date.now(), ...newRow }] };
+                return { ...r, ...updates };
             }
             return r;
         });
         updateDoc(doc(db, 'tasks', task.id), { requirements: updatedReqs });
-        setNewRow({ col1: '', col2: '', col3: '', notes: '' });
+    };
+
+    // --- Column Management ---
+    const handleColumnNameChange = (colId, newName) => {
+        const updatedCols = columns.map(c => c.id === colId ? { ...c, name: newName } : c);
+        setColumns(updatedCols);
+    };
+
+    const saveColumnName = () => {
+        updateRequirementInDb({ columns });
+    };
+
+    const addColumn = () => {
+        const newColId = `col-${Date.now()}`;
+        const updatedCols = [...columns, { id: newColId, name: 'New Column' }];
+        setColumns(updatedCols);
+        updateRequirementInDb({ columns: updatedCols });
+    };
+
+    const deleteColumn = (colId) => {
+        if (confirm('Delete this column? Data in this column will be hidden.')) {
+            const updatedCols = columns.filter(c => c.id !== colId);
+            setColumns(updatedCols);
+            updateRequirementInDb({ columns: updatedCols });
+        }
+    };
+
+    // --- Row Management ---
+    const handleAddRow = () => {
+        // Check if at least one field is filled
+        if (Object.keys(newRow).length === 0) return;
+        
+        const updatedTableData = [...(requirement.tableData || []), { id: Date.now(), ...newRow }];
+        updateRequirementInDb({ tableData: updatedTableData });
+        setNewRow({});
     };
 
     const handleDeleteRow = (rowId) => {
-        const updatedReqs = task.requirements.map(r => {
-            if (r.id === requirement.id) {
-                return { ...r, tableData: r.tableData.filter(row => row.id !== rowId) };
-            }
-            return r;
-        });
-        updateDoc(doc(db, 'tasks', task.id), { requirements: updatedReqs });
+        const updatedTableData = (requirement.tableData || []).filter(row => row.id !== rowId);
+        updateRequirementInDb({ tableData: updatedTableData });
+    };
+
+    const handleNewRowChange = (colId, value) => {
+        setNewRow(prev => ({ ...prev, [colId]: value }));
     };
 
     const exportToCSV = () => {
         if (!requirement.tableData || requirement.tableData.length === 0) return alert("No data to export.");
-        const headers = ["Item", "Description", "Status", "Notes"];
-        const rows = requirement.tableData.map(row => [
-            `"${(row.col1 || '').replace(/"/g, '""')}"`, `"${(row.col2 || '').replace(/"/g, '""')}"`,
-            `"${(row.col3 || '').replace(/"/g, '""')}"`, `"${(row.notes || '').replace(/"/g, '""')}"`
-        ]);
+        
+        // Dynamic Headers
+        const headers = columns.map(c => c.name);
+        
+        // Map rows to dynamic columns
+        const rows = requirement.tableData.map(row => 
+            columns.map(col => `"${(row[col.id] || '').replace(/"/g, '""')}"`)
+        );
+        
         const csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n" + rows.map(e => e.join(",")).join("\n");
         const encodedUri = encodeURI(csvContent);
         const link = document.createElement("a");
@@ -96,30 +149,83 @@ const RequirementSheetModal = ({ task, requirement, onClose }) => {
 
     return (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-[70] p-4 animate-in fade-in zoom-in duration-200">
-            <div className="bg-white w-full max-w-6xl h-[85vh] rounded-xl shadow-2xl flex flex-col overflow-hidden border border-gray-200">
+            <div className="bg-white w-full max-w-7xl h-[85vh] rounded-xl shadow-2xl flex flex-col overflow-hidden border border-gray-200">
                 <div className="bg-green-600 px-6 py-4 flex justify-between items-center text-white shrink-0">
                     <div className="flex items-center gap-3"><div className="bg-white/20 p-2 rounded"><Table size={24} /></div><div><h3 className="font-bold text-lg leading-tight">{requirement.text}</h3><p className="text-xs opacity-80 font-mono tracking-wide uppercase">Table for Task: {task.title}</p></div></div>
                     <div className="flex gap-3"><button onClick={exportToCSV} className="bg-white text-green-700 px-4 py-2 rounded-lg font-bold text-sm hover:bg-green-50 transition flex items-center gap-2"><Download size={16} /> Export CSV</button><button onClick={onClose} className="p-2 hover:bg-white/20 rounded-full text-white"><X size={24} /></button></div>
                 </div>
                 <div className="flex-1 overflow-auto bg-gray-50 p-6">
-                    <div className="bg-white border border-gray-300 shadow-sm min-w-[800px]">
+                    <div className="bg-white border border-gray-300 shadow-sm min-w-max">
+                        {/* Header Row */}
                         <div className="flex border-b border-gray-300 bg-gray-100 text-gray-500 font-bold text-xs uppercase tracking-wider sticky top-0 z-10 shadow-sm">
-                            <div className="w-12 p-3 text-center border-r border-gray-300">#</div><div className="flex-1 p-3 border-r border-gray-300">Item / Name</div><div className="flex-1 p-3 border-r border-gray-300">Description</div><div className="w-32 p-3 border-r border-gray-300">Status</div><div className="flex-1 p-3 border-r border-gray-300">Notes</div><div className="w-12 p-3"></div>
+                            <div className="w-12 p-3 text-center border-r border-gray-300 bg-gray-100 sticky left-0 z-20">#</div>
+                            
+                            {/* Dynamic Column Headers */}
+                            {columns.map(col => (
+                                <div key={col.id} className="w-48 min-w-[180px] p-2 border-r border-gray-300 relative group bg-gray-100">
+                                    <input 
+                                        type="text" 
+                                        value={col.name} 
+                                        onChange={(e) => handleColumnNameChange(col.id, e.target.value)}
+                                        onBlur={saveColumnName}
+                                        className="bg-transparent w-full text-center focus:bg-white focus:ring-2 focus:ring-green-500 rounded px-1 py-0.5 border border-transparent hover:border-gray-300"
+                                    />
+                                    <button 
+                                        onClick={() => deleteColumn(col.id)}
+                                        className="absolute right-1 top-1 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition p-1 rounded-full hover:bg-gray-200"
+                                        title="Delete Column"
+                                    >
+                                        <X size={10} />
+                                    </button>
+                                </div>
+                            ))}
+
+                            {/* Add Column Button */}
+                            <div className="w-12 p-2 flex items-center justify-center bg-gray-100 hover:bg-gray-200 cursor-pointer border-r border-gray-300" onClick={addColumn} title="Add Column">
+                                <Plus size={16} className="text-green-600" />
+                            </div>
+                            <div className="w-12 p-3 bg-gray-100"></div> {/* Delete Row spacer */}
                         </div>
+
+                        {/* Data Rows */}
                         {(requirement.tableData || []).map((row, idx) => (
                             <div key={row.id} className="flex border-b border-gray-200 hover:bg-blue-50/30 transition-colors">
-                                <div className="w-12 p-3 text-center border-r border-gray-200 bg-gray-50 text-gray-400 font-mono text-xs flex items-center justify-center">{idx + 1}</div>
-                                <div className="flex-1 p-3 border-r border-gray-200 text-sm">{row.col1}</div><div className="flex-1 p-3 border-r border-gray-200 text-sm">{row.col2}</div><div className="w-32 p-3 border-r border-gray-200 text-sm">{row.col3}</div><div className="flex-1 p-3 border-r border-gray-200 text-sm text-gray-500 italic">{row.notes}</div>
-                                <div className="w-12 p-3 flex items-center justify-center"><button onClick={() => handleDeleteRow(row.id)} className="text-gray-300 hover:text-red-500"><Trash2 size={14} /></button></div>
+                                <div className="w-12 p-3 text-center border-r border-gray-200 bg-gray-50 text-gray-400 font-mono text-xs flex items-center justify-center sticky left-0 z-10">{idx + 1}</div>
+                                
+                                {columns.map(col => (
+                                    <div key={col.id} className="w-48 min-w-[180px] p-3 border-r border-gray-200 text-sm text-gray-800">
+                                        {row[col.id]}
+                                    </div>
+                                ))}
+                                
+                                <div className="w-12 flex-1 border-r border-gray-200"></div> {/* Spacer for Add Col */}
+                                <div className="w-12 p-3 flex items-center justify-center">
+                                    <button onClick={() => handleDeleteRow(row.id)} className="text-gray-300 hover:text-red-500"><Trash2 size={14} /></button>
+                                </div>
                             </div>
                         ))}
-                        <div className="flex border-b border-gray-200 bg-yellow-50/50">
-                            <div className="w-12 p-3 text-center border-r border-gray-200 text-green-600 font-bold">+</div>
-                            <div className="flex-1 border-r border-gray-200"><input type="text" placeholder="Item Name..." className="w-full h-full p-3 bg-transparent outline-none text-sm" value={newRow.col1} onChange={e => setNewRow({...newRow, col1: e.target.value})} /></div>
-                            <div className="flex-1 border-r border-gray-200"><input type="text" placeholder="Details..." className="w-full h-full p-3 bg-transparent outline-none text-sm" value={newRow.col2} onChange={e => setNewRow({...newRow, col2: e.target.value})} /></div>
-                            <div className="w-32 border-r border-gray-200"><input type="text" placeholder="Status..." className="w-full h-full p-3 bg-transparent outline-none text-sm" value={newRow.col3} onChange={e => setNewRow({...newRow, col3: e.target.value})} /></div>
-                            <div className="flex-1 border-r border-gray-200"><input type="text" placeholder="Notes..." className="w-full h-full p-3 bg-transparent outline-none text-sm" value={newRow.notes} onChange={e => setNewRow({...newRow, notes: e.target.value})} onKeyDown={e => e.key === 'Enter' && handleAddRow()} /></div>
-                            <div className="w-12 p-2 flex items-center justify-center"><button onClick={handleAddRow} className="bg-green-600 text-white p-1 rounded hover:bg-green-700"><Plus size={16} /></button></div>
+
+                        {/* Input Row */}
+                        <div className="flex border-b border-gray-200 bg-yellow-50/50 sticky bottom-0 z-10 shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
+                            <div className="w-12 p-3 text-center border-r border-gray-200 text-green-600 font-bold bg-yellow-50 sticky left-0">+</div>
+                            
+                            {columns.map(col => (
+                                <div key={col.id} className="w-48 min-w-[180px] border-r border-gray-200">
+                                    <input 
+                                        type="text" 
+                                        placeholder={col.name + "..."}
+                                        className="w-full h-full p-3 bg-transparent outline-none text-sm focus:bg-white focus:ring-inset focus:ring-2 focus:ring-green-500" 
+                                        value={newRow[col.id] || ''} 
+                                        onChange={e => handleNewRowChange(col.id, e.target.value)}
+                                        onKeyDown={e => e.key === 'Enter' && handleAddRow()}
+                                    />
+                                </div>
+                            ))}
+
+                            <div className="w-12 flex-1 border-r border-gray-200 bg-yellow-50"></div>
+                            <div className="w-12 p-2 flex items-center justify-center bg-yellow-50">
+                                <button onClick={handleAddRow} className="bg-green-600 text-white p-1 rounded hover:bg-green-700 shadow-sm"><Plus size={16} /></button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -204,29 +310,152 @@ const PhotoAlbumView = ({ currentUser }) => {
     const [photos, setPhotos] = useState([]);
     const [currentAlbum, setCurrentAlbum] = useState(null);
     const [uploading, setUploading] = useState(false);
+    const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
     const [isCreatingAlbum, setIsCreatingAlbum] = useState(false);
     const [newAlbumName, setNewAlbumName] = useState('');
+    const [targetAlbumId, setTargetAlbumId] = useState('');
+    const [activeFilter, setActiveFilter] = useState('All');
 
-    useEffect(() => { const u = onSnapshot(query(collection(db, 'albums'), orderBy('createdAt', 'desc')), (s) => setAlbums(s.docs.map(d => ({...d.data(), id: d.id})))); return u; }, []);
-    useEffect(() => { const u = onSnapshot(query(collection(db, 'photos'), orderBy('createdAt', 'desc')), (s) => setPhotos(s.docs.map(d => ({...d.data(), id: d.id})))); return u; }, []);
+    useEffect(() => {
+        const unsubAlbums = onSnapshot(query(collection(db, 'albums'), orderBy('createdAt', 'desc')), (s) => {
+            setAlbums(s.docs.map(d => ({...d.data(), id: d.id})));
+        });
+        const unsubPhotos = onSnapshot(query(collection(db, 'photos'), orderBy('createdAt', 'desc')), (s) => {
+            setPhotos(s.docs.map(d => ({...d.data(), id: d.id})));
+        });
+        return () => { unsubAlbums(); unsubPhotos(); };
+    }, []);
 
-    const createAlbum = async (e) => { e.preventDefault(); if (!newAlbumName) return; await addDoc(collection(db, 'albums'), { name: newAlbumName, createdAt: new Date(), createdBy: currentUser.email }); setNewAlbumName(''); setIsCreatingAlbum(false); };
-    const handleUpload = async (e) => {
-        const file = e.target.files[0]; if (!file || file.size > 2e6) return alert("File too large (>2MB)"); setUploading(true);
-        const reader = new FileReader(); reader.onloadend = async () => { await addDoc(collection(db, 'photos'), { url: reader.result, name: file.name, createdAt: new Date(), uploader: currentUser.email, albumId: currentAlbum.id }); setUploading(false); }; reader.readAsDataURL(file);
+    const heroPhoto = photos.length > 0 ? photos[0] : null;
+
+    const handleCreateAlbum = async (e) => {
+        e.preventDefault();
+        if (!newAlbumName) return;
+        try {
+            const docRef = await addDoc(collection(db, 'albums'), { name: newAlbumName, createdAt: new Date(), createdBy: currentUser.email });
+            setNewAlbumName('');
+            setIsCreatingAlbum(false);
+            setTargetAlbumId(docRef.id);
+        } catch (error) { console.error("Error creating album:", error); }
     };
-    const handleDeletePhoto = async (id) => { if (confirm("Delete photo?")) await deleteDoc(doc(db, 'photos', id)); };
-    const handleDeleteAlbum = async (e, id) => { e.stopPropagation(); if (confirm("Delete album?")) { await deleteDoc(doc(db, 'albums', id)); if (currentAlbum?.id === id) setCurrentAlbum(null); } };
-    const albumPhotos = photos.filter(p => p.albumId === currentAlbum?.id);
+
+    const handleMultipleUpload = async (e) => {
+        const files = Array.from(e.target.files);
+        if (files.length === 0) return;
+        if (!targetAlbumId) return alert("Please select an album first.");
+        setUploading(true);
+        const uploadPromises = files.map(file => {
+            return new Promise((resolve, reject) => {
+                if (file.size > 5 * 1024 * 1024) { resolve(null); return; }
+                const reader = new FileReader();
+                reader.onloadend = async () => {
+                    try {
+                        await addDoc(collection(db, 'photos'), { url: reader.result, name: file.name, createdAt: new Date(), uploader: currentUser.email, albumId: targetAlbumId });
+                        resolve(true);
+                    } catch (err) { reject(err); }
+                };
+                reader.readAsDataURL(file);
+            });
+        });
+        try { await Promise.all(uploadPromises); setIsUploadModalOpen(false); } catch (error) { console.error(error); } finally { setUploading(false); }
+    };
+
+    const handleDeleteAlbum = async (e, id) => { e.stopPropagation(); if(confirm("Delete album?")) await deleteDoc(doc(db, 'albums', id)); }
+    const handleDeletePhoto = async (id) => { if(confirm("Delete photo?")) await deleteDoc(doc(db, 'photos', id)); }
+
+    const displayPhotos = activeFilter === 'All' ? photos : photos.filter(p => p.albumId === activeFilter);
 
     return (
-        <div className="p-6 md:p-10 h-full w-full bg-gray-50/50 overflow-y-auto"><div className="max-w-6xl mx-auto">
-            <div className="flex justify-between items-center mb-8">
-                <div className="flex items-center gap-3">{currentAlbum && <button onClick={() => setCurrentAlbum(null)} className="p-2 hover:bg-gray-200 rounded-full text-gray-500"><ArrowLeft size={24} /></button>}<div><h2 className="text-3xl font-bold text-gray-800 flex items-center gap-3">{currentAlbum ? <><Folder className="text-purple-600" /> {currentAlbum.name}</> : <><ImageIcon className="text-purple-600" /> Photo Albums</>}</h2></div></div>
-                {!currentAlbum ? <div className="relative">{isCreatingAlbum ? <form onSubmit={createAlbum} className="flex gap-2"><input autoFocus type="text" placeholder="Album Name" className="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 outline-none" value={newAlbumName} onChange={e => setNewAlbumName(e.target.value)} /><button type="submit" className="bg-purple-600 text-white px-4 py-2 rounded-lg font-bold text-sm">Save</button></form> : <button onClick={() => setIsCreatingAlbum(true)} className="flex items-center gap-2 bg-purple-600 text-white px-5 py-2.5 rounded-full font-bold shadow-lg hover:bg-purple-700 transition"><Plus size={20} /> Create Album</button>}</div> : <div className="relative"><input type="file" accept="image/*" onChange={handleUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" disabled={uploading} /><button className="flex items-center gap-2 bg-purple-600 text-white px-5 py-2.5 rounded-full font-bold shadow-lg">{uploading ? <Loader2 className="animate-spin" size={20} /> : <Upload size={20} />} Upload</button></div>}
+        <div className="h-full w-full bg-gray-50 overflow-y-auto overflow-x-hidden text-gray-900 font-sans relative">
+            <div className="absolute top-0 w-full z-50 bg-gradient-to-b from-white/90 to-transparent px-8 py-4 flex justify-between items-center">
+                <div className="flex items-center gap-4">
+                    <h1 className="text-red-600 text-3xl font-black tracking-tighter uppercase">iHAVECPU<span className="text-gray-400 text-xs opacity-50 font-normal tracking-normal ml-1">ALBUMS</span></h1>
+                    <nav className="hidden md:flex gap-4 text-sm font-medium text-gray-500 ml-8"><button className="hover:text-gray-900 transition">Home</button><button className="hover:text-gray-900 transition">TV Shows</button><button className="hover:text-gray-900 transition">Movies</button><button className="hover:text-gray-900 transition">Latest</button></nav>
+                </div>
+                <div className="flex gap-3">
+                    <button onClick={() => setIsCreatingAlbum(true)} className="bg-white border border-gray-200 hover:bg-gray-100 text-gray-900 px-4 py-1.5 rounded font-bold text-sm flex items-center gap-2 transition shadow-sm"><Plus size={16} /> New Album</button>
+                    <button onClick={() => setIsUploadModalOpen(true)} className="bg-red-600 hover:bg-red-700 text-white px-4 py-1.5 rounded font-bold text-sm flex items-center gap-2 transition shadow-sm"><Upload size={16} /> Upload</button>
+                </div>
             </div>
-            {!currentAlbum ? <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{albums.map(album => (<div key={album.id} onClick={() => setCurrentAlbum(album)} className="group bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition cursor-pointer flex flex-col items-center justify-center aspect-square relative"><Folder size={64} className="text-purple-200 group-hover:text-purple-300 transition mb-4" /><h3 className="font-bold text-gray-700 text-center">{album.name}</h3><button onClick={(e) => handleDeleteAlbum(e, album.id)} className="absolute top-3 right-3 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition"><Trash2 size={18} /></button></div>))}</div> : <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{albumPhotos.map(photo => (<div key={photo.id} className="group relative bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition aspect-square"><img src={photo.url} className="w-full h-full object-cover" /><div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2"><a href={photo.url} download={photo.name} className="p-2 bg-white/20 text-white rounded-full"><ExternalLink size={20} /></a><button onClick={() => handleDeletePhoto(photo.id)} className="p-2 bg-red-500/80 text-white rounded-full"><Trash2 size={20} /></button></div></div>))}</div>}
-        </div></div>
+
+            <div className="relative w-full h-[65vh]">
+                {heroPhoto ? (<img src={heroPhoto.url} className="w-full h-full object-cover object-center opacity-90" />) : (<div className="w-full h-full bg-gray-200 flex items-center justify-center"><ImageIcon size={64} className="text-gray-400" /></div>)}
+                <div className="absolute inset-0 bg-gradient-to-t from-gray-50 via-transparent to-white/20" />
+                <div className="absolute bottom-20 left-8 md:left-16 max-w-xl">
+                    <h1 className="text-5xl md:text-7xl font-black text-gray-900 mb-4 tracking-tight">{heroPhoto ? "Captured Moments" : "Welcome."}</h1>
+                    <p className="text-lg text-gray-700 font-medium mb-6 line-clamp-3 max-w-lg">Explore the latest collection of event highlights, product launches, and team memories. Your visual storytelling starts here.</p>
+                    <div className="flex gap-3">
+                        <button className="bg-gray-900 text-white px-6 py-2.5 rounded font-bold flex items-center gap-2 hover:bg-gray-800 transition shadow-lg"><Play fill="white" size={20} /> Play</button>
+                        <button className="bg-white/80 text-gray-900 border border-gray-300 px-6 py-2.5 rounded font-bold flex items-center gap-2 hover:bg-white transition backdrop-blur-sm shadow-sm"><Info size={20} /> More Info</button>
+                    </div>
+                </div>
+            </div>
+
+            <div className="px-8 md:px-16 pb-20 -mt-10 relative z-10 space-y-12">
+                {albums.map((album) => {
+                    const albumPhotos = photos.filter(p => p.albumId === album.id);
+                    if (albumPhotos.length === 0) return null; 
+                    return (
+                        <div key={album.id} className="group/row">
+                            <div className="flex justify-between items-end mb-3 px-1">
+                                <h3 className="text-xl font-bold text-gray-800 group-hover/row:text-red-600 transition duration-300 cursor-pointer flex items-center gap-2">{album.name} <span className="text-gray-400 text-sm font-normal hidden group-hover/row:inline opacity-0 group-hover/row:opacity-100 transition-opacity duration-500">Explore All &gt;</span></h3>
+                                <button onClick={() => handleDeleteAlbum(album.id)} className="text-gray-400 hover:text-red-500 opacity-0 group-hover/row:opacity-100 transition"><Trash2 size={14}/></button>
+                            </div>
+                            <div className="relative group/slider">
+                                <div className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory">
+                                    {albumPhotos.map((photo) => (
+                                        <div key={photo.id} className="flex-none w-64 md:w-80 aspect-video relative bg-gray-200 rounded-md overflow-hidden cursor-pointer hover:z-20 transition-all duration-300 hover:scale-110 hover:shadow-xl snap-center group/item border border-gray-100">
+                                            <img src={photo.url} loading="lazy" className="w-full h-full object-cover" />
+                                            <div className="absolute inset-0 bg-white/90 opacity-0 group-hover/item:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
+                                                <p className="text-gray-900 text-sm font-bold truncate">{photo.name}</p>
+                                                <p className="text-gray-500 text-[10px] mb-2">{new Date(photo.createdAt?.seconds * 1000).toLocaleDateString()}</p>
+                                                <div className="flex gap-2 mt-1">
+                                                    <button className="p-2 bg-red-600 text-white rounded-full hover:scale-110 transition shadow-md"><Play size={12} fill="white" /></button>
+                                                    <button className="p-2 border border-gray-300 text-gray-600 rounded-full hover:border-gray-900 hover:text-gray-900 transition bg-white"><Plus size={12} /></button>
+                                                    <button onClick={() => handleDeletePhoto(photo.id)} className="p-2 border border-gray-300 text-gray-600 rounded-full hover:border-red-500 hover:text-red-500 transition bg-white ml-auto"><Trash2 size={12} /></button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })}
+                {photos.filter(p => !p.albumId).length > 0 && (
+                    <div>
+                        <h3 className="text-xl font-bold text-gray-800 mb-3">Recently Added</h3>
+                        <div className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide">
+                            {photos.filter(p => !p.albumId).map((photo) => (
+                                <div key={photo.id} className="flex-none w-64 aspect-video relative bg-gray-200 rounded-md overflow-hidden hover:scale-105 transition duration-300 border border-gray-100">
+                                    <img src={photo.url} loading="lazy" className="w-full h-full object-cover" />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {isUploadModalOpen && (
+                <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
+                    <div className="bg-white border border-gray-200 rounded-xl w-full max-w-md p-6 shadow-2xl">
+                        <div className="flex justify-between items-center mb-6"><h3 className="text-xl font-bold text-gray-900">Upload Photos</h3><button onClick={() => setIsUploadModalOpen(false)} className="text-gray-400 hover:text-gray-900"><X size={24}/></button></div>
+                        <div className="space-y-4">
+                            <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Select Album</label><select className="w-full bg-gray-50 border border-gray-200 rounded p-3 text-gray-900 focus:outline-none focus:border-red-500 transition" value={targetAlbumId} onChange={(e) => setTargetAlbumId(e.target.value)}><option value="">-- Choose Album --</option>{albums.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}</select></div>
+                            <div className="border-2 border-dashed border-zinc-700 rounded-xl p-8 text-center hover:bg-gray-50 transition relative group"><input type="file" multiple accept="image/*" onChange={handleMultipleUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" disabled={uploading} />{uploading ? <div className="flex flex-col items-center text-gray-500"><Loader2 className="animate-spin mb-2" size={32} /><span>Uploading...</span></div> : <div className="flex flex-col items-center text-gray-400 group-hover:text-red-600 transition"><Upload size={32} className="mb-2" /><span className="font-bold text-sm">Click to Select Files</span><span className="text-xs opacity-50 mt-1">Supports JPG, PNG</span></div>}</div>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {isCreatingAlbum && (
+                 <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
+                    <div className="bg-white border border-gray-200 rounded-xl w-full max-w-sm p-6 shadow-2xl">
+                         <h3 className="text-lg font-bold text-gray-900 mb-4">Create New Album</h3>
+                         <form onSubmit={handleCreateAlbum} className="flex flex-col gap-4"><input autoFocus type="text" placeholder="Album Title" className="bg-gray-50 border border-gray-200 rounded p-3 text-gray-900 focus:outline-none focus:border-red-500" value={newAlbumName} onChange={e => setNewAlbumName(e.target.value)} /><div className="flex justify-end gap-2"><button type="button" onClick={() => setIsCreatingAlbum(false)} className="px-4 py-2 text-gray-500 hover:text-gray-900 text-sm">Cancel</button><button type="submit" className="bg-red-600 text-white px-6 py-2 rounded font-bold text-sm hover:bg-red-700">Create</button></div></form>
+                    </div>
+                 </div>
+            )}
+        </div>
     );
 };
 
@@ -301,14 +530,11 @@ export default function Dashboard() {
   const [tasks, setTasks] = useState([]);
   const [currentView, setCurrentView] = useState('home'); 
   
-  // Replace with your actual keys
   const EMAIL_SERVICE_ID = "YOUR_SERVICE_ID"; 
   const EMAIL_TEMPLATE_ID = "YOUR_TEMPLATE_ID"; 
   const EMAIL_PUBLIC_KEY = "YOUR_PUBLIC_KEY";
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  
-  // ID-based selection to prevent infinite loops
   const [selectedTaskId, setSelectedTaskId] = useState(null);
   const [activeRequirementId, setActiveRequirementId] = useState(null);
   
@@ -321,7 +547,7 @@ export default function Dashboard() {
   });
   
   const [tempReqInput, setTempReqInput] = useState('');
-  const [tempEditReqInput, setTempEditReqInput] = useState(''); // For editing requirements
+  const [tempEditReqInput, setTempEditReqInput] = useState(''); 
 
   const { currentUser, logout } = useAuth();
   const navigate = useNavigate();
