@@ -9,7 +9,7 @@ import {
   deleteDoc, 
   doc, 
   updateDoc, 
-  orderBy 
+  // orderBy // Removed to prevent permission issues
 } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
 import emailjs from '@emailjs/browser'; 
@@ -19,7 +19,7 @@ import {
   Save, Heart, ChevronLeft, ChevronRight, RefreshCw, Video, Home, PieChart, Activity, CheckCircle2,
   ListTodo, Presentation, Printer, Upload, Image as ImageIcon, GripVertical, LayoutTemplate, Camera,
   Loader2, Folder, Mail, Table, Download, Minus, Play, Info, MessageCircle, Share2, Search, 
-  User, AtSign, Settings, DollarSign, TrendingUp, TrendingDown
+  User, AtSign, Zap, Settings, DollarSign, TrendingUp, TrendingDown
 } from 'lucide-react';
 
 // --- GLOBAL APP ID ---
@@ -82,9 +82,13 @@ const BudgetRecorderView = () => {
     });
 
     useEffect(() => {
-        const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'budget'), orderBy('date', 'desc'));
+        // Updated: Removed orderBy to fix permissions
+        const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'budget'));
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            setTransactions(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })));
+            const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+            // Sort in JS
+            data.sort((a, b) => new Date(b.date) - new Date(a.date));
+            setTransactions(data);
         });
         return unsubscribe;
     }, []);
@@ -113,7 +117,7 @@ const BudgetRecorderView = () => {
             });
         } catch (error) {
             console.error("Error saving transaction:", error);
-            alert("Failed to save record.");
+            alert("Failed to save record. Check permissions.");
         }
     };
 
@@ -154,21 +158,57 @@ const BudgetRecorderView = () => {
                     <button onClick={() => setActiveTab('income')} className={`px-8 py-3 font-bold text-sm rounded-t-xl transition-all relative ${activeTab === 'income' ? 'bg-white text-green-600 shadow-sm border border-b-0 border-gray-200' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'}`}>Income{activeTab === 'income' && <div className="absolute top-0 left-0 w-full h-1 bg-green-500 rounded-t-xl"></div>}</button>
                     <button onClick={() => setActiveTab('spending')} className={`px-8 py-3 font-bold text-sm rounded-t-xl transition-all relative ${activeTab === 'spending' ? 'bg-white text-red-600 shadow-sm border border-b-0 border-gray-200' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'}`}>Spending{activeTab === 'spending' && <div className="absolute top-0 left-0 w-full h-1 bg-red-500 rounded-t-xl"></div>}</button>
                 </div>
-                <div className="flex-1 overflow-auto p-8"><div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"><table className="w-full text-sm text-left"><thead className="text-xs text-gray-500 uppercase bg-gray-50 font-bold border-b border-gray-200 sticky top-0 z-10"><tr><th className="px-6 py-4">Date</th><th className="px-6 py-4">Brand</th><th className="px-6 py-4">Category</th><th className="px-6 py-4 w-64">Description</th><th className="px-6 py-4 text-right">Amount (THB)</th><th className="px-6 py-4">Company</th><th className="px-6 py-4">Invoice</th><th className="px-6 py-4">Payment Date</th><th className="px-6 py-4 text-center">Status</th><th className="px-6 py-4 w-48">Remark</th><th className="px-6 py-4 text-center">Action</th></tr></thead><tbody className="divide-y divide-gray-100">{filteredTransactions.map((t) => (<tr key={t.id} className="hover:bg-blue-50/30 transition-colors group"><td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">{formatDate(t.date)}</td><td className="px-6 py-4 font-bold text-gray-700">{t.brand}</td><td className="px-6 py-4"><span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-bold uppercase">{t.category}</span></td><td className="px-6 py-4 text-gray-600 truncate max-w-xs" title={t.description}>{t.description}</td><td className={`px-6 py-4 text-right font-mono font-bold ${activeTab === 'income' ? 'text-green-600' : 'text-red-600'}`}>{parseFloat(t.amount).toLocaleString()}</td><td className="px-6 py-4 text-gray-600">{t.company}</td><td className="px-6 py-4 text-gray-600 font-mono text-xs">{t.invoice || '-'}</td><td className="px-6 py-4 text-gray-500 whitespace-nowrap">{t.paymentDate ? formatDate(t.paymentDate) : '-'}</td><td className="px-6 py-4 text-center"><span className={`px-3 py-1 rounded-full text-xs font-bold border ${t.status === 'Complete' ? 'bg-green-50 text-green-700 border-green-200' : t.status === 'Follow-up' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : 'bg-gray-50 text-gray-500 border-gray-200'}`}>{t.status}</span></td><td className="px-6 py-4 text-gray-500 italic text-xs truncate max-w-[150px]" title={t.remark}>{t.remark || '-'}</td><td className="px-6 py-4 text-center"><button onClick={() => handleDeleteTransaction(t.id)} className="text-gray-300 hover:text-red-500 transition opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-red-50"><Trash2 size={16} /></button></td></tr>))}{filteredTransactions.length === 0 && (<tr><td colSpan="11" className="px-6 py-12 text-center text-gray-400 font-medium">No records found for this view.</td></tr>)}</tbody></table></div></div>
+
+                <div className="flex-1 overflow-auto p-8">
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                        <table className="w-full text-sm text-left">
+                            <thead className="text-xs text-gray-500 uppercase bg-gray-50 font-bold border-b border-gray-200 sticky top-0 z-10">
+                                <tr>
+                                    <th className="px-6 py-4">Date</th>
+                                    <th className="px-6 py-4">Brand</th>
+                                    <th className="px-6 py-4">Category</th>
+                                    <th className="px-6 py-4 w-64">Description</th>
+                                    <th className="px-6 py-4 text-right">Amount (THB)</th>
+                                    <th className="px-6 py-4">Company</th>
+                                    <th className="px-6 py-4">Invoice</th>
+                                    <th className="px-6 py-4">Payment Date</th>
+                                    <th className="px-6 py-4 text-center">Status</th>
+                                    <th className="px-6 py-4 w-48">Remark</th>
+                                    <th className="px-6 py-4 text-center">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {filteredTransactions.map((t) => (
+                                    <tr key={t.id} className="hover:bg-blue-50/30 transition-colors group">
+                                        <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">{formatDate(t.date)}</td>
+                                        <td className="px-6 py-4 font-bold text-gray-700">{t.brand}</td>
+                                        <td className="px-6 py-4"><span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-bold uppercase">{t.category}</span></td>
+                                        <td className="px-6 py-4 text-gray-600 truncate max-w-xs" title={t.description}>{t.description}</td>
+                                        <td className={`px-6 py-4 text-right font-mono font-bold ${activeTab === 'income' ? 'text-green-600' : 'text-red-600'}`}>{parseFloat(t.amount).toLocaleString()}</td>
+                                        <td className="px-6 py-4 text-gray-600">{t.company}</td>
+                                        <td className="px-6 py-4 text-gray-600 font-mono text-xs">{t.invoice || '-'}</td>
+                                        <td className="px-6 py-4 text-gray-500 whitespace-nowrap">{t.paymentDate ? formatDate(t.paymentDate) : '-'}</td>
+                                        <td className="px-6 py-4 text-center"><span className={`px-3 py-1 rounded-full text-xs font-bold border ${t.status === 'Complete' ? 'bg-green-50 text-green-700 border-green-200' : t.status === 'Follow-up' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : 'bg-gray-50 text-gray-500 border-gray-200'}`}>{t.status}</span></td>
+                                        <td className="px-6 py-4 text-gray-500 italic text-xs truncate max-w-[150px]" title={t.remark}>{t.remark || '-'}</td>
+                                        <td className="px-6 py-4 text-center"><button onClick={() => handleDeleteTransaction(t.id)} className="text-gray-300 hover:text-red-500 transition opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-red-50"><Trash2 size={16} /></button></td>
+                                    </tr>
+                                ))}
+                                {filteredTransactions.length === 0 && (
+                                    <tr><td colSpan="11" className="px-6 py-12 text-center text-gray-400 font-medium">No records found for this view.</td></tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
 
-            {/* Add Record Modal */}
             {isAddOpen && (
                 <div className="fixed inset-0 bg-black/60 z-[80] flex items-center justify-center p-4 backdrop-blur-sm">
                     <div className="bg-white rounded-2xl w-full max-w-4xl p-8 shadow-2xl overflow-y-auto max-h-[90vh]">
                         <div className="flex justify-between items-center mb-8 border-b border-gray-100 pb-4">
-                            <div>
-                                <h3 className="text-2xl font-bold text-gray-900">Add {activeTab === 'income' ? 'Income' : 'Spending'} Record</h3>
-                                <p className="text-sm text-gray-500 mt-1">Fill in the details for the new financial record.</p>
-                            </div>
+                            <div><h3 className="text-2xl font-bold text-gray-900">Add {activeTab === 'income' ? 'Income' : 'Spending'} Record</h3><p className="text-sm text-gray-500 mt-1">Fill in the details for the new financial record.</p></div>
                             <button onClick={() => setIsAddOpen(false)} className="text-gray-400 hover:text-gray-900 p-2 hover:bg-gray-100 rounded-full transition"><X size={24}/></button>
                         </div>
-                        
                         <form onSubmit={handleAddTransaction} className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                             <div className="space-y-6">
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Date</label><input required type="date" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 transition" value={newTransaction.date} onChange={e => setNewTransaction({...newTransaction, date: e.target.value})} /></div>
@@ -184,10 +224,7 @@ const BudgetRecorderView = () => {
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Status</label><select className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 bg-white transition" value={newTransaction.status} onChange={e => setNewTransaction({...newTransaction, status: e.target.value})}>{BUDGET_STATUSES.map(st => <option key={st} value={st}>{st}</option>)}</select></div>
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Remark</label><textarea placeholder="Additional notes..." className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px] transition" value={newTransaction.remark} onChange={e => setNewTransaction({...newTransaction, remark: e.target.value})} /></div>
                             </div>
-                            <div className="md:col-span-2 pt-6 border-t border-gray-100 flex justify-end gap-3">
-                                <button type="button" onClick={() => setIsAddOpen(false)} className="px-6 py-3 rounded-lg font-bold text-gray-500 hover:bg-gray-100 transition">Cancel</button>
-                                <button type="submit" className={`px-8 py-3 rounded-lg font-bold text-white shadow-lg transition transform hover:scale-105 ${activeTab === 'income' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}`}>Save Record</button>
-                            </div>
+                            <div className="md:col-span-2 pt-6 border-t border-gray-100 flex justify-end gap-3"><button type="button" onClick={() => setIsAddOpen(false)} className="px-6 py-3 rounded-lg font-bold text-gray-500 hover:bg-gray-100 transition">Cancel</button><button type="submit" className={`px-8 py-3 rounded-lg font-bold text-white shadow-lg transition transform hover:scale-105 ${activeTab === 'income' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}`}>Save Record</button></div>
                         </form>
                     </div>
                 </div>
@@ -198,12 +235,8 @@ const BudgetRecorderView = () => {
 
 const RequirementSheetModal = ({ task, requirement, onClose }) => {
     const [newRow, setNewRow] = useState({ col1: '', col2: '', col3: '', notes: '' });
-    // Default columns if none exist
     const [columns, setColumns] = useState(requirement.columns || [
-        { id: 'col1', name: 'Item / Name' },
-        { id: 'col2', name: 'Description' },
-        { id: 'col3', name: 'Status' },
-        { id: 'notes', name: 'Notes' }
+        { id: 'col1', name: 'Item / Name' }, { id: 'col2', name: 'Description' }, { id: 'col3', name: 'Status' }, { id: 'notes', name: 'Notes' }
     ]);
 
     useEffect(() => {
@@ -224,51 +257,20 @@ const RequirementSheetModal = ({ task, requirement, onClose }) => {
     };
 
     const saveColumns = () => updateRequirement({ columns });
-
-    const addColumn = () => {
-        const newCols = [...columns, { id: `col-${Date.now()}`, name: 'New Column' }];
-        setColumns(newCols);
-        updateRequirement({ columns: newCols });
-    };
-
-    const deleteColumn = (colId) => {
-        if (confirm('Delete column?')) {
-            const newCols = columns.filter(c => c.id !== colId);
-            setColumns(newCols);
-            updateRequirement({ columns: newCols });
-        }
-    };
-
-    const handleAddRow = () => {
-        if (Object.keys(newRow).length === 0) return;
-        const updatedTableData = [...(requirement.tableData || []), { id: Date.now(), ...newRow }];
-        updateRequirement({ tableData: updatedTableData });
-        setNewRow({});
-    };
-
-    const handleDeleteRow = (rowId) => {
-        const updatedTableData = (requirement.tableData || []).filter(row => row.id !== rowId);
-        updateRequirement({ tableData: updatedTableData });
-    };
-
-    const handleRowChange = (colId, value) => {
-        setNewRow(prev => ({ ...prev, [colId]: value }));
-    };
+    const addColumn = () => { const newCols = [...columns, { id: `col-${Date.now()}`, name: 'New Column' }]; setColumns(newCols); updateRequirement({ columns: newCols }); };
+    const deleteColumn = (colId) => { if (confirm('Delete column?')) { const newCols = columns.filter(c => c.id !== colId); setColumns(newCols); updateRequirement({ columns: newCols }); } };
+    const handleAddRow = () => { if (Object.keys(newRow).length === 0) return; const updatedTableData = [...(requirement.tableData || []), { id: Date.now(), ...newRow }]; updateRequirement({ tableData: updatedTableData }); setNewRow({}); };
+    const handleDeleteRow = (rowId) => { const updatedTableData = (requirement.tableData || []).filter(row => row.id !== rowId); updateRequirement({ tableData: updatedTableData }); };
+    const handleRowChange = (colId, value) => { setNewRow(prev => ({ ...prev, [colId]: value })); };
 
     const exportToCSV = () => {
         if (!requirement.tableData || requirement.tableData.length === 0) return alert("No data to export.");
         const headers = columns.map(c => c.name);
-        const rows = requirement.tableData.map(row => 
-            columns.map(col => `"${(row[col.id] || '').replace(/"/g, '""')}"`)
-        );
+        const rows = requirement.tableData.map(row => columns.map(col => `"${(row[col.id] || '').replace(/"/g, '""')}"`));
         const csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n" + rows.map(e => e.join(",")).join("\n");
         const encodedUri = encodeURI(csvContent);
-        const link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
-        link.setAttribute("download", `${requirement.text}_table.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        const link = document.createElement("a"); link.setAttribute("href", encodedUri); link.setAttribute("download", `${requirement.text}_table.csv`);
+        document.body.appendChild(link); link.click(); document.body.removeChild(link);
     };
 
     return (
@@ -322,10 +324,7 @@ const HomeView = ({ tasks, currentUser }) => {
     const completedTasks = getTasksByStatus('done').length;
     const inProgressTasks = getTasksByStatus('inprogress').length;
     const reviewTasks = getTasksByStatus('review').length;
-    const todoTasks = getTasksByStatus('todo').length;
-    const tagCounts = tasks.reduce((acc, task) => { const tag = task.tag || 'Uncategorized'; acc[tag] = (acc[tag] || 0) + 1; return acc; }, {});
-    const maxTagCount = Math.max(...Object.values(tagCounts), 1);
-
+    
     return (
         <div className="flex flex-col h-full w-full bg-gray-50">
             <header className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-white/80 backdrop-blur-md z-10"><h2 className="text-2xl font-bold text-gray-800">Overview</h2><div className="text-sm font-medium text-gray-500">{new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}</div></header>
@@ -339,8 +338,8 @@ const HomeView = ({ tasks, currentUser }) => {
                         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between h-32 hover:shadow-md transition"><div className="flex justify-between items-start"><div className="bg-purple-50 text-purple-600 p-2 rounded-lg"><PieChart size={24} /></div><span className="text-xs font-bold text-gray-400 uppercase">Review</span></div><div><span className="text-3xl font-bold text-gray-800">{reviewTasks}</span><span className="text-sm text-gray-400 ml-2">pending</span></div></div>
                     </div>
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100"><h3 className="text-lg font-bold text-gray-800 mb-6">Task Status</h3><div className="flex items-end justify-between h-64 gap-4">{[{ label: 'To Do', count: todoTasks, color: 'bg-gray-200' }, { label: 'In Progress', count: inProgressTasks, color: 'bg-blue-500' }, { label: 'Review', count: reviewTasks, color: 'bg-purple-500' }, { label: 'Done', count: completedTasks, color: 'bg-green-500' }].map((stat) => (<div key={stat.label} className="flex flex-col items-center gap-2 flex-1 h-full justify-end group"><div className="font-bold text-gray-800 mb-1 opacity-0 group-hover:opacity-100 transition-opacity transform translate-y-2 group-hover:translate-y-0">{stat.count}</div><div className={`w-full rounded-t-xl transition-all duration-500 ${stat.color} hover:opacity-90`} style={{ height: `${totalTasks > 0 ? (stat.count / totalTasks) * 100 : 0}%`, minHeight: '8px' }}></div><div className="text-xs font-bold text-gray-400 uppercase text-center mt-2">{stat.label}</div></div>))}</div></div>
-                        <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100"><h3 className="text-lg font-bold text-gray-800 mb-6">Workload</h3><div className="space-y-5">{Object.keys(TAG_COLORS).map((tag) => { const count = tagCounts[tag] || 0; return (<div key={tag}><div className="flex justify-between text-sm font-bold mb-2"><span className="text-gray-600">{tag}</span><span className="text-gray-400">{count} Tasks</span></div><div className="h-3 w-full bg-gray-100 rounded-full overflow-hidden"><div className={`h-full rounded-full transition-all duration-500 ${(TAG_COLORS[tag] || 'bg-gray-200').split(' ')[0]}`} style={{ width: `${(count / maxTagCount) * 100}%` }}></div></div></div>) })}</div></div>
+                        <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100"><h3 className="text-lg font-bold text-gray-800 mb-6">Task Status</h3><div className="flex items-end justify-between h-64 gap-4">{[{ label: 'To Do', count: totalTasks - completedTasks - inProgressTasks - reviewTasks, color: 'bg-gray-200' }, { label: 'In Progress', count: inProgressTasks, color: 'bg-blue-500' }, { label: 'Review', count: reviewTasks, color: 'bg-purple-500' }, { label: 'Done', count: completedTasks, color: 'bg-green-500' }].map((stat) => (<div key={stat.label} className="flex flex-col items-center gap-2 flex-1 h-full justify-end group"><div className="font-bold text-gray-800 mb-1 opacity-0 group-hover:opacity-100 transition-opacity transform translate-y-2 group-hover:translate-y-0">{stat.count}</div><div className={`w-full rounded-t-xl transition-all duration-500 ${stat.color} hover:opacity-90`} style={{ height: `${totalTasks > 0 ? (stat.count / totalTasks) * 100 : 0}%`, minHeight: '8px' }}></div><div className="text-xs font-bold text-gray-400 uppercase text-center mt-2">{stat.label}</div></div>))}</div></div>
+                        <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100"><h3 className="text-lg font-bold text-gray-800 mb-6">Workload</h3><div className="space-y-5">{Object.keys(TAG_COLORS).map((tag) => { const count = tasks.filter(t => t.tag === tag).length; return (<div key={tag}><div className="flex justify-between text-sm font-bold mb-2"><span className="text-gray-600">{tag}</span><span className="text-gray-400">{count} Tasks</span></div><div className="h-3 w-full bg-gray-100 rounded-full overflow-hidden"><div className={`h-full rounded-full transition-all duration-500 ${(TAG_COLORS[tag] || 'bg-gray-200').split(' ')[0]}`} style={{ width: `${(count / maxTagCount) * 100}%` }}></div></div></div>) })}</div></div>
                     </div>
                 </div>
             </div>
@@ -413,7 +412,7 @@ const PhotoAlbumView = ({ currentUser }) => {
                 <div className="flex items-center gap-3">{currentAlbum && <button onClick={() => setCurrentAlbum(null)} className="p-2 hover:bg-gray-200 rounded-full text-gray-500"><ArrowLeft size={24} /></button>}<div><h2 className="text-3xl font-bold text-gray-800 flex items-center gap-3">{currentAlbum ? <><Folder className="text-purple-600" /> {currentAlbum.name}</> : <><ImageIcon className="text-purple-600" /> Photo Albums</>}</h2></div></div>
                 {!currentAlbum ? <div className="relative">{isCreatingAlbum ? <form onSubmit={createAlbum} className="flex gap-2"><input autoFocus type="text" placeholder="Album Name" className="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 outline-none" value={newAlbumName} onChange={e => setNewAlbumName(e.target.value)} /><button type="submit" className="bg-purple-600 text-white px-4 py-2 rounded-lg font-bold text-sm">Save</button></form> : <button onClick={() => setIsCreatingAlbum(true)} className="flex items-center gap-2 bg-purple-600 text-white px-5 py-2.5 rounded-full font-bold shadow-lg"><Plus size={20} /> Create Album</button>}</div> : <div className="relative"><input type="file" accept="image/*" onChange={handleUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" disabled={uploading} /><button className="flex items-center gap-2 bg-purple-600 text-white px-5 py-2.5 rounded-full font-bold shadow-lg">{uploading ? <Loader2 className="animate-spin" size={20} /> : <Upload size={20} />} Upload</button></div>}
             </div>
-            {!currentAlbum ? <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{albums.map(album => (<div key={album.id} onClick={() => setCurrentAlbum(album)} className="group bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition cursor-pointer flex flex-col items-center justify-center aspect-square relative"><Folder size={64} className="text-purple-200 group-hover:text-purple-300 transition mb-4" /><h3 className="font-bold text-gray-700 text-center">{album.name}</h3><p className="text-xs text-gray-400 mt-1">{new Date(album.createdAt?.seconds * 1000).toLocaleDateString()}</p><button onClick={(e) => handleDeleteAlbum(e, album.id)} className="absolute top-3 right-3 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition"><Trash2 size={18} /></button></div>))}</div> : <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{albumPhotos.map(photo => (<div key={photo.id} className="group relative bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition aspect-square"><img src={photo.url} className="w-full h-full object-cover" /><div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2"><a href={photo.url} download={photo.name} className="p-2 bg-white/20 text-white rounded-full"><ExternalLink size={20} /></a><button onClick={() => handleDeletePhoto(photo.id)} className="p-2 bg-red-500/80 text-white rounded-full"><Trash2 size={20} /></button></div></div>))}</div>}
+            {!currentAlbum ? <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{albums.map(album => (<div key={album.id} onClick={() => setCurrentAlbum(album)} className="group bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition cursor-pointer flex flex-col items-center justify-center aspect-square relative"><Folder size={64} className="text-purple-200 group-hover:text-purple-300 transition mb-4" /><h3 className="font-bold text-gray-700 text-center">{album.name}</h3><button onClick={(e) => handleDeleteAlbum(e, album.id)} className="absolute top-3 right-3 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition"><Trash2 size={18} /></button></div>))}</div> : <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{albumPhotos.map(photo => (<div key={photo.id} className="group relative bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition aspect-square"><img src={photo.url} className="w-full h-full object-cover" /><div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2"><a href={photo.url} download={photo.name} className="p-2 bg-white/20 text-white rounded-full"><ExternalLink size={20} /></a><button onClick={() => handleDeletePhoto(photo.id)} className="p-2 bg-red-500/80 text-white rounded-full"><Trash2 size={20} /></button></div></div>))}</div>}
         </div></div>
     );
 };
@@ -489,7 +488,6 @@ export default function Dashboard() {
   const [tasks, setTasks] = useState([]);
   const [currentView, setCurrentView] = useState('board'); 
   
-  // Replace with your actual keys
   const EMAIL_SERVICE_ID = "YOUR_SERVICE_ID"; 
   const EMAIL_TEMPLATE_ID = "YOUR_TEMPLATE_ID"; 
   const EMAIL_PUBLIC_KEY = "YOUR_PUBLIC_KEY";
