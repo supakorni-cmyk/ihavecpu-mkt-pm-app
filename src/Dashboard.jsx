@@ -19,7 +19,7 @@ import {
   Save, Heart, ChevronLeft, ChevronRight, RefreshCw, Video, Home, PieChart, Activity, CheckCircle2,
   ListTodo, Presentation, Printer, Upload, Image as ImageIcon, GripVertical, LayoutTemplate, Camera,
   Loader2, Folder, Mail, Table, Download, Minus, Play, Info, MessageCircle, Share2, Search, Bot, 
-  Youtube, Facebook, User, AtSign, Zap, Settings
+  User, AtSign, Zap, Settings
 } from 'lucide-react';
 
 // --- CONSTANTS & HELPERS ---
@@ -297,54 +297,6 @@ const ReportView = ({ tasks, currentUser }) => {
     );
 };
 
-// --- NEW AI CLIP COLLECTOR VIEW ---
-const AIClipCollectorView = () => {
-    const [targets, setTargets] = useState([
-        { platform: 'YouTube', url: 'https://www.youtube.com/@iHAVECPU_', icon: Youtube, color: 'text-red-600', bg: 'bg-red-50' },
-        { platform: 'Facebook', url: 'https://www.facebook.com/CPUCore2Duo', icon: Facebook, color: 'text-blue-600', bg: 'bg-blue-50' },
-        { platform: 'TikTok', url: 'https://www.tiktok.com/@ihavecputestcom', icon: Video, color: 'text-black', bg: 'bg-gray-100' }
-    ]);
-    const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
-    const [isCollecting, setIsCollecting] = useState(false);
-    const [data, setData] = useState(null);
-
-    const handleCollect = () => {
-        setIsCollecting(true);
-        setData(null);
-        setTimeout(() => {
-            const mockData = {};
-            const contentTypes = ["RTX 4090 Test", "งบ 20,000 เล่นเกมลื่น", "Review Case Montech", "Promotion 9.9", "ประกอบคอมด่วน", "Intel Gen 14 มาแล้ว", "Live Stream ย้อนหลัง", "แจกโค้ดส่วนลด", "Q&A ตอบคำถาม"];
-            targets.forEach(target => {
-                const platform = target.platform;
-                const channelName = target.url.split('/').pop().replace('@', '');
-                mockData[platform] = Array.from({ length: Math.floor(Math.random() * 4) + 3 }).map((_, i) => {
-                    const randomTitle = contentTypes[Math.floor(Math.random() * contentTypes.length)];
-                    const dateStr = `${month}-${Math.floor(Math.random() * 28) + 1}`.replace(/-(\d)$/, '-0$1');
-                    let videoLink = target.url;
-                    if (platform === 'YouTube') videoLink = `https://www.youtube.com/watch?v=mock${Math.random().toString(36).substr(2, 8)}`;
-                    else if (platform === 'Facebook') videoLink = `${target.url.replace(/\/$/, '')}/videos/${Math.floor(Math.random() * 9999999999)}`;
-                    else if (platform === 'TikTok') videoLink = `${target.url.replace(/\/$/, '')}/video/${Math.floor(Math.random() * 99999999999999999)}`;
-                    
-                    return {
-                        id: i, title: `${channelName} - ${randomTitle} #${i + 1}`, thumbnail: `https://placehold.co/300x200/333/fff?text=${platform}+${i+1}`,
-                        link: videoLink, views: (Math.random() * 100).toFixed(1) + 'K', date: dateStr, engagement: (Math.random() * 15).toFixed(1) + '%'
-                    };
-                });
-            });
-            setData(mockData); setIsCollecting(false);
-        }, 2000);
-    };
-
-    return (
-        <div className="p-6 md:p-10 h-full w-full bg-gray-50/50 overflow-y-auto"><div className="max-w-6xl mx-auto">
-            <div className="mb-8"><h2 className="text-3xl font-bold text-gray-800 flex items-center gap-3"><Bot className="text-indigo-600" /> AI Clip Collector</h2><p className="text-gray-500 mt-1">Automated video tracking for iHAVECPU channels.</p></div>
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 mb-8"><div className="grid grid-cols-1 lg:grid-cols-3 gap-6"><div className="lg:col-span-2 space-y-4"><label className="block text-xs font-bold text-gray-500 uppercase">Monitored Sources</label><div className="space-y-3">{targets.map((target, idx) => (<div key={idx} className="flex items-center gap-3 p-3 rounded-lg border border-gray-100 bg-gray-50"><div className={`p-2 rounded-full ${target.bg} ${target.color}`}><target.icon size={18} /></div><div className="flex-1 min-w-0"><p className="text-sm font-bold text-gray-700">{target.platform}</p><a href={target.url} target="_blank" rel="noreferrer" className="text-xs text-indigo-500 hover:underline truncate block">{target.url}</a></div><div className="flex items-center gap-2 text-green-600 text-xs font-bold"><div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div> Active</div></div>))}</div></div><div className="space-y-4"><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Target Month</label><input type="month" className="w-full border border-gray-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500" value={month} onChange={(e) => setMonth(e.target.value)} /></div><button onClick={handleCollect} disabled={isCollecting} className={`w-full flex items-center justify-center gap-2 bg-indigo-600 text-white px-6 py-3 rounded-lg font-bold shadow-lg hover:bg-indigo-700 transition ${isCollecting ? 'opacity-75 cursor-wait' : ''}`}>{isCollecting ? <Loader2 className="animate-spin" size={18} /> : <Bot size={18} />}{isCollecting ? 'Scanning Channels...' : 'Start Collection'}</button></div></div></div>
-            {data && (<div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in zoom-in duration-300">{['YouTube', 'Facebook', 'TikTok'].map(platform => (<div key={platform} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col"><div className={`px-4 py-3 border-b flex items-center justify-between ${platform === 'YouTube' ? 'bg-red-50 border-red-100 text-red-700' : platform === 'Facebook' ? 'bg-blue-50 border-blue-100 text-blue-700' : 'bg-gray-900 text-white'}`}><h3 className="font-bold flex items-center gap-2">{platform === 'YouTube' && <Youtube size={18} />}{platform === 'Facebook' && <Facebook size={18} />}{platform === 'TikTok' && <Video size={18} />}{platform}</h3><span className="text-xs font-mono bg-white/20 px-2 py-0.5 rounded">{data[platform].length} Clips</span></div><div className="p-4 space-y-4 max-h-[600px] overflow-y-auto custom-scrollbar">{data[platform].map(clip => (<div key={clip.id} className="group relative border border-gray-100 rounded-lg p-2 hover:bg-gray-50 transition"><div className="aspect-video bg-gray-100 rounded-md overflow-hidden mb-2 relative"><img src={clip.thumbnail} alt="thumb" className="w-full h-full object-cover" /><a href={clip.link} target="_blank" rel="noreferrer" className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition"><ExternalLink className="text-white" size={24} /></a></div><h4 className="font-bold text-gray-800 text-sm line-clamp-2 leading-tight mb-1">{clip.title}</h4><div className="flex justify-between items-center text-xs text-gray-500"><span>{clip.date}</span><span className="font-medium flex items-center gap-1"><Activity size={10} /> {clip.views}</span></div></div>))}</div></div>))}</div>)}
-            {isCollecting && <div className="py-20 text-center"><Loader2 className="animate-spin text-indigo-600 mx-auto mb-4" size={48} /><h3 className="text-xl font-bold text-gray-800">AI Agent is Working...</h3><p className="text-gray-500">Scanning monitored channels in {month}...</p></div>}
-        </div></div>
-    );
-};
-
 // --- AUTOMATION VIEW ---
 const AutomationView = ({ currentUser }) => {
     const [automations, setAutomations] = useState([]);
@@ -372,7 +324,7 @@ const AutomationView = ({ currentUser }) => {
 // --- MAIN DASHBOARD COMPONENT ---
 export default function Dashboard() {
   const [tasks, setTasks] = useState([]);
-  const [automations, setAutomations] = useState([]); // Add this line
+  const [automations, setAutomations] = useState([]); 
   const [currentView, setCurrentView] = useState('board'); 
   
   // Replace with your actual keys
@@ -383,8 +335,10 @@ export default function Dashboard() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState(null);
   const [activeRequirementId, setActiveRequirementId] = useState(null);
+  
   const [isEditing, setIsEditing] = useState(false); 
   const [editedTask, setEditedTask] = useState({}); 
+  
   const [newTask, setNewTask] = useState({
     title: '', tag: 'Planning', startDate: new Date().toISOString().split('T')[0],
     deadline: '', description: '', requirements: [], reference: '', link: '', imageUrl: '', fileUrl: ''
