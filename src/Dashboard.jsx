@@ -51,7 +51,7 @@ const getSafeRequirements = (task) => {
     return [];
 };
 
-// --- SUB-COMPONENTS (Defined Outside) ---
+// --- SUB-COMPONENTS ---
 
 const RequirementSheetModal = ({ task, requirement, onClose }) => {
     const [newRow, setNewRow] = useState({ col1: '', col2: '', col3: '', notes: '' });
@@ -200,7 +200,6 @@ const CalendarView = ({ tasks, setSelectedTaskId }) => {
     );
 };
 
-// --- DEFAULT PHOTO ALBUM VIEW (FOLDER STYLE) ---
 const PhotoAlbumView = ({ currentUser }) => {
     const [albums, setAlbums] = useState([]);
     const [photos, setPhotos] = useState([]);
@@ -236,76 +235,6 @@ const SelfHealView = () => {
     const videos = ["jfKfPfyJRdk", "eKFTSSKCzWA", "inpok4MKVLM", "Dx5qFachd3A", "tEmt1Znux58", "lTRiuFIWV54"];
     const [currentVideoId, setCurrentVideoId] = useState(videos[0]);
     return (<div className="h-full w-full flex flex-col items-center justify-center p-6 bg-gradient-to-br from-indigo-50 to-purple-50"><div className="text-center mb-8"><h2 className="text-4xl font-bold text-gray-800 mb-2 flex items-center justify-center gap-3"><Heart className="text-pink-500 fill-pink-500" size={32} />Self Heal & Relax</h2></div><div className="w-full max-w-4xl aspect-video bg-black rounded-2xl shadow-2xl overflow-hidden mb-8 border-4 border-white"><iframe width="100%" height="100%" src={`https://www.youtube.com/embed/${currentVideoId}?autoplay=1`} title="YouTube" frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen></iframe></div><button onClick={() => setCurrentVideoId(videos[Math.floor(Math.random() * videos.length)])} className="flex items-center gap-2 bg-white px-6 py-3 rounded-full shadow-lg hover:shadow-xl font-bold text-indigo-600"><RefreshCw size={20} /> Change Atmosphere</button></div>);
-};
-
-const AIClipCollectorView = () => {
-    const [targets, setTargets] = useState([
-        { platform: 'YouTube', url: 'https://www.youtube.com/@iHAVECPU_', icon: Youtube, color: 'text-red-600', bg: 'bg-red-50' },
-        { platform: 'Facebook', url: 'https://www.facebook.com/CPUCore2Duo', icon: Facebook, color: 'text-blue-600', bg: 'bg-blue-50' },
-        { platform: 'TikTok', url: 'https://www.tiktok.com/@ihavecputestcom', icon: Video, color: 'text-black', bg: 'bg-gray-100' }
-    ]);
-    const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
-    const [isCollecting, setIsCollecting] = useState(false);
-    const [data, setData] = useState(null);
-
-    const handleCollect = () => {
-        setIsCollecting(true);
-        setData(null);
-        setTimeout(() => {
-            const mockData = {};
-            const contentTypes = ["RTX 4090 Test", "งบ 20,000 เล่นเกมลื่น", "Review Case Montech", "Promotion 9.9", "ประกอบคอมด่วน", "Intel Gen 14 มาแล้ว", "Live Stream ย้อนหลัง", "แจกโค้ดส่วนลด", "Q&A ตอบคำถาม"];
-            targets.forEach(target => {
-                const platform = target.platform;
-                const channelName = target.url.split('/').pop().replace('@', '');
-                mockData[platform] = Array.from({ length: Math.floor(Math.random() * 4) + 3 }).map((_, i) => {
-                    const randomTitle = contentTypes[Math.floor(Math.random() * contentTypes.length)];
-                    const dateStr = `${month}-${Math.floor(Math.random() * 28) + 1}`.replace(/-(\d)$/, '-0$1');
-                    let videoLink = target.url;
-                    if (platform === 'YouTube') videoLink = `https://www.youtube.com/watch?v=mock${Math.random().toString(36).substr(2, 8)}`;
-                    else if (platform === 'Facebook') videoLink = `${target.url.replace(/\/$/, '')}/videos/${Math.floor(Math.random() * 9999999999)}`;
-                    else if (platform === 'TikTok') videoLink = `${target.url.replace(/\/$/, '')}/video/${Math.floor(Math.random() * 99999999999999999)}`;
-                    
-                    return {
-                        id: i, title: `${channelName} - ${randomTitle} #${i + 1}`, thumbnail: `https://placehold.co/300x200/333/fff?text=${platform}+${i+1}`,
-                        link: videoLink, views: (Math.random() * 100).toFixed(1) + 'K', date: dateStr, engagement: (Math.random() * 15).toFixed(1) + '%'
-                    };
-                });
-            });
-            setData(mockData); setIsCollecting(false);
-        }, 2000);
-    };
-
-    return (
-        <div className="p-6 md:p-10 h-full w-full bg-gray-50/50 overflow-y-auto"><div className="max-w-6xl mx-auto">
-            <div className="mb-8"><h2 className="text-3xl font-bold text-gray-800 flex items-center gap-3"><Bot className="text-indigo-600" /> AI Clip Collector</h2><p className="text-gray-500 mt-1">Automated video tracking for iHAVECPU channels.</p></div>
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 mb-8"><div className="grid grid-cols-1 lg:grid-cols-3 gap-6"><div className="lg:col-span-2 space-y-4"><label className="block text-xs font-bold text-gray-500 uppercase">Monitored Sources</label><div className="space-y-3">{targets.map((target, idx) => (<div key={idx} className="flex items-center gap-3 p-3 rounded-lg border border-gray-100 bg-gray-50"><div className={`p-2 rounded-full ${target.bg} ${target.color}`}><target.icon size={18} /></div><div className="flex-1 min-w-0"><p className="text-sm font-bold text-gray-700">{target.platform}</p><a href={target.url} target="_blank" rel="noreferrer" className="text-xs text-indigo-500 hover:underline truncate block">{target.url}</a></div><div className="flex items-center gap-2 text-green-600 text-xs font-bold"><div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div> Active</div></div>))}</div></div><div className="space-y-4"><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Target Month</label><input type="month" className="w-full border border-gray-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500" value={month} onChange={(e) => setMonth(e.target.value)} /></div><button onClick={handleCollect} disabled={isCollecting} className={`w-full flex items-center justify-center gap-2 bg-indigo-600 text-white px-6 py-3 rounded-lg font-bold shadow-lg hover:bg-indigo-700 transition ${isCollecting ? 'opacity-75 cursor-wait' : ''}`}>{isCollecting ? <Loader2 className="animate-spin" size={18} /> : <Bot size={18} />}{isCollecting ? 'Scanning Channels...' : 'Start Collection'}</button></div></div></div>
-            {data && (<div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in zoom-in duration-300">{['YouTube', 'Facebook', 'TikTok'].map(platform => (<div key={platform} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col"><div className={`px-4 py-3 border-b flex items-center justify-between ${platform === 'YouTube' ? 'bg-red-50 border-red-100 text-red-700' : platform === 'Facebook' ? 'bg-blue-50 border-blue-100 text-blue-700' : 'bg-gray-900 text-white'}`}><h3 className="font-bold flex items-center gap-2">{platform === 'YouTube' && <Youtube size={18} />}{platform === 'Facebook' && <Facebook size={18} />}{platform === 'TikTok' && <Video size={18} />}{platform}</h3><span className="text-xs font-mono bg-white/20 px-2 py-0.5 rounded">{data[platform].length} Clips</span></div><div className="p-4 space-y-4 max-h-[600px] overflow-y-auto custom-scrollbar">{data[platform].map(clip => (<div key={clip.id} className="group relative border border-gray-100 rounded-lg p-2 hover:bg-gray-50 transition"><div className="aspect-video bg-gray-100 rounded-md overflow-hidden mb-2 relative"><img src={clip.thumbnail} alt="thumb" className="w-full h-full object-cover" /><a href={clip.link} target="_blank" rel="noreferrer" className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition"><ExternalLink className="text-white" size={24} /></a></div><h4 className="font-bold text-gray-800 text-sm line-clamp-2 leading-tight mb-1">{clip.title}</h4><div className="flex justify-between items-center text-xs text-gray-500"><span>{clip.date}</span><span className="font-medium flex items-center gap-1"><Activity size={10} /> {clip.views}</span></div></div>))}</div></div>))}</div>)}
-            {isCollecting && <div className="py-20 text-center"><Loader2 className="animate-spin text-indigo-600 mx-auto mb-4" size={48} /><h3 className="text-xl font-bold text-gray-800">AI Agent is Working...</h3><p className="text-gray-500">Scanning platforms for "{channel}" in {month}...</p></div>}
-        </div></div>
-    );
-};
-
-const AutomationView = ({ currentUser }) => {
-    const [automations, setAutomations] = useState([]);
-    const [isCreateOpen, setIsCreateOpen] = useState(false);
-    const [newAuto, setNewAuto] = useState({ name: '', trigger: 'TASK_CREATED', action: 'SEND_EMAIL', config: { target: '', template: '' }, isActive: true });
-
-    useEffect(() => { const u = onSnapshot(query(collection(db, 'automations'), orderBy('createdAt', 'desc')), (s) => setAutomations(s.docs.map(d => ({...d.data(), id: d.id})))); return u; }, []);
-
-    const handleSaveAutomation = async (e) => {
-        e.preventDefault(); await addDoc(collection(db, 'automations'), { ...newAuto, createdAt: new Date(), createdBy: currentUser.email });
-        setIsCreateOpen(false); setNewAuto({ name: '', trigger: 'TASK_CREATED', action: 'SEND_EMAIL', config: { target: '', template: '' }, isActive: true });
-    };
-    const deleteAutomation = async (id) => { if(confirm('Delete automation?')) await deleteDoc(doc(db, 'automations', id)); };
-    const toggleAutomation = async (auto) => { await updateDoc(doc(db, 'automations', auto.id), { isActive: !auto.isActive }); };
-
-    return (
-        <div className="p-8 h-full bg-gray-50 overflow-y-auto"><div className="max-w-5xl mx-auto">
-            <div className="flex justify-between items-center mb-8"><div><h2 className="text-3xl font-bold text-gray-800 flex items-center gap-2"><Zap className="text-amber-500 fill-amber-500" /> Automation Studio</h2></div><button onClick={() => setIsCreateOpen(true)} className="bg-gray-900 text-white px-5 py-2.5 rounded-lg font-bold shadow-lg flex items-center gap-2"><Plus size={18} /> Create Workflow</button></div>
-            <div className="grid gap-4">{automations.map(auto => (<div key={auto.id} className={`bg-white p-6 rounded-xl border-l-4 shadow-sm flex items-center justify-between transition-all ${auto.isActive ? 'border-amber-500 opacity-100' : 'border-gray-300 opacity-60'}`}><div className="flex items-center gap-6"><div className={`p-3 rounded-full ${auto.isActive ? 'bg-amber-100 text-amber-600' : 'bg-gray-100 text-gray-400'}`}><Zap size={24} /></div><div><h3 className="font-bold text-lg text-gray-800">{auto.name}</h3><div className="flex items-center gap-2 text-sm text-gray-500 mt-1"><span className="bg-gray-100 px-2 py-0.5 rounded font-mono text-xs uppercase">{auto.trigger}</span><ArrowRight size={14} /><span className="bg-gray-100 px-2 py-0.5 rounded font-mono text-xs uppercase">{auto.action}</span></div></div></div><div className="flex items-center gap-4"><input type="checkbox" checked={auto.isActive} onChange={() => toggleAutomation(auto)} className="cursor-pointer" /><button onClick={() => deleteAutomation(auto.id)} className="text-gray-400 hover:text-red-500 p-2"><Trash2 size={18} /></button></div></div>))}</div>
-            {isCreateOpen && (<div className="fixed inset-0 bg-black/60 z-[80] flex items-center justify-center p-4 backdrop-blur-sm"><div className="bg-white rounded-2xl w-full max-w-lg p-8 shadow-2xl"><div className="flex justify-between items-center mb-6"><h3 className="text-2xl font-bold text-gray-800">New Automation</h3><button onClick={() => setIsCreateOpen(false)} className="text-gray-400 hover:text-gray-900"><X size={24}/></button></div><form onSubmit={handleSaveAutomation} className="space-y-5"><div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Name</label><input required type="text" className="w-full border rounded-lg p-3" value={newAuto.name} onChange={e => setNewAuto({...newAuto, name: e.target.value})} /></div><div className="grid grid-cols-2 gap-4"><div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Trigger</label><select className="w-full border rounded-lg p-3" value={newAuto.trigger} onChange={e => setNewAuto({...newAuto, trigger: e.target.value})}><option value="TASK_CREATED">Task Created</option><option value="TASK_DUE_SOON">Due Date Approaching</option></select></div><div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Action</label><select className="w-full border rounded-lg p-3" value={newAuto.action} onChange={e => setNewAuto({...newAuto, action: e.target.value})}><option value="SEND_EMAIL">Send Email</option><option value="WEBHOOK">Call Webhook</option></select></div></div><div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Target (Email/URL)</label><input required type="text" className="w-full border rounded-lg p-3" value={newAuto.config.target} onChange={e => setNewAuto({...newAuto, config: {...newAuto.config, target: e.target.value}})} /></div><button type="submit" className="w-full bg-amber-500 text-white px-6 py-3 rounded-lg font-bold">Create</button></form></div></div>)}
-        </div></div>
-    );
 };
 
 const ReportView = ({ tasks, currentUser }) => {
@@ -368,10 +297,82 @@ const ReportView = ({ tasks, currentUser }) => {
     );
 };
 
+// --- NEW AI CLIP COLLECTOR VIEW ---
+const AIClipCollectorView = () => {
+    const [targets, setTargets] = useState([
+        { platform: 'YouTube', url: 'https://www.youtube.com/@iHAVECPU_', icon: Youtube, color: 'text-red-600', bg: 'bg-red-50' },
+        { platform: 'Facebook', url: 'https://www.facebook.com/CPUCore2Duo', icon: Facebook, color: 'text-blue-600', bg: 'bg-blue-50' },
+        { platform: 'TikTok', url: 'https://www.tiktok.com/@ihavecputestcom', icon: Video, color: 'text-black', bg: 'bg-gray-100' }
+    ]);
+    const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
+    const [isCollecting, setIsCollecting] = useState(false);
+    const [data, setData] = useState(null);
+
+    const handleCollect = () => {
+        setIsCollecting(true);
+        setData(null);
+        setTimeout(() => {
+            const mockData = {};
+            const contentTypes = ["RTX 4090 Test", "งบ 20,000 เล่นเกมลื่น", "Review Case Montech", "Promotion 9.9", "ประกอบคอมด่วน", "Intel Gen 14 มาแล้ว", "Live Stream ย้อนหลัง", "แจกโค้ดส่วนลด", "Q&A ตอบคำถาม"];
+            targets.forEach(target => {
+                const platform = target.platform;
+                const channelName = target.url.split('/').pop().replace('@', '');
+                mockData[platform] = Array.from({ length: Math.floor(Math.random() * 4) + 3 }).map((_, i) => {
+                    const randomTitle = contentTypes[Math.floor(Math.random() * contentTypes.length)];
+                    const dateStr = `${month}-${Math.floor(Math.random() * 28) + 1}`.replace(/-(\d)$/, '-0$1');
+                    let videoLink = target.url;
+                    if (platform === 'YouTube') videoLink = `https://www.youtube.com/watch?v=mock${Math.random().toString(36).substr(2, 8)}`;
+                    else if (platform === 'Facebook') videoLink = `${target.url.replace(/\/$/, '')}/videos/${Math.floor(Math.random() * 9999999999)}`;
+                    else if (platform === 'TikTok') videoLink = `${target.url.replace(/\/$/, '')}/video/${Math.floor(Math.random() * 99999999999999999)}`;
+                    
+                    return {
+                        id: i, title: `${channelName} - ${randomTitle} #${i + 1}`, thumbnail: `https://placehold.co/300x200/333/fff?text=${platform}+${i+1}`,
+                        link: videoLink, views: (Math.random() * 100).toFixed(1) + 'K', date: dateStr, engagement: (Math.random() * 15).toFixed(1) + '%'
+                    };
+                });
+            });
+            setData(mockData); setIsCollecting(false);
+        }, 2000);
+    };
+
+    return (
+        <div className="p-6 md:p-10 h-full w-full bg-gray-50/50 overflow-y-auto"><div className="max-w-6xl mx-auto">
+            <div className="mb-8"><h2 className="text-3xl font-bold text-gray-800 flex items-center gap-3"><Bot className="text-indigo-600" /> AI Clip Collector</h2><p className="text-gray-500 mt-1">Automated video tracking for iHAVECPU channels.</p></div>
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 mb-8"><div className="grid grid-cols-1 lg:grid-cols-3 gap-6"><div className="lg:col-span-2 space-y-4"><label className="block text-xs font-bold text-gray-500 uppercase">Monitored Sources</label><div className="space-y-3">{targets.map((target, idx) => (<div key={idx} className="flex items-center gap-3 p-3 rounded-lg border border-gray-100 bg-gray-50"><div className={`p-2 rounded-full ${target.bg} ${target.color}`}><target.icon size={18} /></div><div className="flex-1 min-w-0"><p className="text-sm font-bold text-gray-700">{target.platform}</p><a href={target.url} target="_blank" rel="noreferrer" className="text-xs text-indigo-500 hover:underline truncate block">{target.url}</a></div><div className="flex items-center gap-2 text-green-600 text-xs font-bold"><div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div> Active</div></div>))}</div></div><div className="space-y-4"><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Target Month</label><input type="month" className="w-full border border-gray-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500" value={month} onChange={(e) => setMonth(e.target.value)} /></div><button onClick={handleCollect} disabled={isCollecting} className={`w-full flex items-center justify-center gap-2 bg-indigo-600 text-white px-6 py-3 rounded-lg font-bold shadow-lg hover:bg-indigo-700 transition ${isCollecting ? 'opacity-75 cursor-wait' : ''}`}>{isCollecting ? <Loader2 className="animate-spin" size={18} /> : <Bot size={18} />}{isCollecting ? 'Scanning Channels...' : 'Start Collection'}</button></div></div></div>
+            {data && (<div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in zoom-in duration-300">{['YouTube', 'Facebook', 'TikTok'].map(platform => (<div key={platform} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col"><div className={`px-4 py-3 border-b flex items-center justify-between ${platform === 'YouTube' ? 'bg-red-50 border-red-100 text-red-700' : platform === 'Facebook' ? 'bg-blue-50 border-blue-100 text-blue-700' : 'bg-gray-900 text-white'}`}><h3 className="font-bold flex items-center gap-2">{platform === 'YouTube' && <Youtube size={18} />}{platform === 'Facebook' && <Facebook size={18} />}{platform === 'TikTok' && <Video size={18} />}{platform}</h3><span className="text-xs font-mono bg-white/20 px-2 py-0.5 rounded">{data[platform].length} Clips</span></div><div className="p-4 space-y-4 max-h-[600px] overflow-y-auto custom-scrollbar">{data[platform].map(clip => (<div key={clip.id} className="group relative border border-gray-100 rounded-lg p-2 hover:bg-gray-50 transition"><div className="aspect-video bg-gray-100 rounded-md overflow-hidden mb-2 relative"><img src={clip.thumbnail} alt="thumb" className="w-full h-full object-cover" /><a href={clip.link} target="_blank" rel="noreferrer" className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition"><ExternalLink className="text-white" size={24} /></a></div><h4 className="font-bold text-gray-800 text-sm line-clamp-2 leading-tight mb-1">{clip.title}</h4><div className="flex justify-between items-center text-xs text-gray-500"><span>{clip.date}</span><span className="font-medium flex items-center gap-1"><Activity size={10} /> {clip.views}</span></div></div>))}</div></div>))}</div>)}
+            {isCollecting && <div className="py-20 text-center"><Loader2 className="animate-spin text-indigo-600 mx-auto mb-4" size={48} /><h3 className="text-xl font-bold text-gray-800">AI Agent is Working...</h3><p className="text-gray-500">Scanning monitored channels in {month}...</p></div>}
+        </div></div>
+    );
+};
+
+// --- AUTOMATION VIEW ---
+const AutomationView = ({ currentUser }) => {
+    const [automations, setAutomations] = useState([]);
+    const [isCreateOpen, setIsCreateOpen] = useState(false);
+    const [newAuto, setNewAuto] = useState({ name: '', trigger: 'TASK_CREATED', action: 'SEND_EMAIL', config: { target: '', template: '' }, isActive: true });
+
+    useEffect(() => { const u = onSnapshot(query(collection(db, 'automations'), orderBy('createdAt', 'desc')), (s) => setAutomations(s.docs.map(d => ({...d.data(), id: d.id})))); return u; }, []);
+
+    const handleSaveAutomation = async (e) => {
+        e.preventDefault(); await addDoc(collection(db, 'automations'), { ...newAuto, createdAt: new Date(), createdBy: currentUser.email });
+        setIsCreateOpen(false); setNewAuto({ name: '', trigger: 'TASK_CREATED', action: 'SEND_EMAIL', config: { target: '', template: '' }, isActive: true });
+    };
+    const deleteAutomation = async (id) => { if(confirm('Delete automation?')) await deleteDoc(doc(db, 'automations', id)); };
+    const toggleAutomation = async (auto) => { await updateDoc(doc(db, 'automations', auto.id), { isActive: !auto.isActive }); };
+
+    return (
+        <div className="p-8 h-full bg-gray-50 overflow-y-auto"><div className="max-w-5xl mx-auto">
+            <div className="flex justify-between items-center mb-8"><div><h2 className="text-3xl font-bold text-gray-800 flex items-center gap-2"><Zap className="text-amber-500 fill-amber-500" /> Automation Studio</h2></div><button onClick={() => setIsCreateOpen(true)} className="bg-gray-900 text-white px-5 py-2.5 rounded-lg font-bold shadow-lg flex items-center gap-2"><Plus size={18} /> Create Workflow</button></div>
+            <div className="grid gap-4">{automations.map(auto => (<div key={auto.id} className={`bg-white p-6 rounded-xl border-l-4 shadow-sm flex items-center justify-between transition-all ${auto.isActive ? 'border-amber-500 opacity-100' : 'border-gray-300 opacity-60'}`}><div className="flex items-center gap-6"><div className={`p-3 rounded-full ${auto.isActive ? 'bg-amber-100 text-amber-600' : 'bg-gray-100 text-gray-400'}`}><Zap size={24} /></div><div><h3 className="font-bold text-lg text-gray-800">{auto.name}</h3><div className="flex items-center gap-2 text-sm text-gray-500 mt-1"><span className="bg-gray-100 px-2 py-0.5 rounded font-mono text-xs uppercase">{auto.trigger}</span><ArrowRight size={14} /><span className="bg-gray-100 px-2 py-0.5 rounded font-mono text-xs uppercase">{auto.action}</span></div></div></div><div className="flex items-center gap-4"><input type="checkbox" checked={auto.isActive} onChange={() => toggleAutomation(auto)} className="cursor-pointer" /><button onClick={() => deleteAutomation(auto.id)} className="text-gray-400 hover:text-red-500 p-2"><Trash2 size={18} /></button></div></div>))}</div>
+            {isCreateOpen && (<div className="fixed inset-0 bg-black/60 z-[80] flex items-center justify-center p-4 backdrop-blur-sm"><div className="bg-white rounded-2xl w-full max-w-lg p-8 shadow-2xl"><div className="flex justify-between items-center mb-6"><h3 className="text-2xl font-bold text-gray-800">New Automation</h3><button onClick={() => setIsCreateOpen(false)} className="text-gray-400 hover:text-gray-900"><X size={24}/></button></div><form onSubmit={handleSaveAutomation} className="space-y-5"><div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Name</label><input required type="text" className="w-full border rounded-lg p-3" value={newAuto.name} onChange={e => setNewAuto({...newAuto, name: e.target.value})} /></div><div className="grid grid-cols-2 gap-4"><div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Trigger</label><select className="w-full border rounded-lg p-3" value={newAuto.trigger} onChange={e => setNewAuto({...newAuto, trigger: e.target.value})}><option value="TASK_CREATED">Task Created</option><option value="TASK_DUE_SOON">Due Date Approaching</option></select></div><div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Action</label><select className="w-full border rounded-lg p-3" value={newAuto.action} onChange={e => setNewAuto({...newAuto, action: e.target.value})}><option value="SEND_EMAIL">Send Email</option><option value="WEBHOOK">Call Webhook</option></select></div></div><div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Target (Email/URL)</label><input required type="text" className="w-full border rounded-lg p-3" value={newAuto.config.target} onChange={e => setNewAuto({...newAuto, config: {...newAuto.config, target: e.target.value}})} /></div><button type="submit" className="w-full bg-amber-500 text-white px-6 py-3 rounded-lg font-bold">Create</button></form></div></div>)}
+        </div></div>
+    );
+};
+
 // --- MAIN DASHBOARD COMPONENT ---
 export default function Dashboard() {
   const [tasks, setTasks] = useState([]);
-  const [automations, setAutomations] = useState([]); 
+  const [automations, setAutomations] = useState([]); // Add this line
   const [currentView, setCurrentView] = useState('board'); 
   
   // Replace with your actual keys
@@ -382,10 +383,8 @@ export default function Dashboard() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState(null);
   const [activeRequirementId, setActiveRequirementId] = useState(null);
-  
   const [isEditing, setIsEditing] = useState(false); 
   const [editedTask, setEditedTask] = useState({}); 
-  
   const [newTask, setNewTask] = useState({
     title: '', tag: 'Planning', startDate: new Date().toISOString().split('T')[0],
     deadline: '', description: '', requirements: [], reference: '', link: '', imageUrl: '', fileUrl: ''
