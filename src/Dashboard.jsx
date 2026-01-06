@@ -23,8 +23,6 @@ import {
 } from 'lucide-react';
 
 // --- CONSTANTS & HELPERS ---
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-
 const TAG_COLORS = { 
   'Planning': 'bg-pink-100 text-pink-600', 
   'Project': 'bg-purple-100 text-purple-600', 
@@ -81,8 +79,7 @@ const BudgetRecorderView = () => {
     });
 
     useEffect(() => {
-        // FIX: Updated path
-        const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'budget'), orderBy('date', 'desc'));
+        const q = query(collection(db, 'budget'), orderBy('date', 'desc'));
         const unsubscribe = onSnapshot(q, (snapshot) => {
             setTransactions(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })));
         });
@@ -91,31 +88,34 @@ const BudgetRecorderView = () => {
 
     const handleAddTransaction = async (e) => {
         e.preventDefault();
-        // FIX: Updated path
-        await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'budget'), { 
-            ...newTransaction, 
-            type: activeTab,
-            createdAt: new Date() 
-        });
-        setIsAddOpen(false);
-        setNewTransaction({
-            type: activeTab,
-            date: new Date().toISOString().split('T')[0],
-            brand: '',
-            category: BUDGET_CATEGORIES[0],
-            description: '',
-            amount: '',
-            company: '',
-            invoice: '',
-            paymentDate: '',
-            status: 'Pending',
-            remark: ''
-        });
+        try {
+            await addDoc(collection(db, 'budget'), { 
+                ...newTransaction, 
+                type: activeTab,
+                createdAt: new Date() 
+            });
+            setIsAddOpen(false);
+            setNewTransaction({
+                type: activeTab,
+                date: new Date().toISOString().split('T')[0],
+                brand: '',
+                category: BUDGET_CATEGORIES[0],
+                description: '',
+                amount: '',
+                company: '',
+                invoice: '',
+                paymentDate: '',
+                status: 'Pending',
+                remark: ''
+            });
+        } catch (error) {
+            console.error("Error saving transaction:", error);
+            alert("Failed to save record.");
+        }
     };
 
     const handleDeleteTransaction = async (id) => {
-        // FIX: Updated path
-        if(confirm('Delete this record?')) await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'budget', id));
+        if(confirm('Delete this record?')) await deleteDoc(doc(db, 'budget', id));
     }
 
     const filteredTransactions = transactions.filter(t => t.type === activeTab);
@@ -283,36 +283,69 @@ const BudgetRecorderView = () => {
 const RequirementSheetModal = ({ task, requirement, onClose }) => {
     // ... RequirementSheetModal implementation ...
     const [newRow, setNewRow] = useState({ col1: '', col2: '', col3: '', notes: '' });
+    // Default columns if none exist
+    const [columns, setColumns] = useState(requirement.columns || [
+        { id: 'col1', name: 'Item / Name' },
+        { id: 'col2', name: 'Description' },
+        { id: 'col3', name: 'Status' },
+        { id: 'notes', name: 'Notes' }
+    ]);
 
-    const handleAddRow = () => {
-        if(!newRow.col1 && !newRow.col2) return;
+    useEffect(() => {
+        if (requirement.columns) setColumns(requirement.columns);
+    }, [requirement.columns]);
+
+    const updateRequirement = (updates) => {
         const updatedReqs = task.requirements.map(r => {
-            if (r.id === requirement.id) {
-                return { ...r, tableData: [...(r.tableData || []), { id: Date.now(), ...newRow }] };
-            }
+            if (r.id === requirement.id) return { ...r, ...updates };
             return r;
         });
-        updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'tasks', task.id), { requirements: updatedReqs });
-        setNewRow({ col1: '', col2: '', col3: '', notes: '' });
+        updateDoc(doc(db, 'tasks', task.id), { requirements: updatedReqs });
+    };
+
+    const handleColumnNameChange = (colId, newName) => {
+        const updatedCols = columns.map(c => c.id === colId ? { ...c, name: newName } : c);
+        setColumns(updatedCols);
+    };
+
+    const saveColumns = () => updateRequirement({ columns });
+
+    const addColumn = () => {
+        const newCols = [...columns, { id: `col-${Date.now()}`, name: 'New Column' }];
+        setColumns(newCols);
+        updateRequirement({ columns: newCols });
+    };
+
+    const deleteColumn = (colId) => {
+        if (confirm('Delete column?')) {
+            const newCols = columns.filter(c => c.id !== colId);
+            setColumns(newCols);
+            updateRequirement({ columns: newCols });
+        }
+    };
+
+    const handleAddRow = () => {
+        if (Object.keys(newRow).length === 0) return;
+        const updatedTableData = [...(requirement.tableData || []), { id: Date.now(), ...newRow }];
+        updateRequirement({ tableData: updatedTableData });
+        setNewRow({});
     };
 
     const handleDeleteRow = (rowId) => {
-        const updatedReqs = task.requirements.map(r => {
-            if (r.id === requirement.id) {
-                return { ...r, tableData: r.tableData.filter(row => row.id !== rowId) };
-            }
-            return r;
-        });
-        updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'tasks', task.id), { requirements: updatedReqs });
+        const updatedTableData = (requirement.tableData || []).filter(row => row.id !== rowId);
+        updateRequirement({ tableData: updatedTableData });
+    };
+
+    const handleRowChange = (colId, value) => {
+        setNewRow(prev => ({ ...prev, [colId]: value }));
     };
 
     const exportToCSV = () => {
         if (!requirement.tableData || requirement.tableData.length === 0) return alert("No data to export.");
-        const headers = ["Item", "Description", "Status", "Notes"];
-        const rows = requirement.tableData.map(row => [
-            `"${(row.col1 || '').replace(/"/g, '""')}"`, `"${(row.col2 || '').replace(/"/g, '""')}"`,
-            `"${(row.col3 || '').replace(/"/g, '""')}"`, `"${(row.notes || '').replace(/"/g, '""')}"`
-        ]);
+        const headers = columns.map(c => c.name);
+        const rows = requirement.tableData.map(row => 
+            columns.map(col => `"${(row[col.id] || '').replace(/"/g, '""')}"`)
+        );
         const csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n" + rows.map(e => e.join(",")).join("\n");
         const encodedUri = encodeURI(csvContent);
         const link = document.createElement("a");
@@ -325,30 +358,41 @@ const RequirementSheetModal = ({ task, requirement, onClose }) => {
 
     return (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-[70] p-4 animate-in fade-in zoom-in duration-200">
-            <div className="bg-white w-full max-w-6xl h-[85vh] rounded-xl shadow-2xl flex flex-col overflow-hidden border border-gray-200">
+            <div className="bg-white w-full max-w-7xl h-[85vh] rounded-xl shadow-2xl flex flex-col overflow-hidden border border-gray-200">
                 <div className="bg-green-600 px-6 py-4 flex justify-between items-center text-white shrink-0">
                     <div className="flex items-center gap-3"><div className="bg-white/20 p-2 rounded"><Table size={24} /></div><div><h3 className="font-bold text-lg leading-tight">{requirement.text}</h3><p className="text-xs opacity-80 font-mono tracking-wide uppercase">Table for Task: {task.title}</p></div></div>
                     <div className="flex gap-3"><button onClick={exportToCSV} className="bg-white text-green-700 px-4 py-2 rounded-lg font-bold text-sm hover:bg-green-50 transition flex items-center gap-2"><Download size={16} /> Export CSV</button><button onClick={onClose} className="p-2 hover:bg-white/20 rounded-full text-white"><X size={24} /></button></div>
                 </div>
                 <div className="flex-1 overflow-auto bg-gray-50 p-6">
-                    <div className="bg-white border border-gray-300 shadow-sm min-w-[800px]">
+                    <div className="bg-white border border-gray-300 shadow-sm min-w-max">
                         <div className="flex border-b border-gray-300 bg-gray-100 text-gray-500 font-bold text-xs uppercase tracking-wider sticky top-0 z-10 shadow-sm">
-                            <div className="w-12 p-3 text-center border-r border-gray-300">#</div><div className="flex-1 p-3 border-r border-gray-300">Item / Name</div><div className="flex-1 p-3 border-r border-gray-300">Description</div><div className="w-32 p-3 border-r border-gray-300">Status</div><div className="flex-1 p-3 border-r border-gray-300">Notes</div><div className="w-12 p-3"></div>
+                            <div className="w-12 p-3 text-center border-r border-gray-300 bg-gray-100 sticky left-0 z-20">#</div>
+                            {columns.map(col => (
+                                <div key={col.id} className="w-48 min-w-[180px] p-2 border-r border-gray-300 relative group bg-gray-100">
+                                    <input type="text" value={col.name} onChange={(e) => handleColumnNameChange(col.id, e.target.value)} onBlur={saveColumns} className="bg-transparent w-full text-center focus:bg-white focus:ring-2 focus:ring-green-500 rounded px-1 py-0.5 border border-transparent hover:border-gray-300" />
+                                    <button onClick={() => deleteColumn(col.id)} className="absolute right-1 top-1 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition p-1 rounded-full hover:bg-gray-200"><X size={10} /></button>
+                                </div>
+                            ))}
+                            <div className="w-12 p-2 flex items-center justify-center bg-gray-100 hover:bg-gray-200 cursor-pointer border-r border-gray-300" onClick={addColumn} title="Add Column"><Plus size={16} className="text-green-600" /></div>
+                            <div className="w-12 p-3 bg-gray-100"></div>
                         </div>
                         {(requirement.tableData || []).map((row, idx) => (
                             <div key={row.id} className="flex border-b border-gray-200 hover:bg-blue-50/30 transition-colors">
-                                <div className="w-12 p-3 text-center border-r border-gray-200 bg-gray-50 text-gray-400 font-mono text-xs flex items-center justify-center">{idx + 1}</div>
-                                <div className="flex-1 p-3 border-r border-gray-200 text-sm">{row.col1}</div><div className="flex-1 p-3 border-r border-gray-200 text-sm">{row.col2}</div><div className="w-32 p-3 border-r border-gray-200 text-sm">{row.col3}</div><div className="flex-1 p-3 border-r border-gray-200 text-sm text-gray-500 italic">{row.notes}</div>
+                                <div className="w-12 p-3 text-center border-r border-gray-200 bg-gray-50 text-gray-400 font-mono text-xs flex items-center justify-center sticky left-0 z-10">{idx + 1}</div>
+                                {columns.map(col => (<div key={col.id} className="w-48 min-w-[180px] p-3 border-r border-gray-200 text-sm text-gray-800">{row[col.id]}</div>))}
+                                <div className="w-12 flex-1 border-r border-gray-200"></div>
                                 <div className="w-12 p-3 flex items-center justify-center"><button onClick={() => handleDeleteRow(row.id)} className="text-gray-300 hover:text-red-500"><Trash2 size={14} /></button></div>
                             </div>
                         ))}
-                        <div className="flex border-b border-gray-200 bg-yellow-50/50">
-                            <div className="w-12 p-3 text-center border-r border-gray-200 text-green-600 font-bold">+</div>
-                            <div className="flex-1 border-r border-gray-200"><input type="text" placeholder="Item Name..." className="w-full h-full p-3 bg-transparent outline-none text-sm" value={newRow.col1} onChange={e => setNewRow({...newRow, col1: e.target.value})} /></div>
-                            <div className="flex-1 border-r border-gray-200"><input type="text" placeholder="Details..." className="w-full h-full p-3 bg-transparent outline-none text-sm" value={newRow.col2} onChange={e => setNewRow({...newRow, col2: e.target.value})} /></div>
-                            <div className="w-32 border-r border-gray-200"><input type="text" placeholder="Status..." className="w-full h-full p-3 bg-transparent outline-none text-sm" value={newRow.col3} onChange={e => setNewRow({...newRow, col3: e.target.value})} /></div>
-                            <div className="flex-1 border-r border-gray-200"><input type="text" placeholder="Notes..." className="w-full h-full p-3 bg-transparent outline-none text-sm" value={newRow.notes} onChange={e => setNewRow({...newRow, notes: e.target.value})} onKeyDown={e => e.key === 'Enter' && handleAddRow()} /></div>
-                            <div className="w-12 p-2 flex items-center justify-center"><button onClick={handleAddRow} className="bg-green-600 text-white p-1 rounded hover:bg-green-700"><Plus size={16} /></button></div>
+                        <div className="flex border-b border-gray-200 bg-yellow-50/50 sticky bottom-0 z-10 shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
+                            <div className="w-12 p-3 text-center border-r border-gray-200 text-green-600 font-bold bg-yellow-50 sticky left-0">+</div>
+                            {columns.map(col => (
+                                <div key={col.id} className="w-48 min-w-[180px] border-r border-gray-200">
+                                    <input type="text" placeholder={col.name + "..."} className="w-full h-full p-3 bg-transparent outline-none text-sm focus:bg-white focus:ring-inset focus:ring-2 focus:ring-green-500" value={newRow[col.id] || ''} onChange={e => handleRowChange(col.id, e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddRow()} />
+                                </div>
+                            ))}
+                            <div className="w-12 flex-1 border-r border-gray-200 bg-yellow-50"></div>
+                            <div className="w-12 p-2 flex items-center justify-center bg-yellow-50"><button onClick={handleAddRow} className="bg-green-600 text-white p-1 rounded hover:bg-green-700 shadow-sm"><Plus size={16} /></button></div>
                         </div>
                     </div>
                 </div>
@@ -436,23 +480,23 @@ const PhotoAlbumView = ({ currentUser }) => {
     const [isCreatingAlbum, setIsCreatingAlbum] = useState(false);
     const [newAlbumName, setNewAlbumName] = useState('');
 
-    useEffect(() => { const u = onSnapshot(query(collection(db, 'artifacts', appId, 'public', 'data', 'albums'), orderBy('createdAt', 'desc')), (s) => setAlbums(s.docs.map(d => ({...d.data(), id: d.id})))); return u; }, []);
-    useEffect(() => { const u = onSnapshot(query(collection(db, 'artifacts', appId, 'public', 'data', 'photos'), orderBy('createdAt', 'desc')), (s) => setPhotos(s.docs.map(d => ({...d.data(), id: d.id})))); return u; }, []);
+    useEffect(() => { const u = onSnapshot(query(collection(db, 'albums'), orderBy('createdAt', 'desc')), (s) => setAlbums(s.docs.map(d => ({...d.data(), id: d.id})))); return u; }, []);
+    useEffect(() => { const u = onSnapshot(query(collection(db, 'photos'), orderBy('createdAt', 'desc')), (s) => setPhotos(s.docs.map(d => ({...d.data(), id: d.id})))); return u; }, []);
 
-    const createAlbum = async (e) => { e.preventDefault(); if (!newAlbumName) return; await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'albums'), { name: newAlbumName, createdAt: new Date(), createdBy: currentUser.email }); setNewAlbumName(''); setIsCreatingAlbum(false); };
+    const createAlbum = async (e) => { e.preventDefault(); if (!newAlbumName) return; await addDoc(collection(db, 'albums'), { name: newAlbumName, createdAt: new Date(), createdBy: currentUser.email }); setNewAlbumName(''); setIsCreatingAlbum(false); };
     const handleUpload = async (e) => {
         const file = e.target.files[0]; if (!file || file.size > 2e6) return alert("File too large (>2MB)"); setUploading(true);
-        const reader = new FileReader(); reader.onloadend = async () => { await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'photos'), { url: reader.result, name: file.name, createdAt: new Date(), uploader: currentUser.email, albumId: currentAlbum.id }); setUploading(false); }; reader.readAsDataURL(file);
+        const reader = new FileReader(); reader.onloadend = async () => { await addDoc(collection(db, 'photos'), { url: reader.result, name: file.name, createdAt: new Date(), uploader: currentUser.email, albumId: currentAlbum.id }); setUploading(false); }; reader.readAsDataURL(file);
     };
-    const handleDeletePhoto = async (id) => { if (confirm("Delete photo?")) await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'photos', id)); };
-    const handleDeleteAlbum = async (e, id) => { e.stopPropagation(); if (confirm("Delete album?")) { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'albums', id)); if (currentAlbum?.id === id) setCurrentAlbum(null); } };
+    const handleDeletePhoto = async (id) => { if (confirm("Delete photo?")) await deleteDoc(doc(db, 'photos', id)); };
+    const handleDeleteAlbum = async (e, id) => { e.stopPropagation(); if (confirm("Delete album?")) { await deleteDoc(doc(db, 'albums', id)); if (currentAlbum?.id === id) setCurrentAlbum(null); } };
     const albumPhotos = photos.filter(p => p.albumId === currentAlbum?.id);
 
     return (
         <div className="p-6 md:p-10 h-full w-full bg-gray-50/50 overflow-y-auto"><div className="max-w-6xl mx-auto">
             <div className="flex justify-between items-center mb-8">
                 <div className="flex items-center gap-3">{currentAlbum && <button onClick={() => setCurrentAlbum(null)} className="p-2 hover:bg-gray-200 rounded-full text-gray-500"><ArrowLeft size={24} /></button>}<div><h2 className="text-3xl font-bold text-gray-800 flex items-center gap-3">{currentAlbum ? <><Folder className="text-purple-600" /> {currentAlbum.name}</> : <><ImageIcon className="text-purple-600" /> Photo Albums</>}</h2></div></div>
-                {!currentAlbum ? <div className="relative">{isCreatingAlbum ? <form onSubmit={createAlbum} className="flex gap-2"><input autoFocus type="text" placeholder="Album Name" className="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 outline-none" value={newAlbumName} onChange={e => setNewAlbumName(e.target.value)} /><button type="submit" className="bg-purple-600 text-white px-4 py-2 rounded-lg font-bold text-sm">Save</button></form> : <button onClick={() => setIsCreatingAlbum(true)} className="flex items-center gap-2 bg-purple-600 text-white px-5 py-2.5 rounded-full font-bold shadow-lg"><Plus size={20} /> Create Album</button>}</div> : <div className="relative"><input type="file" accept="image/*" onChange={handleUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" disabled={uploading} /><button className="flex items-center gap-2 bg-purple-600 text-white px-5 py-2.5 rounded-full font-bold shadow-lg">{uploading ? <Loader2 className="animate-spin" size={20} /> : <Upload size={20} />} Upload</button></div>}
+                {!currentAlbum ? <div className="relative">{isCreatingAlbum ? <form onSubmit={createAlbum} className="flex gap-2"><input autoFocus type="text" placeholder="Album Name" className="border rounded-lg px-3 py-2 text-sm" value={newAlbumName} onChange={e => setNewAlbumName(e.target.value)} /><button type="submit" className="bg-purple-600 text-white px-4 py-2 rounded-lg font-bold text-sm">Save</button></form> : <button onClick={() => setIsCreatingAlbum(true)} className="flex items-center gap-2 bg-purple-600 text-white px-5 py-2.5 rounded-full font-bold shadow-lg"><Plus size={20} /> Create Album</button>}</div> : <div className="relative"><input type="file" accept="image/*" onChange={handleUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" disabled={uploading} /><button className="flex items-center gap-2 bg-purple-600 text-white px-5 py-2.5 rounded-full font-bold shadow-lg">{uploading ? <Loader2 className="animate-spin" size={20} /> : <Upload size={20} />} Upload</button></div>}
             </div>
             {!currentAlbum ? <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{albums.map(album => (<div key={album.id} onClick={() => setCurrentAlbum(album)} className="group bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition cursor-pointer flex flex-col items-center justify-center aspect-square relative"><Folder size={64} className="text-purple-200 group-hover:text-purple-300 transition mb-4" /><h3 className="font-bold text-gray-700 text-center">{album.name}</h3><p className="text-xs text-gray-400 mt-1">{new Date(album.createdAt?.seconds * 1000).toLocaleDateString()}</p><button onClick={(e) => handleDeleteAlbum(e, album.id)} className="absolute top-3 right-3 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition"><Trash2 size={18} /></button></div>))}</div> : <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{albumPhotos.map(photo => (<div key={photo.id} className="group relative bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition aspect-square"><img src={photo.url} className="w-full h-full object-cover" /><div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2"><a href={photo.url} download={photo.name} className="p-2 bg-white/20 text-white rounded-full"><ExternalLink size={20} /></a><button onClick={() => handleDeletePhoto(photo.id)} className="p-2 bg-red-500/80 text-white rounded-full"><Trash2 size={20} /></button></div></div>))}</div>}
         </div></div>
@@ -466,7 +510,6 @@ const SelfHealView = () => {
 };
 
 const AIClipCollectorView = () => {
-    // ... AIClipCollectorView code ...
     const [targets, setTargets] = useState([
         { platform: 'YouTube', url: 'https://www.youtube.com/@iHAVECPU_', icon: Youtube, color: 'text-red-600', bg: 'bg-red-50' },
         { platform: 'Facebook', url: 'https://www.facebook.com/CPUCore2Duo', icon: Facebook, color: 'text-blue-600', bg: 'bg-blue-50' },
@@ -518,14 +561,14 @@ const AutomationView = ({ currentUser }) => {
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [newAuto, setNewAuto] = useState({ name: '', trigger: 'TASK_CREATED', action: 'SEND_EMAIL', config: { target: '', template: '' }, isActive: true });
 
-    useEffect(() => { const u = onSnapshot(query(collection(db, 'artifacts', appId, 'public', 'data', 'automations'), orderBy('createdAt', 'desc')), (s) => setAutomations(s.docs.map(d => ({...d.data(), id: d.id})))); return u; }, []);
+    useEffect(() => { const u = onSnapshot(query(collection(db, 'automations'), orderBy('createdAt', 'desc')), (s) => setAutomations(s.docs.map(d => ({...d.data(), id: d.id})))); return u; }, []);
 
     const handleSaveAutomation = async (e) => {
-        e.preventDefault(); await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'automations'), { ...newAuto, createdAt: new Date(), createdBy: currentUser.email });
+        e.preventDefault(); await addDoc(collection(db, 'automations'), { ...newAuto, createdAt: new Date(), createdBy: currentUser.email });
         setIsCreateOpen(false); setNewAuto({ name: '', trigger: 'TASK_CREATED', action: 'SEND_EMAIL', config: { target: '', template: '' }, isActive: true });
     };
-    const deleteAutomation = async (id) => { if(confirm('Delete automation?')) await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'automations', id)); };
-    const toggleAutomation = async (auto) => { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'automations', auto.id), { isActive: !auto.isActive }); };
+    const deleteAutomation = async (id) => { if(confirm('Delete automation?')) await deleteDoc(doc(db, 'automations', id)); };
+    const toggleAutomation = async (auto) => { await updateDoc(doc(db, 'automations', auto.id), { isActive: !auto.isActive }); };
 
     return (
         <div className="p-8 h-full bg-gray-50 overflow-y-auto"><div className="max-w-5xl mx-auto">
@@ -552,6 +595,7 @@ const ReportView = ({ tasks, currentUser }) => {
     const addNewPage = () => { const newId = Date.now(); setPages([...pages, { id: newId, title: 'New Slide', bodyText: 'Enter slide content...', image: null, image2: null, template: '1-landscape' }]); setActivePageId(newId); };
     const removePage = (id, e) => { e.stopPropagation(); if (pages.length === 1) return; const newPages = pages.filter(p => p.id !== id); setPages(newPages); if (activePageId === id) setActivePageId(newPages[0].id); };
     const handleSort = () => { let _pages = [...pages]; const item = _pages.splice(dragItem.current, 1)[0]; _pages.splice(dragOverItem.current, 0, item); setPages(_pages); };
+    const getTasksByStatus = (status) => tasks.filter(task => (status === 'todo' && (task.status === 'pending' || !task.status)) ? true : (status === 'done' && task.status === 'completed') ? true : task.status === status);
 
     return (
         <div className="p-6 md:p-10 h-full w-full bg-gray-100 overflow-y-auto">
@@ -599,7 +643,7 @@ const ReportView = ({ tasks, currentUser }) => {
 export default function Dashboard() {
   const [tasks, setTasks] = useState([]);
   const [automations, setAutomations] = useState([]); 
-  const [currentView, setCurrentView] = useState('board'); 
+  const [currentView, setCurrentView] = useState('home'); 
   
   // Replace with your actual keys
   const EMAIL_SERVICE_ID = "YOUR_SERVICE_ID"; 
@@ -609,10 +653,8 @@ export default function Dashboard() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState(null);
   const [activeRequirementId, setActiveRequirementId] = useState(null);
-  
   const [isEditing, setIsEditing] = useState(false); 
   const [editedTask, setEditedTask] = useState({}); 
-  
   const [newTask, setNewTask] = useState({
     title: '', tag: 'Planning', startDate: new Date().toISOString().split('T')[0],
     deadline: '', description: '', requirements: [], reference: '', link: '', imageUrl: '', fileUrl: ''
@@ -629,9 +671,9 @@ export default function Dashboard() {
 
   // READ DATA
   useEffect(() => {
-    const qTasks = query(collection(db, 'artifacts', appId, 'public', 'data', 'tasks'), orderBy('createdAt', 'desc'));
+    const qTasks = query(collection(db, 'tasks'), orderBy('createdAt', 'desc'));
     const uTasks = onSnapshot(qTasks, (s) => setTasks(s.docs.map(d => ({ ...d.data(), id: d.id }))));
-    const qAutos = query(collection(db, 'artifacts', appId, 'public', 'data', 'automations'));
+    const qAutos = query(collection(db, 'automations'));
     const uAutos = onSnapshot(qAutos, (s) => setAutomations(s.docs.map(d => ({ ...d.data(), id: d.id }))));
     return () => { uTasks(); uAutos(); };
   }, []);
@@ -666,7 +708,7 @@ export default function Dashboard() {
     e.preventDefault();
     if (!newTask.title) return;
     const taskData = { ...newTask, status: 'todo', createdAt: new Date(), author: currentUser.email, dueNotificationSent: false };
-    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'tasks'), taskData);
+    await addDoc(collection(db, 'tasks'), taskData);
     
     // RUN AUTOMATIONS
     runAutomations('TASK_CREATED', taskData);
@@ -715,7 +757,7 @@ export default function Dashboard() {
 
   const handleUpdateTask = async (e) => { 
       e.preventDefault(); 
-      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'tasks', selectedTask.id), { ...editedTask }); 
+      await updateDoc(doc(db, 'tasks', selectedTask.id), { ...editedTask }); 
       setIsEditing(false); 
   };
 
@@ -723,10 +765,10 @@ export default function Dashboard() {
   const toggleRequirement = async (taskId, reqId, currentRequirements) => {
       const safeReqs = getSafeRequirements({ requirements: currentRequirements });
       const updatedReqs = safeReqs.map(r => r.id === reqId ? { ...r, isDone: !r.isDone } : r);
-      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'tasks', taskId), { requirements: updatedReqs });
+      await updateDoc(doc(db, 'tasks', taskId), { requirements: updatedReqs });
   };
-  const moveTask = async (e, taskId, currentStatus, direction) => { e.stopPropagation(); const statusOrder = ['todo', 'inprogress', 'review', 'done']; const currentIndex = statusOrder.indexOf(currentStatus); let nextIndex = direction === 'next' ? currentIndex + 1 : currentIndex - 1; if (nextIndex >= 0 && nextIndex < statusOrder.length) { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'tasks', taskId), { status: statusOrder[nextIndex] }); } };
-  const deleteTask = async (e, id) => { e.stopPropagation(); if (confirm("Delete?")) { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'tasks', id)); if (selectedTaskId === id) setSelectedTaskId(null); } };
+  const moveTask = async (e, taskId, currentStatus, direction) => { e.stopPropagation(); const statusOrder = ['todo', 'inprogress', 'review', 'done']; const currentIndex = statusOrder.indexOf(currentStatus); let nextIndex = direction === 'next' ? currentIndex + 1 : currentIndex - 1; if (nextIndex >= 0 && nextIndex < statusOrder.length) { await updateDoc(doc(db, 'tasks', taskId), { status: statusOrder[nextIndex] }); } };
+  const deleteTask = async (e, id) => { e.stopPropagation(); if (confirm("Delete?")) { await deleteDoc(doc(db, 'tasks', id)); if (selectedTaskId === id) setSelectedTaskId(null); } };
   const handleLogout = async () => { await logout(); navigate('/'); };
 
   const getTasksByStatus = (status) => tasks.filter(task => (status === 'todo' && (task.status === 'pending' || !task.status)) ? true : (status === 'done' && task.status === 'completed') ? true : task.status === status);
