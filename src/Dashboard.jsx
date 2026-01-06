@@ -1,16 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from './AuthContext';
-import { db } from './firebase';
-import { 
-  collection, 
-  addDoc, 
-  query, 
-  onSnapshot, 
-  deleteDoc, 
-  doc, 
-  updateDoc, 
-  orderBy 
-} from 'firebase/firestore';
+// Removed Firebase imports
 import { useNavigate } from 'react-router-dom';
 import emailjs from '@emailjs/browser'; 
 import { 
@@ -21,9 +11,6 @@ import {
   Loader2, Folder, Mail, Table, Download, Minus, Play, Info, MessageCircle, Share2, Search, Bot, 
   Youtube, Facebook, User, AtSign, Zap, Settings, DollarSign, TrendingUp, TrendingDown
 } from 'lucide-react';
-
-// --- GLOBAL APP ID ---
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
 // --- CONSTANTS & HELPERS ---
 const TAG_COLORS = { 
@@ -63,76 +50,14 @@ const getSafeRequirements = (task) => {
 
 // --- SUB-COMPONENTS ---
 
-const BudgetRecorderView = () => {
-    const [activeTab, setActiveTab] = useState('income'); 
-    const [transactions, setTransactions] = useState([]);
-    const [isAddOpen, setIsAddOpen] = useState(false);
-    const [newTransaction, setNewTransaction] = useState({
-        type: 'income', date: new Date().toISOString().split('T')[0],
-        brand: '', category: BUDGET_CATEGORIES[0], description: '', amount: '',
-        company: '', invoice: '', paymentDate: '', status: 'Pending', remark: ''
-    });
-
-    useEffect(() => {
-        const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'budget'), orderBy('date', 'desc'));
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            setTransactions(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })));
-        });
-        return unsubscribe;
-    }, []);
-
-    const handleAddTransaction = async (e) => {
-        e.preventDefault();
-        try {
-            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'budget'), { ...newTransaction, type: activeTab, createdAt: new Date() });
-            setIsAddOpen(false);
-            setNewTransaction({ type: activeTab, date: new Date().toISOString().split('T')[0], brand: '', category: BUDGET_CATEGORIES[0], description: '', amount: '', company: '', invoice: '', paymentDate: '', status: 'Pending', remark: '' });
-        } catch (error) { console.error("Error saving transaction:", error); alert("Failed to save record."); }
-    };
-
-    const handleDeleteTransaction = async (id) => {
-        if(confirm('Delete this record?')) await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'budget', id));
-    }
-
-    const filteredTransactions = transactions.filter(t => t.type === activeTab);
-    const totalAmount = filteredTransactions.reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
-
-    return (
-        <div className="flex flex-col h-full bg-gray-50 font-sans">
-            <header className="px-8 py-5 border-b border-gray-200 bg-white shadow-sm z-10 flex justify-between items-center">
-                <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-lg ${activeTab === 'income' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>{activeTab === 'income' ? <TrendingUp size={24} /> : <TrendingDown size={24} />}</div>
-                    <div><h2 className="text-2xl font-bold text-gray-800">Budget Recorder</h2><p className="text-sm text-gray-500 font-medium">Track your project finances</p></div>
-                </div>
-                <div className="flex items-center gap-6"><div className="text-right"><p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Total {activeTab}</p><p className={`text-2xl font-black ${activeTab === 'income' ? 'text-green-600' : 'text-red-600'}`}>฿{totalAmount.toLocaleString()}</p></div><button onClick={() => setIsAddOpen(true)} className="bg-gray-900 hover:bg-black text-white px-5 py-2.5 rounded-lg font-bold shadow-lg flex items-center gap-2 transition-all transform hover:scale-105"><Plus size={18} /> Add Record</button></div>
-            </header>
-            <div className="flex-1 overflow-hidden flex flex-col">
-                <div className="px-8 pt-6 pb-0 flex gap-1 border-b border-gray-200 bg-gray-50">
-                    <button onClick={() => setActiveTab('income')} className={`px-8 py-3 font-bold text-sm rounded-t-xl transition-all relative ${activeTab === 'income' ? 'bg-white text-green-600 shadow-sm border border-b-0 border-gray-200' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'}`}>Income{activeTab === 'income' && <div className="absolute top-0 left-0 w-full h-1 bg-green-500 rounded-t-xl"></div>}</button>
-                    <button onClick={() => setActiveTab('spending')} className={`px-8 py-3 font-bold text-sm rounded-t-xl transition-all relative ${activeTab === 'spending' ? 'bg-white text-red-600 shadow-sm border border-b-0 border-gray-200' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'}`}>Spending{activeTab === 'spending' && <div className="absolute top-0 left-0 w-full h-1 bg-red-500 rounded-t-xl"></div>}</button>
-                </div>
-                <div className="flex-1 overflow-auto p-8"><div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"><table className="w-full text-sm text-left"><thead className="text-xs text-gray-500 uppercase bg-gray-50 font-bold border-b border-gray-200 sticky top-0 z-10"><tr><th className="px-6 py-4">Date</th><th className="px-6 py-4">Brand</th><th className="px-6 py-4">Category</th><th className="px-6 py-4 w-64">Description</th><th className="px-6 py-4 text-right">Amount (THB)</th><th className="px-6 py-4">Company</th><th className="px-6 py-4">Invoice</th><th className="px-6 py-4">Payment Date</th><th className="px-6 py-4 text-center">Status</th><th className="px-6 py-4 w-48">Remark</th><th className="px-6 py-4 text-center">Action</th></tr></thead><tbody className="divide-y divide-gray-100">{filteredTransactions.map((t) => (<tr key={t.id} className="hover:bg-blue-50/30 transition-colors group"><td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">{formatDate(t.date)}</td><td className="px-6 py-4 font-bold text-gray-700">{t.brand}</td><td className="px-6 py-4"><span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-bold uppercase">{t.category}</span></td><td className="px-6 py-4 text-gray-600 truncate max-w-xs" title={t.description}>{t.description}</td><td className={`px-6 py-4 text-right font-mono font-bold ${activeTab === 'income' ? 'text-green-600' : 'text-red-600'}`}>{parseFloat(t.amount).toLocaleString()}</td><td className="px-6 py-4 text-gray-600">{t.company}</td><td className="px-6 py-4 text-gray-600 font-mono text-xs">{t.invoice || '-'}</td><td className="px-6 py-4 text-gray-500 whitespace-nowrap">{t.paymentDate ? formatDate(t.paymentDate) : '-'}</td><td className="px-6 py-4 text-center"><span className={`px-3 py-1 rounded-full text-xs font-bold border ${t.status === 'Complete' ? 'bg-green-50 text-green-700 border-green-200' : t.status === 'Follow-up' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : 'bg-gray-50 text-gray-500 border-gray-200'}`}>{t.status}</span></td><td className="px-6 py-4 text-gray-500 italic text-xs truncate max-w-[150px]" title={t.remark}>{t.remark || '-'}</td><td className="px-6 py-4 text-center"><button onClick={() => handleDeleteTransaction(t.id)} className="text-gray-300 hover:text-red-500 transition opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-red-50"><Trash2 size={16} /></button></td></tr>))}{filteredTransactions.length === 0 && (<tr><td colSpan="11" className="px-6 py-12 text-center text-gray-400 font-medium">No records found for this view.</td></tr>)}</tbody></table></div></div>
-            </div>
-            {isAddOpen && (
-                <div className="fixed inset-0 bg-black/60 z-[80] flex items-center justify-center p-4 backdrop-blur-sm">
-                    <div className="bg-white rounded-2xl w-full max-w-4xl p-8 shadow-2xl overflow-y-auto max-h-[90vh]">
-                        <div className="flex justify-between items-center mb-8 border-b border-gray-100 pb-4"><div><h3 className="text-2xl font-bold text-gray-900">Add {activeTab === 'income' ? 'Income' : 'Spending'} Record</h3><p className="text-sm text-gray-500 mt-1">Fill in the details for the new financial record.</p></div><button onClick={() => setIsAddOpen(false)} className="text-gray-400 hover:text-gray-900 p-2 hover:bg-gray-100 rounded-full transition"><X size={24}/></button></div>
-                        <form onSubmit={handleAddTransaction} className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                            <div className="space-y-6"><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Date</label><input required type="date" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 transition" value={newTransaction.date} onChange={e => setNewTransaction({...newTransaction, date: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Brand</label><input required type="text" placeholder="e.g. Intel, AMD" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 transition" value={newTransaction.brand} onChange={e => setNewTransaction({...newTransaction, brand: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Category</label><select className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 bg-white transition" value={newTransaction.category} onChange={e => setNewTransaction({...newTransaction, category: e.target.value})}>{BUDGET_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}</select></div><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Description</label><textarea placeholder="Details about the transaction..." className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px] transition" value={newTransaction.description} onChange={e => setNewTransaction({...newTransaction, description: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Amount (THB)</label><input required type="number" placeholder="0.00" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 font-mono text-lg font-bold transition" value={newTransaction.amount} onChange={e => setNewTransaction({...newTransaction, amount: e.target.value})} /></div></div>
-                            <div className="space-y-6"><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Company</label><input type="text" placeholder="Company Name" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 transition" value={newTransaction.company} onChange={e => setNewTransaction({...newTransaction, company: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Invoice No.</label><input type="text" placeholder="INV-001" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 font-mono transition" value={newTransaction.invoice} onChange={e => setNewTransaction({...newTransaction, invoice: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Payment Date</label><input type="date" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 transition" value={newTransaction.paymentDate} onChange={e => setNewTransaction({...newTransaction, paymentDate: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Status</label><select className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 bg-white transition" value={newTransaction.status} onChange={e => setNewTransaction({...newTransaction, status: e.target.value})}>{BUDGET_STATUSES.map(st => <option key={st} value={st}>{st}</option>)}</select></div><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Remark</label><textarea placeholder="Additional notes..." className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px] transition" value={newTransaction.remark} onChange={e => setNewTransaction({...newTransaction, remark: e.target.value})} /></div></div>
-                            <div className="md:col-span-2 pt-6 border-t border-gray-100 flex justify-end gap-3"><button type="button" onClick={() => setIsAddOpen(false)} className="px-6 py-3 rounded-lg font-bold text-gray-500 hover:bg-gray-100 transition">Cancel</button><button type="submit" className={`px-8 py-3 rounded-lg font-bold text-white shadow-lg transition transform hover:scale-105 ${activeTab === 'income' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}`}>Save Record</button></div>
-                        </form>
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-};
-
-const RequirementSheetModal = ({ task, requirement, onClose }) => {
+const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => {
     const [newRow, setNewRow] = useState({ col1: '', col2: '', col3: '', notes: '' });
+    // Default columns if none exist
     const [columns, setColumns] = useState(requirement.columns || [
-        { id: 'col1', name: 'Item / Name' }, { id: 'col2', name: 'Description' }, { id: 'col3', name: 'Status' }, { id: 'notes', name: 'Notes' }
+        { id: 'col1', name: 'Item / Name' },
+        { id: 'col2', name: 'Description' },
+        { id: 'col3', name: 'Status' },
+        { id: 'notes', name: 'Notes' }
     ]);
 
     useEffect(() => {
@@ -144,7 +69,7 @@ const RequirementSheetModal = ({ task, requirement, onClose }) => {
             if (r.id === requirement.id) return { ...r, ...updates };
             return r;
         });
-        updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'tasks', task.id), { requirements: updatedReqs });
+        onUpdateTask(task.id, { requirements: updatedReqs });
     };
 
     const handleColumnNameChange = (colId, newName) => {
@@ -153,20 +78,51 @@ const RequirementSheetModal = ({ task, requirement, onClose }) => {
     };
 
     const saveColumns = () => updateRequirement({ columns });
-    const addColumn = () => { const newCols = [...columns, { id: `col-${Date.now()}`, name: 'New Column' }]; setColumns(newCols); updateRequirement({ columns: newCols }); };
-    const deleteColumn = (colId) => { if (confirm('Delete column?')) { const newCols = columns.filter(c => c.id !== colId); setColumns(newCols); updateRequirement({ columns: newCols }); } };
-    const handleAddRow = () => { if (Object.keys(newRow).length === 0) return; const updatedTableData = [...(requirement.tableData || []), { id: Date.now(), ...newRow }]; updateRequirement({ tableData: updatedTableData }); setNewRow({}); };
-    const handleDeleteRow = (rowId) => { const updatedTableData = (requirement.tableData || []).filter(row => row.id !== rowId); updateRequirement({ tableData: updatedTableData }); };
-    const handleRowChange = (colId, value) => { setNewRow(prev => ({ ...prev, [colId]: value })); };
+
+    const addColumn = () => {
+        const newCols = [...columns, { id: `col-${Date.now()}`, name: 'New Column' }];
+        setColumns(newCols);
+        updateRequirement({ columns: newCols });
+    };
+
+    const deleteColumn = (colId) => {
+        if (confirm('Delete column?')) {
+            const newCols = columns.filter(c => c.id !== colId);
+            setColumns(newCols);
+            updateRequirement({ columns: newCols });
+        }
+    };
+
+    const handleAddRow = () => {
+        if (Object.keys(newRow).length === 0) return;
+        const updatedTableData = [...(requirement.tableData || []), { id: Date.now(), ...newRow }];
+        updateRequirement({ tableData: updatedTableData });
+        setNewRow({});
+    };
+
+    const handleDeleteRow = (rowId) => {
+        const updatedTableData = (requirement.tableData || []).filter(row => row.id !== rowId);
+        updateRequirement({ tableData: updatedTableData });
+    };
+
+    const handleRowChange = (colId, value) => {
+        setNewRow(prev => ({ ...prev, [colId]: value }));
+    };
 
     const exportToCSV = () => {
         if (!requirement.tableData || requirement.tableData.length === 0) return alert("No data to export.");
         const headers = columns.map(c => c.name);
-        const rows = requirement.tableData.map(row => columns.map(col => `"${(row[col.id] || '').replace(/"/g, '""')}"`));
+        const rows = requirement.tableData.map(row => 
+            columns.map(col => `"${(row[col.id] || '').replace(/"/g, '""')}"`)
+        );
         const csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n" + rows.map(e => e.join(",")).join("\n");
         const encodedUri = encodeURI(csvContent);
-        const link = document.createElement("a"); link.setAttribute("href", encodedUri); link.setAttribute("download", `${requirement.text}_table.csv`);
-        document.body.appendChild(link); link.click(); document.body.removeChild(link);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `${requirement.text}_table.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     };
 
     return (
@@ -214,16 +170,64 @@ const RequirementSheetModal = ({ task, requirement, onClose }) => {
     );
 };
 
+const BudgetRecorderView = ({ transactions, onAdd, onDelete }) => {
+    const [activeTab, setActiveTab] = useState('income');
+    const [isAddOpen, setIsAddOpen] = useState(false);
+    const [newTransaction, setNewTransaction] = useState({
+        type: 'income', date: new Date().toISOString().split('T')[0],
+        brand: '', category: BUDGET_CATEGORIES[0], description: '', amount: '',
+        company: '', invoice: '', paymentDate: '', status: 'Pending', remark: ''
+    });
+
+    const handleAddTransaction = (e) => {
+        e.preventDefault();
+        onAdd({ ...newTransaction, type: activeTab, createdAt: new Date() });
+        setIsAddOpen(false);
+        setNewTransaction({ type: activeTab, date: new Date().toISOString().split('T')[0], brand: '', category: BUDGET_CATEGORIES[0], description: '', amount: '', company: '', invoice: '', paymentDate: '', status: 'Pending', remark: '' });
+    };
+
+    const filteredTransactions = transactions.filter(t => t.type === activeTab);
+    const totalAmount = filteredTransactions.reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
+
+    return (
+        <div className="flex flex-col h-full bg-gray-50 font-sans">
+            <header className="px-8 py-5 border-b border-gray-200 bg-white shadow-sm z-10 flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-lg ${activeTab === 'income' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>{activeTab === 'income' ? <TrendingUp size={24} /> : <TrendingDown size={24} />}</div>
+                    <div><h2 className="text-2xl font-bold text-gray-800">Budget Recorder</h2><p className="text-sm text-gray-500 font-medium">Track your project finances</p></div>
+                </div>
+                <div className="flex items-center gap-6"><div className="text-right"><p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Total {activeTab}</p><p className={`text-2xl font-black ${activeTab === 'income' ? 'text-green-600' : 'text-red-600'}`}>฿{totalAmount.toLocaleString()}</p></div><button onClick={() => setIsAddOpen(true)} className="bg-gray-900 hover:bg-black text-white px-5 py-2.5 rounded-lg font-bold shadow-lg flex items-center gap-2 transition-all transform hover:scale-105"><Plus size={18} /> Add Record</button></div>
+            </header>
+            <div className="flex-1 overflow-hidden flex flex-col">
+                <div className="px-8 pt-6 pb-0 flex gap-1 border-b border-gray-200 bg-gray-50">
+                    <button onClick={() => setActiveTab('income')} className={`px-8 py-3 font-bold text-sm rounded-t-xl transition-all relative ${activeTab === 'income' ? 'bg-white text-green-600 shadow-sm border border-b-0 border-gray-200' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'}`}>Income{activeTab === 'income' && <div className="absolute top-0 left-0 w-full h-1 bg-green-500 rounded-t-xl"></div>}</button>
+                    <button onClick={() => setActiveTab('spending')} className={`px-8 py-3 font-bold text-sm rounded-t-xl transition-all relative ${activeTab === 'spending' ? 'bg-white text-red-600 shadow-sm border border-b-0 border-gray-200' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'}`}>Spending{activeTab === 'spending' && <div className="absolute top-0 left-0 w-full h-1 bg-red-500 rounded-t-xl"></div>}</button>
+                </div>
+                <div className="flex-1 overflow-auto p-8"><div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"><table className="w-full text-sm text-left"><thead className="text-xs text-gray-500 uppercase bg-gray-50 font-bold border-b border-gray-200 sticky top-0 z-10"><tr><th className="px-6 py-4">Date</th><th className="px-6 py-4">Brand</th><th className="px-6 py-4">Category</th><th className="px-6 py-4 w-64">Description</th><th className="px-6 py-4 text-right">Amount (THB)</th><th className="px-6 py-4">Company</th><th className="px-6 py-4">Invoice</th><th className="px-6 py-4">Payment Date</th><th className="px-6 py-4 text-center">Status</th><th className="px-6 py-4 w-48">Remark</th><th className="px-6 py-4 text-center">Action</th></tr></thead><tbody className="divide-y divide-gray-100">{filteredTransactions.map((t) => (<tr key={t.id} className="hover:bg-blue-50/30 transition-colors group"><td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">{formatDate(t.date)}</td><td className="px-6 py-4 font-bold text-gray-700">{t.brand}</td><td className="px-6 py-4"><span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-bold uppercase">{t.category}</span></td><td className="px-6 py-4 text-gray-600 truncate max-w-xs" title={t.description}>{t.description}</td><td className={`px-6 py-4 text-right font-mono font-bold ${activeTab === 'income' ? 'text-green-600' : 'text-red-600'}`}>{parseFloat(t.amount).toLocaleString()}</td><td className="px-6 py-4 text-gray-600">{t.company}</td><td className="px-6 py-4 text-gray-600 font-mono text-xs">{t.invoice || '-'}</td><td className="px-6 py-4 text-gray-500 whitespace-nowrap">{t.paymentDate ? formatDate(t.paymentDate) : '-'}</td><td className="px-6 py-4 text-center"><span className={`px-3 py-1 rounded-full text-xs font-bold border ${t.status === 'Complete' ? 'bg-green-50 text-green-700 border-green-200' : t.status === 'Follow-up' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : 'bg-gray-50 text-gray-500 border-gray-200'}`}>{t.status}</span></td><td className="px-6 py-4 text-gray-500 italic text-xs truncate max-w-[150px]" title={t.remark}>{t.remark || '-'}</td><td className="px-6 py-4 text-center"><button onClick={() => onDelete(t.id)} className="text-gray-300 hover:text-red-500 transition opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-red-50"><Trash2 size={16} /></button></td></tr>))}{filteredTransactions.length === 0 && (<tr><td colSpan="11" className="px-6 py-12 text-center text-gray-400 font-medium">No records found for this view.</td></tr>)}</tbody></table></div></div>
+            </div>
+            {isAddOpen && (
+                <div className="fixed inset-0 bg-black/60 z-[80] flex items-center justify-center p-4 backdrop-blur-sm">
+                    <div className="bg-white rounded-2xl w-full max-w-4xl p-8 shadow-2xl overflow-y-auto max-h-[90vh]">
+                        <div className="flex justify-between items-center mb-8 border-b border-gray-100 pb-4"><div><h3 className="text-2xl font-bold text-gray-900">Add {activeTab === 'income' ? 'Income' : 'Spending'} Record</h3><p className="text-sm text-gray-500 mt-1">Fill in the details for the new financial record.</p></div><button onClick={() => setIsAddOpen(false)} className="text-gray-400 hover:text-gray-900 p-2 hover:bg-gray-100 rounded-full transition"><X size={24}/></button></div>
+                        <form onSubmit={handleAddTransaction} className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                            <div className="space-y-6"><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Date</label><input required type="date" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 transition" value={newTransaction.date} onChange={e => setNewTransaction({...newTransaction, date: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Brand</label><input required type="text" placeholder="e.g. Intel, AMD" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 transition" value={newTransaction.brand} onChange={e => setNewTransaction({...newTransaction, brand: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Category</label><select className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 bg-white transition" value={newTransaction.category} onChange={e => setNewTransaction({...newTransaction, category: e.target.value})}>{BUDGET_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}</select></div><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Description</label><textarea placeholder="Details about the transaction..." className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px] transition" value={newTransaction.description} onChange={e => setNewTransaction({...newTransaction, description: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Amount (THB)</label><input required type="number" placeholder="0.00" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 font-mono text-lg font-bold transition" value={newTransaction.amount} onChange={e => setNewTransaction({...newTransaction, amount: e.target.value})} /></div></div>
+                            <div className="space-y-6"><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Company</label><input type="text" placeholder="Company Name" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 transition" value={newTransaction.company} onChange={e => setNewTransaction({...newTransaction, company: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Invoice No.</label><input type="text" placeholder="INV-001" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 font-mono transition" value={newTransaction.invoice} onChange={e => setNewTransaction({...newTransaction, invoice: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Payment Date</label><input type="date" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 transition" value={newTransaction.paymentDate} onChange={e => setNewTransaction({...newTransaction, paymentDate: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Status</label><select className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 bg-white transition" value={newTransaction.status} onChange={e => setNewTransaction({...newTransaction, status: e.target.value})}>{BUDGET_STATUSES.map(st => <option key={st} value={st}>{st}</option>)}</select></div><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Remark</label><textarea placeholder="Additional notes..." className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px] transition" value={newTransaction.remark} onChange={e => setNewTransaction({...newTransaction, remark: e.target.value})} /></div></div>
+                            <div className="md:col-span-2 pt-6 border-t border-gray-100 flex justify-end gap-3"><button type="button" onClick={() => setIsAddOpen(false)} className="px-6 py-3 rounded-lg font-bold text-gray-500 hover:bg-gray-100 transition">Cancel</button><button type="submit" className={`px-8 py-3 rounded-lg font-bold text-white shadow-lg transition transform hover:scale-105 ${activeTab === 'income' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}`}>Save Record</button></div>
+                        </form>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
 const HomeView = ({ tasks, currentUser }) => {
     const getTasksByStatus = (status) => tasks.filter(task => (status === 'todo' && (task.status === 'pending' || !task.status)) ? true : (status === 'done' && task.status === 'completed') ? true : task.status === status);
     const totalTasks = tasks.length;
     const completedTasks = getTasksByStatus('done').length;
     const inProgressTasks = getTasksByStatus('inprogress').length;
     const reviewTasks = getTasksByStatus('review').length;
-    const todoTasks = getTasksByStatus('todo').length;
-    const tagCounts = tasks.reduce((acc, task) => { const tag = task.tag || 'Uncategorized'; acc[tag] = (acc[tag] || 0) + 1; return acc; }, {});
-    const maxTagCount = Math.max(...Object.values(tagCounts), 1);
-
+    
     return (
         <div className="flex flex-col h-full w-full bg-gray-50">
             <header className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-white/80 backdrop-blur-md z-10"><h2 className="text-2xl font-bold text-gray-800">Overview</h2><div className="text-sm font-medium text-gray-500">{new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}</div></header>
@@ -285,24 +289,41 @@ const CalendarView = ({ tasks, setSelectedTaskId }) => {
     );
 };
 
-const PhotoAlbumView = ({ currentUser }) => {
-    const [albums, setAlbums] = useState([]);
-    const [photos, setPhotos] = useState([]);
+const PhotoAlbumView = ({ albums, photos, onAddAlbum, onAddPhoto, onDeleteAlbum, onDeletePhoto }) => {
     const [currentAlbum, setCurrentAlbum] = useState(null);
     const [uploading, setUploading] = useState(false);
     const [isCreatingAlbum, setIsCreatingAlbum] = useState(false);
     const [newAlbumName, setNewAlbumName] = useState('');
 
-    useEffect(() => { const u = onSnapshot(query(collection(db, 'artifacts', appId, 'public', 'data', 'albums'), orderBy('createdAt', 'desc')), (s) => setAlbums(s.docs.map(d => ({...d.data(), id: d.id})))); return u; }, []);
-    useEffect(() => { const u = onSnapshot(query(collection(db, 'artifacts', appId, 'public', 'data', 'photos'), orderBy('createdAt', 'desc')), (s) => setPhotos(s.docs.map(d => ({...d.data(), id: d.id})))); return u; }, []);
-
-    const createAlbum = async (e) => { e.preventDefault(); if (!newAlbumName) return; await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'albums'), { name: newAlbumName, createdAt: new Date(), createdBy: currentUser.email }); setNewAlbumName(''); setIsCreatingAlbum(false); };
-    const handleUpload = async (e) => {
-        const file = e.target.files[0]; if (!file || file.size > 2e6) return alert("File too large (>2MB)"); setUploading(true);
-        const reader = new FileReader(); reader.onloadend = async () => { await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'photos'), { url: reader.result, name: file.name, createdAt: new Date(), uploader: currentUser.email, albumId: currentAlbum.id }); setUploading(false); }; reader.readAsDataURL(file);
+    const createAlbum = (e) => { 
+        e.preventDefault(); 
+        if (!newAlbumName) return; 
+        onAddAlbum({ name: newAlbumName, createdAt: new Date() });
+        setNewAlbumName(''); 
+        setIsCreatingAlbum(false); 
     };
-    const handleDeletePhoto = async (id) => { if (confirm("Delete photo?")) await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'photos', id)); };
-    const handleDeleteAlbum = async (e, id) => { e.stopPropagation(); if (confirm("Delete album?")) { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'albums', id)); if (currentAlbum?.id === id) setCurrentAlbum(null); } };
+
+    const handleUpload = (e) => {
+        const file = e.target.files[0]; 
+        if (!file || file.size > 2e6) return alert("File too large (>2MB)"); 
+        setUploading(true);
+        const reader = new FileReader(); 
+        reader.onloadend = () => { 
+            onAddPhoto({ url: reader.result, name: file.name, createdAt: new Date(), albumId: currentAlbum.id }); 
+            setUploading(false); 
+        }; 
+        reader.readAsDataURL(file);
+    };
+
+    const handleDeletePhotoLocal = (id) => { if (confirm("Delete photo?")) onDeletePhoto(id); };
+    const handleDeleteAlbumLocal = (e, id) => { 
+        e.stopPropagation(); 
+        if (confirm("Delete album?")) { 
+            onDeleteAlbum(id); 
+            if (currentAlbum?.id === id) setCurrentAlbum(null); 
+        } 
+    };
+
     const albumPhotos = photos.filter(p => p.albumId === currentAlbum?.id);
 
     return (
@@ -311,7 +332,7 @@ const PhotoAlbumView = ({ currentUser }) => {
                 <div className="flex items-center gap-3">{currentAlbum && <button onClick={() => setCurrentAlbum(null)} className="p-2 hover:bg-gray-200 rounded-full text-gray-500"><ArrowLeft size={24} /></button>}<div><h2 className="text-3xl font-bold text-gray-800 flex items-center gap-3">{currentAlbum ? <><Folder className="text-purple-600" /> {currentAlbum.name}</> : <><ImageIcon className="text-purple-600" /> Photo Albums</>}</h2></div></div>
                 {!currentAlbum ? <div className="relative">{isCreatingAlbum ? <form onSubmit={createAlbum} className="flex gap-2"><input autoFocus type="text" placeholder="Album Name" className="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 outline-none" value={newAlbumName} onChange={e => setNewAlbumName(e.target.value)} /><button type="submit" className="bg-purple-600 text-white px-4 py-2 rounded-lg font-bold text-sm">Save</button></form> : <button onClick={() => setIsCreatingAlbum(true)} className="flex items-center gap-2 bg-purple-600 text-white px-5 py-2.5 rounded-full font-bold shadow-lg"><Plus size={20} /> Create Album</button>}</div> : <div className="relative"><input type="file" accept="image/*" onChange={handleUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" disabled={uploading} /><button className="flex items-center gap-2 bg-purple-600 text-white px-5 py-2.5 rounded-full font-bold shadow-lg">{uploading ? <Loader2 className="animate-spin" size={20} /> : <Upload size={20} />} Upload</button></div>}
             </div>
-            {!currentAlbum ? <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{albums.map(album => (<div key={album.id} onClick={() => setCurrentAlbum(album)} className="group bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition cursor-pointer flex flex-col items-center justify-center aspect-square relative"><Folder size={64} className="text-purple-200 group-hover:text-purple-300 transition mb-4" /><h3 className="font-bold text-gray-700 text-center">{album.name}</h3><button onClick={(e) => handleDeleteAlbum(e, album.id)} className="absolute top-3 right-3 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition"><Trash2 size={18} /></button></div>))}</div> : <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{albumPhotos.map(photo => (<div key={photo.id} className="group relative bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition aspect-square"><img src={photo.url} className="w-full h-full object-cover" /><div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2"><a href={photo.url} download={photo.name} className="p-2 bg-white/20 text-white rounded-full"><ExternalLink size={20} /></a><button onClick={() => handleDeletePhoto(photo.id)} className="p-2 bg-red-500/80 text-white rounded-full"><Trash2 size={20} /></button></div></div>))}</div>}
+            {!currentAlbum ? <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{albums.map(album => (<div key={album.id} onClick={() => setCurrentAlbum(album)} className="group bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition cursor-pointer flex flex-col items-center justify-center aspect-square relative"><Folder size={64} className="text-purple-200 group-hover:text-purple-300 transition mb-4" /><h3 className="font-bold text-gray-700 text-center">{album.name}</h3><button onClick={(e) => handleDeleteAlbumLocal(e, album.id)} className="absolute top-3 right-3 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition"><Trash2 size={18} /></button></div>))}</div> : <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{albumPhotos.map(photo => (<div key={photo.id} className="group relative bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition aspect-square"><img src={photo.url} className="w-full h-full object-cover" /><div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2"><a href={photo.url} download={photo.name} className="p-2 bg-white/20 text-white rounded-full"><ExternalLink size={20} /></a><button onClick={() => handleDeletePhotoLocal(photo.id)} className="p-2 bg-red-500/80 text-white rounded-full"><Trash2 size={20} /></button></div></div>))}</div>}
         </div></div>
     );
 };
@@ -338,7 +359,6 @@ const ReportView = ({ tasks, currentUser }) => {
     const addNewPage = () => { const newId = Date.now(); setPages([...pages, { id: newId, title: 'New Slide', bodyText: 'Enter slide content...', image: null, image2: null, template: '1-landscape' }]); setActivePageId(newId); };
     const removePage = (id, e) => { e.stopPropagation(); if (pages.length === 1) return; const newPages = pages.filter(p => p.id !== id); setPages(newPages); if (activePageId === id) setActivePageId(newPages[0].id); };
     const handleSort = () => { let _pages = [...pages]; const item = _pages.splice(dragItem.current, 1)[0]; _pages.splice(dragOverItem.current, 0, item); setPages(_pages); };
-    const getTasksByStatus = (status) => tasks.filter(task => (status === 'todo' && (task.status === 'pending' || !task.status)) ? true : (status === 'done' && task.status === 'completed') ? true : task.status === status);
 
     return (
         <div className="p-6 md:p-10 h-full w-full bg-gray-100 overflow-y-auto">
@@ -384,15 +404,20 @@ const ReportView = ({ tasks, currentUser }) => {
 
 // --- MAIN DASHBOARD COMPONENT ---
 export default function Dashboard() {
-  const [tasks, setTasks] = useState([]);
-  const [automations, setAutomations] = useState([]); 
-  const [currentView, setCurrentView] = useState('board'); 
-  
-  // Replace with your actual keys
-  const EMAIL_SERVICE_ID = "YOUR_SERVICE_ID"; 
-  const EMAIL_TEMPLATE_ID = "YOUR_TEMPLATE_ID"; 
-  const EMAIL_PUBLIC_KEY = "YOUR_PUBLIC_KEY";
+  // Initial Mock Data to populate the board on first load
+  const [tasks, setTasks] = useState([
+    { id: '1', title: 'Q1 Marketing Plan', status: 'todo', tag: 'Planning', deadline: '2024-04-15', description: 'Outline key strategies for Q1.' },
+    { id: '2', title: 'Product Launch Video', status: 'inprogress', tag: 'Video Content', deadline: '2024-03-20', description: 'Edit the final cut for the new GPU launch.' },
+    { id: '3', title: 'Website Banner Update', status: 'review', tag: 'Website Banner', deadline: '2024-03-10', description: 'Update homepage banners with new promotion.' }
+  ]);
+  const [transactions, setTransactions] = useState([
+      { id: '1', type: 'income', date: '2024-03-01', brand: 'Intel', category: 'Sponsor', description: 'Q1 Sponsorship', amount: '50000', company: 'Intel Corp', invoice: 'INV-001', paymentDate: '2024-03-05', status: 'Complete', remark: '' },
+      { id: '2', type: 'spending', date: '2024-03-02', brand: 'Facebook', category: 'Boost/Ads', description: 'Monthly Ad Budget', amount: '15000', company: 'Meta', invoice: 'FB-2024-03', paymentDate: '2024-03-03', status: 'Complete', remark: '' }
+  ]);
+  const [albums, setAlbums] = useState([{ id: '1', name: 'Event Photos 2024', createdAt: new Date() }]);
+  const [photos, setPhotos] = useState([]);
 
+  const [currentView, setCurrentView] = useState('board'); 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState(null);
   const [activeRequirementId, setActiveRequirementId] = useState(null);
@@ -402,7 +427,6 @@ export default function Dashboard() {
     title: '', tag: 'Planning', startDate: new Date().toISOString().split('T')[0],
     deadline: '', description: '', requirements: [], reference: '', link: '', imageUrl: '', fileUrl: ''
   });
-  
   const [tempReqInput, setTempReqInput] = useState('');
   const [tempEditReqInput, setTempEditReqInput] = useState('');
 
@@ -412,58 +436,42 @@ export default function Dashboard() {
   const selectedTask = tasks.find(t => t.id === selectedTaskId);
   const activeRequirement = selectedTask ? getSafeRequirements(selectedTask).find(r => r.id === activeRequirementId) : null;
 
-  // READ DATA
-  useEffect(() => {
-    const qTasks = query(collection(db, 'artifacts', appId, 'public', 'data', 'tasks'), orderBy('createdAt', 'desc'));
-    const uTasks = onSnapshot(qTasks, (s) => setTasks(s.docs.map(d => ({ ...d.data(), id: d.id }))));
-    const qAutos = query(collection(db, 'artifacts', appId, 'public', 'data', 'automations'));
-    const uAutos = onSnapshot(qAutos, (s) => setAutomations(s.docs.map(d => ({ ...d.data(), id: d.id }))));
-    return () => { uTasks(); uAutos(); };
-  }, []);
+  // --- CRUD HANDLERS (LOCAL STATE) ---
 
-  // --- AUTOMATION LOGIC ---
-  const processTemplate = (template, data) => template ? template.replace(/\{\{(\w+)\}\}/g, (_, key) => data[key] || "") : "";
-  const runAutomations = (trigger, data) => {
-      const activeRules = automations.filter(a => a.isActive && a.trigger === trigger);
-      activeRules.forEach(async (rule) => {
-          const message = processTemplate(rule.config.template, data);
-          if (rule.action === 'SEND_EMAIL') {
-              if(EMAIL_SERVICE_ID !== "YOUR_SERVICE_ID") emailjs.send(EMAIL_SERVICE_ID, EMAIL_TEMPLATE_ID, { to_email: rule.config.target, message, subject: `[Auto] ${data.title}` }, EMAIL_PUBLIC_KEY);
-          } else if (rule.action === 'WEBHOOK') {
-              try { await fetch(rule.config.target, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ event: trigger, data, message }) }); } catch(e) { console.error(e); }
-          }
-      });
+  const handleAddTask = (e) => {
+    e.preventDefault();
+    if (!newTask.title) return;
+    const task = { ...newTask, id: Date.now().toString(), status: 'todo', createdAt: new Date(), author: currentUser?.email || 'User' };
+    setTasks([task, ...tasks]);
+    setNewTask({ title: '', tag: 'Planning', startDate: new Date().toISOString().split('T')[0], deadline: '', description: '', requirements: [], reference: '', link: '', imageUrl: '', fileUrl: '' });
+    setIsAddModalOpen(false);
   };
 
-  const handleImageUpload = (e, targetState, setTargetState) => {
-      const file = e.target.files[0];
-      if (file) {
-          if (file.size > 700 * 1024) return alert("File too large (>700KB)");
-          const reader = new FileReader();
-          reader.onloadend = () => {
-              setTargetState({ ...targetState, imageUrl: reader.result });
-          };
-          reader.readAsDataURL(file);
+  const handleUpdateTask = (e) => {
+      e.preventDefault();
+      setTasks(tasks.map(t => t.id === selectedTask.id ? { ...t, ...editedTask } : t));
+      setIsEditing(false);
+  };
+
+  const deleteTask = (e, id) => {
+      e.stopPropagation();
+      if (confirm("Delete?")) {
+          setTasks(tasks.filter(t => t.id !== id));
+          if (selectedTaskId === id) setSelectedTaskId(null);
       }
   };
 
-  const handleAddTask = async (e) => {
-    e.preventDefault();
-    if (!newTask.title) return;
-    const authorEmail = currentUser ? currentUser.email : 'anonymous';
-    try {
-        const taskData = { ...newTask, status: 'todo', createdAt: new Date(), author: authorEmail, dueNotificationSent: false };
-        await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'tasks'), taskData);
-        
-        // RUN AUTOMATIONS
-        runAutomations('TASK_CREATED', taskData);
-
-        setNewTask({ title: '', tag: 'Planning', startDate: new Date().toISOString().split('T')[0], deadline: '', description: '', requirements: [], reference: '', link: '', imageUrl: '', fileUrl: '' });
-        setTempReqInput('');
-        setIsAddModalOpen(false);
-    } catch (error) { console.error("Error adding task: ", error); alert(`Failed to create task: ${error.message}`); }
+  const moveTask = (e, taskId, currentStatus, direction) => {
+      e.stopPropagation();
+      const statusOrder = ['todo', 'inprogress', 'review', 'done'];
+      const currentIndex = statusOrder.indexOf(currentStatus);
+      let nextIndex = direction === 'next' ? currentIndex + 1 : currentIndex - 1;
+      if (nextIndex >= 0 && nextIndex < statusOrder.length) {
+          setTasks(tasks.map(t => t.id === taskId ? { ...t, status: statusOrder[nextIndex] } : t));
+      }
   };
 
+  // Requirement Handlers
   const addRequirementLine = () => {
       if (!tempReqInput.trim()) return;
       setNewTask({ ...newTask, requirements: [...newTask.requirements, { id: Date.now().toString(), text: tempReqInput, isDone: false, tableData: [] }] });
@@ -476,7 +484,6 @@ export default function Dashboard() {
       setNewTask({ ...newTask, requirements: updated });
   };
 
-  // Edit Mode Requirement Handlers
   const addRequirementToEdit = () => {
       if (!tempEditReqInput.trim()) return;
       const currentReqs = editedTask.requirements || [];
@@ -495,33 +502,55 @@ export default function Dashboard() {
   };
 
   const startEditing = () => { 
-      // Normalize requirements to array when starting edit
       const safeReqs = getSafeRequirements(selectedTask);
       setEditedTask({ ...selectedTask, requirements: safeReqs }); 
       setIsEditing(true); 
   };
 
-  const handleUpdateTask = async (e) => { 
-      e.preventDefault(); 
-      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'tasks', selectedTask.id), { ...editedTask }); 
-      setIsEditing(false); 
-  };
-
-  // ... (Toggle, Move, Delete handlers remain same) ...
-  const toggleRequirement = async (taskId, reqId, currentRequirements) => {
+  const toggleRequirement = (taskId, reqId, currentRequirements) => {
       const safeReqs = getSafeRequirements({ requirements: currentRequirements });
       const updatedReqs = safeReqs.map(r => r.id === reqId ? { ...r, isDone: !r.isDone } : r);
-      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'tasks', taskId), { requirements: updatedReqs });
+      // Update state
+      setTasks(tasks.map(t => t.id === taskId ? { ...t, requirements: updatedReqs } : t));
+      // Update modal state if open
+      if (isEditing && editedTask.id === taskId) {
+           setEditedTask(prev => ({ ...prev, requirements: updatedReqs }));
+      }
   };
-  const moveTask = async (e, taskId, currentStatus, direction) => { e.stopPropagation(); const statusOrder = ['todo', 'inprogress', 'review', 'done']; const currentIndex = statusOrder.indexOf(currentStatus); let nextIndex = direction === 'next' ? currentIndex + 1 : currentIndex - 1; if (nextIndex >= 0 && nextIndex < statusOrder.length) { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'tasks', taskId), { status: statusOrder[nextIndex] }); } };
-  const deleteTask = async (e, id) => { e.stopPropagation(); if (confirm("Delete?")) { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'tasks', id)); if (selectedTaskId === id) setSelectedTaskId(null); } };
-  const handleLogout = async () => { await logout(); navigate('/'); };
 
+  const updateTaskRequirements = (taskId, updates) => {
+      setTasks(tasks.map(t => t.id === taskId ? { ...t, ...updates } : t));
+  };
+
+  // Image Upload Helper
+  const handleImageUpload = (e, targetState, setTargetState) => {
+      const file = e.target.files[0];
+      if (file) {
+          if (file.size > 2 * 1024 * 1024) return alert("File too large (>2MB)");
+          const reader = new FileReader();
+          reader.onloadend = () => setTargetState({ ...targetState, imageUrl: reader.result });
+          reader.readAsDataURL(file);
+      }
+  };
+
+  // Sub-component Handlers
+  const handleAddTransaction = (transaction) => setTransactions([transaction, ...transactions]);
+  const handleDeleteTransaction = (id) => setTransactions(transactions.filter(t => t.id !== id));
+
+  const handleAddAlbum = (album) => setAlbums([{ ...album, id: Date.now().toString() }, ...albums]);
+  const handleDeleteAlbum = (id) => {
+      setAlbums(albums.filter(a => a.id !== id));
+      setPhotos(photos.filter(p => p.albumId !== id));
+  };
+  const handleAddPhoto = (photo) => setPhotos([{ ...photo, id: Date.now().toString() }, ...photos]);
+  const handleDeletePhoto = (id) => setPhotos(photos.filter(p => p.id !== id));
+
+  const handleLogout = async () => { await logout(); navigate('/'); };
   const getTasksByStatus = (status) => tasks.filter(task => (status === 'todo' && (task.status === 'pending' || !task.status)) ? true : (status === 'done' && task.status === 'completed') ? true : task.status === status);
 
   return (
     <div className="flex h-screen w-full bg-gray-50 font-sans overflow-hidden">
-      {/* Sidebar... (Keeping same as before) */}
+      {/* Sidebar */}
       <aside className="w-20 md:w-64 bg-white border-r border-gray-200 flex flex-col justify-between flex-shrink-0 z-20 print:hidden">
         <div className="p-6 flex items-center gap-3 mb-6"><div className="bg-blue-600 p-2 rounded-lg text-white flex-shrink-0"><Layout size={24} /></div><div className="flex flex-col justify-center overflow-hidden"><h1 className="text-lg font-bold text-gray-900 leading-none truncate">iHAVECPU</h1><span className="text-xs text-blue-600 font-bold tracking-wider truncate">WORKSPACE</span></div></div>
         <nav className="px-3 space-y-2">
@@ -530,8 +559,6 @@ export default function Dashboard() {
              <button onClick={() => setCurrentView('calendar')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${currentView === 'calendar' ? 'bg-blue-50 text-blue-600 font-bold' : 'text-gray-500 hover:bg-gray-50'}`}><CalendarIcon size={20} /> <span className="hidden md:inline">Calendar</span></button>
              <button onClick={() => setCurrentView('report')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${currentView === 'report' ? 'bg-blue-50 text-blue-600 font-bold' : 'text-gray-500 hover:bg-gray-50'}`}><Presentation size={20} /> <span className="hidden md:inline">Report</span></button>
              <button onClick={() => setCurrentView('album')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${currentView === 'album' ? 'bg-purple-50 text-purple-600 font-bold' : 'text-gray-500 hover:bg-gray-50'}`}><ImageIcon size={20} /> <span className="hidden md:inline">Photo Album</span></button>
-             {/* Removed AI Clip Collector Button */}
-             {/* Removed Automation Button */}
              <button onClick={() => setCurrentView('budget')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${currentView === 'budget' ? 'bg-emerald-50 text-emerald-600 font-bold' : 'text-gray-500 hover:bg-gray-50'}`}><Table size={20} /> <span className="hidden md:inline">Budget Recorder</span></button>
              <button onClick={() => setCurrentView('selfheal')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${currentView === 'selfheal' ? 'bg-pink-50 text-pink-500 font-bold' : 'text-gray-500 hover:bg-gray-50'}`}><Heart size={20} /> <span className="hidden md:inline">Self Heal</span></button>
         </nav>
@@ -541,10 +568,8 @@ export default function Dashboard() {
       <main className="flex-1 flex flex-col h-full w-full overflow-hidden bg-white relative">
         {currentView === 'home' && <HomeView tasks={tasks} currentUser={currentUser} />}
         {currentView === 'calendar' && <CalendarView tasks={tasks} setSelectedTaskId={setSelectedTaskId} setIsEditing={setIsEditing} />}
-        {currentView === 'album' && <PhotoAlbumView currentUser={currentUser} />}
-        {/* Removed AI Clip Collector View Render */}
-        {/* Removed Automation View Render */}
-        {currentView === 'budget' && <BudgetRecorderView />}
+        {currentView === 'album' && <PhotoAlbumView currentUser={currentUser} albums={albums} photos={photos} onAddAlbum={handleAddAlbum} onDeleteAlbum={handleDeleteAlbum} onAddPhoto={handleAddPhoto} onDeletePhoto={handleDeletePhoto} />}
+        {currentView === 'budget' && <BudgetRecorderView transactions={transactions} onAdd={handleAddTransaction} onDelete={handleDeleteTransaction} />}
         {currentView === 'selfheal' && <SelfHealView />}
         {currentView === 'report' && <ReportView tasks={tasks} currentUser={currentUser} />}
 
@@ -643,7 +668,7 @@ export default function Dashboard() {
       )}
 
       {activeRequirement && selectedTask && (
-          <RequirementSheetModal task={selectedTask} requirement={activeRequirement} onClose={() => setActiveRequirementId(null)} />
+          <RequirementSheetModal task={selectedTask} requirement={activeRequirement} onClose={() => setActiveRequirementId(null)} onUpdateTask={updateTaskRequirements} />
       )}
     </div>
   );
