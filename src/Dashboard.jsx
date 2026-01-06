@@ -18,7 +18,8 @@ import {
   Paperclip, Link as LinkIcon, FileText, Clock, AlignLeft, CheckSquare, ExternalLink, X, Edit2,
   Save, Heart, ChevronLeft, ChevronRight, RefreshCw, Video, Home, PieChart, Activity, CheckCircle2,
   ListTodo, Presentation, Printer, Upload, Image as ImageIcon, GripVertical, LayoutTemplate, Camera,
-  Loader2, Folder, Mail, Table, Download, Minus, Play, Info, MessageCircle, Share2, Search, Bot, Youtube, Facebook, User, AtSign
+  Loader2, Folder, Mail, Table, Download, Minus, Play, Info, MessageCircle, Share2, Search, Bot, 
+  Youtube, Facebook, User, AtSign, Zap, Settings
 } from 'lucide-react';
 
 // --- CONSTANTS & HELPERS ---
@@ -128,27 +129,25 @@ const RequirementSheetModal = ({ task, requirement, onClose }) => {
     );
 };
 
-const HomeView = ({ tasks }) => {
+const HomeView = ({ tasks, currentUser }) => {
     const getTasksByStatus = (status) => tasks.filter(task => (status === 'todo' && (task.status === 'pending' || !task.status)) ? true : (status === 'done' && task.status === 'completed') ? true : task.status === status);
     const totalTasks = tasks.length;
     const completedTasks = getTasksByStatus('done').length;
     const inProgressTasks = getTasksByStatus('inprogress').length;
     const reviewTasks = getTasksByStatus('review').length;
-    const todoTasks = getTasksByStatus('todo').length;
-    const tagCounts = tasks.reduce((acc, task) => { const tag = task.tag || 'Uncategorized'; acc[tag] = (acc[tag] || 0) + 1; return acc; }, {});
-    const maxTagCount = Math.max(...Object.values(tagCounts), 1);
-
+    
     return (
-        <div className="p-6 md:p-10 h-full w-full overflow-y-auto bg-gray-50/50">
-            <div className="max-w-6xl mx-auto space-y-8">
-                <div className="flex justify-between items-end"><div><h2 className="text-3xl font-bold text-gray-800">Welcome Back!</h2><p className="text-gray-500 mt-1">Project overview.</p></div><div className="text-right hidden sm:block"><p className="text-sm font-bold text-gray-400 uppercase tracking-wider">Today</p><p className="text-xl font-bold text-gray-800">{new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}</p></div></div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between h-32 hover:shadow-md transition"><div className="flex justify-between items-start"><div className="bg-blue-50 text-blue-600 p-2 rounded-lg"><ListTodo size={24} /></div><span className="text-xs font-bold text-gray-400 uppercase">Total Tasks</span></div><div><span className="text-3xl font-bold text-gray-800">{totalTasks}</span><span className="text-sm text-gray-400 ml-2">tasks</span></div></div>
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between h-32 hover:shadow-md transition"><div className="flex justify-between items-start"><div className="bg-green-50 text-green-600 p-2 rounded-lg"><CheckCircle2 size={24} /></div><span className="text-xs font-bold text-gray-400 uppercase">Completed</span></div><div><span className="text-3xl font-bold text-gray-800">{completedTasks}</span><span className="text-sm text-gray-400 ml-2">finished</span></div></div>
-                </div>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100"><h3 className="text-lg font-bold text-gray-800 mb-6">Task Status</h3><div className="flex items-end justify-between h-64 gap-4">{[{ label: 'To Do', count: todoTasks, color: 'bg-gray-200' }, { label: 'In Progress', count: inProgressTasks, color: 'bg-blue-500' }, { label: 'Review', count: reviewTasks, color: 'bg-purple-500' }, { label: 'Done', count: completedTasks, color: 'bg-green-500' }].map((stat) => (<div key={stat.label} className="flex flex-col items-center gap-2 flex-1 h-full justify-end group"><div className="font-bold text-gray-800 mb-1 opacity-0 group-hover:opacity-100 transition-opacity transform translate-y-2 group-hover:translate-y-0">{stat.count}</div><div className={`w-full rounded-t-xl transition-all duration-500 ${stat.color} hover:opacity-90`} style={{ height: `${totalTasks > 0 ? (stat.count / totalTasks) * 100 : 0}%`, minHeight: '8px' }}></div><div className="text-xs font-bold text-gray-400 uppercase text-center mt-2">{stat.label}</div></div>))}</div></div>
-                    <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100"><h3 className="text-lg font-bold text-gray-800 mb-6">Workload</h3><div className="space-y-5">{Object.keys(tagColors).map((tag) => { const count = tagCounts[tag] || 0; return (<div key={tag}><div className="flex justify-between text-sm font-bold mb-2"><span className="text-gray-600">{tag}</span><span className="text-gray-400">{count} Tasks</span></div><div className="h-3 w-full bg-gray-100 rounded-full overflow-hidden"><div className={`h-full rounded-full transition-all duration-500 ${tagColors[tag].split(' ')[0]}`} style={{ width: `${(count / maxTagCount) * 100}%` }}></div></div></div>) })}</div></div>
+        <div className="flex flex-col h-full w-full bg-gray-50">
+            <header className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-white/80 backdrop-blur-md z-10"><h2 className="text-2xl font-bold text-gray-800">Overview</h2><div className="text-sm font-medium text-gray-500">{new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}</div></header>
+            <div className="p-6 md:p-10 overflow-y-auto flex-1">
+                <div className="max-w-6xl mx-auto space-y-8">
+                    <div className="flex justify-between items-end"><div><h2 className="text-3xl font-bold text-gray-800">Welcome Back, {currentUser?.email?.split('@')[0]}!</h2><p className="text-gray-500 mt-1">Here is your project overview at a glance.</p></div></div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between h-32 hover:shadow-md transition"><div className="flex justify-between items-start"><div className="bg-blue-50 text-blue-600 p-2 rounded-lg"><ListTodo size={24} /></div><span className="text-xs font-bold text-gray-400 uppercase">Total Tasks</span></div><div><span className="text-3xl font-bold text-gray-800">{totalTasks}</span><span className="text-sm text-gray-400 ml-2">tasks</span></div></div>
+                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between h-32 hover:shadow-md transition"><div className="flex justify-between items-start"><div className="bg-green-50 text-green-600 p-2 rounded-lg"><CheckCircle2 size={24} /></div><span className="text-xs font-bold text-gray-400 uppercase">Completed</span></div><div><span className="text-3xl font-bold text-gray-800">{completedTasks}</span><span className="text-sm text-gray-400 ml-2">finished</span></div></div>
+                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between h-32 hover:shadow-md transition"><div className="flex justify-between items-start"><div className="bg-yellow-50 text-yellow-600 p-2 rounded-lg"><Activity size={24} /></div><span className="text-xs font-bold text-gray-400 uppercase">In Progress</span></div><div><span className="text-3xl font-bold text-gray-800">{inProgressTasks}</span><span className="text-sm text-gray-400 ml-2">active</span></div></div>
+                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between h-32 hover:shadow-md transition"><div className="flex justify-between items-start"><div className="bg-purple-50 text-purple-600 p-2 rounded-lg"><PieChart size={24} /></div><span className="text-xs font-bold text-gray-400 uppercase">Review</span></div><div><span className="text-3xl font-bold text-gray-800">{reviewTasks}</span><span className="text-sm text-gray-400 ml-2">pending</span></div></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -176,16 +175,18 @@ const CalendarView = ({ tasks, setSelectedTaskId }) => {
     };
 
     return (
-        <div className="p-6 h-full w-full flex flex-col">
-            <div className="flex justify-between items-center mb-6"><h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2"><CalendarIcon className="text-blue-600" />{monthNames[month]} {year}</h2><div className="flex gap-2"><button onClick={prevMonth} className="p-2 hover:bg-gray-100 rounded-full"><ChevronLeft /></button><button onClick={nextMonth} className="p-2 hover:bg-gray-100 rounded-full"><ChevronRight /></button></div></div>
-            <div className="flex-1 border rounded-xl overflow-hidden shadow-sm bg-white">
-                <div className="grid grid-cols-7 bg-gray-50 border-b">{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => <div key={day} className="p-3 text-center text-sm font-bold text-gray-500 uppercase tracking-wide">{day}</div>)}</div>
-                <div className="grid grid-cols-7 auto-rows-fr h-full bg-gray-50 gap-px border-gray-200">
-                    {Array.from({ length: firstDay }).map((_, i) => <div key={`empty-${i}`} className="bg-white min-h-[100px]"></div>)}
-                    {Array.from({ length: daysInMonth }).map((_, i) => {
-                        const day = i + 1; const dayTasks = getTasksForDay(day);
-                        return (<div key={day} className="bg-white p-2 min-h-[100px] hover:bg-gray-50 transition relative"><div className="text-sm font-medium mb-1 text-gray-700">{day}</div><div className="flex flex-col gap-1 overflow-y-auto max-h-[80px]">{dayTasks.map(task => (<div key={task.id} onClick={() => { setSelectedTaskId(task.id); }} className={`text-[10px] truncate px-1.5 py-0.5 rounded cursor-pointer hover:opacity-80 ${TAG_COLORS[task.tag] ? TAG_COLORS[task.tag].replace('text-', 'bg-').split(' ')[0] + ' text-gray-700' : 'bg-gray-100'}`}>{task.title}</div>))}</div></div>);
-                    })}
+        <div className="flex flex-col h-full w-full bg-gray-50">
+            <header className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-white/80 backdrop-blur-md z-10"><h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2"><CalendarIcon className="text-blue-600" />Calendar</h2><div className="flex gap-2"><button onClick={prevMonth} className="p-2 hover:bg-gray-100 rounded-full"><ChevronLeft /></button><h3 className="text-lg font-bold text-gray-700 min-w-[150px] text-center">{monthNames[month]} {year}</h3><button onClick={nextMonth} className="p-2 hover:bg-gray-100 rounded-full"><ChevronRight /></button></div></header>
+            <div className="p-6 h-full flex-1 overflow-y-auto">
+                <div className="border rounded-xl overflow-hidden shadow-sm bg-white h-full flex flex-col">
+                    <div className="grid grid-cols-7 bg-gray-50 border-b">{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => <div key={day} className="p-3 text-center text-sm font-bold text-gray-500 uppercase tracking-wide">{day}</div>)}</div>
+                    <div className="grid grid-cols-7 auto-rows-fr h-full bg-gray-50 gap-px border-gray-200">
+                        {Array.from({ length: firstDay }).map((_, i) => <div key={`empty-${i}`} className="bg-white min-h-[100px]"></div>)}
+                        {Array.from({ length: daysInMonth }).map((_, i) => {
+                            const day = i + 1; const dayTasks = getTasksForDay(day);
+                            return (<div key={day} className="bg-white p-2 min-h-[100px] hover:bg-gray-50 transition relative flex flex-col"><div className="text-sm font-medium mb-1 text-gray-700">{day}</div><div className="flex-1 flex flex-col gap-1 overflow-y-auto max-h-[80px]">{dayTasks.map(task => (<div key={task.id} onClick={() => setSelectedTaskId(task.id)} className={`text-[10px] truncate px-1.5 py-0.5 rounded cursor-pointer hover:opacity-80 ${TAG_COLORS[task.tag] ? TAG_COLORS[task.tag].replace('text-', 'bg-').split(' ')[0] + ' text-gray-700' : 'bg-gray-100'}`}>{task.title}</div>))}</div></div>);
+                        })}
+                    </div>
                 </div>
             </div>
         </div>
@@ -197,16 +198,18 @@ const PhotoAlbumView = ({ currentUser }) => {
     const [photos, setPhotos] = useState([]);
     const [currentAlbum, setCurrentAlbum] = useState(null);
     const [uploading, setUploading] = useState(false);
+    const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
     const [isCreatingAlbum, setIsCreatingAlbum] = useState(false);
     const [newAlbumName, setNewAlbumName] = useState('');
+    const [targetAlbumId, setTargetAlbumId] = useState('');
 
     useEffect(() => { const u = onSnapshot(query(collection(db, 'albums'), orderBy('createdAt', 'desc')), (s) => setAlbums(s.docs.map(d => ({...d.data(), id: d.id})))); return u; }, []);
     useEffect(() => { const u = onSnapshot(query(collection(db, 'photos'), orderBy('createdAt', 'desc')), (s) => setPhotos(s.docs.map(d => ({...d.data(), id: d.id})))); return u; }, []);
 
     const createAlbum = async (e) => { e.preventDefault(); if (!newAlbumName) return; await addDoc(collection(db, 'albums'), { name: newAlbumName, createdAt: new Date(), createdBy: currentUser.email }); setNewAlbumName(''); setIsCreatingAlbum(false); };
     const handleUpload = async (e) => {
-        const file = e.target.files[0]; if (!file || file.size > 2e6) return alert("File too large (>2MB)"); setUploading(true);
-        const reader = new FileReader(); reader.onloadend = async () => { await addDoc(collection(db, 'photos'), { url: reader.result, name: file.name, createdAt: new Date(), uploader: currentUser.email, albumId: currentAlbum.id }); setUploading(false); }; reader.readAsDataURL(file);
+        const file = e.target.files[0]; if (!file || file.size > 2e6) return alert("File too large"); setUploading(true);
+        const reader = new FileReader(); reader.onloadend = async () => { await addDoc(collection(db, 'photos'), { url: reader.result, name: file.name, createdAt: new Date(), uploader: currentUser.email, albumId: currentAlbum?.id || targetAlbumId }); setUploading(false); }; reader.readAsDataURL(file);
     };
     const handleDeletePhoto = async (id) => { if (confirm("Delete photo?")) await deleteDoc(doc(db, 'photos', id)); };
     const handleDeleteAlbum = async (e, id) => { e.stopPropagation(); if (confirm("Delete album?")) { await deleteDoc(doc(db, 'albums', id)); if (currentAlbum?.id === id) setCurrentAlbum(null); } };
@@ -216,7 +219,7 @@ const PhotoAlbumView = ({ currentUser }) => {
         <div className="p-6 md:p-10 h-full w-full bg-gray-50/50 overflow-y-auto"><div className="max-w-6xl mx-auto">
             <div className="flex justify-between items-center mb-8">
                 <div className="flex items-center gap-3">{currentAlbum && <button onClick={() => setCurrentAlbum(null)} className="p-2 hover:bg-gray-200 rounded-full text-gray-500"><ArrowLeft size={24} /></button>}<div><h2 className="text-3xl font-bold text-gray-800 flex items-center gap-3">{currentAlbum ? <><Folder className="text-purple-600" /> {currentAlbum.name}</> : <><ImageIcon className="text-purple-600" /> Photo Albums</>}</h2></div></div>
-                {!currentAlbum ? <div className="relative">{isCreatingAlbum ? <form onSubmit={createAlbum} className="flex gap-2"><input autoFocus type="text" placeholder="Album Name" className="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 outline-none" value={newAlbumName} onChange={e => setNewAlbumName(e.target.value)} /><button type="submit" className="bg-purple-600 text-white px-4 py-2 rounded-lg font-bold text-sm">Save</button><button type="button" onClick={() => setIsCreatingAlbum(false)} className="text-gray-500 hover:bg-gray-100 px-2 rounded-lg"><X size={18}/></button></form> : <button onClick={() => setIsCreatingAlbum(true)} className="flex items-center gap-2 bg-purple-600 text-white px-5 py-2.5 rounded-full font-bold shadow-lg hover:bg-purple-700 transition"><Plus size={20} /> Create Album</button>}</div> : <div className="relative"><input type="file" accept="image/*" onChange={handleUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" disabled={uploading} /><button className="flex items-center gap-2 bg-purple-600 text-white px-5 py-2.5 rounded-full font-bold shadow-lg">{uploading ? <Loader2 className="animate-spin" size={20} /> : <Upload size={20} />} Upload</button></div>}
+                {!currentAlbum ? <div className="relative">{isCreatingAlbum ? <form onSubmit={createAlbum} className="flex gap-2"><input autoFocus type="text" placeholder="Album Name" className="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 outline-none" value={newAlbumName} onChange={e => setNewAlbumName(e.target.value)} /><button type="submit" className="bg-purple-600 text-white px-4 py-2 rounded-lg font-bold text-sm">Save</button></form> : <button onClick={() => setIsCreatingAlbum(true)} className="flex items-center gap-2 bg-purple-600 text-white px-5 py-2.5 rounded-full font-bold shadow-lg"><Plus size={20} /> Create Album</button>}</div> : <div className="relative"><input type="file" accept="image/*" onChange={handleUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" disabled={uploading} /><button className="flex items-center gap-2 bg-purple-600 text-white px-5 py-2.5 rounded-full font-bold shadow-lg">{uploading ? <Loader2 className="animate-spin" size={20} /> : <Upload size={20} />} Upload</button></div>}
             </div>
             {!currentAlbum ? <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{albums.map(album => (<div key={album.id} onClick={() => setCurrentAlbum(album)} className="group bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition cursor-pointer flex flex-col items-center justify-center aspect-square relative"><Folder size={64} className="text-purple-200 group-hover:text-purple-300 transition mb-4" /><h3 className="font-bold text-gray-700 text-center">{album.name}</h3><button onClick={(e) => handleDeleteAlbum(e, album.id)} className="absolute top-3 right-3 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition"><Trash2 size={18} /></button></div>))}</div> : <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{albumPhotos.map(photo => (<div key={photo.id} className="group relative bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition aspect-square"><img src={photo.url} className="w-full h-full object-cover" /><div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2"><a href={photo.url} download={photo.name} className="p-2 bg-white/20 text-white rounded-full"><ExternalLink size={20} /></a><button onClick={() => handleDeletePhoto(photo.id)} className="p-2 bg-red-500/80 text-white rounded-full"><Trash2 size={20} /></button></div></div>))}</div>}
         </div></div>
@@ -245,7 +248,6 @@ const ReportView = ({ tasks, currentUser }) => {
     const addNewPage = () => { const newId = Date.now(); setPages([...pages, { id: newId, title: 'New Slide', bodyText: 'Enter slide content...', image: null, image2: null, template: '1-landscape' }]); setActivePageId(newId); };
     const removePage = (id, e) => { e.stopPropagation(); if (pages.length === 1) return; const newPages = pages.filter(p => p.id !== id); setPages(newPages); if (activePageId === id) setActivePageId(newPages[0].id); };
     const handleSort = () => { let _pages = [...pages]; const item = _pages.splice(dragItem.current, 1)[0]; _pages.splice(dragOverItem.current, 0, item); setPages(_pages); };
-    const getTasksByStatus = (status) => tasks.filter(task => (status === 'todo' && (task.status === 'pending' || !task.status)) ? true : (status === 'done' && task.status === 'completed') ? true : task.status === status);
 
     return (
         <div className="p-6 md:p-10 h-full w-full bg-gray-100 overflow-y-auto">
@@ -289,32 +291,93 @@ const ReportView = ({ tasks, currentUser }) => {
     );
 };
 
+// --- NEW AI CLIP COLLECTOR VIEW ---
+const AIClipCollectorView = () => {
+    const [channel, setChannel] = useState('');
+    const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
+    const [isCollecting, setIsCollecting] = useState(false);
+    const [data, setData] = useState(null);
+
+    const handleCollect = () => {
+        if (!channel) return alert("Please enter a channel name or URL");
+        setIsCollecting(true);
+        setData(null);
+        setTimeout(() => {
+            const platforms = ['YouTube', 'Facebook', 'TikTok'];
+            const mockData = {};
+            platforms.forEach(platform => {
+                mockData[platform] = Array.from({ length: Math.floor(Math.random() * 5) + 3 }).map((_, i) => ({
+                    id: i,
+                    title: `${channel} - ${platform} Video #${i + 1} (${month})`,
+                    thumbnail: `https://placehold.co/300x200/222/fff?text=${platform}+${i+1}`,
+                    link: '#',
+                    views: Math.floor(Math.random() * 500) + 'K',
+                    date: `${month}-${Math.floor(Math.random() * 28) + 1}`.replace(/-(\d)$/, '-0$1')
+                }));
+            });
+            setData(mockData);
+            setIsCollecting(false);
+        }, 2000);
+    };
+
+    return (
+        <div className="p-6 md:p-10 h-full w-full bg-gray-50/50 overflow-y-auto">
+            <div className="max-w-6xl mx-auto">
+                <div className="mb-8"><h2 className="text-3xl font-bold text-gray-800 flex items-center gap-3"><Bot className="text-indigo-600" /> AI Clip Collector</h2><p className="text-gray-500 mt-1">Automated monthly video data collection.</p></div>
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 mb-8"><div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end"><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Target Channel / Page</label><div className="relative"><Search className="absolute left-3 top-3 text-gray-400" size={18} /><input type="text" className="w-full border border-gray-200 rounded-lg pl-10 pr-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="e.g. iHAVECPU_Official" value={channel} onChange={(e) => setChannel(e.target.value)} /></div></div><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Select Month</label><input type="month" className="w-full border border-gray-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500" value={month} onChange={(e) => setMonth(e.target.value)} /></div></div><div className="mt-4 flex justify-end"><button onClick={handleCollect} disabled={isCollecting} className={`flex items-center gap-2 bg-indigo-600 text-white px-6 py-2.5 rounded-lg font-bold shadow-lg hover:bg-indigo-700 transition ${isCollecting ? 'opacity-75 cursor-wait' : ''}`}>{isCollecting ? <Loader2 className="animate-spin" size={18} /> : <Bot size={18} />}{isCollecting ? 'Analyzing...' : 'Start Collection'}</button></div></div>
+                {data && (<div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in zoom-in duration-300">{['YouTube', 'Facebook', 'TikTok'].map(platform => (<div key={platform} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col"><div className={`px-4 py-3 border-b flex items-center justify-between ${platform === 'YouTube' ? 'bg-red-50 border-red-100 text-red-700' : platform === 'Facebook' ? 'bg-blue-50 border-blue-100 text-blue-700' : 'bg-gray-900 text-white'}`}><h3 className="font-bold flex items-center gap-2">{platform === 'YouTube' && <Youtube size={18} />}{platform === 'Facebook' && <Facebook size={18} />}{platform === 'TikTok' && <Video size={18} />}{platform}</h3><span className="text-xs font-mono bg-white/20 px-2 py-0.5 rounded">{data[platform].length} Clips</span></div><div className="p-4 space-y-4 max-h-[500px] overflow-y-auto">{data[platform].map(clip => (<div key={clip.id} className="group relative border border-gray-100 rounded-lg p-2 hover:bg-gray-50 transition"><div className="aspect-video bg-gray-100 rounded-md overflow-hidden mb-2 relative"><img src={clip.thumbnail} alt="thumb" className="w-full h-full object-cover" /><a href={clip.link} target="_blank" rel="noreferrer" className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition"><ExternalLink className="text-white" size={24} /></a></div><h4 className="font-bold text-gray-800 text-sm line-clamp-2 leading-tight mb-1">{clip.title}</h4><div className="flex justify-between items-center text-xs text-gray-500"><span>{clip.date}</span><span className="font-medium flex items-center gap-1"><Activity size={10} /> {clip.views}</span></div></div>))}</div></div>))}</div>)}
+                {isCollecting && <div className="py-20 text-center"><Loader2 className="animate-spin text-indigo-600 mx-auto mb-4" size={48} /><h3 className="text-xl font-bold text-gray-800">AI Agent is Working...</h3><p className="text-gray-500">Scanning platforms for "{channel}" in {month}...</p></div>}
+            </div>
+        </div>
+    );
+};
+
+// --- AUTOMATION VIEW ---
+const AutomationView = ({ currentUser }) => {
+    const [automations, setAutomations] = useState([]);
+    const [isCreateOpen, setIsCreateOpen] = useState(false);
+    const [newAuto, setNewAuto] = useState({ name: '', trigger: 'TASK_CREATED', action: 'SEND_EMAIL', config: { target: '', template: '' }, isActive: true });
+
+    useEffect(() => { const u = onSnapshot(query(collection(db, 'automations'), orderBy('createdAt', 'desc')), (s) => setAutomations(s.docs.map(d => ({...d.data(), id: d.id})))); return u; }, []);
+
+    const handleSaveAutomation = async (e) => {
+        e.preventDefault(); await addDoc(collection(db, 'automations'), { ...newAuto, createdAt: new Date(), createdBy: currentUser.email });
+        setIsCreateOpen(false); setNewAuto({ name: '', trigger: 'TASK_CREATED', action: 'SEND_EMAIL', config: { target: '', template: '' }, isActive: true });
+    };
+    const deleteAutomation = async (id) => { if(confirm('Delete automation?')) await deleteDoc(doc(db, 'automations', id)); };
+    const toggleAutomation = async (auto) => { await updateDoc(doc(db, 'automations', auto.id), { isActive: !auto.isActive }); };
+
+    return (
+        <div className="p-8 h-full bg-gray-50 overflow-y-auto"><div className="max-w-5xl mx-auto">
+            <div className="flex justify-between items-center mb-8"><div><h2 className="text-3xl font-bold text-gray-800 flex items-center gap-2"><Zap className="text-amber-500 fill-amber-500" /> Automation Studio</h2></div><button onClick={() => setIsCreateOpen(true)} className="bg-gray-900 text-white px-5 py-2.5 rounded-lg font-bold shadow-lg flex items-center gap-2"><Plus size={18} /> Create Workflow</button></div>
+            <div className="grid gap-4">{automations.map(auto => (<div key={auto.id} className={`bg-white p-6 rounded-xl border-l-4 shadow-sm flex items-center justify-between transition-all ${auto.isActive ? 'border-amber-500 opacity-100' : 'border-gray-300 opacity-60'}`}><div className="flex items-center gap-6"><div className={`p-3 rounded-full ${auto.isActive ? 'bg-amber-100 text-amber-600' : 'bg-gray-100 text-gray-400'}`}><Zap size={24} /></div><div><h3 className="font-bold text-lg text-gray-800">{auto.name}</h3><div className="flex items-center gap-2 text-sm text-gray-500 mt-1"><span className="bg-gray-100 px-2 py-0.5 rounded font-mono text-xs uppercase">{auto.trigger}</span><ArrowRight size={14} /><span className="bg-gray-100 px-2 py-0.5 rounded font-mono text-xs uppercase">{auto.action}</span></div></div></div><div className="flex items-center gap-4"><input type="checkbox" checked={auto.isActive} onChange={() => toggleAutomation(auto)} className="cursor-pointer" /><button onClick={() => deleteAutomation(auto.id)} className="text-gray-400 hover:text-red-500 p-2"><Trash2 size={18} /></button></div></div>))}</div>
+            {isCreateOpen && (<div className="fixed inset-0 bg-black/60 z-[80] flex items-center justify-center p-4 backdrop-blur-sm"><div className="bg-white rounded-2xl w-full max-w-lg p-8 shadow-2xl"><div className="flex justify-between items-center mb-6"><h3 className="text-2xl font-bold text-gray-800">New Automation</h3><button onClick={() => setIsCreateOpen(false)} className="text-gray-400 hover:text-gray-900"><X size={24}/></button></div><form onSubmit={handleSaveAutomation} className="space-y-5"><div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Name</label><input required type="text" className="w-full border rounded-lg p-3" value={newAuto.name} onChange={e => setNewAuto({...newAuto, name: e.target.value})} /></div><div className="grid grid-cols-2 gap-4"><div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Trigger</label><select className="w-full border rounded-lg p-3" value={newAuto.trigger} onChange={e => setNewAuto({...newAuto, trigger: e.target.value})}><option value="TASK_CREATED">Task Created</option><option value="TASK_DUE_SOON">Due Date Approaching</option></select></div><div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Action</label><select className="w-full border rounded-lg p-3" value={newAuto.action} onChange={e => setNewAuto({...newAuto, action: e.target.value})}><option value="SEND_EMAIL">Send Email</option><option value="WEBHOOK">Call Webhook</option></select></div></div><div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Target (Email/URL)</label><input required type="text" className="w-full border rounded-lg p-3" value={newAuto.config.target} onChange={e => setNewAuto({...newAuto, config: {...newAuto.config, target: e.target.value}})} /></div><button type="submit" className="w-full bg-amber-500 text-white px-6 py-3 rounded-lg font-bold">Create</button></form></div></div>)}
+        </div></div>
+    );
+};
+
 // --- MAIN DASHBOARD COMPONENT ---
 export default function Dashboard() {
   const [tasks, setTasks] = useState([]);
-  const [currentView, setCurrentView] = useState('home'); 
+  const [automations, setAutomations] = useState([]); // Add this line
+  const [currentView, setCurrentView] = useState('board'); 
   
-  // Replace with your actual keys
   const EMAIL_SERVICE_ID = "YOUR_SERVICE_ID"; 
   const EMAIL_TEMPLATE_ID = "YOUR_TEMPLATE_ID"; 
   const EMAIL_PUBLIC_KEY = "YOUR_PUBLIC_KEY";
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  
-  // ID-based selection to prevent infinite loops
   const [selectedTaskId, setSelectedTaskId] = useState(null);
   const [activeRequirementId, setActiveRequirementId] = useState(null);
-  
   const [isEditing, setIsEditing] = useState(false); 
   const [editedTask, setEditedTask] = useState({}); 
-  
   const [newTask, setNewTask] = useState({
     title: '', tag: 'Planning', startDate: new Date().toISOString().split('T')[0],
     deadline: '', description: '', requirements: [], reference: '', link: '', imageUrl: '', fileUrl: ''
   });
   
   const [tempReqInput, setTempReqInput] = useState('');
-  const [tempEditReqInput, setTempEditReqInput] = useState(''); // For editing requirements
+  const [tempEditReqInput, setTempEditReqInput] = useState('');
 
   const { currentUser, logout } = useAuth();
   const navigate = useNavigate();
@@ -322,17 +385,28 @@ export default function Dashboard() {
   const selectedTask = tasks.find(t => t.id === selectedTaskId);
   const activeRequirement = selectedTask ? getSafeRequirements(selectedTask).find(r => r.id === activeRequirementId) : null;
 
+  // READ DATA
   useEffect(() => {
-    const q = query(collection(db, 'tasks'), orderBy('createdAt', 'desc'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setTasks(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })));
-    });
-    return unsubscribe;
+    const qTasks = query(collection(db, 'tasks'), orderBy('createdAt', 'desc'));
+    const uTasks = onSnapshot(qTasks, (s) => setTasks(s.docs.map(d => ({ ...d.data(), id: d.id }))));
+    const qAutos = query(collection(db, 'automations'));
+    const uAutos = onSnapshot(qAutos, (s) => setAutomations(s.docs.map(d => ({ ...d.data(), id: d.id }))));
+    return () => { uTasks(); uAutos(); };
   }, []);
 
-  // ... (Email and Due Date logic remains same) ...
-
-  // --- HANDLERS ---
+  // --- AUTOMATION LOGIC ---
+  const processTemplate = (template, data) => template ? template.replace(/\{\{(\w+)\}\}/g, (_, key) => data[key] || "") : "";
+  const runAutomations = (trigger, data) => {
+      const activeRules = automations.filter(a => a.isActive && a.trigger === trigger);
+      activeRules.forEach(async (rule) => {
+          const message = processTemplate(rule.config.template, data);
+          if (rule.action === 'SEND_EMAIL') {
+              if(EMAIL_SERVICE_ID !== "YOUR_SERVICE_ID") emailjs.send(EMAIL_SERVICE_ID, EMAIL_TEMPLATE_ID, { to_email: rule.config.target, message, subject: `[Auto] ${data.title}` }, EMAIL_PUBLIC_KEY);
+          } else if (rule.action === 'WEBHOOK') {
+              try { await fetch(rule.config.target, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ event: trigger, data, message }) }); } catch(e) { console.error(e); }
+          }
+      });
+  };
 
   const handleImageUpload = (e, targetState, setTargetState) => {
       const file = e.target.files[0];
@@ -351,7 +425,10 @@ export default function Dashboard() {
     if (!newTask.title) return;
     const taskData = { ...newTask, status: 'todo', createdAt: new Date(), author: currentUser.email, dueNotificationSent: false };
     await addDoc(collection(db, 'tasks'), taskData);
-    // Send email logic here...
+    
+    // RUN AUTOMATIONS
+    runAutomations('TASK_CREATED', taskData);
+
     setNewTask({ title: '', tag: 'Planning', startDate: new Date().toISOString().split('T')[0], deadline: '', description: '', requirements: [], reference: '', link: '', imageUrl: '', fileUrl: '' });
     setTempReqInput('');
     setIsAddModalOpen(false);
@@ -369,7 +446,6 @@ export default function Dashboard() {
       setNewTask({ ...newTask, requirements: updated });
   };
 
-  // Edit Mode Requirement Handlers
   const addRequirementToEdit = () => {
       if (!tempEditReqInput.trim()) return;
       const currentReqs = editedTask.requirements || [];
@@ -388,7 +464,6 @@ export default function Dashboard() {
   };
 
   const startEditing = () => { 
-      // Normalize requirements to array when starting edit
       const safeReqs = getSafeRequirements(selectedTask);
       setEditedTask({ ...selectedTask, requirements: safeReqs }); 
       setIsEditing(true); 
@@ -400,7 +475,6 @@ export default function Dashboard() {
       setIsEditing(false); 
   };
 
-  // ... (Toggle, Move, Delete handlers remain same) ...
   const toggleRequirement = async (taskId, reqId, currentRequirements) => {
       const safeReqs = getSafeRequirements({ requirements: currentRequirements });
       const updatedReqs = safeReqs.map(r => r.id === reqId ? { ...r, isDone: !r.isDone } : r);
@@ -414,7 +488,6 @@ export default function Dashboard() {
 
   return (
     <div className="flex h-screen w-full bg-gray-50 font-sans overflow-hidden">
-      {/* Sidebar... (Keeping same as before) */}
       <aside className="w-20 md:w-64 bg-white border-r border-gray-200 flex flex-col justify-between flex-shrink-0 z-20 print:hidden">
         <div className="p-6 flex items-center gap-3 mb-6"><div className="bg-blue-600 p-2 rounded-lg text-white flex-shrink-0"><Layout size={24} /></div><div className="flex flex-col justify-center overflow-hidden"><h1 className="text-lg font-bold text-gray-900 leading-none truncate">iHAVECPU</h1><span className="text-xs text-blue-600 font-bold tracking-wider truncate">WORKSPACE</span></div></div>
         <nav className="px-3 space-y-2">
@@ -423,6 +496,8 @@ export default function Dashboard() {
              <button onClick={() => setCurrentView('calendar')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${currentView === 'calendar' ? 'bg-blue-50 text-blue-600 font-bold' : 'text-gray-500 hover:bg-gray-50'}`}><CalendarIcon size={20} /> <span className="hidden md:inline">Calendar</span></button>
              <button onClick={() => setCurrentView('report')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${currentView === 'report' ? 'bg-blue-50 text-blue-600 font-bold' : 'text-gray-500 hover:bg-gray-50'}`}><Presentation size={20} /> <span className="hidden md:inline">Report</span></button>
              <button onClick={() => setCurrentView('album')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${currentView === 'album' ? 'bg-purple-50 text-purple-600 font-bold' : 'text-gray-500 hover:bg-gray-50'}`}><ImageIcon size={20} /> <span className="hidden md:inline">Photo Album</span></button>
+             <button onClick={() => setCurrentView('aicollector')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${currentView === 'aicollector' ? 'bg-indigo-50 text-indigo-600 font-bold' : 'text-gray-500 hover:bg-gray-50'}`}><Bot size={20} /> <span className="hidden md:inline">AI Clip Collector</span></button>
+             <button onClick={() => setCurrentView('automation')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${currentView === 'automation' ? 'bg-amber-50 text-amber-600 font-bold' : 'text-gray-500 hover:bg-gray-50'}`}><Zap size={20} /> <span className="hidden md:inline">Automation</span></button>
              <button onClick={() => setCurrentView('selfheal')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${currentView === 'selfheal' ? 'bg-pink-50 text-pink-500 font-bold' : 'text-gray-500 hover:bg-gray-50'}`}><Heart size={20} /> <span className="hidden md:inline">Self Heal</span></button>
         </nav>
         <div className="p-4"><button onClick={handleLogout} className="p-2"><LogOut/></button></div>
@@ -431,10 +506,9 @@ export default function Dashboard() {
       <main className="flex-1 flex flex-col h-full w-full overflow-hidden bg-white relative">
         {currentView === 'home' && <HomeView tasks={tasks} currentUser={currentUser} />}
         {currentView === 'calendar' && <CalendarView tasks={tasks} setSelectedTaskId={setSelectedTaskId} setIsEditing={setIsEditing} />}
-        
-        {/* NEW: Updated Photo Album View */}
         {currentView === 'album' && <PhotoAlbumView currentUser={currentUser} />}
-        
+        {currentView === 'aicollector' && <AIClipCollectorView />}
+        {currentView === 'automation' && <AutomationView currentUser={currentUser} />}
         {currentView === 'selfheal' && <SelfHealView />}
         {currentView === 'report' && <ReportView tasks={tasks} currentUser={currentUser} />}
 
