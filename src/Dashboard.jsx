@@ -8,8 +8,9 @@ import {
   onSnapshot, 
   deleteDoc, 
   doc, 
-  updateDoc
-} from 'firebase/firestore'; // Removed orderBy
+  updateDoc, 
+  orderBy 
+} from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
 import emailjs from '@emailjs/browser'; 
 import { 
@@ -17,8 +18,8 @@ import {
   Paperclip, Link as LinkIcon, FileText, Clock, AlignLeft, CheckSquare, ExternalLink, X, Edit2,
   Save, Heart, ChevronLeft, ChevronRight, RefreshCw, Video, Home, PieChart, Activity, CheckCircle2,
   ListTodo, Presentation, Printer, Upload, Image as ImageIcon, GripVertical, LayoutTemplate, Camera,
-  Loader2, Folder, Mail, Table, Download, Minus, Play, Info, MessageCircle, Share2, Search, Bot, 
-  Youtube, Facebook, User, AtSign, Zap, Settings, DollarSign, TrendingUp, TrendingDown
+  Loader2, Folder, Mail, Table, Download, Minus, Play, Info, MessageCircle, Share2, Search, 
+  User, AtSign, Settings, DollarSign, TrendingUp, TrendingDown
 } from 'lucide-react';
 
 // --- GLOBAL APP ID ---
@@ -81,13 +82,9 @@ const BudgetRecorderView = () => {
     });
 
     useEffect(() => {
-        // FIX: Removed orderBy, simple collection query
-        const q = collection(db, 'artifacts', appId, 'public', 'data', 'budget');
+        const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'budget'), orderBy('date', 'desc'));
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-            // Client-side sort
-            data.sort((a, b) => new Date(b.date) - new Date(a.date));
-            setTransactions(data);
+            setTransactions(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })));
         });
         return unsubscribe;
     }, []);
@@ -98,7 +95,7 @@ const BudgetRecorderView = () => {
             await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'budget'), { 
                 ...newTransaction, 
                 type: activeTab,
-                createdAt: new Date().toISOString()
+                createdAt: new Date() 
             });
             setIsAddOpen(false);
             setNewTransaction({
@@ -116,7 +113,7 @@ const BudgetRecorderView = () => {
             });
         } catch (error) {
             console.error("Error saving transaction:", error);
-            alert("Failed to save record: " + error.message);
+            alert("Failed to save record.");
         }
     };
 
@@ -151,7 +148,7 @@ const BudgetRecorderView = () => {
                     </button>
                 </div>
             </header>
-            
+
             <div className="flex-1 overflow-hidden flex flex-col">
                 <div className="px-8 pt-6 pb-0 flex gap-1 border-b border-gray-200 bg-gray-50">
                     <button onClick={() => setActiveTab('income')} className={`px-8 py-3 font-bold text-sm rounded-t-xl transition-all relative ${activeTab === 'income' ? 'bg-white text-green-600 shadow-sm border border-b-0 border-gray-200' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'}`}>Income{activeTab === 'income' && <div className="absolute top-0 left-0 w-full h-1 bg-green-500 rounded-t-xl"></div>}</button>
@@ -165,9 +162,13 @@ const BudgetRecorderView = () => {
                 <div className="fixed inset-0 bg-black/60 z-[80] flex items-center justify-center p-4 backdrop-blur-sm">
                     <div className="bg-white rounded-2xl w-full max-w-4xl p-8 shadow-2xl overflow-y-auto max-h-[90vh]">
                         <div className="flex justify-between items-center mb-8 border-b border-gray-100 pb-4">
-                            <div><h3 className="text-2xl font-bold text-gray-900">Add {activeTab === 'income' ? 'Income' : 'Spending'} Record</h3><p className="text-sm text-gray-500 mt-1">Fill in the details for the new financial record.</p></div>
+                            <div>
+                                <h3 className="text-2xl font-bold text-gray-900">Add {activeTab === 'income' ? 'Income' : 'Spending'} Record</h3>
+                                <p className="text-sm text-gray-500 mt-1">Fill in the details for the new financial record.</p>
+                            </div>
                             <button onClick={() => setIsAddOpen(false)} className="text-gray-400 hover:text-gray-900 p-2 hover:bg-gray-100 rounded-full transition"><X size={24}/></button>
                         </div>
+                        
                         <form onSubmit={handleAddTransaction} className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                             <div className="space-y-6">
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Date</label><input required type="date" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 transition" value={newTransaction.date} onChange={e => setNewTransaction({...newTransaction, date: e.target.value})} /></div>
@@ -197,6 +198,7 @@ const BudgetRecorderView = () => {
 
 const RequirementSheetModal = ({ task, requirement, onClose }) => {
     const [newRow, setNewRow] = useState({ col1: '', col2: '', col3: '', notes: '' });
+    // Default columns if none exist
     const [columns, setColumns] = useState(requirement.columns || [
         { id: 'col1', name: 'Item / Name' },
         { id: 'col2', name: 'Description' },
