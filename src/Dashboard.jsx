@@ -639,19 +639,30 @@ const AIClipCollectorView = () => {
                 const platform = target.platform;
                 const channelName = target.url.split('/').pop().replace('@', '');
                 
-                mockData[platform] = Array.from({ length: Math.floor(Math.random() * 4) + 2 }).map((_, i) => ({
-                    id: i,
-                    title: `${channelName} - ${platform} Content #${i + 1}`,
-                    thumbnail: `https://placehold.co/300x200/333/fff?text=${platform}+${i+1}`,
-                    link: target.url,
-                    views: (Math.random() * 100).toFixed(1) + 'K',
-                    date: `${month}-${Math.floor(Math.random() * 28) + 1}`.replace(/-(\d)$/, '-0$1'),
-                    engagement: (Math.random() * 15).toFixed(1) + '%'
-                }));
+                mockData[platform] = Array.from({ length: Math.floor(Math.random() * 4) + 2 }).map((_, i) => {
+                    let videoLink = target.url;
+                    if (platform === 'YouTube') {
+                        videoLink = `https://www.youtube.com/watch?v=mock${Math.random().toString(36).substr(2, 5)}`;
+                    } else if (platform === 'Facebook') {
+                        videoLink = `${target.url}/videos/${Math.floor(Math.random() * 9999999)}`;
+                    } else if (platform === 'TikTok') {
+                        videoLink = `${target.url}/video/${Math.floor(Math.random() * 99999999999999999)}`;
+                    }
+
+                    return {
+                        id: i,
+                        title: `${channelName} - ${platform} Content #${i + 1}`,
+                        thumbnail: `https://placehold.co/300x200/333/fff?text=${platform}+${i+1}`,
+                        link: videoLink,
+                        views: (Math.random() * 100).toFixed(1) + 'K',
+                        date: `${month}-${Math.floor(Math.random() * 28) + 1}`.replace(/-(\d)$/, '-0$1'),
+                        engagement: (Math.random() * 15).toFixed(1) + '%'
+                    };
+                });
             });
             setData(mockData);
             setIsCollecting(false);
-        }, 2500);
+        }, 2000);
     };
 
     return (
