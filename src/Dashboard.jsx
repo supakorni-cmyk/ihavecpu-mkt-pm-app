@@ -23,6 +23,8 @@ import {
 } from 'lucide-react';
 
 // --- CONSTANTS & HELPERS ---
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
 const TAG_COLORS = { 
   'Planning': 'bg-pink-100 text-pink-600', 
   'Project': 'bg-purple-100 text-purple-600', 
@@ -79,7 +81,8 @@ const BudgetRecorderView = () => {
     });
 
     useEffect(() => {
-        const q = query(collection(db, 'budget'), orderBy('date', 'desc'));
+        // FIX: Updated path
+        const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'budget'), orderBy('date', 'desc'));
         const unsubscribe = onSnapshot(q, (snapshot) => {
             setTransactions(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })));
         });
@@ -88,7 +91,8 @@ const BudgetRecorderView = () => {
 
     const handleAddTransaction = async (e) => {
         e.preventDefault();
-        await addDoc(collection(db, 'budget'), { 
+        // FIX: Updated path
+        await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'budget'), { 
             ...newTransaction, 
             type: activeTab,
             createdAt: new Date() 
@@ -110,7 +114,8 @@ const BudgetRecorderView = () => {
     };
 
     const handleDeleteTransaction = async (id) => {
-        if(confirm('Delete this record?')) await deleteDoc(doc(db, 'budget', id));
+        // FIX: Updated path
+        if(confirm('Delete this record?')) await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'budget', id));
     }
 
     const filteredTransactions = transactions.filter(t => t.type === activeTab);
@@ -287,7 +292,7 @@ const RequirementSheetModal = ({ task, requirement, onClose }) => {
             }
             return r;
         });
-        updateDoc(doc(db, 'tasks', task.id), { requirements: updatedReqs });
+        updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'tasks', task.id), { requirements: updatedReqs });
         setNewRow({ col1: '', col2: '', col3: '', notes: '' });
     };
 
@@ -298,7 +303,7 @@ const RequirementSheetModal = ({ task, requirement, onClose }) => {
             }
             return r;
         });
-        updateDoc(doc(db, 'tasks', task.id), { requirements: updatedReqs });
+        updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'tasks', task.id), { requirements: updatedReqs });
     };
 
     const exportToCSV = () => {
@@ -373,6 +378,10 @@ const HomeView = ({ tasks, currentUser }) => {
                         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between h-32 hover:shadow-md transition"><div className="flex justify-between items-start"><div className="bg-yellow-50 text-yellow-600 p-2 rounded-lg"><Activity size={24} /></div><span className="text-xs font-bold text-gray-400 uppercase">In Progress</span></div><div><span className="text-3xl font-bold text-gray-800">{inProgressTasks}</span><span className="text-sm text-gray-400 ml-2">active</span></div></div>
                         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between h-32 hover:shadow-md transition"><div className="flex justify-between items-start"><div className="bg-purple-50 text-purple-600 p-2 rounded-lg"><PieChart size={24} /></div><span className="text-xs font-bold text-gray-400 uppercase">Review</span></div><div><span className="text-3xl font-bold text-gray-800">{reviewTasks}</span><span className="text-sm text-gray-400 ml-2">pending</span></div></div>
                     </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100"><h3 className="text-lg font-bold text-gray-800 mb-6">Task Status</h3><div className="flex items-end justify-between h-64 gap-4">{[{ label: 'To Do', count: todoTasks, color: 'bg-gray-200' }, { label: 'In Progress', count: inProgressTasks, color: 'bg-blue-500' }, { label: 'Review', count: reviewTasks, color: 'bg-purple-500' }, { label: 'Done', count: completedTasks, color: 'bg-green-500' }].map((stat) => (<div key={stat.label} className="flex flex-col items-center gap-2 flex-1 h-full justify-end group"><div className="font-bold text-gray-800 mb-1 opacity-0 group-hover:opacity-100 transition-opacity transform translate-y-2 group-hover:translate-y-0">{stat.count}</div><div className={`w-full rounded-t-xl transition-all duration-500 ${stat.color} hover:opacity-90`} style={{ height: `${totalTasks > 0 ? (stat.count / totalTasks) * 100 : 0}%`, minHeight: '8px' }}></div><div className="text-xs font-bold text-gray-400 uppercase text-center mt-2">{stat.label}</div></div>))}</div></div>
+                        <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100"><h3 className="text-lg font-bold text-gray-800 mb-6">Workload</h3><div className="space-y-5">{Object.keys(TAG_COLORS).map((tag) => { const count = tagCounts[tag] || 0; return (<div key={tag}><div className="flex justify-between text-sm font-bold mb-2"><span className="text-gray-600">{tag}</span><span className="text-gray-400">{count} Tasks</span></div><div className="h-3 w-full bg-gray-100 rounded-full overflow-hidden"><div className={`h-full rounded-full transition-all duration-500 ${(TAG_COLORS[tag] || 'bg-gray-200').split(' ')[0]}`} style={{ width: `${(count / maxTagCount) * 100}%` }}></div></div></div>) })}</div></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -420,7 +429,6 @@ const CalendarView = ({ tasks, setSelectedTaskId }) => {
 };
 
 const PhotoAlbumView = ({ currentUser }) => {
-    // ... PhotoAlbumView code ...
     const [albums, setAlbums] = useState([]);
     const [photos, setPhotos] = useState([]);
     const [currentAlbum, setCurrentAlbum] = useState(null);
@@ -428,16 +436,16 @@ const PhotoAlbumView = ({ currentUser }) => {
     const [isCreatingAlbum, setIsCreatingAlbum] = useState(false);
     const [newAlbumName, setNewAlbumName] = useState('');
 
-    useEffect(() => { const u = onSnapshot(query(collection(db, 'albums'), orderBy('createdAt', 'desc')), (s) => setAlbums(s.docs.map(d => ({...d.data(), id: d.id})))); return u; }, []);
-    useEffect(() => { const u = onSnapshot(query(collection(db, 'photos'), orderBy('createdAt', 'desc')), (s) => setPhotos(s.docs.map(d => ({...d.data(), id: d.id})))); return u; }, []);
+    useEffect(() => { const u = onSnapshot(query(collection(db, 'artifacts', appId, 'public', 'data', 'albums'), orderBy('createdAt', 'desc')), (s) => setAlbums(s.docs.map(d => ({...d.data(), id: d.id})))); return u; }, []);
+    useEffect(() => { const u = onSnapshot(query(collection(db, 'artifacts', appId, 'public', 'data', 'photos'), orderBy('createdAt', 'desc')), (s) => setPhotos(s.docs.map(d => ({...d.data(), id: d.id})))); return u; }, []);
 
-    const createAlbum = async (e) => { e.preventDefault(); if (!newAlbumName) return; await addDoc(collection(db, 'albums'), { name: newAlbumName, createdAt: new Date(), createdBy: currentUser.email }); setNewAlbumName(''); setIsCreatingAlbum(false); };
+    const createAlbum = async (e) => { e.preventDefault(); if (!newAlbumName) return; await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'albums'), { name: newAlbumName, createdAt: new Date(), createdBy: currentUser.email }); setNewAlbumName(''); setIsCreatingAlbum(false); };
     const handleUpload = async (e) => {
         const file = e.target.files[0]; if (!file || file.size > 2e6) return alert("File too large (>2MB)"); setUploading(true);
-        const reader = new FileReader(); reader.onloadend = async () => { await addDoc(collection(db, 'photos'), { url: reader.result, name: file.name, createdAt: new Date(), uploader: currentUser.email, albumId: currentAlbum.id }); setUploading(false); }; reader.readAsDataURL(file);
+        const reader = new FileReader(); reader.onloadend = async () => { await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'photos'), { url: reader.result, name: file.name, createdAt: new Date(), uploader: currentUser.email, albumId: currentAlbum.id }); setUploading(false); }; reader.readAsDataURL(file);
     };
-    const handleDeletePhoto = async (id) => { if (confirm("Delete photo?")) await deleteDoc(doc(db, 'photos', id)); };
-    const handleDeleteAlbum = async (e, id) => { e.stopPropagation(); if (confirm("Delete album?")) { await deleteDoc(doc(db, 'albums', id)); if (currentAlbum?.id === id) setCurrentAlbum(null); } };
+    const handleDeletePhoto = async (id) => { if (confirm("Delete photo?")) await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'photos', id)); };
+    const handleDeleteAlbum = async (e, id) => { e.stopPropagation(); if (confirm("Delete album?")) { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'albums', id)); if (currentAlbum?.id === id) setCurrentAlbum(null); } };
     const albumPhotos = photos.filter(p => p.albumId === currentAlbum?.id);
 
     return (
@@ -452,7 +460,6 @@ const PhotoAlbumView = ({ currentUser }) => {
 };
 
 const SelfHealView = () => {
-    // ... SelfHealView code ...
     const videos = ["jfKfPfyJRdk", "eKFTSSKCzWA", "inpok4MKVLM", "Dx5qFachd3A", "tEmt1Znux58", "lTRiuFIWV54"];
     const [currentVideoId, setCurrentVideoId] = useState(videos[0]);
     return (<div className="h-full w-full flex flex-col items-center justify-center p-6 bg-gradient-to-br from-indigo-50 to-purple-50"><div className="text-center mb-8"><h2 className="text-4xl font-bold text-gray-800 mb-2 flex items-center justify-center gap-3"><Heart className="text-pink-500 fill-pink-500" size={32} />Self Heal & Relax</h2></div><div className="w-full max-w-4xl aspect-video bg-black rounded-2xl shadow-2xl overflow-hidden mb-8 border-4 border-white"><iframe width="100%" height="100%" src={`https://www.youtube.com/embed/${currentVideoId}?autoplay=1`} title="YouTube" frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen></iframe></div><button onClick={() => setCurrentVideoId(videos[Math.floor(Math.random() * videos.length)])} className="flex items-center gap-2 bg-white px-6 py-3 rounded-full shadow-lg hover:shadow-xl font-bold text-indigo-600"><RefreshCw size={20} /> Change Atmosphere</button></div>);
@@ -507,19 +514,18 @@ const AIClipCollectorView = () => {
 };
 
 const AutomationView = ({ currentUser }) => {
-    // ... AutomationView code ...
     const [automations, setAutomations] = useState([]);
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [newAuto, setNewAuto] = useState({ name: '', trigger: 'TASK_CREATED', action: 'SEND_EMAIL', config: { target: '', template: '' }, isActive: true });
 
-    useEffect(() => { const u = onSnapshot(query(collection(db, 'automations'), orderBy('createdAt', 'desc')), (s) => setAutomations(s.docs.map(d => ({...d.data(), id: d.id})))); return u; }, []);
+    useEffect(() => { const u = onSnapshot(query(collection(db, 'artifacts', appId, 'public', 'data', 'automations'), orderBy('createdAt', 'desc')), (s) => setAutomations(s.docs.map(d => ({...d.data(), id: d.id})))); return u; }, []);
 
     const handleSaveAutomation = async (e) => {
-        e.preventDefault(); await addDoc(collection(db, 'automations'), { ...newAuto, createdAt: new Date(), createdBy: currentUser.email });
+        e.preventDefault(); await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'automations'), { ...newAuto, createdAt: new Date(), createdBy: currentUser.email });
         setIsCreateOpen(false); setNewAuto({ name: '', trigger: 'TASK_CREATED', action: 'SEND_EMAIL', config: { target: '', template: '' }, isActive: true });
     };
-    const deleteAutomation = async (id) => { if(confirm('Delete automation?')) await deleteDoc(doc(db, 'automations', id)); };
-    const toggleAutomation = async (auto) => { await updateDoc(doc(db, 'automations', auto.id), { isActive: !auto.isActive }); };
+    const deleteAutomation = async (id) => { if(confirm('Delete automation?')) await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'automations', id)); };
+    const toggleAutomation = async (auto) => { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'automations', auto.id), { isActive: !auto.isActive }); };
 
     return (
         <div className="p-8 h-full bg-gray-50 overflow-y-auto"><div className="max-w-5xl mx-auto">
@@ -621,17 +627,28 @@ export default function Dashboard() {
   const selectedTask = tasks.find(t => t.id === selectedTaskId);
   const activeRequirement = selectedTask ? getSafeRequirements(selectedTask).find(r => r.id === activeRequirementId) : null;
 
+  // READ DATA
   useEffect(() => {
-    const q = query(collection(db, 'tasks'), orderBy('createdAt', 'desc'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setTasks(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })));
-    });
-    return unsubscribe;
+    const qTasks = query(collection(db, 'artifacts', appId, 'public', 'data', 'tasks'), orderBy('createdAt', 'desc'));
+    const uTasks = onSnapshot(qTasks, (s) => setTasks(s.docs.map(d => ({ ...d.data(), id: d.id }))));
+    const qAutos = query(collection(db, 'artifacts', appId, 'public', 'data', 'automations'));
+    const uAutos = onSnapshot(qAutos, (s) => setAutomations(s.docs.map(d => ({ ...d.data(), id: d.id }))));
+    return () => { uTasks(); uAutos(); };
   }, []);
 
-  // ... (Email and Due Date logic remains same) ...
-
-  // --- HANDLERS ---
+  // --- AUTOMATION LOGIC ---
+  const processTemplate = (template, data) => template ? template.replace(/\{\{(\w+)\}\}/g, (_, key) => data[key] || "") : "";
+  const runAutomations = (trigger, data) => {
+      const activeRules = automations.filter(a => a.isActive && a.trigger === trigger);
+      activeRules.forEach(async (rule) => {
+          const message = processTemplate(rule.config.template, data);
+          if (rule.action === 'SEND_EMAIL') {
+              if(EMAIL_SERVICE_ID !== "YOUR_SERVICE_ID") emailjs.send(EMAIL_SERVICE_ID, EMAIL_TEMPLATE_ID, { to_email: rule.config.target, message, subject: `[Auto] ${data.title}` }, EMAIL_PUBLIC_KEY);
+          } else if (rule.action === 'WEBHOOK') {
+              try { await fetch(rule.config.target, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ event: trigger, data, message }) }); } catch(e) { console.error(e); }
+          }
+      });
+  };
 
   const handleImageUpload = (e, targetState, setTargetState) => {
       const file = e.target.files[0];
@@ -649,8 +666,11 @@ export default function Dashboard() {
     e.preventDefault();
     if (!newTask.title) return;
     const taskData = { ...newTask, status: 'todo', createdAt: new Date(), author: currentUser.email, dueNotificationSent: false };
-    await addDoc(collection(db, 'tasks'), taskData);
-    // Send email logic here...
+    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'tasks'), taskData);
+    
+    // RUN AUTOMATIONS
+    runAutomations('TASK_CREATED', taskData);
+
     setNewTask({ title: '', tag: 'Planning', startDate: new Date().toISOString().split('T')[0], deadline: '', description: '', requirements: [], reference: '', link: '', imageUrl: '', fileUrl: '' });
     setTempReqInput('');
     setIsAddModalOpen(false);
@@ -695,7 +715,7 @@ export default function Dashboard() {
 
   const handleUpdateTask = async (e) => { 
       e.preventDefault(); 
-      await updateDoc(doc(db, 'tasks', selectedTask.id), { ...editedTask }); 
+      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'tasks', selectedTask.id), { ...editedTask }); 
       setIsEditing(false); 
   };
 
@@ -703,10 +723,10 @@ export default function Dashboard() {
   const toggleRequirement = async (taskId, reqId, currentRequirements) => {
       const safeReqs = getSafeRequirements({ requirements: currentRequirements });
       const updatedReqs = safeReqs.map(r => r.id === reqId ? { ...r, isDone: !r.isDone } : r);
-      await updateDoc(doc(db, 'tasks', taskId), { requirements: updatedReqs });
+      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'tasks', taskId), { requirements: updatedReqs });
   };
-  const moveTask = async (e, taskId, currentStatus, direction) => { e.stopPropagation(); const statusOrder = ['todo', 'inprogress', 'review', 'done']; const currentIndex = statusOrder.indexOf(currentStatus); let nextIndex = direction === 'next' ? currentIndex + 1 : currentIndex - 1; if (nextIndex >= 0 && nextIndex < statusOrder.length) { await updateDoc(doc(db, 'tasks', taskId), { status: statusOrder[nextIndex] }); } };
-  const deleteTask = async (e, id) => { e.stopPropagation(); if (confirm("Delete?")) { await deleteDoc(doc(db, 'tasks', id)); if (selectedTaskId === id) setSelectedTaskId(null); } };
+  const moveTask = async (e, taskId, currentStatus, direction) => { e.stopPropagation(); const statusOrder = ['todo', 'inprogress', 'review', 'done']; const currentIndex = statusOrder.indexOf(currentStatus); let nextIndex = direction === 'next' ? currentIndex + 1 : currentIndex - 1; if (nextIndex >= 0 && nextIndex < statusOrder.length) { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'tasks', taskId), { status: statusOrder[nextIndex] }); } };
+  const deleteTask = async (e, id) => { e.stopPropagation(); if (confirm("Delete?")) { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'tasks', id)); if (selectedTaskId === id) setSelectedTaskId(null); } };
   const handleLogout = async () => { await logout(); navigate('/'); };
 
   const getTasksByStatus = (status) => tasks.filter(task => (status === 'todo' && (task.status === 'pending' || !task.status)) ? true : (status === 'done' && task.status === 'completed') ? true : task.status === status);
@@ -733,10 +753,7 @@ export default function Dashboard() {
       <main className="flex-1 flex flex-col h-full w-full overflow-hidden bg-white relative">
         {currentView === 'home' && <HomeView tasks={tasks} currentUser={currentUser} />}
         {currentView === 'calendar' && <CalendarView tasks={tasks} setSelectedTaskId={setSelectedTaskId} setIsEditing={setIsEditing} />}
-        
-        {/* NEW: Updated Photo Album View */}
         {currentView === 'album' && <PhotoAlbumView currentUser={currentUser} />}
-        
         {currentView === 'aicollector' && <AIClipCollectorView />}
         {currentView === 'automation' && <AutomationView currentUser={currentUser} />}
         {currentView === 'budget' && <BudgetRecorderView />}
