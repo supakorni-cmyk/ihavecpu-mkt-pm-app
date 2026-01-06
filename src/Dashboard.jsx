@@ -9,7 +9,7 @@ import {
   deleteDoc, 
   doc, 
   updateDoc, 
-  // orderBy // Removed to prevent permission issues
+  orderBy 
 } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
 import emailjs from '@emailjs/browser'; 
@@ -18,8 +18,8 @@ import {
   Paperclip, Link as LinkIcon, FileText, Clock, AlignLeft, CheckSquare, ExternalLink, X, Edit2,
   Save, Heart, ChevronLeft, ChevronRight, RefreshCw, Video, Home, PieChart, Activity, CheckCircle2,
   ListTodo, Presentation, Printer, Upload, Image as ImageIcon, GripVertical, LayoutTemplate, Camera,
-  Loader2, Folder, Mail, Table, Download, Minus, Play, Info, MessageCircle, Share2, Search, 
-  User, AtSign, Zap, Settings, DollarSign, TrendingUp, TrendingDown
+  Loader2, Folder, Mail, Table, Download, Minus, Play, Info, MessageCircle, Share2, Search, Bot, 
+  Youtube, Facebook, User, AtSign, Zap, Settings, DollarSign, TrendingUp, TrendingDown
 } from 'lucide-react';
 
 // --- GLOBAL APP ID ---
@@ -68,27 +68,15 @@ const BudgetRecorderView = () => {
     const [transactions, setTransactions] = useState([]);
     const [isAddOpen, setIsAddOpen] = useState(false);
     const [newTransaction, setNewTransaction] = useState({
-        type: 'income', 
-        date: new Date().toISOString().split('T')[0],
-        brand: '',
-        category: BUDGET_CATEGORIES[0],
-        description: '',
-        amount: '',
-        company: '',
-        invoice: '',
-        paymentDate: '',
-        status: 'Pending',
-        remark: ''
+        type: 'income', date: new Date().toISOString().split('T')[0],
+        brand: '', category: BUDGET_CATEGORIES[0], description: '', amount: '',
+        company: '', invoice: '', paymentDate: '', status: 'Pending', remark: ''
     });
 
     useEffect(() => {
-        // Updated: Removed orderBy to fix permissions
-        const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'budget'));
+        const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'budget'), orderBy('date', 'desc'));
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-            // Sort in JS
-            data.sort((a, b) => new Date(b.date) - new Date(a.date));
-            setTransactions(data);
+            setTransactions(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })));
         });
         return unsubscribe;
     }, []);
@@ -96,29 +84,10 @@ const BudgetRecorderView = () => {
     const handleAddTransaction = async (e) => {
         e.preventDefault();
         try {
-            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'budget'), { 
-                ...newTransaction, 
-                type: activeTab,
-                createdAt: new Date() 
-            });
+            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'budget'), { ...newTransaction, type: activeTab, createdAt: new Date() });
             setIsAddOpen(false);
-            setNewTransaction({
-                type: activeTab,
-                date: new Date().toISOString().split('T')[0],
-                brand: '',
-                category: BUDGET_CATEGORIES[0],
-                description: '',
-                amount: '',
-                company: '',
-                invoice: '',
-                paymentDate: '',
-                status: 'Pending',
-                remark: ''
-            });
-        } catch (error) {
-            console.error("Error saving transaction:", error);
-            alert("Failed to save record. Check permissions.");
-        }
+            setNewTransaction({ type: activeTab, date: new Date().toISOString().split('T')[0], brand: '', category: BUDGET_CATEGORIES[0], description: '', amount: '', company: '', invoice: '', paymentDate: '', status: 'Pending', remark: '' });
+        } catch (error) { console.error("Error saving transaction:", error); alert("Failed to save record."); }
     };
 
     const handleDeleteTransaction = async (id) => {
@@ -132,98 +101,25 @@ const BudgetRecorderView = () => {
         <div className="flex flex-col h-full bg-gray-50 font-sans">
             <header className="px-8 py-5 border-b border-gray-200 bg-white shadow-sm z-10 flex justify-between items-center">
                 <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-lg ${activeTab === 'income' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
-                        {activeTab === 'income' ? <TrendingUp size={24} /> : <TrendingDown size={24} />}
-                    </div>
-                    <div>
-                        <h2 className="text-2xl font-bold text-gray-800">Budget Recorder</h2>
-                        <p className="text-sm text-gray-500 font-medium">Track your project finances</p>
-                    </div>
+                    <div className={`p-2 rounded-lg ${activeTab === 'income' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>{activeTab === 'income' ? <TrendingUp size={24} /> : <TrendingDown size={24} />}</div>
+                    <div><h2 className="text-2xl font-bold text-gray-800">Budget Recorder</h2><p className="text-sm text-gray-500 font-medium">Track your project finances</p></div>
                 </div>
-                <div className="flex items-center gap-6">
-                    <div className="text-right">
-                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Total {activeTab}</p>
-                        <p className={`text-2xl font-black ${activeTab === 'income' ? 'text-green-600' : 'text-red-600'}`}>
-                            ฿{totalAmount.toLocaleString()}
-                        </p>
-                    </div>
-                    <button onClick={() => setIsAddOpen(true)} className="bg-gray-900 hover:bg-black text-white px-5 py-2.5 rounded-lg font-bold shadow-lg flex items-center gap-2 transition-all transform hover:scale-105">
-                        <Plus size={18} /> Add Record
-                    </button>
-                </div>
+                <div className="flex items-center gap-6"><div className="text-right"><p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Total {activeTab}</p><p className={`text-2xl font-black ${activeTab === 'income' ? 'text-green-600' : 'text-red-600'}`}>฿{totalAmount.toLocaleString()}</p></div><button onClick={() => setIsAddOpen(true)} className="bg-gray-900 hover:bg-black text-white px-5 py-2.5 rounded-lg font-bold shadow-lg flex items-center gap-2 transition-all transform hover:scale-105"><Plus size={18} /> Add Record</button></div>
             </header>
-
             <div className="flex-1 overflow-hidden flex flex-col">
                 <div className="px-8 pt-6 pb-0 flex gap-1 border-b border-gray-200 bg-gray-50">
                     <button onClick={() => setActiveTab('income')} className={`px-8 py-3 font-bold text-sm rounded-t-xl transition-all relative ${activeTab === 'income' ? 'bg-white text-green-600 shadow-sm border border-b-0 border-gray-200' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'}`}>Income{activeTab === 'income' && <div className="absolute top-0 left-0 w-full h-1 bg-green-500 rounded-t-xl"></div>}</button>
                     <button onClick={() => setActiveTab('spending')} className={`px-8 py-3 font-bold text-sm rounded-t-xl transition-all relative ${activeTab === 'spending' ? 'bg-white text-red-600 shadow-sm border border-b-0 border-gray-200' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'}`}>Spending{activeTab === 'spending' && <div className="absolute top-0 left-0 w-full h-1 bg-red-500 rounded-t-xl"></div>}</button>
                 </div>
-
-                <div className="flex-1 overflow-auto p-8">
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                        <table className="w-full text-sm text-left">
-                            <thead className="text-xs text-gray-500 uppercase bg-gray-50 font-bold border-b border-gray-200 sticky top-0 z-10">
-                                <tr>
-                                    <th className="px-6 py-4">Date</th>
-                                    <th className="px-6 py-4">Brand</th>
-                                    <th className="px-6 py-4">Category</th>
-                                    <th className="px-6 py-4 w-64">Description</th>
-                                    <th className="px-6 py-4 text-right">Amount (THB)</th>
-                                    <th className="px-6 py-4">Company</th>
-                                    <th className="px-6 py-4">Invoice</th>
-                                    <th className="px-6 py-4">Payment Date</th>
-                                    <th className="px-6 py-4 text-center">Status</th>
-                                    <th className="px-6 py-4 w-48">Remark</th>
-                                    <th className="px-6 py-4 text-center">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100">
-                                {filteredTransactions.map((t) => (
-                                    <tr key={t.id} className="hover:bg-blue-50/30 transition-colors group">
-                                        <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">{formatDate(t.date)}</td>
-                                        <td className="px-6 py-4 font-bold text-gray-700">{t.brand}</td>
-                                        <td className="px-6 py-4"><span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-bold uppercase">{t.category}</span></td>
-                                        <td className="px-6 py-4 text-gray-600 truncate max-w-xs" title={t.description}>{t.description}</td>
-                                        <td className={`px-6 py-4 text-right font-mono font-bold ${activeTab === 'income' ? 'text-green-600' : 'text-red-600'}`}>{parseFloat(t.amount).toLocaleString()}</td>
-                                        <td className="px-6 py-4 text-gray-600">{t.company}</td>
-                                        <td className="px-6 py-4 text-gray-600 font-mono text-xs">{t.invoice || '-'}</td>
-                                        <td className="px-6 py-4 text-gray-500 whitespace-nowrap">{t.paymentDate ? formatDate(t.paymentDate) : '-'}</td>
-                                        <td className="px-6 py-4 text-center"><span className={`px-3 py-1 rounded-full text-xs font-bold border ${t.status === 'Complete' ? 'bg-green-50 text-green-700 border-green-200' : t.status === 'Follow-up' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : 'bg-gray-50 text-gray-500 border-gray-200'}`}>{t.status}</span></td>
-                                        <td className="px-6 py-4 text-gray-500 italic text-xs truncate max-w-[150px]" title={t.remark}>{t.remark || '-'}</td>
-                                        <td className="px-6 py-4 text-center"><button onClick={() => handleDeleteTransaction(t.id)} className="text-gray-300 hover:text-red-500 transition opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-red-50"><Trash2 size={16} /></button></td>
-                                    </tr>
-                                ))}
-                                {filteredTransactions.length === 0 && (
-                                    <tr><td colSpan="11" className="px-6 py-12 text-center text-gray-400 font-medium">No records found for this view.</td></tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+                <div className="flex-1 overflow-auto p-8"><div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"><table className="w-full text-sm text-left"><thead className="text-xs text-gray-500 uppercase bg-gray-50 font-bold border-b border-gray-200 sticky top-0 z-10"><tr><th className="px-6 py-4">Date</th><th className="px-6 py-4">Brand</th><th className="px-6 py-4">Category</th><th className="px-6 py-4 w-64">Description</th><th className="px-6 py-4 text-right">Amount (THB)</th><th className="px-6 py-4">Company</th><th className="px-6 py-4">Invoice</th><th className="px-6 py-4">Payment Date</th><th className="px-6 py-4 text-center">Status</th><th className="px-6 py-4 w-48">Remark</th><th className="px-6 py-4 text-center">Action</th></tr></thead><tbody className="divide-y divide-gray-100">{filteredTransactions.map((t) => (<tr key={t.id} className="hover:bg-blue-50/30 transition-colors group"><td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">{formatDate(t.date)}</td><td className="px-6 py-4 font-bold text-gray-700">{t.brand}</td><td className="px-6 py-4"><span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-bold uppercase">{t.category}</span></td><td className="px-6 py-4 text-gray-600 truncate max-w-xs" title={t.description}>{t.description}</td><td className={`px-6 py-4 text-right font-mono font-bold ${activeTab === 'income' ? 'text-green-600' : 'text-red-600'}`}>{parseFloat(t.amount).toLocaleString()}</td><td className="px-6 py-4 text-gray-600">{t.company}</td><td className="px-6 py-4 text-gray-600 font-mono text-xs">{t.invoice || '-'}</td><td className="px-6 py-4 text-gray-500 whitespace-nowrap">{t.paymentDate ? formatDate(t.paymentDate) : '-'}</td><td className="px-6 py-4 text-center"><span className={`px-3 py-1 rounded-full text-xs font-bold border ${t.status === 'Complete' ? 'bg-green-50 text-green-700 border-green-200' : t.status === 'Follow-up' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : 'bg-gray-50 text-gray-500 border-gray-200'}`}>{t.status}</span></td><td className="px-6 py-4 text-gray-500 italic text-xs truncate max-w-[150px]" title={t.remark}>{t.remark || '-'}</td><td className="px-6 py-4 text-center"><button onClick={() => handleDeleteTransaction(t.id)} className="text-gray-300 hover:text-red-500 transition opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-red-50"><Trash2 size={16} /></button></td></tr>))}{filteredTransactions.length === 0 && (<tr><td colSpan="11" className="px-6 py-12 text-center text-gray-400 font-medium">No records found for this view.</td></tr>)}</tbody></table></div></div>
             </div>
-
             {isAddOpen && (
                 <div className="fixed inset-0 bg-black/60 z-[80] flex items-center justify-center p-4 backdrop-blur-sm">
                     <div className="bg-white rounded-2xl w-full max-w-4xl p-8 shadow-2xl overflow-y-auto max-h-[90vh]">
-                        <div className="flex justify-between items-center mb-8 border-b border-gray-100 pb-4">
-                            <div><h3 className="text-2xl font-bold text-gray-900">Add {activeTab === 'income' ? 'Income' : 'Spending'} Record</h3><p className="text-sm text-gray-500 mt-1">Fill in the details for the new financial record.</p></div>
-                            <button onClick={() => setIsAddOpen(false)} className="text-gray-400 hover:text-gray-900 p-2 hover:bg-gray-100 rounded-full transition"><X size={24}/></button>
-                        </div>
+                        <div className="flex justify-between items-center mb-8 border-b border-gray-100 pb-4"><div><h3 className="text-2xl font-bold text-gray-900">Add {activeTab === 'income' ? 'Income' : 'Spending'} Record</h3><p className="text-sm text-gray-500 mt-1">Fill in the details for the new financial record.</p></div><button onClick={() => setIsAddOpen(false)} className="text-gray-400 hover:text-gray-900 p-2 hover:bg-gray-100 rounded-full transition"><X size={24}/></button></div>
                         <form onSubmit={handleAddTransaction} className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                            <div className="space-y-6">
-                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Date</label><input required type="date" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 transition" value={newTransaction.date} onChange={e => setNewTransaction({...newTransaction, date: e.target.value})} /></div>
-                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Brand</label><input required type="text" placeholder="e.g. Intel, AMD" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 transition" value={newTransaction.brand} onChange={e => setNewTransaction({...newTransaction, brand: e.target.value})} /></div>
-                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Category</label><select className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 bg-white transition" value={newTransaction.category} onChange={e => setNewTransaction({...newTransaction, category: e.target.value})}>{BUDGET_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}</select></div>
-                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Description</label><textarea placeholder="Details about the transaction..." className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px] transition" value={newTransaction.description} onChange={e => setNewTransaction({...newTransaction, description: e.target.value})} /></div>
-                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Amount (THB)</label><input required type="number" placeholder="0.00" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 font-mono text-lg font-bold transition" value={newTransaction.amount} onChange={e => setNewTransaction({...newTransaction, amount: e.target.value})} /></div>
-                            </div>
-                            <div className="space-y-6">
-                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Company</label><input type="text" placeholder="Company Name" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 transition" value={newTransaction.company} onChange={e => setNewTransaction({...newTransaction, company: e.target.value})} /></div>
-                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Invoice No.</label><input type="text" placeholder="INV-001" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 font-mono transition" value={newTransaction.invoice} onChange={e => setNewTransaction({...newTransaction, invoice: e.target.value})} /></div>
-                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Payment Date</label><input type="date" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 transition" value={newTransaction.paymentDate} onChange={e => setNewTransaction({...newTransaction, paymentDate: e.target.value})} /></div>
-                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Status</label><select className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 bg-white transition" value={newTransaction.status} onChange={e => setNewTransaction({...newTransaction, status: e.target.value})}>{BUDGET_STATUSES.map(st => <option key={st} value={st}>{st}</option>)}</select></div>
-                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Remark</label><textarea placeholder="Additional notes..." className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px] transition" value={newTransaction.remark} onChange={e => setNewTransaction({...newTransaction, remark: e.target.value})} /></div>
-                            </div>
+                            <div className="space-y-6"><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Date</label><input required type="date" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 transition" value={newTransaction.date} onChange={e => setNewTransaction({...newTransaction, date: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Brand</label><input required type="text" placeholder="e.g. Intel, AMD" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 transition" value={newTransaction.brand} onChange={e => setNewTransaction({...newTransaction, brand: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Category</label><select className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 bg-white transition" value={newTransaction.category} onChange={e => setNewTransaction({...newTransaction, category: e.target.value})}>{BUDGET_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}</select></div><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Description</label><textarea placeholder="Details about the transaction..." className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px] transition" value={newTransaction.description} onChange={e => setNewTransaction({...newTransaction, description: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Amount (THB)</label><input required type="number" placeholder="0.00" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 font-mono text-lg font-bold transition" value={newTransaction.amount} onChange={e => setNewTransaction({...newTransaction, amount: e.target.value})} /></div></div>
+                            <div className="space-y-6"><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Company</label><input type="text" placeholder="Company Name" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 transition" value={newTransaction.company} onChange={e => setNewTransaction({...newTransaction, company: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Invoice No.</label><input type="text" placeholder="INV-001" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 font-mono transition" value={newTransaction.invoice} onChange={e => setNewTransaction({...newTransaction, invoice: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Payment Date</label><input type="date" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 transition" value={newTransaction.paymentDate} onChange={e => setNewTransaction({...newTransaction, paymentDate: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Status</label><select className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 bg-white transition" value={newTransaction.status} onChange={e => setNewTransaction({...newTransaction, status: e.target.value})}>{BUDGET_STATUSES.map(st => <option key={st} value={st}>{st}</option>)}</select></div><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Remark</label><textarea placeholder="Additional notes..." className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px] transition" value={newTransaction.remark} onChange={e => setNewTransaction({...newTransaction, remark: e.target.value})} /></div></div>
                             <div className="md:col-span-2 pt-6 border-t border-gray-100 flex justify-end gap-3"><button type="button" onClick={() => setIsAddOpen(false)} className="px-6 py-3 rounded-lg font-bold text-gray-500 hover:bg-gray-100 transition">Cancel</button><button type="submit" className={`px-8 py-3 rounded-lg font-bold text-white shadow-lg transition transform hover:scale-105 ${activeTab === 'income' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}`}>Save Record</button></div>
                         </form>
                     </div>
@@ -324,7 +220,10 @@ const HomeView = ({ tasks, currentUser }) => {
     const completedTasks = getTasksByStatus('done').length;
     const inProgressTasks = getTasksByStatus('inprogress').length;
     const reviewTasks = getTasksByStatus('review').length;
-    
+    const todoTasks = getTasksByStatus('todo').length;
+    const tagCounts = tasks.reduce((acc, task) => { const tag = task.tag || 'Uncategorized'; acc[tag] = (acc[tag] || 0) + 1; return acc; }, {});
+    const maxTagCount = Math.max(...Object.values(tagCounts), 1);
+
     return (
         <div className="flex flex-col h-full w-full bg-gray-50">
             <header className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-white/80 backdrop-blur-md z-10"><h2 className="text-2xl font-bold text-gray-800">Overview</h2><div className="text-sm font-medium text-gray-500">{new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}</div></header>
@@ -338,7 +237,7 @@ const HomeView = ({ tasks, currentUser }) => {
                         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between h-32 hover:shadow-md transition"><div className="flex justify-between items-start"><div className="bg-purple-50 text-purple-600 p-2 rounded-lg"><PieChart size={24} /></div><span className="text-xs font-bold text-gray-400 uppercase">Review</span></div><div><span className="text-3xl font-bold text-gray-800">{reviewTasks}</span><span className="text-sm text-gray-400 ml-2">pending</span></div></div>
                     </div>
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100"><h3 className="text-lg font-bold text-gray-800 mb-6">Task Status</h3><div className="flex items-end justify-between h-64 gap-4">{[{ label: 'To Do', count: totalTasks - completedTasks - inProgressTasks - reviewTasks, color: 'bg-gray-200' }, { label: 'In Progress', count: inProgressTasks, color: 'bg-blue-500' }, { label: 'Review', count: reviewTasks, color: 'bg-purple-500' }, { label: 'Done', count: completedTasks, color: 'bg-green-500' }].map((stat) => (<div key={stat.label} className="flex flex-col items-center gap-2 flex-1 h-full justify-end group"><div className="font-bold text-gray-800 mb-1 opacity-0 group-hover:opacity-100 transition-opacity transform translate-y-2 group-hover:translate-y-0">{stat.count}</div><div className={`w-full rounded-t-xl transition-all duration-500 ${stat.color} hover:opacity-90`} style={{ height: `${totalTasks > 0 ? (stat.count / totalTasks) * 100 : 0}%`, minHeight: '8px' }}></div><div className="text-xs font-bold text-gray-400 uppercase text-center mt-2">{stat.label}</div></div>))}</div></div>
+                        <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100"><h3 className="text-lg font-bold text-gray-800 mb-6">Task Status</h3><div className="flex items-end justify-between h-64 gap-4">{[{ label: 'To Do', count: todoTasks, color: 'bg-gray-200' }, { label: 'In Progress', count: inProgressTasks, color: 'bg-blue-500' }, { label: 'Review', count: reviewTasks, color: 'bg-purple-500' }, { label: 'Done', count: completedTasks, color: 'bg-green-500' }].map((stat) => (<div key={stat.label} className="flex flex-col items-center gap-2 flex-1 h-full justify-end group"><div className="font-bold text-gray-800 mb-1 opacity-0 group-hover:opacity-100 transition-opacity transform translate-y-2 group-hover:translate-y-0">{stat.count}</div><div className={`w-full rounded-t-xl transition-all duration-500 ${stat.color} hover:opacity-90`} style={{ height: `${totalTasks > 0 ? (stat.count / totalTasks) * 100 : 0}%`, minHeight: '8px' }}></div><div className="text-xs font-bold text-gray-400 uppercase text-center mt-2">{stat.label}</div></div>))}</div></div>
                         <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100"><h3 className="text-lg font-bold text-gray-800 mb-6">Workload</h3><div className="space-y-5">{Object.keys(TAG_COLORS).map((tag) => { const count = tasks.filter(t => t.tag === tag).length; return (<div key={tag}><div className="flex justify-between text-sm font-bold mb-2"><span className="text-gray-600">{tag}</span><span className="text-gray-400">{count} Tasks</span></div><div className="h-3 w-full bg-gray-100 rounded-full overflow-hidden"><div className={`h-full rounded-full transition-all duration-500 ${(TAG_COLORS[tag] || 'bg-gray-200').split(' ')[0]}`} style={{ width: `${(count / maxTagCount) * 100}%` }}></div></div></div>) })}</div></div>
                     </div>
                 </div>
@@ -486,8 +385,10 @@ const ReportView = ({ tasks, currentUser }) => {
 // --- MAIN DASHBOARD COMPONENT ---
 export default function Dashboard() {
   const [tasks, setTasks] = useState([]);
+  const [automations, setAutomations] = useState([]); 
   const [currentView, setCurrentView] = useState('board'); 
   
+  // Replace with your actual keys
   const EMAIL_SERVICE_ID = "YOUR_SERVICE_ID"; 
   const EMAIL_TEMPLATE_ID = "YOUR_TEMPLATE_ID"; 
   const EMAIL_PUBLIC_KEY = "YOUR_PUBLIC_KEY";
@@ -515,8 +416,24 @@ export default function Dashboard() {
   useEffect(() => {
     const qTasks = query(collection(db, 'artifacts', appId, 'public', 'data', 'tasks'), orderBy('createdAt', 'desc'));
     const uTasks = onSnapshot(qTasks, (s) => setTasks(s.docs.map(d => ({ ...d.data(), id: d.id }))));
-    return () => { uTasks(); };
+    const qAutos = query(collection(db, 'artifacts', appId, 'public', 'data', 'automations'));
+    const uAutos = onSnapshot(qAutos, (s) => setAutomations(s.docs.map(d => ({ ...d.data(), id: d.id }))));
+    return () => { uTasks(); uAutos(); };
   }, []);
+
+  // --- AUTOMATION LOGIC ---
+  const processTemplate = (template, data) => template ? template.replace(/\{\{(\w+)\}\}/g, (_, key) => data[key] || "") : "";
+  const runAutomations = (trigger, data) => {
+      const activeRules = automations.filter(a => a.isActive && a.trigger === trigger);
+      activeRules.forEach(async (rule) => {
+          const message = processTemplate(rule.config.template, data);
+          if (rule.action === 'SEND_EMAIL') {
+              if(EMAIL_SERVICE_ID !== "YOUR_SERVICE_ID") emailjs.send(EMAIL_SERVICE_ID, EMAIL_TEMPLATE_ID, { to_email: rule.config.target, message, subject: `[Auto] ${data.title}` }, EMAIL_PUBLIC_KEY);
+          } else if (rule.action === 'WEBHOOK') {
+              try { await fetch(rule.config.target, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ event: trigger, data, message }) }); } catch(e) { console.error(e); }
+          }
+      });
+  };
 
   const handleImageUpload = (e, targetState, setTargetState) => {
       const file = e.target.files[0];
@@ -537,6 +454,10 @@ export default function Dashboard() {
     try {
         const taskData = { ...newTask, status: 'todo', createdAt: new Date(), author: authorEmail, dueNotificationSent: false };
         await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'tasks'), taskData);
+        
+        // RUN AUTOMATIONS
+        runAutomations('TASK_CREATED', taskData);
+
         setNewTask({ title: '', tag: 'Planning', startDate: new Date().toISOString().split('T')[0], deadline: '', description: '', requirements: [], reference: '', link: '', imageUrl: '', fileUrl: '' });
         setTempReqInput('');
         setIsAddModalOpen(false);
@@ -609,6 +530,8 @@ export default function Dashboard() {
              <button onClick={() => setCurrentView('calendar')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${currentView === 'calendar' ? 'bg-blue-50 text-blue-600 font-bold' : 'text-gray-500 hover:bg-gray-50'}`}><CalendarIcon size={20} /> <span className="hidden md:inline">Calendar</span></button>
              <button onClick={() => setCurrentView('report')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${currentView === 'report' ? 'bg-blue-50 text-blue-600 font-bold' : 'text-gray-500 hover:bg-gray-50'}`}><Presentation size={20} /> <span className="hidden md:inline">Report</span></button>
              <button onClick={() => setCurrentView('album')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${currentView === 'album' ? 'bg-purple-50 text-purple-600 font-bold' : 'text-gray-500 hover:bg-gray-50'}`}><ImageIcon size={20} /> <span className="hidden md:inline">Photo Album</span></button>
+             {/* Removed AI Clip Collector Button */}
+             {/* Removed Automation Button */}
              <button onClick={() => setCurrentView('budget')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${currentView === 'budget' ? 'bg-emerald-50 text-emerald-600 font-bold' : 'text-gray-500 hover:bg-gray-50'}`}><Table size={20} /> <span className="hidden md:inline">Budget Recorder</span></button>
              <button onClick={() => setCurrentView('selfheal')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${currentView === 'selfheal' ? 'bg-pink-50 text-pink-500 font-bold' : 'text-gray-500 hover:bg-gray-50'}`}><Heart size={20} /> <span className="hidden md:inline">Self Heal</span></button>
         </nav>
@@ -619,6 +542,8 @@ export default function Dashboard() {
         {currentView === 'home' && <HomeView tasks={tasks} currentUser={currentUser} />}
         {currentView === 'calendar' && <CalendarView tasks={tasks} setSelectedTaskId={setSelectedTaskId} setIsEditing={setIsEditing} />}
         {currentView === 'album' && <PhotoAlbumView currentUser={currentUser} />}
+        {/* Removed AI Clip Collector View Render */}
+        {/* Removed Automation View Render */}
         {currentView === 'budget' && <BudgetRecorderView />}
         {currentView === 'selfheal' && <SelfHealView />}
         {currentView === 'report' && <ReportView tasks={tasks} currentUser={currentUser} />}
