@@ -51,7 +51,7 @@ const getSafeRequirements = (task) => {
     return [];
 };
 
-// --- SUB-COMPONENTS ---
+// --- SUB-COMPONENTS (Defined Outside) ---
 
 const RequirementSheetModal = ({ task, requirement, onClose }) => {
     const [newRow, setNewRow] = useState({ col1: '', col2: '', col3: '', notes: '' });
@@ -136,22 +136,23 @@ const HomeView = ({ tasks, currentUser }) => {
     const inProgressTasks = getTasksByStatus('inprogress').length;
     const reviewTasks = getTasksByStatus('review').length;
     const todoTasks = getTasksByStatus('todo').length;
-    const tagCounts = tasks.reduce((acc, task) => { const tag = task.tag || 'Uncategorized'; acc[tag] = (acc[tag] || 0) + 1; return acc; }, {});
-    const maxTagCount = Math.max(...Object.values(tagCounts), 1);
-
+    
     return (
-        <div className="p-6 md:p-10 h-full w-full overflow-y-auto bg-gray-50/50">
-            <div className="max-w-6xl mx-auto space-y-8">
-                <div className="flex justify-between items-end"><div><h2 className="text-3xl font-bold text-gray-800">Welcome Back, {currentUser?.email?.split('@')[0]}!</h2><p className="text-gray-500 mt-1">Here is your project overview at a glance.</p></div><div className="text-right hidden sm:block"><p className="text-sm font-bold text-gray-400 uppercase tracking-wider">Today</p><p className="text-xl font-bold text-gray-800">{new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}</p></div></div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between h-32 hover:shadow-md transition"><div className="flex justify-between items-start"><div className="bg-blue-50 text-blue-600 p-2 rounded-lg"><ListTodo size={24} /></div><span className="text-xs font-bold text-gray-400 uppercase">Total Tasks</span></div><div><span className="text-3xl font-bold text-gray-800">{totalTasks}</span><span className="text-sm text-gray-400 ml-2">tasks</span></div></div>
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between h-32 hover:shadow-md transition"><div className="flex justify-between items-start"><div className="bg-green-50 text-green-600 p-2 rounded-lg"><CheckCircle2 size={24} /></div><span className="text-xs font-bold text-gray-400 uppercase">Completed</span></div><div><span className="text-3xl font-bold text-gray-800">{completedTasks}</span><span className="text-sm text-gray-400 ml-2">finished</span></div></div>
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between h-32 hover:shadow-md transition"><div className="flex justify-between items-start"><div className="bg-yellow-50 text-yellow-600 p-2 rounded-lg"><Activity size={24} /></div><span className="text-xs font-bold text-gray-400 uppercase">In Progress</span></div><div><span className="text-3xl font-bold text-gray-800">{inProgressTasks}</span><span className="text-sm text-gray-400 ml-2">active</span></div></div>
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between h-32 hover:shadow-md transition"><div className="flex justify-between items-start"><div className="bg-purple-50 text-purple-600 p-2 rounded-lg"><PieChart size={24} /></div><span className="text-xs font-bold text-gray-400 uppercase">Review</span></div><div><span className="text-3xl font-bold text-gray-800">{reviewTasks}</span><span className="text-sm text-gray-400 ml-2">pending</span></div></div>
-                </div>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100"><h3 className="text-lg font-bold text-gray-800 mb-6">Task Status</h3><div className="flex items-end justify-between h-64 gap-4">{[{ label: 'To Do', count: todoTasks, color: 'bg-gray-200' }, { label: 'In Progress', count: inProgressTasks, color: 'bg-blue-500' }, { label: 'Review', count: reviewTasks, color: 'bg-purple-500' }, { label: 'Done', count: completedTasks, color: 'bg-green-500' }].map((stat) => (<div key={stat.label} className="flex flex-col items-center gap-2 flex-1 h-full justify-end group"><div className="font-bold text-gray-800 mb-1 opacity-0 group-hover:opacity-100 transition-opacity transform translate-y-2 group-hover:translate-y-0">{stat.count}</div><div className={`w-full rounded-t-xl transition-all duration-500 ${stat.color} hover:opacity-90`} style={{ height: `${totalTasks > 0 ? (stat.count / totalTasks) * 100 : 0}%`, minHeight: '8px' }}></div><div className="text-xs font-bold text-gray-400 uppercase text-center mt-2">{stat.label}</div></div>))}</div></div>
-                    <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100"><h3 className="text-lg font-bold text-gray-800 mb-6">Workload</h3><div className="space-y-5">{Object.keys(TAG_COLORS).map((tag) => { const count = tagCounts[tag] || 0; return (<div key={tag}><div className="flex justify-between text-sm font-bold mb-2"><span className="text-gray-600">{tag}</span><span className="text-gray-400">{count} Tasks</span></div><div className="h-3 w-full bg-gray-100 rounded-full overflow-hidden"><div className={`h-full rounded-full transition-all duration-500 ${(TAG_COLORS[tag] || 'bg-gray-200').split(' ')[0]}`} style={{ width: `${(count / maxTagCount) * 100}%` }}></div></div></div>) })}</div></div>
+        <div className="flex flex-col h-full w-full bg-gray-50">
+            <header className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-white/80 backdrop-blur-md z-10"><h2 className="text-2xl font-bold text-gray-800">Overview</h2><div className="text-sm font-medium text-gray-500">{new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}</div></header>
+            <div className="p-6 md:p-10 overflow-y-auto flex-1">
+                <div className="max-w-6xl mx-auto space-y-8">
+                    <div className="flex justify-between items-end"><div><h2 className="text-3xl font-bold text-gray-800">Welcome Back, {currentUser?.email?.split('@')[0]}!</h2><p className="text-gray-500 mt-1">Here is your project overview at a glance.</p></div></div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between h-32 hover:shadow-md transition"><div className="flex justify-between items-start"><div className="bg-blue-50 text-blue-600 p-2 rounded-lg"><ListTodo size={24} /></div><span className="text-xs font-bold text-gray-400 uppercase">Total Tasks</span></div><div><span className="text-3xl font-bold text-gray-800">{totalTasks}</span><span className="text-sm text-gray-400 ml-2">tasks</span></div></div>
+                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between h-32 hover:shadow-md transition"><div className="flex justify-between items-start"><div className="bg-green-50 text-green-600 p-2 rounded-lg"><CheckCircle2 size={24} /></div><span className="text-xs font-bold text-gray-400 uppercase">Completed</span></div><div><span className="text-3xl font-bold text-gray-800">{completedTasks}</span><span className="text-sm text-gray-400 ml-2">finished</span></div></div>
+                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between h-32 hover:shadow-md transition"><div className="flex justify-between items-start"><div className="bg-yellow-50 text-yellow-600 p-2 rounded-lg"><Activity size={24} /></div><span className="text-xs font-bold text-gray-400 uppercase">In Progress</span></div><div><span className="text-3xl font-bold text-gray-800">{inProgressTasks}</span><span className="text-sm text-gray-400 ml-2">active</span></div></div>
+                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between h-32 hover:shadow-md transition"><div className="flex justify-between items-start"><div className="bg-purple-50 text-purple-600 p-2 rounded-lg"><PieChart size={24} /></div><span className="text-xs font-bold text-gray-400 uppercase">Review</span></div><div><span className="text-3xl font-bold text-gray-800">{reviewTasks}</span><span className="text-sm text-gray-400 ml-2">pending</span></div></div>
+                    </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100"><h3 className="text-lg font-bold text-gray-800 mb-6">Task Status</h3><div className="flex items-end justify-between h-64 gap-4">{[{ label: 'To Do', count: todoTasks, color: 'bg-gray-200' }, { label: 'In Progress', count: inProgressTasks, color: 'bg-blue-500' }, { label: 'Review', count: reviewTasks, color: 'bg-purple-500' }, { label: 'Done', count: completedTasks, color: 'bg-green-500' }].map((stat) => (<div key={stat.label} className="flex flex-col items-center gap-2 flex-1 h-full justify-end group"><div className="font-bold text-gray-800 mb-1 opacity-0 group-hover:opacity-100 transition-opacity transform translate-y-2 group-hover:translate-y-0">{stat.count}</div><div className={`w-full rounded-t-xl transition-all duration-500 ${stat.color} hover:opacity-90`} style={{ height: `${totalTasks > 0 ? (stat.count / totalTasks) * 100 : 0}%`, minHeight: '8px' }}></div><div className="text-xs font-bold text-gray-400 uppercase text-center mt-2">{stat.label}</div></div>))}</div></div>
+                        <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100"><h3 className="text-lg font-bold text-gray-800 mb-6">Workload</h3><div className="space-y-5">{Object.keys(TAG_COLORS).map((tag) => { const count = tasks.filter(t => t.tag === tag).length || 0; return (<div key={tag}><div className="flex justify-between text-sm font-bold mb-2"><span className="text-gray-600">{tag}</span><span className="text-gray-400">{count} Tasks</span></div><div className="h-3 w-full bg-gray-100 rounded-full overflow-hidden"><div className={`h-full rounded-full transition-all duration-500 ${(TAG_COLORS[tag] || 'bg-gray-200').split(' ')[0]}`} style={{ width: `${totalTasks > 0 ? (count / totalTasks) * 100 : 0}%` }}></div></div></div>) })}</div></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -179,16 +180,18 @@ const CalendarView = ({ tasks, setSelectedTaskId }) => {
     };
 
     return (
-        <div className="p-6 h-full w-full flex flex-col">
-            <div className="flex justify-between items-center mb-6"><h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2"><CalendarIcon className="text-blue-600" />{monthNames[month]} {year}</h2><div className="flex gap-2"><button onClick={prevMonth} className="p-2 hover:bg-gray-100 rounded-full"><ChevronLeft /></button><button onClick={nextMonth} className="p-2 hover:bg-gray-100 rounded-full"><ChevronRight /></button></div></div>
-            <div className="flex-1 border rounded-xl overflow-hidden shadow-sm bg-white">
-                <div className="grid grid-cols-7 bg-gray-50 border-b">{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => <div key={day} className="p-3 text-center text-sm font-bold text-gray-500 uppercase tracking-wide">{day}</div>)}</div>
-                <div className="grid grid-cols-7 auto-rows-fr h-full bg-gray-50 gap-px border-gray-200">
-                    {Array.from({ length: firstDay }).map((_, i) => <div key={`empty-${i}`} className="bg-white min-h-[100px]"></div>)}
-                    {Array.from({ length: daysInMonth }).map((_, i) => {
-                        const day = i + 1; const dayTasks = getTasksForDay(day);
-                        return (<div key={day} className="bg-white p-2 min-h-[100px] hover:bg-gray-50 transition relative flex flex-col"><div className="text-sm font-medium mb-1 text-gray-700">{day}</div><div className="flex-1 flex flex-col gap-1 overflow-y-auto max-h-[80px]">{dayTasks.map(task => (<div key={task.id} onClick={() => setSelectedTaskId(task.id)} className={`text-[10px] truncate px-1.5 py-0.5 rounded cursor-pointer hover:opacity-80 ${TAG_COLORS[task.tag] ? TAG_COLORS[task.tag].replace('text-', 'bg-').split(' ')[0] + ' text-gray-700' : 'bg-gray-100'}`}>{task.title}</div>))}</div></div>);
-                    })}
+        <div className="flex flex-col h-full w-full bg-gray-50">
+            <header className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-white/80 backdrop-blur-md z-10"><h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2"><CalendarIcon className="text-blue-600" />Calendar</h2><div className="flex gap-2"><button onClick={prevMonth} className="p-2 hover:bg-gray-100 rounded-full"><ChevronLeft /></button><h3 className="text-lg font-bold text-gray-700 min-w-[150px] text-center">{monthNames[month]} {year}</h3><button onClick={nextMonth} className="p-2 hover:bg-gray-100 rounded-full"><ChevronRight /></button></div></header>
+            <div className="p-6 h-full flex-1 overflow-y-auto">
+                <div className="border rounded-xl overflow-hidden shadow-sm bg-white h-full flex flex-col">
+                    <div className="grid grid-cols-7 bg-gray-50 border-b">{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => <div key={day} className="p-3 text-center text-sm font-bold text-gray-500 uppercase tracking-wide">{day}</div>)}</div>
+                    <div className="grid grid-cols-7 auto-rows-fr h-full bg-gray-50 gap-px border-gray-200">
+                        {Array.from({ length: firstDay }).map((_, i) => <div key={`empty-${i}`} className="bg-white min-h-[100px]"></div>)}
+                        {Array.from({ length: daysInMonth }).map((_, i) => {
+                            const day = i + 1; const dayTasks = getTasksForDay(day);
+                            return (<div key={day} className="bg-white p-2 min-h-[100px] hover:bg-gray-50 transition relative flex flex-col"><div className="text-sm font-medium mb-1 text-gray-700">{day}</div><div className="flex-1 flex flex-col gap-1 overflow-y-auto max-h-[80px]">{dayTasks.map(task => (<div key={task.id} onClick={() => setSelectedTaskId(task.id)} className={`text-[10px] truncate px-1.5 py-0.5 rounded cursor-pointer hover:opacity-80 ${TAG_COLORS[task.tag] ? TAG_COLORS[task.tag].replace('text-', 'bg-').split(' ')[0] + ' text-gray-700' : 'bg-gray-100'}`}>{task.title}</div>))}</div></div>);
+                        })}
+                    </div>
                 </div>
             </div>
         </div>
@@ -200,16 +203,18 @@ const PhotoAlbumView = ({ currentUser }) => {
     const [photos, setPhotos] = useState([]);
     const [currentAlbum, setCurrentAlbum] = useState(null);
     const [uploading, setUploading] = useState(false);
+    const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
     const [isCreatingAlbum, setIsCreatingAlbum] = useState(false);
     const [newAlbumName, setNewAlbumName] = useState('');
+    const [targetAlbumId, setTargetAlbumId] = useState('');
 
     useEffect(() => { const u = onSnapshot(query(collection(db, 'albums'), orderBy('createdAt', 'desc')), (s) => setAlbums(s.docs.map(d => ({...d.data(), id: d.id})))); return u; }, []);
     useEffect(() => { const u = onSnapshot(query(collection(db, 'photos'), orderBy('createdAt', 'desc')), (s) => setPhotos(s.docs.map(d => ({...d.data(), id: d.id})))); return u; }, []);
 
     const createAlbum = async (e) => { e.preventDefault(); if (!newAlbumName) return; await addDoc(collection(db, 'albums'), { name: newAlbumName, createdAt: new Date(), createdBy: currentUser.email }); setNewAlbumName(''); setIsCreatingAlbum(false); };
     const handleUpload = async (e) => {
-        const file = e.target.files[0]; if (!file || file.size > 2e6) return alert("File too large (>2MB)"); setUploading(true);
-        const reader = new FileReader(); reader.onloadend = async () => { await addDoc(collection(db, 'photos'), { url: reader.result, name: file.name, createdAt: new Date(), uploader: currentUser.email, albumId: currentAlbum.id }); setUploading(false); }; reader.readAsDataURL(file);
+        const file = e.target.files[0]; if (!file || file.size > 2e6) return alert("File too large"); setUploading(true);
+        const reader = new FileReader(); reader.onloadend = async () => { await addDoc(collection(db, 'photos'), { url: reader.result, name: file.name, createdAt: new Date(), uploader: currentUser.email, albumId: currentAlbum?.id || targetAlbumId }); setUploading(false); }; reader.readAsDataURL(file);
     };
     const handleDeletePhoto = async (id) => { if (confirm("Delete photo?")) await deleteDoc(doc(db, 'photos', id)); };
     const handleDeleteAlbum = async (e, id) => { e.stopPropagation(); if (confirm("Delete album?")) { await deleteDoc(doc(db, 'albums', id)); if (currentAlbum?.id === id) setCurrentAlbum(null); } };
@@ -219,7 +224,7 @@ const PhotoAlbumView = ({ currentUser }) => {
         <div className="p-6 md:p-10 h-full w-full bg-gray-50/50 overflow-y-auto"><div className="max-w-6xl mx-auto">
             <div className="flex justify-between items-center mb-8">
                 <div className="flex items-center gap-3">{currentAlbum && <button onClick={() => setCurrentAlbum(null)} className="p-2 hover:bg-gray-200 rounded-full text-gray-500"><ArrowLeft size={24} /></button>}<div><h2 className="text-3xl font-bold text-gray-800 flex items-center gap-3">{currentAlbum ? <><Folder className="text-purple-600" /> {currentAlbum.name}</> : <><ImageIcon className="text-purple-600" /> Photo Albums</>}</h2></div></div>
-                {!currentAlbum ? <div className="relative">{isCreatingAlbum ? <form onSubmit={createAlbum} className="flex gap-2"><input autoFocus type="text" placeholder="Album Name" className="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 outline-none" value={newAlbumName} onChange={e => setNewAlbumName(e.target.value)} /><button type="submit" className="bg-purple-600 text-white px-4 py-2 rounded-lg font-bold text-sm">Save</button><button type="button" onClick={() => setIsCreatingAlbum(false)} className="text-gray-500 hover:bg-gray-100 px-2 rounded-lg"><X size={18}/></button></form> : <button onClick={() => setIsCreatingAlbum(true)} className="flex items-center gap-2 bg-purple-600 text-white px-5 py-2.5 rounded-full font-bold shadow-lg hover:bg-purple-700 transition"><Plus size={20} /> Create Album</button>}</div> : <div className="relative"><input type="file" accept="image/*" onChange={handleUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" disabled={uploading} /><button className="flex items-center gap-2 bg-purple-600 text-white px-5 py-2.5 rounded-full font-bold shadow-lg">{uploading ? <Loader2 className="animate-spin" size={20} /> : <Upload size={20} />} Upload</button></div>}
+                {!currentAlbum ? <div className="relative">{isCreatingAlbum ? <form onSubmit={createAlbum} className="flex gap-2"><input autoFocus type="text" placeholder="Album Name" className="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 outline-none" value={newAlbumName} onChange={e => setNewAlbumName(e.target.value)} /><button type="submit" className="bg-purple-600 text-white px-4 py-2 rounded-lg font-bold text-sm">Save</button></form> : <button onClick={() => setIsCreatingAlbum(true)} className="flex items-center gap-2 bg-purple-600 text-white px-5 py-2.5 rounded-full font-bold shadow-lg"><Plus size={20} /> Create Album</button>}</div> : <div className="relative"><input type="file" accept="image/*" onChange={handleUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" disabled={uploading} /><button className="flex items-center gap-2 bg-purple-600 text-white px-5 py-2.5 rounded-full font-bold shadow-lg">{uploading ? <Loader2 className="animate-spin" size={20} /> : <Upload size={20} />} Upload</button></div>}
             </div>
             {!currentAlbum ? <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{albums.map(album => (<div key={album.id} onClick={() => setCurrentAlbum(album)} className="group bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition cursor-pointer flex flex-col items-center justify-center aspect-square relative"><Folder size={64} className="text-purple-200 group-hover:text-purple-300 transition mb-4" /><h3 className="font-bold text-gray-700 text-center">{album.name}</h3><button onClick={(e) => handleDeleteAlbum(e, album.id)} className="absolute top-3 right-3 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition"><Trash2 size={18} /></button></div>))}</div> : <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{albumPhotos.map(photo => (<div key={photo.id} className="group relative bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition aspect-square"><img src={photo.url} className="w-full h-full object-cover" /><div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2"><a href={photo.url} download={photo.name} className="p-2 bg-white/20 text-white rounded-full"><ExternalLink size={20} /></a><button onClick={() => handleDeletePhoto(photo.id)} className="p-2 bg-red-500/80 text-white rounded-full"><Trash2 size={20} /></button></div></div>))}</div>}
         </div></div>
@@ -246,171 +251,40 @@ const AIClipCollectorView = () => {
     const handleCollect = () => {
         setIsCollecting(true);
         setData(null);
-        
-        // Mock Data Generator with Realistic iHAVECPU Content
         setTimeout(() => {
             const mockData = {};
-            const contentTypes = [
-                "RTX 4090 Test", "งบ 20,000 เล่นเกมลื่น", "Review Case Montech", 
-                "Promotion 9.9", "ประกอบคอมด่วน", "Intel Gen 14 มาแล้ว", 
-                "Live Stream ย้อนหลัง", "แจกโค้ดส่วนลด", "Q&A ตอบคำถาม"
-            ];
-
+            const contentTypes = ["RTX 4090 Test", "งบ 20,000 เล่นเกมลื่น", "Review Case Montech", "Promotion 9.9", "ประกอบคอมด่วน", "Intel Gen 14 มาแล้ว", "Live Stream ย้อนหลัง", "แจกโค้ดส่วนลด", "Q&A ตอบคำถาม"];
             targets.forEach(target => {
                 const platform = target.platform;
-                
-                // Generate 3-6 mock clips per platform
+                const channelName = target.url.split('/').pop().replace('@', '');
                 mockData[platform] = Array.from({ length: Math.floor(Math.random() * 4) + 3 }).map((_, i) => {
                     const randomTitle = contentTypes[Math.floor(Math.random() * contentTypes.length)];
-                    const randomViews = (Math.random() * 500 + 10).toFixed(1) + 'K';
-                    const randomDay = Math.floor(Math.random() * 28) + 1;
-                    const dateStr = `${month}-${randomDay.toString().padStart(2, '0')}`;
+                    const dateStr = `${month}-${Math.floor(Math.random() * 28) + 1}`.replace(/-(\d)$/, '-0$1');
+                    let videoLink = target.url;
+                    if (platform === 'YouTube') videoLink = `https://www.youtube.com/watch?v=mock${Math.random().toString(36).substr(2, 8)}`;
+                    else if (platform === 'Facebook') videoLink = `${target.url.replace(/\/$/, '')}/videos/${Math.floor(Math.random() * 9999999999)}`;
+                    else if (platform === 'TikTok') videoLink = `${target.url.replace(/\/$/, '')}/video/${Math.floor(Math.random() * 99999999999999999)}`;
                     
-                    let videoLink = target.url; // Default fallback
-
-                    // Generate Platform Specific Links
-                    if (platform === 'YouTube') {
-                        // YouTube: https://www.youtube.com/watch?v=VIDEO_ID
-                        videoLink = `https://www.youtube.com/watch?v=mock${Math.random().toString(36).substr(2, 8)}`;
-                    } else if (platform === 'Facebook') {
-                        // Facebook: https://www.facebook.com/watch/?v=VIDEO_ID
-                        videoLink = `https://www.facebook.com/watch/?v=${Math.floor(Math.random() * 9999999999)}`;
-                    } else if (platform === 'TikTok') {
-                        // TikTok: https://www.tiktok.com/@USER/video/VIDEO_ID
-                        // Extract username from URL if possible, else use default
-                        const userMatch = target.url.match(/@[\w.]+/);
-                        const user = userMatch ? userMatch[0] : '@ihavecputestcom';
-                        videoLink = `https://www.tiktok.com/${user}/video/${Math.floor(Math.random() * 99999999999999999)}`;
-                    }
-
                     return {
-                        id: `${platform}-${i}`,
-                        title: `${randomTitle} #${i + 1}`,
-                        thumbnail: `https://placehold.co/300x200/222/fff?text=${platform}+${i+1}`,
-                        link: videoLink,
-                        views: randomViews,
-                        date: dateStr,
-                        engagement: (Math.random() * 15).toFixed(1) + '%'
+                        id: i, title: `${channelName} - ${randomTitle} #${i + 1}`, thumbnail: `https://placehold.co/300x200/333/fff?text=${platform}+${i+1}`,
+                        link: videoLink, views: (Math.random() * 100).toFixed(1) + 'K', date: dateStr, engagement: (Math.random() * 15).toFixed(1) + '%'
                     };
                 });
-                
-                // Sort by date descending
-                mockData[platform].sort((a, b) => new Date(b.date) - new Date(a.date));
             });
-            
-            setData(mockData);
-            setIsCollecting(false);
-        }, 2500);
+            setData(mockData); setIsCollecting(false);
+        }, 2000);
     };
 
     return (
-        <div className="p-6 md:p-10 h-full w-full bg-gray-50/50 overflow-y-auto">
-            <div className="max-w-6xl mx-auto">
-                <div className="mb-8">
-                    <h2 className="text-3xl font-bold text-gray-800 flex items-center gap-3">
-                        <Bot className="text-indigo-600" /> AI Clip Collector
-                    </h2>
-                    <p className="text-gray-500 mt-1">Automated video tracking for iHAVECPU channels.</p>
-                </div>
-
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 mb-8">
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        <div className="lg:col-span-2 space-y-4">
-                            <label className="block text-xs font-bold text-gray-500 uppercase">Monitored Sources</label>
-                            <div className="space-y-3">
-                                {targets.map((target, idx) => (
-                                    <div key={idx} className="flex items-center gap-3 p-3 rounded-lg border border-gray-100 bg-gray-50">
-                                        <div className={`p-2 rounded-full ${target.bg} ${target.color}`}>
-                                            <target.icon size={18} />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-bold text-gray-700">{target.platform}</p>
-                                            <a href={target.url} target="_blank" rel="noreferrer" className="text-xs text-indigo-500 hover:underline truncate block">{target.url}</a>
-                                        </div>
-                                        <div className="flex items-center gap-2 text-green-600 text-xs font-bold">
-                                            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-                                            Active
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                        
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Target Month</label>
-                                <input 
-                                    type="month" 
-                                    className="w-full border border-gray-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                    value={month}
-                                    onChange={(e) => setMonth(e.target.value)}
-                                />
-                            </div>
-                            <button 
-                                onClick={handleCollect}
-                                disabled={isCollecting}
-                                className={`w-full flex items-center justify-center gap-2 bg-indigo-600 text-white px-6 py-3 rounded-lg font-bold shadow-lg hover:bg-indigo-700 transition ${isCollecting ? 'opacity-75 cursor-wait' : ''}`}
-                            >
-                                {isCollecting ? <Loader2 className="animate-spin" size={18} /> : <Bot size={18} />}
-                                {isCollecting ? 'Scanning Channels...' : 'Start Collection'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                {data && (
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in zoom-in duration-300">
-                        {/* Render columns based on targets to ensure order */}
-                        {targets.map(target => {
-                            const platform = target.platform;
-                            const clips = data[platform] || [];
-                            return (
-                                <div key={platform} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col">
-                                    <div className={`px-4 py-3 border-b flex items-center justify-between ${target.bg} ${target.color.replace('text-', 'border-').replace('600', '100')} ${target.color}`}>
-                                        <h3 className="font-bold flex items-center gap-2">
-                                            <target.icon size={18} /> {platform}
-                                        </h3>
-                                        <span className="text-xs font-mono bg-white/50 px-2 py-0.5 rounded">{clips.length} Clips</span>
-                                    </div>
-                                    <div className="p-4 space-y-4 max-h-[600px] overflow-y-auto custom-scrollbar">
-                                        {clips.map(clip => (
-                                            <div key={clip.id} className="group relative border border-gray-100 rounded-lg p-2 hover:bg-gray-50 transition">
-                                                <div className="aspect-video bg-gray-100 rounded-md overflow-hidden mb-2 relative">
-                                                    <img src={clip.thumbnail} alt="thumb" className="w-full h-full object-cover" />
-                                                    <a href={clip.link} target="_blank" rel="noreferrer" className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
-                                                        <ExternalLink className="text-white" size={24} />
-                                                    </a>
-                                                </div>
-                                                <h4 className="font-bold text-gray-800 text-sm line-clamp-2 leading-tight mb-1">{clip.title}</h4>
-                                                <div className="flex justify-between items-center text-xs text-gray-500">
-                                                    <span>{clip.date}</span>
-                                                    <span className="font-medium flex items-center gap-1"><Activity size={10} /> {clip.views}</span>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                )}
-                
-                {isCollecting && (
-                    <div className="py-20 text-center">
-                        <Loader2 className="animate-spin text-indigo-600 mx-auto mb-4" size={48} />
-                        <h3 className="text-xl font-bold text-gray-800">AI Agent is Working...</h3>
-                        <p className="text-gray-500">Scraping data from 3 sources...</p>
-                        <div className="mt-4 text-xs font-mono text-gray-400 space-y-1">
-                            {targets.map(t => <p key={t.url}>Connecting to {t.url}...</p>)}
-                        </div>
-                    </div>
-                )}
-            </div>
-        </div>
+        <div className="p-6 md:p-10 h-full w-full bg-gray-50/50 overflow-y-auto"><div className="max-w-6xl mx-auto">
+            <div className="mb-8"><h2 className="text-3xl font-bold text-gray-800 flex items-center gap-3"><Bot className="text-indigo-600" /> AI Clip Collector</h2><p className="text-gray-500 mt-1">Automated video tracking for iHAVECPU channels.</p></div>
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 mb-8"><div className="grid grid-cols-1 lg:grid-cols-3 gap-6"><div className="lg:col-span-2 space-y-4"><label className="block text-xs font-bold text-gray-500 uppercase">Monitored Sources</label><div className="space-y-3">{targets.map((target, idx) => (<div key={idx} className="flex items-center gap-3 p-3 rounded-lg border border-gray-100 bg-gray-50"><div className={`p-2 rounded-full ${target.bg} ${target.color}`}><target.icon size={18} /></div><div className="flex-1 min-w-0"><p className="text-sm font-bold text-gray-700">{target.platform}</p><a href={target.url} target="_blank" rel="noreferrer" className="text-xs text-indigo-500 hover:underline truncate block">{target.url}</a></div><div className="flex items-center gap-2 text-green-600 text-xs font-bold"><div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div> Active</div></div>))}</div></div><div className="space-y-4"><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Target Month</label><input type="month" className="w-full border border-gray-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500" value={month} onChange={(e) => setMonth(e.target.value)} /></div><button onClick={handleCollect} disabled={isCollecting} className={`w-full flex items-center justify-center gap-2 bg-indigo-600 text-white px-6 py-3 rounded-lg font-bold shadow-lg hover:bg-indigo-700 transition ${isCollecting ? 'opacity-75 cursor-wait' : ''}`}>{isCollecting ? <Loader2 className="animate-spin" size={18} /> : <Bot size={18} />}{isCollecting ? 'Scanning Channels...' : 'Start Collection'}</button></div></div></div>
+            {data && (<div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in zoom-in duration-300">{['YouTube', 'Facebook', 'TikTok'].map(platform => (<div key={platform} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col"><div className={`px-4 py-3 border-b flex items-center justify-between ${platform === 'YouTube' ? 'bg-red-50 border-red-100 text-red-700' : platform === 'Facebook' ? 'bg-blue-50 border-blue-100 text-blue-700' : 'bg-gray-900 text-white'}`}><h3 className="font-bold flex items-center gap-2">{platform === 'YouTube' && <Youtube size={18} />}{platform === 'Facebook' && <Facebook size={18} />}{platform === 'TikTok' && <Video size={18} />}{platform}</h3><span className="text-xs font-mono bg-white/20 px-2 py-0.5 rounded">{data[platform].length} Clips</span></div><div className="p-4 space-y-4 max-h-[600px] overflow-y-auto custom-scrollbar">{data[platform].map(clip => (<div key={clip.id} className="group relative border border-gray-100 rounded-lg p-2 hover:bg-gray-50 transition"><div className="aspect-video bg-gray-100 rounded-md overflow-hidden mb-2 relative"><img src={clip.thumbnail} alt="thumb" className="w-full h-full object-cover" /><a href={clip.link} target="_blank" rel="noreferrer" className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition"><ExternalLink className="text-white" size={24} /></a></div><h4 className="font-bold text-gray-800 text-sm line-clamp-2 leading-tight mb-1">{clip.title}</h4><div className="flex justify-between items-center text-xs text-gray-500"><span>{clip.date}</span><span className="font-medium flex items-center gap-1"><Activity size={10} /> {clip.views}</span></div></div>))}</div></div>))}</div>)}
+            {isCollecting && <div className="py-20 text-center"><Loader2 className="animate-spin text-indigo-600 mx-auto mb-4" size={48} /><h3 className="text-xl font-bold text-gray-800">AI Agent is Working...</h3><p className="text-gray-500">Scanning platforms for "{channel}" in {month}...</p></div>}
+        </div></div>
     );
 };
 
-// --- AUTOMATION VIEW ---
 const AutomationView = ({ currentUser }) => {
     const [automations, setAutomations] = useState([]);
     const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -508,15 +382,17 @@ export default function Dashboard() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState(null);
   const [activeRequirementId, setActiveRequirementId] = useState(null);
+  
   const [isEditing, setIsEditing] = useState(false); 
   const [editedTask, setEditedTask] = useState({}); 
+  
   const [newTask, setNewTask] = useState({
     title: '', tag: 'Planning', startDate: new Date().toISOString().split('T')[0],
     deadline: '', description: '', requirements: [], reference: '', link: '', imageUrl: '', fileUrl: ''
   });
   
   const [tempReqInput, setTempReqInput] = useState('');
-  const [tempEditReqInput, setTempEditReqInput] = useState('');
+  const [tempEditReqInput, setTempEditReqInput] = useState(''); // For editing requirements
 
   const { currentUser, logout } = useAuth();
   const navigate = useNavigate();
