@@ -8,9 +8,8 @@ import {
   onSnapshot, 
   deleteDoc, 
   doc, 
-  updateDoc, 
-  orderBy 
-} from 'firebase/firestore';
+  updateDoc
+} from 'firebase/firestore'; // Removed orderBy
 import { useNavigate } from 'react-router-dom';
 import emailjs from '@emailjs/browser'; 
 import { 
@@ -18,8 +17,8 @@ import {
   Paperclip, Link as LinkIcon, FileText, Clock, AlignLeft, CheckSquare, ExternalLink, X, Edit2,
   Save, Heart, ChevronLeft, ChevronRight, RefreshCw, Video, Home, PieChart, Activity, CheckCircle2,
   ListTodo, Presentation, Printer, Upload, Image as ImageIcon, GripVertical, LayoutTemplate, Camera,
-  Loader2, Folder, Mail, Table, Download, Minus, Play, Info, MessageCircle, Share2, Search, 
-  User, AtSign, Settings, DollarSign, TrendingUp, TrendingDown
+  Loader2, Folder, Mail, Table, Download, Minus, Play, Info, MessageCircle, Share2, Search, Bot, 
+  Youtube, Facebook, User, AtSign, Zap, Settings, DollarSign, TrendingUp, TrendingDown
 } from 'lucide-react';
 
 // --- GLOBAL APP ID ---
@@ -64,11 +63,11 @@ const getSafeRequirements = (task) => {
 // --- SUB-COMPONENTS ---
 
 const BudgetRecorderView = () => {
-    const [activeTab, setActiveTab] = useState('income'); // 'income' or 'spending'
+    const [activeTab, setActiveTab] = useState('income'); 
     const [transactions, setTransactions] = useState([]);
     const [isAddOpen, setIsAddOpen] = useState(false);
     const [newTransaction, setNewTransaction] = useState({
-        type: 'income', // default to income
+        type: 'income', 
         date: new Date().toISOString().split('T')[0],
         brand: '',
         category: BUDGET_CATEGORIES[0],
@@ -82,9 +81,13 @@ const BudgetRecorderView = () => {
     });
 
     useEffect(() => {
-        const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'budget'), orderBy('date', 'desc'));
+        // FIX: Removed orderBy, simple collection query
+        const q = collection(db, 'artifacts', appId, 'public', 'data', 'budget');
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            setTransactions(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })));
+            const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+            // Client-side sort
+            data.sort((a, b) => new Date(b.date) - new Date(a.date));
+            setTransactions(data);
         });
         return unsubscribe;
     }, []);
@@ -95,7 +98,7 @@ const BudgetRecorderView = () => {
             await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'budget'), { 
                 ...newTransaction, 
                 type: activeTab,
-                createdAt: new Date() 
+                createdAt: new Date().toISOString()
             });
             setIsAddOpen(false);
             setNewTransaction({
@@ -113,7 +116,7 @@ const BudgetRecorderView = () => {
             });
         } catch (error) {
             console.error("Error saving transaction:", error);
-            alert("Failed to save record.");
+            alert("Failed to save record: " + error.message);
         }
     };
 
@@ -148,86 +151,13 @@ const BudgetRecorderView = () => {
                     </button>
                 </div>
             </header>
-
+            
             <div className="flex-1 overflow-hidden flex flex-col">
-                {/* Tabs */}
                 <div className="px-8 pt-6 pb-0 flex gap-1 border-b border-gray-200 bg-gray-50">
-                    <button 
-                        onClick={() => setActiveTab('income')}
-                        className={`px-8 py-3 font-bold text-sm rounded-t-xl transition-all relative ${activeTab === 'income' ? 'bg-white text-green-600 shadow-sm border border-b-0 border-gray-200' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'}`}
-                    >
-                        Income
-                        {activeTab === 'income' && <div className="absolute top-0 left-0 w-full h-1 bg-green-500 rounded-t-xl"></div>}
-                    </button>
-                    <button 
-                        onClick={() => setActiveTab('spending')}
-                        className={`px-8 py-3 font-bold text-sm rounded-t-xl transition-all relative ${activeTab === 'spending' ? 'bg-white text-red-600 shadow-sm border border-b-0 border-gray-200' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'}`}
-                    >
-                        Spending
-                        {activeTab === 'spending' && <div className="absolute top-0 left-0 w-full h-1 bg-red-500 rounded-t-xl"></div>}
-                    </button>
+                    <button onClick={() => setActiveTab('income')} className={`px-8 py-3 font-bold text-sm rounded-t-xl transition-all relative ${activeTab === 'income' ? 'bg-white text-green-600 shadow-sm border border-b-0 border-gray-200' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'}`}>Income{activeTab === 'income' && <div className="absolute top-0 left-0 w-full h-1 bg-green-500 rounded-t-xl"></div>}</button>
+                    <button onClick={() => setActiveTab('spending')} className={`px-8 py-3 font-bold text-sm rounded-t-xl transition-all relative ${activeTab === 'spending' ? 'bg-white text-red-600 shadow-sm border border-b-0 border-gray-200' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'}`}>Spending{activeTab === 'spending' && <div className="absolute top-0 left-0 w-full h-1 bg-red-500 rounded-t-xl"></div>}</button>
                 </div>
-
-                {/* Table */}
-                <div className="flex-1 overflow-auto p-8">
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                        <table className="w-full text-sm text-left">
-                            <thead className="text-xs text-gray-500 uppercase bg-gray-50 font-bold border-b border-gray-200 sticky top-0 z-10">
-                                <tr>
-                                    <th className="px-6 py-4">Date</th>
-                                    <th className="px-6 py-4">Brand</th>
-                                    <th className="px-6 py-4">Category</th>
-                                    <th className="px-6 py-4 w-64">Description</th>
-                                    <th className="px-6 py-4 text-right">Amount (THB)</th>
-                                    <th className="px-6 py-4">Company</th>
-                                    <th className="px-6 py-4">Invoice</th>
-                                    <th className="px-6 py-4">Payment Date</th>
-                                    <th className="px-6 py-4 text-center">Status</th>
-                                    <th className="px-6 py-4 w-48">Remark</th>
-                                    <th className="px-6 py-4 text-center">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100">
-                                {filteredTransactions.map((t) => (
-                                    <tr key={t.id} className="hover:bg-blue-50/30 transition-colors group">
-                                        <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">{formatDate(t.date)}</td>
-                                        <td className="px-6 py-4 font-bold text-gray-700">{t.brand}</td>
-                                        <td className="px-6 py-4">
-                                            <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-bold uppercase">{t.category}</span>
-                                        </td>
-                                        <td className="px-6 py-4 text-gray-600 truncate max-w-xs" title={t.description}>{t.description}</td>
-                                        <td className={`px-6 py-4 text-right font-mono font-bold ${activeTab === 'income' ? 'text-green-600' : 'text-red-600'}`}>
-                                            {parseFloat(t.amount).toLocaleString()}
-                                        </td>
-                                        <td className="px-6 py-4 text-gray-600">{t.company}</td>
-                                        <td className="px-6 py-4 text-gray-600 font-mono text-xs">{t.invoice || '-'}</td>
-                                        <td className="px-6 py-4 text-gray-500 whitespace-nowrap">{t.paymentDate ? formatDate(t.paymentDate) : '-'}</td>
-                                        <td className="px-6 py-4 text-center">
-                                            <span className={`px-3 py-1 rounded-full text-xs font-bold border ${
-                                                t.status === 'Complete' ? 'bg-green-50 text-green-700 border-green-200' :
-                                                t.status === 'Follow-up' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
-                                                'bg-gray-50 text-gray-500 border-gray-200'
-                                            }`}>
-                                                {t.status}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 text-gray-500 italic text-xs truncate max-w-[150px]" title={t.remark}>{t.remark || '-'}</td>
-                                        <td className="px-6 py-4 text-center">
-                                            <button onClick={() => handleDeleteTransaction(t.id)} className="text-gray-300 hover:text-red-500 transition opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-red-50">
-                                                <Trash2 size={16} />
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))}
-                                {filteredTransactions.length === 0 && (
-                                    <tr>
-                                        <td colSpan="11" className="px-6 py-12 text-center text-gray-400 font-medium">No records found for this view.</td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+                <div className="flex-1 overflow-auto p-8"><div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"><table className="w-full text-sm text-left"><thead className="text-xs text-gray-500 uppercase bg-gray-50 font-bold border-b border-gray-200 sticky top-0 z-10"><tr><th className="px-6 py-4">Date</th><th className="px-6 py-4">Brand</th><th className="px-6 py-4">Category</th><th className="px-6 py-4 w-64">Description</th><th className="px-6 py-4 text-right">Amount (THB)</th><th className="px-6 py-4">Company</th><th className="px-6 py-4">Invoice</th><th className="px-6 py-4">Payment Date</th><th className="px-6 py-4 text-center">Status</th><th className="px-6 py-4 w-48">Remark</th><th className="px-6 py-4 text-center">Action</th></tr></thead><tbody className="divide-y divide-gray-100">{filteredTransactions.map((t) => (<tr key={t.id} className="hover:bg-blue-50/30 transition-colors group"><td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">{formatDate(t.date)}</td><td className="px-6 py-4 font-bold text-gray-700">{t.brand}</td><td className="px-6 py-4"><span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-bold uppercase">{t.category}</span></td><td className="px-6 py-4 text-gray-600 truncate max-w-xs" title={t.description}>{t.description}</td><td className={`px-6 py-4 text-right font-mono font-bold ${activeTab === 'income' ? 'text-green-600' : 'text-red-600'}`}>{parseFloat(t.amount).toLocaleString()}</td><td className="px-6 py-4 text-gray-600">{t.company}</td><td className="px-6 py-4 text-gray-600 font-mono text-xs">{t.invoice || '-'}</td><td className="px-6 py-4 text-gray-500 whitespace-nowrap">{t.paymentDate ? formatDate(t.paymentDate) : '-'}</td><td className="px-6 py-4 text-center"><span className={`px-3 py-1 rounded-full text-xs font-bold border ${t.status === 'Complete' ? 'bg-green-50 text-green-700 border-green-200' : t.status === 'Follow-up' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : 'bg-gray-50 text-gray-500 border-gray-200'}`}>{t.status}</span></td><td className="px-6 py-4 text-gray-500 italic text-xs truncate max-w-[150px]" title={t.remark}>{t.remark || '-'}</td><td className="px-6 py-4 text-center"><button onClick={() => handleDeleteTransaction(t.id)} className="text-gray-300 hover:text-red-500 transition opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-red-50"><Trash2 size={16} /></button></td></tr>))}{filteredTransactions.length === 0 && (<tr><td colSpan="11" className="px-6 py-12 text-center text-gray-400 font-medium">No records found for this view.</td></tr>)}</tbody></table></div></div>
             </div>
 
             {/* Add Record Modal */}
@@ -235,42 +165,24 @@ const BudgetRecorderView = () => {
                 <div className="fixed inset-0 bg-black/60 z-[80] flex items-center justify-center p-4 backdrop-blur-sm">
                     <div className="bg-white rounded-2xl w-full max-w-4xl p-8 shadow-2xl overflow-y-auto max-h-[90vh]">
                         <div className="flex justify-between items-center mb-8 border-b border-gray-100 pb-4">
-                            <div>
-                                <h3 className="text-2xl font-bold text-gray-900">Add {activeTab === 'income' ? 'Income' : 'Spending'} Record</h3>
-                                <p className="text-sm text-gray-500 mt-1">Fill in the details for the new financial record.</p>
-                            </div>
+                            <div><h3 className="text-2xl font-bold text-gray-900">Add {activeTab === 'income' ? 'Income' : 'Spending'} Record</h3><p className="text-sm text-gray-500 mt-1">Fill in the details for the new financial record.</p></div>
                             <button onClick={() => setIsAddOpen(false)} className="text-gray-400 hover:text-gray-900 p-2 hover:bg-gray-100 rounded-full transition"><X size={24}/></button>
                         </div>
-                        
                         <form onSubmit={handleAddTransaction} className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                            {/* Left Column */}
                             <div className="space-y-6">
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Date</label><input required type="date" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 transition" value={newTransaction.date} onChange={e => setNewTransaction({...newTransaction, date: e.target.value})} /></div>
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Brand</label><input required type="text" placeholder="e.g. Intel, AMD" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 transition" value={newTransaction.brand} onChange={e => setNewTransaction({...newTransaction, brand: e.target.value})} /></div>
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Category</label>
-                                    <select className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 bg-white transition" value={newTransaction.category} onChange={e => setNewTransaction({...newTransaction, category: e.target.value})}>
-                                        {BUDGET_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                                    </select>
-                                </div>
+                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Category</label><select className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 bg-white transition" value={newTransaction.category} onChange={e => setNewTransaction({...newTransaction, category: e.target.value})}>{BUDGET_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}</select></div>
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Description</label><textarea placeholder="Details about the transaction..." className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px] transition" value={newTransaction.description} onChange={e => setNewTransaction({...newTransaction, description: e.target.value})} /></div>
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Amount (THB)</label><input required type="number" placeholder="0.00" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 font-mono text-lg font-bold transition" value={newTransaction.amount} onChange={e => setNewTransaction({...newTransaction, amount: e.target.value})} /></div>
                             </div>
-
-                            {/* Right Column */}
                             <div className="space-y-6">
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Company</label><input type="text" placeholder="Company Name" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 transition" value={newTransaction.company} onChange={e => setNewTransaction({...newTransaction, company: e.target.value})} /></div>
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Invoice No.</label><input type="text" placeholder="INV-001" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 font-mono transition" value={newTransaction.invoice} onChange={e => setNewTransaction({...newTransaction, invoice: e.target.value})} /></div>
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Payment Date</label><input type="date" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 transition" value={newTransaction.paymentDate} onChange={e => setNewTransaction({...newTransaction, paymentDate: e.target.value})} /></div>
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Status</label>
-                                    <select className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 bg-white transition" value={newTransaction.status} onChange={e => setNewTransaction({...newTransaction, status: e.target.value})}>
-                                        {BUDGET_STATUSES.map(st => <option key={st} value={st}>{st}</option>)}
-                                    </select>
-                                </div>
+                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Status</label><select className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 bg-white transition" value={newTransaction.status} onChange={e => setNewTransaction({...newTransaction, status: e.target.value})}>{BUDGET_STATUSES.map(st => <option key={st} value={st}>{st}</option>)}</select></div>
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Remark</label><textarea placeholder="Additional notes..." className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px] transition" value={newTransaction.remark} onChange={e => setNewTransaction({...newTransaction, remark: e.target.value})} /></div>
                             </div>
-
                             <div className="md:col-span-2 pt-6 border-t border-gray-100 flex justify-end gap-3">
                                 <button type="button" onClick={() => setIsAddOpen(false)} className="px-6 py-3 rounded-lg font-bold text-gray-500 hover:bg-gray-100 transition">Cancel</button>
                                 <button type="submit" className={`px-8 py-3 rounded-lg font-bold text-white shadow-lg transition transform hover:scale-105 ${activeTab === 'income' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}`}>Save Record</button>
@@ -284,9 +196,7 @@ const BudgetRecorderView = () => {
 };
 
 const RequirementSheetModal = ({ task, requirement, onClose }) => {
-    // ... RequirementSheetModal implementation ...
     const [newRow, setNewRow] = useState({ col1: '', col2: '', col3: '', notes: '' });
-    // Default columns if none exist
     const [columns, setColumns] = useState(requirement.columns || [
         { id: 'col1', name: 'Item / Name' },
         { id: 'col2', name: 'Description' },
@@ -405,7 +315,6 @@ const RequirementSheetModal = ({ task, requirement, onClose }) => {
 };
 
 const HomeView = ({ tasks, currentUser }) => {
-    // ... HomeView code ...
     const getTasksByStatus = (status) => tasks.filter(task => (status === 'todo' && (task.status === 'pending' || !task.status)) ? true : (status === 'done' && task.status === 'completed') ? true : task.status === status);
     const totalTasks = tasks.length;
     const completedTasks = getTasksByStatus('done').length;
@@ -438,7 +347,6 @@ const HomeView = ({ tasks, currentUser }) => {
 };
 
 const CalendarView = ({ tasks, setSelectedTaskId }) => {
-    // ... CalendarView code ...
     const [currentDate, setCurrentDate] = useState(new Date());
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
@@ -613,7 +521,7 @@ export default function Dashboard() {
   const handleImageUpload = (e, targetState, setTargetState) => {
       const file = e.target.files[0];
       if (file) {
-          if (file.size > 2 * 1024 * 1024) return alert("File too large (>2MB)");
+          if (file.size > 700 * 1024) return alert("File too large (>700KB)");
           const reader = new FileReader();
           reader.onloadend = () => {
               setTargetState({ ...targetState, imageUrl: reader.result });
