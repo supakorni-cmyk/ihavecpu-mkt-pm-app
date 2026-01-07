@@ -1,16 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from './AuthContext';
-import { db } from './firebase';
-import { 
-  collection, 
-  addDoc, 
-  query, 
-  onSnapshot, 
-  deleteDoc, 
-  doc, 
-  updateDoc, 
-  orderBy 
-} from 'firebase/firestore';
+// Firebase imports removed
 import { useNavigate } from 'react-router-dom';
 import emailjs from '@emailjs/browser'; 
 import { 
@@ -18,12 +8,9 @@ import {
   Paperclip, Link as LinkIcon, FileText, Clock, AlignLeft, CheckSquare, ExternalLink, X, Edit2,
   Save, Heart, ChevronLeft, ChevronRight, RefreshCw, Video, Home, PieChart, Activity, CheckCircle2,
   ListTodo, Presentation, Printer, Upload, Image as ImageIcon, GripVertical, LayoutTemplate, Camera,
-  Loader2, Folder, Mail, Table, Download, Minus, Play, Info, MessageCircle, Share2, Search, 
-  User, AtSign, Settings, DollarSign, TrendingUp, TrendingDown
+  Loader2, Folder, Mail, Table, Download, Minus, Play, Info, MessageCircle, Share2, Search, Bot, 
+  Youtube, Facebook, User, AtSign, Zap, Settings, DollarSign, TrendingUp, TrendingDown
 } from 'lucide-react';
-
-// --- GLOBAL APP ID ---
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
 // --- CONSTANTS & HELPERS ---
 const TAG_COLORS = { 
@@ -61,63 +48,22 @@ const getSafeRequirements = (task) => {
     return [];
 };
 
-// --- SUB-COMPONENTS ---
-
-const BudgetRecorderView = ({ transactions, onAdd, onDelete }) => {
-    const [activeTab, setActiveTab] = useState('income'); 
-    const [isAddOpen, setIsAddOpen] = useState(false);
-    const [newTransaction, setNewTransaction] = useState({
-        type: 'income', date: new Date().toISOString().split('T')[0],
-        brand: '', category: BUDGET_CATEGORIES[0], description: '', amount: '',
-        company: '', invoice: '', paymentDate: '', status: 'Pending', remark: ''
-    });
-
-    const handleAddTransaction = (e) => {
-        e.preventDefault();
-        onAdd({ ...newTransaction, type: activeTab, createdAt: new Date() });
-        setIsAddOpen(false);
-        setNewTransaction({ type: activeTab, date: new Date().toISOString().split('T')[0], brand: '', category: BUDGET_CATEGORIES[0], description: '', amount: '', company: '', invoice: '', paymentDate: '', status: 'Pending', remark: '' });
-    };
-
-    const filteredTransactions = transactions.filter(t => t.type === activeTab);
-    const totalAmount = filteredTransactions.reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
-
-    return (
-        <div className="flex flex-col h-full bg-gray-50 font-sans">
-            <header className="px-8 py-5 border-b border-gray-200 bg-white shadow-sm z-10 flex justify-between items-center">
-                <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-lg ${activeTab === 'income' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>{activeTab === 'income' ? <TrendingUp size={24} /> : <TrendingDown size={24} />}</div>
-                    <div><h2 className="text-2xl font-bold text-gray-800">Budget Recorder</h2><p className="text-sm text-gray-500 font-medium">Track your project finances</p></div>
-                </div>
-                <div className="flex items-center gap-6"><div className="text-right"><p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Total {activeTab}</p><p className={`text-2xl font-black ${activeTab === 'income' ? 'text-green-600' : 'text-red-600'}`}>฿{totalAmount.toLocaleString()}</p></div><button onClick={() => setIsAddOpen(true)} className="bg-gray-900 hover:bg-black text-white px-5 py-2.5 rounded-lg font-bold shadow-lg flex items-center gap-2 transition-all transform hover:scale-105"><Plus size={18} /> Add Record</button></div>
-            </header>
-            <div className="flex-1 overflow-hidden flex flex-col">
-                <div className="px-8 pt-6 pb-0 flex gap-1 border-b border-gray-200 bg-gray-50">
-                    <button onClick={() => setActiveTab('income')} className={`px-8 py-3 font-bold text-sm rounded-t-xl transition-all relative ${activeTab === 'income' ? 'bg-white text-green-600 shadow-sm border border-b-0 border-gray-200' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'}`}>Income{activeTab === 'income' && <div className="absolute top-0 left-0 w-full h-1 bg-green-500 rounded-t-xl"></div>}</button>
-                    <button onClick={() => setActiveTab('spending')} className={`px-8 py-3 font-bold text-sm rounded-t-xl transition-all relative ${activeTab === 'spending' ? 'bg-white text-red-600 shadow-sm border border-b-0 border-gray-200' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'}`}>Spending{activeTab === 'spending' && <div className="absolute top-0 left-0 w-full h-1 bg-red-500 rounded-t-xl"></div>}</button>
-                </div>
-                <div className="flex-1 overflow-auto p-8"><div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"><table className="w-full text-sm text-left"><thead className="text-xs text-gray-500 uppercase bg-gray-50 font-bold border-b border-gray-200 sticky top-0 z-10"><tr><th className="px-6 py-4">Date</th><th className="px-6 py-4">Brand</th><th className="px-6 py-4">Category</th><th className="px-6 py-4 w-64">Description</th><th className="px-6 py-4 text-right">Amount (THB)</th><th className="px-6 py-4">Company</th><th className="px-6 py-4">Invoice</th><th className="px-6 py-4">Payment Date</th><th className="px-6 py-4 text-center">Status</th><th className="px-6 py-4 w-48">Remark</th><th className="px-6 py-4 text-center">Action</th></tr></thead><tbody className="divide-y divide-gray-100">{filteredTransactions.map((t) => (<tr key={t.id} className="hover:bg-blue-50/30 transition-colors group"><td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">{formatDate(t.date)}</td><td className="px-6 py-4 font-bold text-gray-700">{t.brand}</td><td className="px-6 py-4"><span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-bold uppercase">{t.category}</span></td><td className="px-6 py-4 text-gray-600 truncate max-w-xs" title={t.description}>{t.description}</td><td className={`px-6 py-4 text-right font-mono font-bold ${activeTab === 'income' ? 'text-green-600' : 'text-red-600'}`}>{parseFloat(t.amount).toLocaleString()}</td><td className="px-6 py-4 text-gray-600">{t.company}</td><td className="px-6 py-4 text-gray-600 font-mono text-xs">{t.invoice || '-'}</td><td className="px-6 py-4 text-gray-500 whitespace-nowrap">{t.paymentDate ? formatDate(t.paymentDate) : '-'}</td><td className="px-6 py-4 text-center"><span className={`px-3 py-1 rounded-full text-xs font-bold border ${t.status === 'Complete' ? 'bg-green-50 text-green-700 border-green-200' : t.status === 'Follow-up' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : 'bg-gray-50 text-gray-500 border-gray-200'}`}>{t.status}</span></td><td className="px-6 py-4 text-gray-500 italic text-xs truncate max-w-[150px]" title={t.remark}>{t.remark || '-'}</td><td className="px-6 py-4 text-center"><button onClick={() => onDelete(t.id)} className="text-gray-300 hover:text-red-500 transition opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-red-50"><Trash2 size={16} /></button></td></tr>))}{filteredTransactions.length === 0 && (<tr><td colSpan="11" className="px-6 py-12 text-center text-gray-400 font-medium">No records found for this view.</td></tr>)}</tbody></table></div></div>
-            </div>
-            {isAddOpen && (
-                <div className="fixed inset-0 bg-black/60 z-[80] flex items-center justify-center p-4 backdrop-blur-sm">
-                    <div className="bg-white rounded-2xl w-full max-w-4xl p-8 shadow-2xl overflow-y-auto max-h-[90vh]">
-                        <div className="flex justify-between items-center mb-8 border-b border-gray-100 pb-4"><div><h3 className="text-2xl font-bold text-gray-900">Add {activeTab === 'income' ? 'Income' : 'Spending'} Record</h3><p className="text-sm text-gray-500 mt-1">Fill in the details for the new financial record.</p></div><button onClick={() => setIsAddOpen(false)} className="text-gray-400 hover:text-gray-900 p-2 hover:bg-gray-100 rounded-full transition"><X size={24}/></button></div>
-                        <form onSubmit={handleAddTransaction} className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                            <div className="space-y-6"><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Date</label><input required type="date" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 transition" value={newTransaction.date} onChange={e => setNewTransaction({...newTransaction, date: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Brand</label><input required type="text" placeholder="e.g. Intel, AMD" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 transition" value={newTransaction.brand} onChange={e => setNewTransaction({...newTransaction, brand: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Category</label><select className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 bg-white transition" value={newTransaction.category} onChange={e => setNewTransaction({...newTransaction, category: e.target.value})}>{BUDGET_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}</select></div><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Description</label><textarea placeholder="Details about the transaction..." className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px] transition" value={newTransaction.description} onChange={e => setNewTransaction({...newTransaction, description: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Amount (THB)</label><input required type="number" placeholder="0.00" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 font-mono text-lg font-bold transition" value={newTransaction.amount} onChange={e => setNewTransaction({...newTransaction, amount: e.target.value})} /></div></div>
-                            <div className="space-y-6"><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Company</label><input type="text" placeholder="Company Name" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 transition" value={newTransaction.company} onChange={e => setNewTransaction({...newTransaction, company: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Invoice No.</label><input type="text" placeholder="INV-001" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 font-mono transition" value={newTransaction.invoice} onChange={e => setNewTransaction({...newTransaction, invoice: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Payment Date</label><input type="date" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 transition" value={newTransaction.paymentDate} onChange={e => setNewTransaction({...newTransaction, paymentDate: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Status</label><select className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 bg-white transition" value={newTransaction.status} onChange={e => setNewTransaction({...newTransaction, status: e.target.value})}>{BUDGET_STATUSES.map(st => <option key={st} value={st}>{st}</option>)}</select></div><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Remark</label><textarea placeholder="Additional notes..." className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px] transition" value={newTransaction.remark} onChange={e => setNewTransaction({...newTransaction, remark: e.target.value})} /></div></div>
-                            <div className="md:col-span-2 pt-6 border-t border-gray-100 flex justify-end gap-3"><button type="button" onClick={() => setIsAddOpen(false)} className="px-6 py-3 rounded-lg font-bold text-gray-500 hover:bg-gray-100 transition">Cancel</button><button type="submit" className={`px-8 py-3 rounded-lg font-bold text-white shadow-lg transition transform hover:scale-105 ${activeTab === 'income' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}`}>Save Record</button></div>
-                        </form>
-                    </div>
-                </div>
-            )}
-        </div>
-    );
+// --- DATA PERSISTENCE HELPER ---
+const useStickyState = (defaultValue, key) => {
+  const [value, setValue] = useState(() => {
+    const stickyValue = window.localStorage.getItem(key);
+    return stickyValue !== null ? JSON.parse(stickyValue) : defaultValue;
+  });
+  useEffect(() => {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  }, [key, value]);
+  return [value, setValue];
 };
 
+// --- SUB-COMPONENTS ---
+
 const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => {
-    // ... RequirementSheetModal implementation ...
     const [newRow, setNewRow] = useState({ col1: '', col2: '', col3: '', notes: '' });
-    // Default columns if none exist
     const [columns, setColumns] = useState(requirement.columns || [
         { id: 'col1', name: 'Item / Name' }, { id: 'col2', name: 'Description' }, { id: 'col3', name: 'Status' }, { id: 'notes', name: 'Notes' }
     ]);
@@ -201,8 +147,58 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
     );
 };
 
+const BudgetRecorderView = ({ transactions, onAdd, onDelete }) => {
+    const [activeTab, setActiveTab] = useState('income');
+    const [isAddOpen, setIsAddOpen] = useState(false);
+    const [newTransaction, setNewTransaction] = useState({
+        type: 'income', date: new Date().toISOString().split('T')[0],
+        brand: '', category: BUDGET_CATEGORIES[0], description: '', amount: '',
+        company: '', invoice: '', paymentDate: '', status: 'Pending', remark: ''
+    });
+
+    const handleAddTransaction = (e) => {
+        e.preventDefault();
+        onAdd({ ...newTransaction, type: activeTab, createdAt: new Date() });
+        setIsAddOpen(false);
+        setNewTransaction({ type: activeTab, date: new Date().toISOString().split('T')[0], brand: '', category: BUDGET_CATEGORIES[0], description: '', amount: '', company: '', invoice: '', paymentDate: '', status: 'Pending', remark: '' });
+    };
+
+    const filteredTransactions = transactions.filter(t => t.type === activeTab);
+    const totalAmount = filteredTransactions.reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
+
+    return (
+        <div className="flex flex-col h-full bg-gray-50 font-sans">
+            <header className="px-8 py-5 border-b border-gray-200 bg-white shadow-sm z-10 flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-lg ${activeTab === 'income' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>{activeTab === 'income' ? <TrendingUp size={24} /> : <TrendingDown size={24} />}</div>
+                    <div><h2 className="text-2xl font-bold text-gray-800">Budget Recorder</h2><p className="text-sm text-gray-500 font-medium">Track your project finances</p></div>
+                </div>
+                <div className="flex items-center gap-6"><div className="text-right"><p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Total {activeTab}</p><p className={`text-2xl font-black ${activeTab === 'income' ? 'text-green-600' : 'text-red-600'}`}>฿{totalAmount.toLocaleString()}</p></div><button onClick={() => setIsAddOpen(true)} className="bg-gray-900 hover:bg-black text-white px-5 py-2.5 rounded-lg font-bold shadow-lg flex items-center gap-2 transition-all transform hover:scale-105"><Plus size={18} /> Add Record</button></div>
+            </header>
+            <div className="flex-1 overflow-hidden flex flex-col">
+                <div className="px-8 pt-6 pb-0 flex gap-1 border-b border-gray-200 bg-gray-50">
+                    <button onClick={() => setActiveTab('income')} className={`px-8 py-3 font-bold text-sm rounded-t-xl transition-all relative ${activeTab === 'income' ? 'bg-white text-green-600 shadow-sm border border-b-0 border-gray-200' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'}`}>Income{activeTab === 'income' && <div className="absolute top-0 left-0 w-full h-1 bg-green-500 rounded-t-xl"></div>}</button>
+                    <button onClick={() => setActiveTab('spending')} className={`px-8 py-3 font-bold text-sm rounded-t-xl transition-all relative ${activeTab === 'spending' ? 'bg-white text-red-600 shadow-sm border border-b-0 border-gray-200' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'}`}>Spending{activeTab === 'spending' && <div className="absolute top-0 left-0 w-full h-1 bg-red-500 rounded-t-xl"></div>}</button>
+                </div>
+                <div className="flex-1 overflow-auto p-8"><div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"><table className="w-full text-sm text-left"><thead className="text-xs text-gray-500 uppercase bg-gray-50 font-bold border-b border-gray-200 sticky top-0 z-10"><tr><th className="px-6 py-4">Date</th><th className="px-6 py-4">Brand</th><th className="px-6 py-4">Category</th><th className="px-6 py-4 w-64">Description</th><th className="px-6 py-4 text-right">Amount (THB)</th><th className="px-6 py-4">Company</th><th className="px-6 py-4">Invoice</th><th className="px-6 py-4">Payment Date</th><th className="px-6 py-4 text-center">Status</th><th className="px-6 py-4 w-48">Remark</th><th className="px-6 py-4 text-center">Action</th></tr></thead><tbody className="divide-y divide-gray-100">{filteredTransactions.map((t) => (<tr key={t.id} className="hover:bg-blue-50/30 transition-colors group"><td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">{formatDate(t.date)}</td><td className="px-6 py-4 font-bold text-gray-700">{t.brand}</td><td className="px-6 py-4"><span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-bold uppercase">{t.category}</span></td><td className="px-6 py-4 text-gray-600 truncate max-w-xs" title={t.description}>{t.description}</td><td className={`px-6 py-4 text-right font-mono font-bold ${activeTab === 'income' ? 'text-green-600' : 'text-red-600'}`}>{parseFloat(t.amount).toLocaleString()}</td><td className="px-6 py-4 text-gray-600">{t.company}</td><td className="px-6 py-4 text-gray-600 font-mono text-xs">{t.invoice || '-'}</td><td className="px-6 py-4 text-gray-500 whitespace-nowrap">{t.paymentDate ? formatDate(t.paymentDate) : '-'}</td><td className="px-6 py-4 text-center"><span className={`px-3 py-1 rounded-full text-xs font-bold border ${t.status === 'Complete' ? 'bg-green-50 text-green-700 border-green-200' : t.status === 'Follow-up' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : 'bg-gray-50 text-gray-500 border-gray-200'}`}>{t.status}</span></td><td className="px-6 py-4 text-gray-500 italic text-xs truncate max-w-[150px]" title={t.remark}>{t.remark || '-'}</td><td className="px-6 py-4 text-center"><button onClick={() => onDelete(t.id)} className="text-gray-300 hover:text-red-500 transition opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-red-50"><Trash2 size={16} /></button></td></tr>))}{filteredTransactions.length === 0 && (<tr><td colSpan="11" className="px-6 py-12 text-center text-gray-400 font-medium">No records found for this view.</td></tr>)}</tbody></table></div></div>
+            </div>
+            {isAddOpen && (
+                <div className="fixed inset-0 bg-black/60 z-[80] flex items-center justify-center p-4 backdrop-blur-sm">
+                    <div className="bg-white rounded-2xl w-full max-w-4xl p-8 shadow-2xl overflow-y-auto max-h-[90vh]">
+                        <div className="flex justify-between items-center mb-8 border-b border-gray-100 pb-4"><div><h3 className="text-2xl font-bold text-gray-900">Add {activeTab === 'income' ? 'Income' : 'Spending'} Record</h3><p className="text-sm text-gray-500 mt-1">Fill in the details for the new financial record.</p></div><button onClick={() => setIsAddOpen(false)} className="text-gray-400 hover:text-gray-900 p-2 hover:bg-gray-100 rounded-full transition"><X size={24}/></button></div>
+                        <form onSubmit={handleAddTransaction} className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                            <div className="space-y-6"><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Date</label><input required type="date" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 transition" value={newTransaction.date} onChange={e => setNewTransaction({...newTransaction, date: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Brand</label><input required type="text" placeholder="e.g. Intel, AMD" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 transition" value={newTransaction.brand} onChange={e => setNewTransaction({...newTransaction, brand: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Category</label><select className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 bg-white transition" value={newTransaction.category} onChange={e => setNewTransaction({...newTransaction, category: e.target.value})}>{BUDGET_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}</select></div><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Description</label><textarea placeholder="Details about the transaction..." className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px] transition" value={newTransaction.description} onChange={e => setNewTransaction({...newTransaction, description: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Amount (THB)</label><input required type="number" placeholder="0.00" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 font-mono text-lg font-bold transition" value={newTransaction.amount} onChange={e => setNewTransaction({...newTransaction, amount: e.target.value})} /></div></div>
+                            <div className="space-y-6"><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Company</label><input type="text" placeholder="Company Name" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 transition" value={newTransaction.company} onChange={e => setNewTransaction({...newTransaction, company: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Invoice No.</label><input type="text" placeholder="INV-001" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 font-mono transition" value={newTransaction.invoice} onChange={e => setNewTransaction({...newTransaction, invoice: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Payment Date</label><input type="date" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 transition" value={newTransaction.paymentDate} onChange={e => setNewTransaction({...newTransaction, paymentDate: e.target.value})} /></div><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Status</label><select className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 bg-white transition" value={newTransaction.status} onChange={e => setNewTransaction({...newTransaction, status: e.target.value})}>{BUDGET_STATUSES.map(st => <option key={st} value={st}>{st}</option>)}</select></div><div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Remark</label><textarea placeholder="Additional notes..." className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px] transition" value={newTransaction.remark} onChange={e => setNewTransaction({...newTransaction, remark: e.target.value})} /></div></div>
+                            <div className="md:col-span-2 pt-6 border-t border-gray-100 flex justify-end gap-3"><button type="button" onClick={() => setIsAddOpen(false)} className="px-6 py-3 rounded-lg font-bold text-gray-500 hover:bg-gray-100 transition">Cancel</button><button type="submit" className={`px-8 py-3 rounded-lg font-bold text-white shadow-lg transition transform hover:scale-105 ${activeTab === 'income' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}`}>Save Record</button></div>
+                        </form>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
 const HomeView = ({ tasks, currentUser }) => {
-    // ... HomeView code ...
     const getTasksByStatus = (status) => tasks.filter(task => (status === 'todo' && (task.status === 'pending' || !task.status)) ? true : (status === 'done' && task.status === 'completed') ? true : task.status === status);
     const totalTasks = tasks.length;
     const completedTasks = getTasksByStatus('done').length;
@@ -210,7 +206,7 @@ const HomeView = ({ tasks, currentUser }) => {
     const reviewTasks = getTasksByStatus('review').length;
     const todoTasks = getTasksByStatus('todo').length;
     
-    // Add missing tagCounts logic
+    // Fixed: Added back tagCounts logic
     const tagCounts = tasks.reduce((acc, task) => { const tag = task.tag || 'Uncategorized'; acc[tag] = (acc[tag] || 0) + 1; return acc; }, {});
     const maxTagCount = Math.max(...Object.values(tagCounts), 1);
 
@@ -237,7 +233,6 @@ const HomeView = ({ tasks, currentUser }) => {
 };
 
 const CalendarView = ({ tasks, setSelectedTaskId }) => {
-    // ... CalendarView code ...
     const [currentDate, setCurrentDate] = useState(new Date());
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
@@ -319,7 +314,7 @@ const PhotoAlbumView = ({ albums, photos, onAddAlbum, onAddPhoto, onDeleteAlbum,
                 <div className="flex items-center gap-3">{currentAlbum && <button onClick={() => setCurrentAlbum(null)} className="p-2 hover:bg-gray-200 rounded-full text-gray-500"><ArrowLeft size={24} /></button>}<div><h2 className="text-3xl font-bold text-gray-800 flex items-center gap-3">{currentAlbum ? <><Folder className="text-purple-600" /> {currentAlbum.name}</> : <><ImageIcon className="text-purple-600" /> Photo Albums</>}</h2></div></div>
                 {!currentAlbum ? <div className="relative">{isCreatingAlbum ? <form onSubmit={createAlbum} className="flex gap-2"><input autoFocus type="text" placeholder="Album Name" className="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 outline-none" value={newAlbumName} onChange={e => setNewAlbumName(e.target.value)} /><button type="submit" className="bg-purple-600 text-white px-4 py-2 rounded-lg font-bold text-sm">Save</button></form> : <button onClick={() => setIsCreatingAlbum(true)} className="flex items-center gap-2 bg-purple-600 text-white px-5 py-2.5 rounded-full font-bold shadow-lg"><Plus size={20} /> Create Album</button>}</div> : <div className="relative"><input type="file" accept="image/*" onChange={handleUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" disabled={uploading} /><button className="flex items-center gap-2 bg-purple-600 text-white px-5 py-2.5 rounded-full font-bold shadow-lg">{uploading ? <Loader2 className="animate-spin" size={20} /> : <Upload size={20} />} Upload</button></div>}
             </div>
-            {!currentAlbum ? <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{albums.map(album => (<div key={album.id} onClick={() => setCurrentAlbum(album)} className="group bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition cursor-pointer flex flex-col items-center justify-center aspect-square relative"><Folder size={64} className="text-purple-200 group-hover:text-purple-300 transition mb-4" /><h3 className="font-bold text-gray-700 text-center">{album.name}</h3><button onClick={(e) => handleDeleteAlbumLocal(e, album.id)} className="absolute top-3 right-3 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition"><Trash2 size={18} /></button></div>))}</div> : <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{albumPhotos.map(photo => (<div key={photo.id} className="group relative bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition aspect-square"><img src={photo.url} className="w-full h-full object-cover" /><div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2"><a href={photo.url} download={photo.name} className="p-2 bg-white/20 text-white rounded-full"><ExternalLink size={20} /></a><button onClick={() => handleDeletePhotoLocal(photo.id)} className="p-2 bg-red-500/80 text-white rounded-full"><Trash2 size={20} /></button></div></div>))}</div>}
+            {!currentAlbum ? <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{albums.map(album => (<div key={album.id} onClick={() => setCurrentAlbum(album)} className="group bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition cursor-pointer flex flex-col items-center justify-center aspect-square relative"><Folder size={64} className="text-purple-200 group-hover:text-purple-300 transition mb-4" /><h3 className="font-bold text-gray-700 text-center">{album.name}</h3><p className="text-xs text-gray-400 mt-1">{new Date(album.createdAt).toLocaleDateString()}</p><button onClick={(e) => handleDeleteAlbumLocal(e, album.id)} className="absolute top-3 right-3 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition"><Trash2 size={18} /></button></div>))}</div> : <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{albumPhotos.map(photo => (<div key={photo.id} className="group relative bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition aspect-square"><img src={photo.url} className="w-full h-full object-cover" /><div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2"><a href={photo.url} download={photo.name} className="p-2 bg-white/20 text-white rounded-full"><ExternalLink size={20} /></a><button onClick={() => handleDeletePhotoLocal(photo.id)} className="p-2 bg-red-500/80 text-white rounded-full"><Trash2 size={20} /></button></div></div>))}</div>}
         </div></div>
     );
 };
@@ -403,8 +398,28 @@ export default function Dashboard() {
   ]);
   const [albums, setAlbums] = useState([{ id: '1', name: 'Event Photos 2024', createdAt: new Date() }]);
   const [photos, setPhotos] = useState([]);
-
   const [currentView, setCurrentView] = useState('board'); 
+  
+  // Persist State to LocalStorage
+  const usePersistedState = (key, defaultValue) => {
+    const [state, setState] = useState(() => {
+      const stored = localStorage.getItem(key);
+      return stored ? JSON.parse(stored) : defaultValue;
+    });
+    useEffect(() => {
+      localStorage.setItem(key, JSON.stringify(state));
+    }, [key, state]);
+    return [state, setState];
+  };
+
+  const [localTasks, setLocalTasks] = usePersistedState('tasks', tasks);
+  const [localTransactions, setLocalTransactions] = usePersistedState('transactions', transactions);
+  const [localAlbums, setLocalAlbums] = usePersistedState('albums', albums);
+  const [localPhotos, setLocalPhotos] = usePersistedState('photos', photos);
+
+  // Sync initial state if empty
+  useEffect(() => { if (localTasks.length === 0) setLocalTasks(tasks); }, []);
+
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState(null);
   const [activeRequirementId, setActiveRequirementId] = useState(null);
@@ -420,30 +435,29 @@ export default function Dashboard() {
   const { currentUser, logout } = useAuth();
   const navigate = useNavigate();
 
-  const selectedTask = tasks.find(t => t.id === selectedTaskId);
+  const selectedTask = localTasks.find(t => t.id === selectedTaskId);
   const activeRequirement = selectedTask ? getSafeRequirements(selectedTask).find(r => r.id === activeRequirementId) : null;
 
-  // --- CRUD HANDLERS (LOCAL STATE) ---
-
+  // --- HANDLERS (Local State) ---
   const handleAddTask = (e) => {
     e.preventDefault();
     if (!newTask.title) return;
     const task = { ...newTask, id: Date.now().toString(), status: 'todo', createdAt: new Date(), author: currentUser?.email || 'User' };
-    setTasks([task, ...tasks]);
+    setLocalTasks([task, ...localTasks]);
     setNewTask({ title: '', tag: 'Planning', startDate: new Date().toISOString().split('T')[0], deadline: '', description: '', requirements: [], reference: '', link: '', imageUrl: '', fileUrl: '' });
     setIsAddModalOpen(false);
   };
 
   const handleUpdateTask = (e) => {
       e.preventDefault();
-      setTasks(tasks.map(t => t.id === selectedTask.id ? { ...t, ...editedTask } : t));
+      setLocalTasks(localTasks.map(t => t.id === selectedTask.id ? { ...t, ...editedTask } : t));
       setIsEditing(false);
   };
 
   const deleteTask = (e, id) => {
       e.stopPropagation();
       if (confirm("Delete?")) {
-          setTasks(tasks.filter(t => t.id !== id));
+          setLocalTasks(localTasks.filter(t => t.id !== id));
           if (selectedTaskId === id) setSelectedTaskId(null);
       }
   };
@@ -454,57 +468,26 @@ export default function Dashboard() {
       const currentIndex = statusOrder.indexOf(currentStatus);
       let nextIndex = direction === 'next' ? currentIndex + 1 : currentIndex - 1;
       if (nextIndex >= 0 && nextIndex < statusOrder.length) {
-          setTasks(tasks.map(t => t.id === taskId ? { ...t, status: statusOrder[nextIndex] } : t));
+          setLocalTasks(localTasks.map(t => t.id === taskId ? { ...t, status: statusOrder[nextIndex] } : t));
       }
   };
 
-  // Requirement Handlers
-  const addRequirementLine = () => {
-      if (!tempReqInput.trim()) return;
-      setNewTask({ ...newTask, requirements: [...newTask.requirements, { id: Date.now().toString(), text: tempReqInput, isDone: false, tableData: [] }] });
-      setTempReqInput('');
-  };
-
-  const removeRequirementLine = (index) => {
-      const updated = [...newTask.requirements];
-      updated.splice(index, 1);
-      setNewTask({ ...newTask, requirements: updated });
-  };
-
-  const addRequirementToEdit = () => {
-      if (!tempEditReqInput.trim()) return;
-      const currentReqs = editedTask.requirements || [];
-      setEditedTask({ ...editedTask, requirements: [...currentReqs, { id: Date.now().toString(), text: tempEditReqInput, isDone: false, tableData: [] }] });
-      setTempEditReqInput('');
-  };
-
-  const removeRequirementFromEdit = (reqId) => {
-      const currentReqs = editedTask.requirements || [];
-      setEditedTask({ ...editedTask, requirements: currentReqs.filter(r => r.id !== reqId) });
-  };
+  const addRequirementLine = () => { if (!tempReqInput.trim()) return; setNewTask({ ...newTask, requirements: [...newTask.requirements, { id: Date.now().toString(), text: tempReqInput, isDone: false, tableData: [] }] }); setTempReqInput(''); };
+  const removeRequirementLine = (index) => { const updated = [...newTask.requirements]; updated.splice(index, 1); setNewTask({ ...newTask, requirements: updated }); };
+  const addRequirementToEdit = () => { if (!tempEditReqInput.trim()) return; const c = editedTask.requirements || []; setEditedTask({ ...editedTask, requirements: [...c, { id: Date.now().toString(), text: tempEditReqInput, isDone: false, tableData: [] }] }); setTempEditReqInput(''); };
+  const removeRequirementFromEdit = (reqId) => { const c = editedTask.requirements || []; setEditedTask({ ...editedTask, requirements: c.filter(r => r.id !== reqId) }); };
+  const updateRequirementTextInEdit = (reqId, newText) => { const c = editedTask.requirements || []; setEditedTask({ ...editedTask, requirements: c.map(r => r.id === reqId ? { ...r, text: newText } : r) }); };
+  const startEditing = () => { const s = getSafeRequirements(selectedTask); setEditedTask({ ...selectedTask, requirements: s }); setIsEditing(true); };
   
-  const updateRequirementTextInEdit = (reqId, newText) => {
-      const currentReqs = editedTask.requirements || [];
-      setEditedTask({ ...editedTask, requirements: currentReqs.map(r => r.id === reqId ? { ...r, text: newText } : r) });
-  };
-
-  const startEditing = () => { 
-      const safeReqs = getSafeRequirements(selectedTask);
-      setEditedTask({ ...selectedTask, requirements: safeReqs }); 
-      setIsEditing(true); 
-  };
-
   const toggleRequirement = (taskId, reqId, currentRequirements) => {
       const safeReqs = getSafeRequirements({ requirements: currentRequirements });
       const updatedReqs = safeReqs.map(r => r.id === reqId ? { ...r, isDone: !r.isDone } : r);
-      setTasks(tasks.map(t => t.id === taskId ? { ...t, requirements: updatedReqs } : t));
-      if (isEditing && editedTask.id === taskId) {
-           setEditedTask(prev => ({ ...prev, requirements: updatedReqs }));
-      }
+      setLocalTasks(localTasks.map(t => t.id === taskId ? { ...t, requirements: updatedReqs } : t));
+      if (isEditing && editedTask.id === taskId) setEditedTask(prev => ({ ...prev, requirements: updatedReqs }));
   };
 
   const updateTaskRequirements = (taskId, updates) => {
-      setTasks(tasks.map(t => t.id === taskId ? { ...t, ...updates } : t));
+      setLocalTasks(localTasks.map(t => t.id === taskId ? { ...t, ...updates } : t));
   };
 
   const handleImageUpload = (e, targetState, setTargetState) => {
@@ -517,23 +500,18 @@ export default function Dashboard() {
       }
   };
 
-  const handleAddTransaction = (transaction) => setTransactions([transaction, ...transactions]);
-  const handleDeleteTransaction = (id) => setTransactions(transactions.filter(t => t.id !== id));
-
-  const handleAddAlbum = (album) => setAlbums([{ ...album, id: Date.now().toString() }, ...albums]);
-  const handleDeleteAlbum = (id) => {
-      setAlbums(albums.filter(a => a.id !== id));
-      setPhotos(photos.filter(p => p.albumId !== id));
-  };
-  const handleAddPhoto = (photo) => setPhotos([{ ...photo, id: Date.now().toString() }, ...photos]);
-  const handleDeletePhoto = (id) => setPhotos(photos.filter(p => p.id !== id));
+  const handleAddTransaction = (transaction) => setLocalTransactions([transaction, ...localTransactions]);
+  const handleDeleteTransaction = (id) => setLocalTransactions(localTransactions.filter(t => t.id !== id));
+  const handleAddAlbum = (album) => setLocalAlbums([{ ...album, id: Date.now().toString() }, ...localAlbums]);
+  const handleDeleteAlbum = (id) => { setLocalAlbums(localAlbums.filter(a => a.id !== id)); setLocalPhotos(localPhotos.filter(p => p.albumId !== id)); };
+  const handleAddPhoto = (photo) => setLocalPhotos([{ ...photo, id: Date.now().toString() }, ...localPhotos]);
+  const handleDeletePhoto = (id) => setLocalPhotos(localPhotos.filter(p => p.id !== id));
 
   const handleLogout = async () => { await logout(); navigate('/'); };
-  const getTasksByStatus = (status) => tasks.filter(task => (status === 'todo' && (task.status === 'pending' || !task.status)) ? true : (status === 'done' && task.status === 'completed') ? true : task.status === status);
+  const getTasksByStatus = (status) => localTasks.filter(task => (status === 'todo' && (task.status === 'pending' || !task.status)) ? true : (status === 'done' && task.status === 'completed') ? true : task.status === status);
 
   return (
     <div className="flex h-screen w-full bg-gray-50 font-sans overflow-hidden">
-      {/* Sidebar */}
       <aside className="w-20 md:w-64 bg-white border-r border-gray-200 flex flex-col justify-between flex-shrink-0 z-20 print:hidden">
         <div className="p-6 flex items-center gap-3 mb-6"><div className="bg-blue-600 p-2 rounded-lg text-white flex-shrink-0"><Layout size={24} /></div><div className="flex flex-col justify-center overflow-hidden"><h1 className="text-lg font-bold text-gray-900 leading-none truncate">iHAVECPU</h1><span className="text-xs text-blue-600 font-bold tracking-wider truncate">WORKSPACE</span></div></div>
         <nav className="px-3 space-y-2">
@@ -549,12 +527,12 @@ export default function Dashboard() {
       </aside>
 
       <main className="flex-1 flex flex-col h-full w-full overflow-hidden bg-white relative">
-        {currentView === 'home' && <HomeView tasks={tasks} currentUser={currentUser} />}
-        {currentView === 'calendar' && <CalendarView tasks={tasks} setSelectedTaskId={setSelectedTaskId} setIsEditing={setIsEditing} />}
-        {currentView === 'album' && <PhotoAlbumView albums={albums} photos={photos} onAddAlbum={handleAddAlbum} onDeleteAlbum={handleDeleteAlbum} onAddPhoto={handleAddPhoto} onDeletePhoto={handleDeletePhoto} />}
-        {currentView === 'budget' && <BudgetRecorderView transactions={transactions} onAdd={handleAddTransaction} onDelete={handleDeleteTransaction} />}
+        {currentView === 'home' && <HomeView tasks={localTasks} currentUser={currentUser} />}
+        {currentView === 'calendar' && <CalendarView tasks={localTasks} setSelectedTaskId={setSelectedTaskId} setIsEditing={setIsEditing} />}
+        {currentView === 'album' && <PhotoAlbumView currentUser={currentUser} albums={localAlbums} photos={localPhotos} onAddAlbum={handleAddAlbum} onDeleteAlbum={handleDeleteAlbum} onAddPhoto={handleAddPhoto} onDeletePhoto={handleDeletePhoto} />}
+        {currentView === 'budget' && <BudgetRecorderView transactions={localTransactions} onAdd={handleAddTransaction} onDelete={handleDeleteTransaction} />}
         {currentView === 'selfheal' && <SelfHealView />}
-        {currentView === 'report' && <ReportView tasks={tasks} currentUser={currentUser} />}
+        {currentView === 'report' && <ReportView tasks={localTasks} currentUser={currentUser} />}
 
         {currentView === 'board' && (
             <div className="flex flex-col h-full w-full">
