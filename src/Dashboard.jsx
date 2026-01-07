@@ -14,7 +14,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import emailjs from '@emailjs/browser'; 
 import { 
-  MoreHorizontal, Plus, Calendar as CalendarIcon, Trash2, LogOut, Layout, ArrowRight, ArrowLeft,
+  Computer, MoreHorizontal, Plus, Calendar as CalendarIcon, Trash2, LogOut, Layout, ArrowRight, ArrowLeft,
   Paperclip, Link as LinkIcon, FileText, Clock, AlignLeft, CheckSquare, ExternalLink, X, Edit2,
   Save, Heart, ChevronLeft, ChevronRight, RefreshCw, Video, Home, PieChart, Activity, CheckCircle2,
   ListTodo, Presentation, Printer, Upload, Image as ImageIcon, GripVertical, LayoutTemplate, Camera,
@@ -708,7 +708,7 @@ export default function Dashboard() {
     <div className="flex h-screen w-full bg-gray-50 font-sans overflow-hidden">
       {/* Sidebar */}
       <aside className="w-20 md:w-64 bg-white border-r border-gray-200 flex flex-col justify-between flex-shrink-0 z-20 print:hidden">
-        <div className="p-6 flex items-center gap-3 mb-6"><div className="bg-red-600 p-2 rounded-lg text-white flex-shrink-0"><Layout size={24} /></div><div className="flex flex-col justify-center overflow-hidden"><h1 className="text-lg font-bold text-gray-900 leading-none truncate">iHAVECPU</h1><span className="text-xs text-blue-600 font-bold tracking-wider truncate">WORKSPACE</span></div></div>
+        <div className="p-6 flex items-center gap-3 mb-6"><div className="bg-red-600 p-2 rounded-lg text-white flex-shrink-0"><Computer size={24} /></div><div className="flex flex-col justify-center overflow-hidden"><h1 className="text-lg font-bold text-gray-900 leading-none truncate">iHAVECPU</h1><span className="text-xs text-red-600 font-bold tracking-wider truncate">WORKSPACE</span></div></div>
         <nav className="px-3 space-y-2">
              <button onClick={() => setCurrentView('home')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${currentView === 'home' ? 'bg-blue-50 text-blue-600 font-bold' : 'text-gray-500 hover:bg-gray-50'}`}><Home size={20} /> <span className="hidden md:inline">Home</span></button>
              <button onClick={() => setCurrentView('board')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${currentView === 'board' ? 'bg-blue-50 text-blue-600 font-bold' : 'text-gray-500 hover:bg-gray-50'}`}><Layout size={20} /> <span className="hidden md:inline">Board</span></button>
