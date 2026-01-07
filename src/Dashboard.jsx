@@ -1,6 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from './AuthContext';
-// Removed Firebase imports
+import { db } from './firebase';
+import { 
+  collection, 
+  addDoc, 
+  query, 
+  onSnapshot, 
+  deleteDoc, 
+  doc, 
+  updateDoc, 
+  orderBy 
+} from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
 import emailjs from '@emailjs/browser'; 
 import { 
@@ -8,9 +18,12 @@ import {
   Paperclip, Link as LinkIcon, FileText, Clock, AlignLeft, CheckSquare, ExternalLink, X, Edit2,
   Save, Heart, ChevronLeft, ChevronRight, RefreshCw, Video, Home, PieChart, Activity, CheckCircle2,
   ListTodo, Presentation, Printer, Upload, Image as ImageIcon, GripVertical, LayoutTemplate, Camera,
-  Loader2, Folder, Mail, Table, Download, Minus, Play, Info, MessageCircle, Share2, Search, Bot, 
-  Youtube, Facebook, User, AtSign, Zap, Settings, DollarSign, TrendingUp, TrendingDown
+  Loader2, Folder, Mail, Table, Download, Minus, Play, Info, MessageCircle, Share2, Search, 
+  User, AtSign, Settings, DollarSign, TrendingUp, TrendingDown
 } from 'lucide-react';
+
+// --- GLOBAL APP ID ---
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
 // --- CONSTANTS & HELPERS ---
 const TAG_COLORS = { 
@@ -50,128 +63,8 @@ const getSafeRequirements = (task) => {
 
 // --- SUB-COMPONENTS ---
 
-const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => {
-    const [newRow, setNewRow] = useState({ col1: '', col2: '', col3: '', notes: '' });
-    // Default columns if none exist
-    const [columns, setColumns] = useState(requirement.columns || [
-        { id: 'col1', name: 'Item / Name' },
-        { id: 'col2', name: 'Description' },
-        { id: 'col3', name: 'Status' },
-        { id: 'notes', name: 'Notes' }
-    ]);
-
-    useEffect(() => {
-        if (requirement.columns) setColumns(requirement.columns);
-    }, [requirement.columns]);
-
-    const updateRequirement = (updates) => {
-        const updatedReqs = task.requirements.map(r => {
-            if (r.id === requirement.id) return { ...r, ...updates };
-            return r;
-        });
-        onUpdateTask(task.id, { requirements: updatedReqs });
-    };
-
-    const handleColumnNameChange = (colId, newName) => {
-        const updatedCols = columns.map(c => c.id === colId ? { ...c, name: newName } : c);
-        setColumns(updatedCols);
-    };
-
-    const saveColumns = () => updateRequirement({ columns });
-
-    const addColumn = () => {
-        const newCols = [...columns, { id: `col-${Date.now()}`, name: 'New Column' }];
-        setColumns(newCols);
-        updateRequirement({ columns: newCols });
-    };
-
-    const deleteColumn = (colId) => {
-        if (confirm('Delete column?')) {
-            const newCols = columns.filter(c => c.id !== colId);
-            setColumns(newCols);
-            updateRequirement({ columns: newCols });
-        }
-    };
-
-    const handleAddRow = () => {
-        if (Object.keys(newRow).length === 0) return;
-        const updatedTableData = [...(requirement.tableData || []), { id: Date.now(), ...newRow }];
-        updateRequirement({ tableData: updatedTableData });
-        setNewRow({});
-    };
-
-    const handleDeleteRow = (rowId) => {
-        const updatedTableData = (requirement.tableData || []).filter(row => row.id !== rowId);
-        updateRequirement({ tableData: updatedTableData });
-    };
-
-    const handleRowChange = (colId, value) => {
-        setNewRow(prev => ({ ...prev, [colId]: value }));
-    };
-
-    const exportToCSV = () => {
-        if (!requirement.tableData || requirement.tableData.length === 0) return alert("No data to export.");
-        const headers = columns.map(c => c.name);
-        const rows = requirement.tableData.map(row => 
-            columns.map(col => `"${(row[col.id] || '').replace(/"/g, '""')}"`)
-        );
-        const csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n" + rows.map(e => e.join(",")).join("\n");
-        const encodedUri = encodeURI(csvContent);
-        const link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
-        link.setAttribute("download", `${requirement.text}_table.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    };
-
-    return (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-[70] p-4 animate-in fade-in zoom-in duration-200">
-            <div className="bg-white w-full max-w-7xl h-[85vh] rounded-xl shadow-2xl flex flex-col overflow-hidden border border-gray-200">
-                <div className="bg-green-600 px-6 py-4 flex justify-between items-center text-white shrink-0">
-                    <div className="flex items-center gap-3"><div className="bg-white/20 p-2 rounded"><Table size={24} /></div><div><h3 className="font-bold text-lg leading-tight">{requirement.text}</h3><p className="text-xs opacity-80 font-mono tracking-wide uppercase">Table for Task: {task.title}</p></div></div>
-                    <div className="flex gap-3"><button onClick={exportToCSV} className="bg-white text-green-700 px-4 py-2 rounded-lg font-bold text-sm hover:bg-green-50 transition flex items-center gap-2"><Download size={16} /> Export CSV</button><button onClick={onClose} className="p-2 hover:bg-white/20 rounded-full text-white"><X size={24} /></button></div>
-                </div>
-                <div className="flex-1 overflow-auto bg-gray-50 p-6">
-                    <div className="bg-white border border-gray-300 shadow-sm min-w-max">
-                        <div className="flex border-b border-gray-300 bg-gray-100 text-gray-500 font-bold text-xs uppercase tracking-wider sticky top-0 z-10 shadow-sm">
-                            <div className="w-12 p-3 text-center border-r border-gray-300 bg-gray-100 sticky left-0 z-20">#</div>
-                            {columns.map(col => (
-                                <div key={col.id} className="w-48 min-w-[180px] p-2 border-r border-gray-300 relative group bg-gray-100">
-                                    <input type="text" value={col.name} onChange={(e) => handleColumnNameChange(col.id, e.target.value)} onBlur={saveColumns} className="bg-transparent w-full text-center focus:bg-white focus:ring-2 focus:ring-green-500 rounded px-1 py-0.5 border border-transparent hover:border-gray-300" />
-                                    <button onClick={() => deleteColumn(col.id)} className="absolute right-1 top-1 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition p-1 rounded-full hover:bg-gray-200"><X size={10} /></button>
-                                </div>
-                            ))}
-                            <div className="w-12 p-2 flex items-center justify-center bg-gray-100 hover:bg-gray-200 cursor-pointer border-r border-gray-300" onClick={addColumn} title="Add Column"><Plus size={16} className="text-green-600" /></div>
-                            <div className="w-12 p-3 bg-gray-100"></div>
-                        </div>
-                        {(requirement.tableData || []).map((row, idx) => (
-                            <div key={row.id} className="flex border-b border-gray-200 hover:bg-blue-50/30 transition-colors">
-                                <div className="w-12 p-3 text-center border-r border-gray-200 bg-gray-50 text-gray-400 font-mono text-xs flex items-center justify-center sticky left-0 z-10">{idx + 1}</div>
-                                {columns.map(col => (<div key={col.id} className="w-48 min-w-[180px] p-3 border-r border-gray-200 text-sm text-gray-800">{row[col.id]}</div>))}
-                                <div className="w-12 flex-1 border-r border-gray-200"></div>
-                                <div className="w-12 p-3 flex items-center justify-center"><button onClick={() => handleDeleteRow(row.id)} className="text-gray-300 hover:text-red-500"><Trash2 size={14} /></button></div>
-                            </div>
-                        ))}
-                        <div className="flex border-b border-gray-200 bg-yellow-50/50 sticky bottom-0 z-10 shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
-                            <div className="w-12 p-3 text-center border-r border-gray-200 text-green-600 font-bold bg-yellow-50 sticky left-0">+</div>
-                            {columns.map(col => (
-                                <div key={col.id} className="w-48 min-w-[180px] border-r border-gray-200">
-                                    <input type="text" placeholder={col.name + "..."} className="w-full h-full p-3 bg-transparent outline-none text-sm focus:bg-white focus:ring-inset focus:ring-2 focus:ring-green-500" value={newRow[col.id] || ''} onChange={e => handleRowChange(col.id, e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddRow()} />
-                                </div>
-                            ))}
-                            <div className="w-12 flex-1 border-r border-gray-200 bg-yellow-50"></div>
-                            <div className="w-12 p-2 flex items-center justify-center bg-yellow-50"><button onClick={handleAddRow} className="bg-green-600 text-white p-1 rounded hover:bg-green-700 shadow-sm"><Plus size={16} /></button></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-};
-
 const BudgetRecorderView = ({ transactions, onAdd, onDelete }) => {
-    const [activeTab, setActiveTab] = useState('income');
+    const [activeTab, setActiveTab] = useState('income'); 
     const [isAddOpen, setIsAddOpen] = useState(false);
     const [newTransaction, setNewTransaction] = useState({
         type: 'income', date: new Date().toISOString().split('T')[0],
@@ -221,13 +114,106 @@ const BudgetRecorderView = ({ transactions, onAdd, onDelete }) => {
     );
 };
 
+const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => {
+    // ... RequirementSheetModal implementation ...
+    const [newRow, setNewRow] = useState({ col1: '', col2: '', col3: '', notes: '' });
+    // Default columns if none exist
+    const [columns, setColumns] = useState(requirement.columns || [
+        { id: 'col1', name: 'Item / Name' }, { id: 'col2', name: 'Description' }, { id: 'col3', name: 'Status' }, { id: 'notes', name: 'Notes' }
+    ]);
+
+    useEffect(() => {
+        if (requirement.columns) setColumns(requirement.columns);
+    }, [requirement.columns]);
+
+    const updateRequirement = (updates) => {
+        const updatedReqs = task.requirements.map(r => {
+            if (r.id === requirement.id) return { ...r, ...updates };
+            return r;
+        });
+        onUpdateTask(task.id, { requirements: updatedReqs });
+    };
+
+    const handleColumnNameChange = (colId, newName) => {
+        const updatedCols = columns.map(c => c.id === colId ? { ...c, name: newName } : c);
+        setColumns(updatedCols);
+    };
+
+    const saveColumns = () => updateRequirement({ columns });
+    const addColumn = () => { const newCols = [...columns, { id: `col-${Date.now()}`, name: 'New Column' }]; setColumns(newCols); updateRequirement({ columns: newCols }); };
+    const deleteColumn = (colId) => { if (confirm('Delete column?')) { const newCols = columns.filter(c => c.id !== colId); setColumns(newCols); updateRequirement({ columns: newCols }); } };
+    const handleAddRow = () => { if (Object.keys(newRow).length === 0) return; const updatedTableData = [...(requirement.tableData || []), { id: Date.now(), ...newRow }]; updateRequirement({ tableData: updatedTableData }); setNewRow({}); };
+    const handleDeleteRow = (rowId) => { const updatedTableData = (requirement.tableData || []).filter(row => row.id !== rowId); updateRequirement({ tableData: updatedTableData }); };
+    const handleRowChange = (colId, value) => { setNewRow(prev => ({ ...prev, [colId]: value })); };
+
+    const exportToCSV = () => {
+        if (!requirement.tableData || requirement.tableData.length === 0) return alert("No data to export.");
+        const headers = columns.map(c => c.name);
+        const rows = requirement.tableData.map(row => columns.map(col => `"${(row[col.id] || '').replace(/"/g, '""')}"`));
+        const csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n" + rows.map(e => e.join(",")).join("\n");
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a"); link.setAttribute("href", encodedUri); link.setAttribute("download", `${requirement.text}_table.csv`);
+        document.body.appendChild(link); link.click(); document.body.removeChild(link);
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-[70] p-4 animate-in fade-in zoom-in duration-200">
+            <div className="bg-white w-full max-w-7xl h-[85vh] rounded-xl shadow-2xl flex flex-col overflow-hidden border border-gray-200">
+                <div className="bg-green-600 px-6 py-4 flex justify-between items-center text-white shrink-0">
+                    <div className="flex items-center gap-3"><div className="bg-white/20 p-2 rounded"><Table size={24} /></div><div><h3 className="font-bold text-lg leading-tight">{requirement.text}</h3><p className="text-xs opacity-80 font-mono tracking-wide uppercase">Table for Task: {task.title}</p></div></div>
+                    <div className="flex gap-3"><button onClick={exportToCSV} className="bg-white text-green-700 px-4 py-2 rounded-lg font-bold text-sm hover:bg-green-50 transition flex items-center gap-2"><Download size={16} /> Export CSV</button><button onClick={onClose} className="p-2 hover:bg-white/20 rounded-full text-white"><X size={24} /></button></div>
+                </div>
+                <div className="flex-1 overflow-auto bg-gray-50 p-6">
+                    <div className="bg-white border border-gray-300 shadow-sm min-w-max">
+                        <div className="flex border-b border-gray-300 bg-gray-100 text-gray-500 font-bold text-xs uppercase tracking-wider sticky top-0 z-10 shadow-sm">
+                            <div className="w-12 p-3 text-center border-r border-gray-300 bg-gray-100 sticky left-0 z-20">#</div>
+                            {columns.map(col => (
+                                <div key={col.id} className="w-48 min-w-[180px] p-2 border-r border-gray-300 relative group bg-gray-100">
+                                    <input type="text" value={col.name} onChange={(e) => handleColumnNameChange(col.id, e.target.value)} onBlur={saveColumns} className="bg-transparent w-full text-center focus:bg-white focus:ring-2 focus:ring-green-500 rounded px-1 py-0.5 border border-transparent hover:border-gray-300" />
+                                    <button onClick={() => deleteColumn(col.id)} className="absolute right-1 top-1 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition p-1 rounded-full hover:bg-gray-200"><X size={10} /></button>
+                                </div>
+                            ))}
+                            <div className="w-12 p-2 flex items-center justify-center bg-gray-100 hover:bg-gray-200 cursor-pointer border-r border-gray-300" onClick={addColumn} title="Add Column"><Plus size={16} className="text-green-600" /></div>
+                            <div className="w-12 p-3 bg-gray-100"></div>
+                        </div>
+                        {(requirement.tableData || []).map((row, idx) => (
+                            <div key={row.id} className="flex border-b border-gray-200 hover:bg-blue-50/30 transition-colors">
+                                <div className="w-12 p-3 text-center border-r border-gray-200 bg-gray-50 text-gray-400 font-mono text-xs flex items-center justify-center sticky left-0 z-10">{idx + 1}</div>
+                                {columns.map(col => (<div key={col.id} className="w-48 min-w-[180px] p-3 border-r border-gray-200 text-sm text-gray-800">{row[col.id]}</div>))}
+                                <div className="w-12 flex-1 border-r border-gray-200"></div>
+                                <div className="w-12 p-3 flex items-center justify-center"><button onClick={() => handleDeleteRow(row.id)} className="text-gray-300 hover:text-red-500"><Trash2 size={14} /></button></div>
+                            </div>
+                        ))}
+                        <div className="flex border-b border-gray-200 bg-yellow-50/50 sticky bottom-0 z-10 shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
+                            <div className="w-12 p-3 text-center border-r border-gray-200 text-green-600 font-bold bg-yellow-50 sticky left-0">+</div>
+                            {columns.map(col => (
+                                <div key={col.id} className="w-48 min-w-[180px] border-r border-gray-200">
+                                    <input type="text" placeholder={col.name + "..."} className="w-full h-full p-3 bg-transparent outline-none text-sm focus:bg-white focus:ring-inset focus:ring-2 focus:ring-green-500" value={newRow[col.id] || ''} onChange={e => handleRowChange(col.id, e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddRow()} />
+                                </div>
+                            ))}
+                            <div className="w-12 flex-1 border-r border-gray-200 bg-yellow-50"></div>
+                            <div className="w-12 p-2 flex items-center justify-center bg-yellow-50"><button onClick={handleAddRow} className="bg-green-600 text-white p-1 rounded hover:bg-green-700 shadow-sm"><Plus size={16} /></button></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const HomeView = ({ tasks, currentUser }) => {
+    // ... HomeView code ...
     const getTasksByStatus = (status) => tasks.filter(task => (status === 'todo' && (task.status === 'pending' || !task.status)) ? true : (status === 'done' && task.status === 'completed') ? true : task.status === status);
     const totalTasks = tasks.length;
     const completedTasks = getTasksByStatus('done').length;
     const inProgressTasks = getTasksByStatus('inprogress').length;
     const reviewTasks = getTasksByStatus('review').length;
+    const todoTasks = getTasksByStatus('todo').length;
     
+    // Add missing tagCounts logic
+    const tagCounts = tasks.reduce((acc, task) => { const tag = task.tag || 'Uncategorized'; acc[tag] = (acc[tag] || 0) + 1; return acc; }, {});
+    const maxTagCount = Math.max(...Object.values(tagCounts), 1);
+
     return (
         <div className="flex flex-col h-full w-full bg-gray-50">
             <header className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-white/80 backdrop-blur-md z-10"><h2 className="text-2xl font-bold text-gray-800">Overview</h2><div className="text-sm font-medium text-gray-500">{new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}</div></header>
@@ -251,6 +237,7 @@ const HomeView = ({ tasks, currentUser }) => {
 };
 
 const CalendarView = ({ tasks, setSelectedTaskId }) => {
+    // ... CalendarView code ...
     const [currentDate, setCurrentDate] = useState(new Date());
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
@@ -359,6 +346,7 @@ const ReportView = ({ tasks, currentUser }) => {
     const addNewPage = () => { const newId = Date.now(); setPages([...pages, { id: newId, title: 'New Slide', bodyText: 'Enter slide content...', image: null, image2: null, template: '1-landscape' }]); setActivePageId(newId); };
     const removePage = (id, e) => { e.stopPropagation(); if (pages.length === 1) return; const newPages = pages.filter(p => p.id !== id); setPages(newPages); if (activePageId === id) setActivePageId(newPages[0].id); };
     const handleSort = () => { let _pages = [...pages]; const item = _pages.splice(dragItem.current, 1)[0]; _pages.splice(dragOverItem.current, 0, item); setPages(_pages); };
+    const getTasksByStatus = (status) => tasks.filter(task => (status === 'todo' && (task.status === 'pending' || !task.status)) ? true : (status === 'done' && task.status === 'completed') ? true : task.status === status);
 
     return (
         <div className="p-6 md:p-10 h-full w-full bg-gray-100 overflow-y-auto">
@@ -404,7 +392,6 @@ const ReportView = ({ tasks, currentUser }) => {
 
 // --- MAIN DASHBOARD COMPONENT ---
 export default function Dashboard() {
-  // Initial Mock Data to populate the board on first load
   const [tasks, setTasks] = useState([
     { id: '1', title: 'Q1 Marketing Plan', status: 'todo', tag: 'Planning', deadline: '2024-04-15', description: 'Outline key strategies for Q1.' },
     { id: '2', title: 'Product Launch Video', status: 'inprogress', tag: 'Video Content', deadline: '2024-03-20', description: 'Edit the final cut for the new GPU launch.' },
@@ -510,9 +497,7 @@ export default function Dashboard() {
   const toggleRequirement = (taskId, reqId, currentRequirements) => {
       const safeReqs = getSafeRequirements({ requirements: currentRequirements });
       const updatedReqs = safeReqs.map(r => r.id === reqId ? { ...r, isDone: !r.isDone } : r);
-      // Update state
       setTasks(tasks.map(t => t.id === taskId ? { ...t, requirements: updatedReqs } : t));
-      // Update modal state if open
       if (isEditing && editedTask.id === taskId) {
            setEditedTask(prev => ({ ...prev, requirements: updatedReqs }));
       }
@@ -522,7 +507,6 @@ export default function Dashboard() {
       setTasks(tasks.map(t => t.id === taskId ? { ...t, ...updates } : t));
   };
 
-  // Image Upload Helper
   const handleImageUpload = (e, targetState, setTargetState) => {
       const file = e.target.files[0];
       if (file) {
@@ -533,7 +517,6 @@ export default function Dashboard() {
       }
   };
 
-  // Sub-component Handlers
   const handleAddTransaction = (transaction) => setTransactions([transaction, ...transactions]);
   const handleDeleteTransaction = (id) => setTransactions(transactions.filter(t => t.id !== id));
 
@@ -568,7 +551,7 @@ export default function Dashboard() {
       <main className="flex-1 flex flex-col h-full w-full overflow-hidden bg-white relative">
         {currentView === 'home' && <HomeView tasks={tasks} currentUser={currentUser} />}
         {currentView === 'calendar' && <CalendarView tasks={tasks} setSelectedTaskId={setSelectedTaskId} setIsEditing={setIsEditing} />}
-        {currentView === 'album' && <PhotoAlbumView currentUser={currentUser} albums={albums} photos={photos} onAddAlbum={handleAddAlbum} onDeleteAlbum={handleDeleteAlbum} onAddPhoto={handleAddPhoto} onDeletePhoto={handleDeletePhoto} />}
+        {currentView === 'album' && <PhotoAlbumView albums={albums} photos={photos} onAddAlbum={handleAddAlbum} onDeleteAlbum={handleDeleteAlbum} onAddPhoto={handleAddPhoto} onDeletePhoto={handleDeletePhoto} />}
         {currentView === 'budget' && <BudgetRecorderView transactions={transactions} onAdd={handleAddTransaction} onDelete={handleDeleteTransaction} />}
         {currentView === 'selfheal' && <SelfHealView />}
         {currentView === 'report' && <ReportView tasks={tasks} currentUser={currentUser} />}
