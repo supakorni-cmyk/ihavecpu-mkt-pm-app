@@ -143,7 +143,7 @@ const BudgetView = ({ transactions, onAdd, onDelete }) => {
                         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                             {/* Summary Cards */}
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                                <div className="bg-blue-600 text-white p-6 rounded-2xl shadow-lg flex flex-col justify-between h-32 hover:scale-[1.02] transition-transform duration-300">
+                                <div className="bg-blue-600 text-white p-6 rounded-2xl shadow-lg flex flex-col justify-between h-32">
                                     <div className="flex justify-between items-start"><span className="text-blue-200 text-xs font-bold uppercase tracking-wider">Total Budget</span><Wallet size={20} className="text-blue-200"/></div>
                                     <div className="text-3xl font-black tracking-tight">฿{TOTAL_BUDGET_CONST.toLocaleString()}</div>
                                 </div>
@@ -197,6 +197,7 @@ const BudgetView = ({ transactions, onAdd, onDelete }) => {
                                         <th className="px-6 py-4 w-64">Description</th>
                                         <th className="px-6 py-4 text-right">Amount (THB)</th>
                                         <th className="px-6 py-4">Company</th>
+                                        <th className="px-6 py-4">Email</th>
                                         <th className="px-6 py-4">Invoice</th>
                                         <th className="px-6 py-4">Payment Date</th>
                                         <th className="px-6 py-4 text-center">Status</th>
@@ -213,6 +214,7 @@ const BudgetView = ({ transactions, onAdd, onDelete }) => {
                                             <td className="px-6 py-4 text-gray-600 truncate max-w-xs" title={t.description}>{t.description}</td>
                                             <td className={`px-6 py-4 text-right font-mono font-bold ${activeTab === 'income' ? 'text-green-600' : 'text-red-600'}`}>{parseFloat(t.amount).toLocaleString()}</td>
                                             <td className="px-6 py-4 text-gray-600">{t.company}</td>
+                                            <td className="px-6 py-4 text-gray-600">{t.email}</td>
                                             <td className="px-6 py-4 text-gray-600 font-mono text-xs">{t.invoice || '-'}</td>
                                             <td className="px-6 py-4 text-gray-500 whitespace-nowrap">{t.paymentDate ? formatDate(t.paymentDate) : '-'}</td>
                                             <td className="px-6 py-4 text-center"><span className={`px-3 py-1 rounded-full text-xs font-bold border ${t.status === 'Complete' ? 'bg-green-50 text-green-700 border-green-200' : t.status === 'Follow-up' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : 'bg-gray-50 text-gray-500 border-gray-200'}`}>{t.status}</span></td>
@@ -251,6 +253,7 @@ const BudgetView = ({ transactions, onAdd, onDelete }) => {
                             <div className="space-y-6">
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Description</label><textarea className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px] transition" value={newTransaction.description} onChange={e => setNewTransaction({...newTransaction, description: e.target.value})} /></div>
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Company</label><input type="text" placeholder="Company Name" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 transition" value={newTransaction.company} onChange={e => setNewTransaction({...newTransaction, company: e.target.value})} /></div>
+                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Email</label><input type="text" placeholder="Email Subject" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 transition" value={newTransaction.email} onChange={e => setNewTransaction({...newTransaction, email: e.target.value})} /></div>
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Invoice No.</label><input type="text" placeholder="INV-001" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 font-mono transition" value={newTransaction.invoice} onChange={e => setNewTransaction({...newTransaction, invoice: e.target.value})} /></div>
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Payment Date</label><input type="date" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 transition" value={newTransaction.paymentDate} onChange={e => setNewTransaction({...newTransaction, paymentDate: e.target.value})} /></div>
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Status</label><select className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 bg-white transition" value={newTransaction.status} onChange={e => setNewTransaction({...newTransaction, status: e.target.value})}>{BUDGET_STATUSES.map(st => <option key={st} value={st}>{st}</option>)}</select></div>
