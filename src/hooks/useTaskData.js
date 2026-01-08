@@ -44,6 +44,11 @@ export const useTaskData = (currentUser) => {
   };
 
   const addTransaction = (t) => setTransactions([t, ...transactions]);
+
+  const updateTransaction = (id, updates) => {
+      setTransactions(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
+    };
+
   const deleteTransaction = (id) => setTransactions(prev => prev.filter(t => t.id !== id));
 
   const addAlbum = (a) => setAlbums([{ ...a, id: Date.now().toString() }, ...albums]);

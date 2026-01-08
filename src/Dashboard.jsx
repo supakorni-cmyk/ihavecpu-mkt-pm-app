@@ -92,6 +92,7 @@ export default function Dashboard() {
             transactions={data.transactions} 
             onAdd={data.addTransaction} 
             onDelete={data.deleteTransaction} 
+            onUpdate={data.updateTransaction}
           />
         )}
 

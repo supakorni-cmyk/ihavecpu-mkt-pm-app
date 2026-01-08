@@ -1,5 +1,5 @@
 // src/components/views/BudgetView.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -18,7 +18,7 @@ import { BUDGET_CATEGORIES, formatDate } from '../../utils/constants';
 const TOTAL_BUDGET_CONST = 33000000;
 const BUDGET_STATUSES = ['Pending', 'Follow-up', 'Complete'];
 
-const BudgetView = ({ transactions, onAdd, onDelete }) => {
+const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
     const [activeTab, setActiveTab] = useState('overview');
     const [isAddOpen, setIsAddOpen] = useState(false);
     
@@ -31,6 +31,7 @@ const BudgetView = ({ transactions, onAdd, onDelete }) => {
         description: '', 
         amount: '',
         company: '', 
+        email: '',
         invoice: '', 
         paymentDate: '', 
         status: 'Pending', 
@@ -82,6 +83,7 @@ const BudgetView = ({ transactions, onAdd, onDelete }) => {
             description: '', 
             amount: '', 
             company: '', 
+            email: '',
             invoice: '', 
             paymentDate: '', 
             status: 'Pending', 
@@ -186,7 +188,7 @@ const BudgetView = ({ transactions, onAdd, onDelete }) => {
                             </div>
                         </div>
                     ) : (
-                        /* Data Table */
+                        /* EDITABLE TABLE */
                         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                             <table className="w-full text-sm text-left">
                                 <thead className="text-xs text-gray-500 uppercase bg-gray-50 font-bold border-b border-gray-200 sticky top-0 z-10">
@@ -197,7 +199,7 @@ const BudgetView = ({ transactions, onAdd, onDelete }) => {
                                         <th className="px-6 py-4 w-64">Description</th>
                                         <th className="px-6 py-4 text-right">Amount (THB)</th>
                                         <th className="px-6 py-4">Company</th>
-                                        <th className="px-6 py-4">Email</th>
+                                        <th className="px-6 py-4 w-48">Email</th>
                                         <th className="px-6 py-4">Invoice</th>
                                         <th className="px-6 py-4">Payment Date</th>
                                         <th className="px-6 py-4 text-center">Status</th>
@@ -208,19 +210,65 @@ const BudgetView = ({ transactions, onAdd, onDelete }) => {
                                 <tbody className="divide-y divide-gray-100">
                                     {filteredTransactions.map((t) => (
                                         <tr key={t.id} className="hover:bg-blue-50/30 transition-colors group">
-                                            <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">{formatDate(t.date)}</td>
-                                            <td className="px-6 py-4 font-bold text-gray-700">{t.brand}</td>
-                                            <td className="px-6 py-4"><span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-bold uppercase">{t.category}</span></td>
-                                            <td className="px-6 py-4 text-gray-600 truncate max-w-xs" title={t.description}>{t.description}</td>
-                                            <td className={`px-6 py-4 text-right font-mono font-bold ${activeTab === 'income' ? 'text-green-600' : 'text-red-600'}`}>{parseFloat(t.amount).toLocaleString()}</td>
-                                            <td className="px-6 py-4 text-gray-600">{t.company}</td>
-                                            <td className="px-6 py-4 text-gray-600">{t.email}</td>
-                                            <td className="px-6 py-4 text-gray-600 font-mono text-xs">{t.invoice || '-'}</td>
-                                            <td className="px-6 py-4 text-gray-500 whitespace-nowrap">{t.paymentDate ? formatDate(t.paymentDate) : '-'}</td>
-                                            <td className="px-6 py-4 text-center"><span className={`px-3 py-1 rounded-full text-xs font-bold border ${t.status === 'Complete' ? 'bg-green-50 text-green-700 border-green-200' : t.status === 'Follow-up' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : 'bg-gray-50 text-gray-500 border-gray-200'}`}>{t.status}</span></td>
-                                            <td className="px-6 py-4 text-gray-500 italic text-xs truncate max-w-[150px]" title={t.remark}>{t.remark || '-'}</td>
+                                            {/* Date */}
+                                            <td className="px-4 py-4">
+                                                <EditableCell type="date" value={t.date} onSave={(val) => onUpdate(t.id, { date: val })} />
+                                            </td>
+                                            {/* Brand */}
+                                            <td className="px-4 py-4">
+                                                <EditableCell value={t.brand} className="font-bold text-gray-700" onSave={(val) => onUpdate(t.id, { brand: val })} />
+                                            </td>
+                                            {/* Category */}
+                                            <td className="px-4 py-4">
+                                                <EditableCell type="select" options={BUDGET_CATEGORIES} value={t.category} onSave={(val) => onUpdate(t.id, { category: val })} />
+                                            </td>
+                                            {/* Description */}
+                                            <td className="px-4 py-4">
+                                                <EditableCell value={t.description} onSave={(val) => onUpdate(t.id, { description: val })} />
+                                            </td>
+                                            {/* Amount */}
+                                            <td className="px-4 py-4 text-right">
+                                                <EditableCell 
+                                                    type="number" 
+                                                    value={t.amount} 
+                                                    className={`font-mono font-bold text-right ${activeTab === 'income' ? 'text-green-600' : 'text-red-600'}`} 
+                                                    onSave={(val) => onUpdate(t.id, { amount: val })} 
+                                                />
+                                            </td>
+                                            {/* Company */}
+                                            <td className="px-4 py-4">
+                                                <EditableCell value={t.company} onSave={(val) => onUpdate(t.id, { company: val })} />
+                                            </td>
+                                            <td className="px-4 py-4">
+                                                <EditableCell value={t.email} onSave={(val) => onUpdate(t.id, { email: val })} />
+                                            </td>
+                                            {/* Invoice */}
+                                            <td className="px-4 py-4">
+                                                <EditableCell value={t.invoice} className="font-mono text-xs" onSave={(val) => onUpdate(t.id, { invoice: val })} />
+                                            </td>
+                                            {/* Payment Date */}
+                                            <td className="px-4 py-4">
+                                                <EditableCell type="date" value={t.paymentDate} onSave={(val) => onUpdate(t.id, { paymentDate: val })} />
+                                            </td>
+                                            {/* Status */}
+                                            <td className="px-4 py-4 text-center">
+                                                <EditableCell 
+                                                    type="select" 
+                                                    options={BUDGET_STATUSES} 
+                                                    value={t.status} 
+                                                    className={`rounded-full text-xs font-bold border px-2 py-1 ${t.status === 'Complete' ? 'bg-green-50 text-green-700 border-green-200' : t.status === 'Follow-up' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : 'bg-gray-50 text-gray-500 border-gray-200'}`} 
+                                                    onSave={(val) => onUpdate(t.id, { status: val })} 
+                                                />
+                                            </td>
+                                            {/* Remark */}
+                                            <td className="px-4 py-4">
+                                                <EditableCell value={t.remark} className="italic text-gray-500 text-xs" onSave={(val) => onUpdate(t.id, { remark: val })} />
+                                            </td>
+                                            {/* Action */}
                                             <td className="px-6 py-4 text-center">
-                                                <button onClick={() => onDelete(t.id)} className="text-gray-300 hover:text-red-500 transition opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-red-50"><Trash2 size={16} /></button>
+                                                <button onClick={() => onDelete(t.id)} className="text-gray-300 hover:text-red-500 transition opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-red-50">
+                                                    <Trash2 size={16} />
+                                                </button>
                                             </td>
                                         </tr>
                                     ))}
@@ -306,6 +354,51 @@ const SimpleLineChart = ({ data, color = "#C81E23" }) => {
             <div className="absolute top-0 right-0 bg-white/80 px-2 py-1 text-xs font-bold rounded text-gray-500">Max: {maxVal.toLocaleString()}</div>
             <div className="absolute bottom-0 right-0 bg-white/80 px-2 py-1 text-xs font-bold rounded text-gray-500">Min: {minVal.toLocaleString()}</div>
         </div>
+    );
+};
+
+// --- NEW: Editable Cell Component ---
+const EditableCell = ({ value, onSave, type = "text", options = null, className = "" }) => {
+    const [localValue, setLocalValue] = useState(value || "");
+
+    useEffect(() => {
+        setLocalValue(value || "");
+    }, [value]);
+
+    const handleBlur = () => {
+        if (localValue !== value) {
+            onSave(localValue);
+        }
+    };
+
+    // Common styling for inputs to make them look clean in the table
+    const baseStyle = `w-full bg-transparent outline-none focus:bg-white focus:ring-2 focus:ring-blue-200 rounded px-1 transition-all ${className}`;
+
+    if (type === 'select' && options) {
+        return (
+            <select 
+                value={localValue} 
+                onChange={(e) => {
+                    setLocalValue(e.target.value);
+                    onSave(e.target.value); // Selects save immediately
+                }}
+                className={`${baseStyle} cursor-pointer appearance-none`}
+            >
+                {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+            </select>
+        );
+    }
+
+    return (
+        <input 
+            type={type}
+            value={localValue} 
+            onChange={(e) => setLocalValue(e.target.value)} 
+            onBlur={handleBlur}
+            onKeyDown={(e) => e.key === 'Enter' && e.target.blur()}
+            className={baseStyle}
+            placeholder="-"
+        />
     );
 };
 
