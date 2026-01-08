@@ -1,4 +1,5 @@
 // src/utils/constants.js
+
 export const TAG_COLORS = { 
   'Planning': 'bg-pink-100 text-pink-600', 
   'Project': 'bg-purple-100 text-purple-600', 
@@ -14,7 +15,22 @@ export const COLUMNS = [
   { id: 'done', title: 'Done', color: 'bg-green-50' }
 ];
 
-export const formatDate = (dateString) => dateString ? new Date(dateString).toLocaleDateString('en-GB') : 'No Date';
+// This is the array causing your error. Ensure it is exported like this:
+export const BUDGET_CATEGORIES = [
+  'Video Content', 
+  'Website Banner', 
+  'Boost/Ads', 
+  'Etc.', 
+  'Event Support', 
+  'FB Photo Album', 
+  'Guest Speaker', 
+  'Project / MDF', 
+  'Sponsor'
+];
+
+export const formatDate = (dateString) => {
+    return dateString ? new Date(dateString).toLocaleDateString('en-GB') : 'No Date';
+};
 
 export const getSafeRequirements = (task) => {
     if (!task || !task.requirements) return [];
