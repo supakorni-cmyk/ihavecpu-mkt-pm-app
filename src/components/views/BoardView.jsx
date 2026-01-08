@@ -42,7 +42,7 @@ const BoardView = ({
       <header className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-white/80 backdrop-blur-md z-10">
         <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
           THE MOST BEAUTIFUL MARKETING TEAM
-          <Heart size={12} className="text-red-600 fill-red-600" />
+          <Heart size={24} className="text-red-600 fill-red-600" />
         </h2>
         <button 
           onClick={onAddTaskClick} 
