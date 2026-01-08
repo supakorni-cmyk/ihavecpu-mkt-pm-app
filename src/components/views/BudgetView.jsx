@@ -48,7 +48,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
         .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
     
     const netSpending = totalSpending - totalIncome;
-    const budgetBalance = TOTAL_BUDGET_CONST - totalSpending;
+    const budgetBalance = TOTAL_BUDGET_CONST - netSpending;
 
     // Data preparation for Chart
     const sortedTransactions = [...transactions].sort((a, b) => new Date(a.date) - new Date(b.date));
