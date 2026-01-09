@@ -80,7 +80,7 @@ const AddTaskModal = ({ onClose, onAdd }) => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Start Date</label>
-                            <input readOnly type="date" className="w-full border-gray-200 bg-gray-100 rounded-lg px-4 py-3 text-gray-500 cursor-not-allowed" value={newTask.startDate} />
+                            <input type="date" className="w-full border-gray-200 bg-gray-100 rounded-lg px-4 py-3 text-gray-500 cursor-not-allowed" value={newTask.startDate} onChange={e => setNewTask({...newTask, startdate: e.target.value})}/>
                         </div>
                         <div>
                             <label className="text-xs font-bold text-blue-600 uppercase mb-1 block">Due Date</label>

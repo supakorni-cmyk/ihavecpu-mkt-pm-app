@@ -172,6 +172,10 @@ const EditTaskModal = ({ task, onClose, onUpdate, onOpenRequirement }) => {
                                     </select>
                                 </div>
                                 <div>
+                                    <label className="text-xs font-bold text-blue-600 uppercase mb-1 block">Start Date</label>
+                                    <input type="date" className="w-full border-2 border-blue-200 bg-blue-50 rounded p-2 font-bold" value={editedTask.startdate} onChange={e => setEditedTask({...editedTask, startdate: e.target.value})} />
+                                </div>
+                                <div>
                                     <label className="text-xs font-bold text-blue-600 uppercase mb-1 block">Due Date</label>
                                     <input type="date" className="w-full border-2 border-blue-200 bg-blue-50 rounded p-2 font-bold" value={editedTask.deadline} onChange={e => setEditedTask({...editedTask, deadline: e.target.value})} />
                                 </div>
