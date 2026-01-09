@@ -253,10 +253,10 @@ const ReportView = ({ tasks, currentUser }) => {
                                 <h2 className="text-6xl md:text-7xl font-extrabold text-gray-900 leading-tight mb-8">{page.title}</h2>
                                 <div className="w-32 h-2 bg-blue-600 rounded-full mb-10"></div>
                                 <p className="text-gray-600 text-2xl leading-relaxed max-w-4xl">{page.bodyText}</p>
-                                <div className="mt-auto pt-12 opacity-80">
+                                {/* <div className="mt-auto pt-12 opacity-80">
                                     <p className="text-gray-400 text-sm font-medium uppercase tracking-widest">Prepared by</p>
                                     <p className="text-gray-800 font-bold text-xl mt-1">{currentUser?.email || 'Marketing Team'}</p>
-                                </div>
+                                </div> */}
                             </div>
                         )}
 
