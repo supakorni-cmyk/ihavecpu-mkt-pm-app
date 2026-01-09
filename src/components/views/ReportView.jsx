@@ -14,6 +14,8 @@ import {
 // NOTE: Import your local logos here if you have them in src/assets/logos/
 // import intelLogo from '../../assets/logos/intel.svg';
 
+import ihavecpuLogo from '../../assets/logos/ihavecpu.png'
+
 const ReportView = ({ tasks, currentUser }) => {
     // --- Local State ---
     const [selectedBrand, setSelectedBrand] = useState('iHAVECPU');
@@ -49,7 +51,7 @@ const ReportView = ({ tasks, currentUser }) => {
     const activePage = pages.find(p => p.id === activePageId) || pages[0];
 
     const brands = [
-        { name: 'iHAVECPU', color: 'bg-gray-900 text-white', logo: null },
+        { name: 'iHAVECPU', color: 'bg-gray-900 text-white', logo: ihavecpuLogo },
         { name: 'Intel', color: 'bg-blue-600 text-white', logo: null },
         { name: 'AMD', color: 'bg-black text-white', logo: null },
         { name: 'NVIDIA', color: 'bg-green-500 text-white', logo: null },
@@ -327,9 +329,9 @@ const ReportView = ({ tasks, currentUser }) => {
                         )}
 
                         {/* Slide Footer */}
-                        <div className="bg-gray-50 border-t border-gray-100 p-4 text-center text-gray-400 text-xs font-medium uppercase tracking-widest">
+                        {/* <div className="bg-gray-50 border-t border-gray-100 p-4 text-center text-gray-400 text-xs font-medium uppercase tracking-widest">
                             Confidential • Internal Use Only • Slide {index + 1}
-                        </div>
+                        </div> */}
                     </div>
                 ))}
             </div>
