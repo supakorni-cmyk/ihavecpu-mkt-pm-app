@@ -9,8 +9,7 @@ import {
   Edit2, 
   Upload, 
   Image as ImageIcon,
-  X,
-  Clipboard
+  X
 } from 'lucide-react';
 
 // NOTE: Import your local logos here if you have them in src/assets/logos/
@@ -78,25 +77,11 @@ const ReportView = ({ tasks, currentUser }) => {
 
     // --- NEW: Custom Logo Handlers ---
     const handleLogoUpload = (e) => {
-        const file = e.target.files[0];
+        const file = e.target.files && e.target.files[0];
         if (file) {
             const reader = new FileReader();
             reader.onloadend = () => setCustomLogo(reader.result);
             reader.readAsDataURL(file);
-        }
-    };
-
-    const handleLogoPaste = (e) => {
-        const items = e.clipboardData.items;
-        for (let i = 0; i < items.length; i++) {
-            if (items[i].type.indexOf("image") !== -1) {
-                const blob = items[i].getAsFile();
-                const reader = new FileReader();
-                reader.onloadend = () => setCustomLogo(reader.result);
-                reader.readAsDataURL(blob);
-                e.preventDefault(); // Prevent default paste behavior
-                break;
-            }
         }
     };
 
@@ -129,6 +114,11 @@ const ReportView = ({ tasks, currentUser }) => {
     };
 
     const currentBrandConfig = brands.find(b => b.name === selectedBrand) || brands[0];
+
+    // Priority: Custom Logo > Brand Logo > null (renders text)
+    const activeLogo = customLogo || currentBrandConfig.logo;
+
+    if (!pages || pages.length === 0) return <div>Loading...</div>;
 
     return (
         <div className="p-6 md:p-10 h-full w-full bg-gray-100 overflow-y-auto">
@@ -198,11 +188,15 @@ const ReportView = ({ tasks, currentUser }) => {
                                 </div>
                             </div>
 
-                            {/* 2. Custom Logo Upload/Paste Area */}
+                            {/* CUSTOM LOGO UPLOAD (No Paste) */}
                             <div>
                                 <label className="flex justify-between items-center text-xs font-bold text-gray-500 uppercase mb-3">
                                     <span>Brand Logo</span>
-                                    {customLogo && <button onClick={() => setCustomLogo(null)} className="text-red-500 text-xs hover:underline flex items-center gap-1"><X size={12}/> Clear</button>}
+                                    {customLogo && (
+                                        <button onClick={() => setCustomLogo(null)} className="text-red-500 text-xs hover:underline flex items-center gap-1">
+                                            <X size={12}/> Clear
+                                        </button>
+                                    )}
                                 </label>
                                 
                                 {customLogo ? (
@@ -213,19 +207,18 @@ const ReportView = ({ tasks, currentUser }) => {
                                         </div>
                                     </div>
                                 ) : (
-                                    <div 
-                                        className="border-2 border-dashed border-gray-300 rounded-xl p-4 text-center relative group hover:bg-blue-50 hover:border-blue-300 transition cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        onPaste={handleLogoPaste}
-                                        tabIndex="0" // Makes the div focusable for paste events
-                                        title="Click then Ctrl+V to paste"
-                                    >
-                                        <input type="file" accept="image/*" onChange={handleLogoUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                                    <div className="border-2 border-dashed border-gray-300 rounded-xl p-4 text-center relative group hover:bg-blue-50 hover:border-blue-300 transition cursor-pointer">
+                                        <input 
+                                            type="file" 
+                                            accept="image/*" 
+                                            onChange={handleLogoUpload} 
+                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" 
+                                        />
                                         <div className="flex flex-col items-center justify-center text-gray-400 group-hover:text-blue-500">
                                             <div className="flex gap-2 mb-1">
                                                 <Upload size={20} />
-                                                <Clipboard size={20} />
                                             </div>
-                                            <span className="text-xs font-medium">Upload or Paste Logo</span>
+                                            <span className="text-xs font-medium">Click to Upload Logo</span>
                                         </div>
                                     </div>
                                 )}
@@ -363,7 +356,7 @@ const ReportView = ({ tasks, currentUser }) => {
                                         <h2 className="text-5xl font-extrabold text-gray-800 leading-tight">{page.title}</h2>
                                     </div>
                                     <div className="pt-4"><p className="text-gray-600 text-lg leading-relaxed whitespace-pre-wrap">{page.bodyText}</p></div>
-                                    <div className="pt-8 mt-auto"><p className="text-gray-400 text-sm font-medium">Prepared by</p><p className="text-gray-800 font-bold text-lg">{currentUser?.email || 'Marketing Team'}</p></div>
+                                    {/* <div className="pt-8 mt-auto"><p className="text-gray-400 text-sm font-medium">Prepared by</p><p className="text-gray-800 font-bold text-lg">{currentUser?.email || 'Marketing Team'}</p></div> */}
                                 </div>
 
                                 <div className="flex-1 h-full flex flex-col gap-4">
