@@ -60,10 +60,24 @@ export const useTaskData = (currentUser) => {
   const addPhoto = (p) => setPhotos([{ ...p, id: Date.now().toString() }, ...photos]);
   const deletePhoto = (id) => setPhotos(prev => prev.filter(p => p.id !== id));
 
+  // NEW: Add Leaves State
+  const [leaves, setLeaves] = usePersistedState('leaves', []);
+
+  const addLeave = (leave) => {
+    setLeaves([{ ...leave, id: Date.now().toString(), createdAt: new Date() }, ...leaves]);
+  };
+
+  const deleteLeave = (id) => {
+    if (confirm("Delete this leave record?")) {
+      setLeaves(prev => prev.filter(l => l.id !== id));
+    }
+  };
+
   return {
     tasks, addTask, updateTask, deleteTask, moveTask,
     transactions, addTransaction, deleteTransaction,
     albums, addAlbum, deleteAlbum,
-    photos, addPhoto, deletePhoto
+    photos, addPhoto, deletePhoto,
+    leaves, addLeave, deleteLeave // <--- Export new functions
   };
 };

@@ -15,6 +15,7 @@ import BoardView from './components/views/BoardView';
 import CalendarView from './components/views/CalendarView';
 import PhotoAlbumView from './components/views/AlbumView';
 import BudgetRecorderView from './components/views/BudgetView';
+import LeaveView from './components/views/LeaveView';
 import SelfHealView from './components/views/SelfHealView';
 import ReportView from './components/views/ReportView';
 
@@ -93,6 +94,15 @@ export default function Dashboard() {
             onAdd={data.addTransaction} 
             onDelete={data.deleteTransaction} 
             onUpdate={data.updateTransaction}
+          />
+        )}
+
+        {/* ADD THIS BLOCK */}
+        {currentView === 'leave' && (
+          <LeaveView 
+            leaves={data.leaves} 
+            onAdd={data.addLeave} 
+            onDelete={data.deleteLeave} 
           />
         )}
 
