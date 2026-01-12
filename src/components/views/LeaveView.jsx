@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 
 // --- CONSTANTS ---
-const EMPLOYEES = ['Pae', 'Boom', 'Yuiizzz', 'Somruk', 'Bum', 'Mham', 'Manow'];
+const EMPLOYEES = ['Pae', 'Boom', 'Yuiizzz', 'Somruk', 'Bum', 'Mham', 'Lemon'];
 const LEAVE_TYPES = ['Annual Leave', 'Sick Leave', 'Personal Leave', 'Unpaid Leave', 'Other'];
 
 // --- INDIVIDUAL QUOTAS (Randomized for demo) ---
@@ -22,7 +22,7 @@ const EMPLOYEE_QUOTAS = {
     'Somruk':   { 'Annual Leave': 10, 'Sick Leave': 45, 'Personal Leave': 8 },
     'Bum':      { 'Annual Leave': 6,  'Sick Leave': 30, 'Personal Leave': 6 },
     'Mham':     { 'Annual Leave': 15, 'Sick Leave': 30, 'Personal Leave': 12 },
-    'Manow':    { 'Annual Leave': 7,  'Sick Leave': 30, 'Personal Leave': 6 },
+    'Lemon':    { 'Annual Leave': 7,  'Sick Leave': 30, 'Personal Leave': 6 },
 };
 
 const WORK_DAY_HOURS = 8;
