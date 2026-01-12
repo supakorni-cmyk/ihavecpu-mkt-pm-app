@@ -13,9 +13,11 @@ import {
   Link as LinkIcon 
 } from 'lucide-react';
 
+import ihavecpuLogo from '../../assets/logos/ihavecpu.png'
+
 // --- CONSTANTS ---
 const BRANDS = [
-    { name: 'iHAVECPU', color: 'bg-gray-900 text-white', logo: null },
+    { name: 'iHAVECPU', color: 'bg-gray-900 text-white', logo: ihavecpuLogo },
     { name: 'Intel', color: 'bg-blue-600 text-white', logo: null },
     { name: 'AMD', color: 'bg-black text-white', logo: null },
     { name: 'NVIDIA', color: 'bg-green-500 text-white', logo: null },
@@ -150,7 +152,7 @@ const ReportView = ({ tasks, currentUser }) => {
                     </h2>
                     <div className="flex gap-3">
                         <button onClick={() => window.print()} className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold shadow-lg flex items-center gap-2 hover:bg-blue-700 transition">
-                            <Printer size={18} /> Export PDF
+                            <Printer size={18} /> Export to PDF
                         </button>
                     </div>
                 </div>
@@ -192,7 +194,7 @@ const ReportView = ({ tasks, currentUser }) => {
                         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 space-y-6">
                             {/* Brand Color */}
                             <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-3">Select Brand Color</label>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-3">Select Brand</label>
                                 <div className="grid grid-cols-2 gap-2">
                                     {BRANDS.map(brand => (
                                         <button 
@@ -325,8 +327,8 @@ const ReportView = ({ tasks, currentUser }) => {
                                 <div className="w-32 h-2 bg-blue-600 rounded-full mb-10"></div>
                                 <p className="text-gray-600 text-2xl leading-relaxed max-w-4xl">{page.bodyText}</p>
                                 <div className="mt-auto pt-12 opacity-80">
-                                    <p className="text-gray-400 text-sm font-medium uppercase tracking-widest">Prepared by</p>
-                                    <p className="text-gray-800 font-bold text-xl mt-1">{currentUser?.email || 'Marketing Team'}</p>
+                                    {/* <p className="text-gray-400 text-sm font-medium uppercase tracking-widest">Prepared by</p>
+                                    <p className="text-gray-800 font-bold text-xl mt-1">{currentUser?.email || 'Marketing Team'}</p> */}
                                 </div>
                             </div>
                         )}
@@ -364,7 +366,7 @@ const ReportView = ({ tasks, currentUser }) => {
                                         <h2 className="text-5xl font-extrabold text-gray-800 leading-tight">{page.title}</h2>
                                     </div>
                                     <div className="pt-4"><p className="text-gray-600 text-lg leading-relaxed whitespace-pre-wrap">{page.bodyText}</p></div>
-                                    <div className="pt-8 mt-auto"><p className="text-gray-400 text-sm font-medium">Prepared by</p><p className="text-gray-800 font-bold text-lg">{currentUser?.email || 'Marketing Team'}</p></div>
+                                    {/* <div className="pt-8 mt-auto"><p className="text-gray-400 text-sm font-medium">Prepared by</p><p className="text-gray-800 font-bold text-lg">{currentUser?.email || 'Marketing Team'}</p></div> */}
                                 </div>
 
                                 <div className="flex-1 h-full flex flex-col gap-4">
@@ -395,9 +397,9 @@ const ReportView = ({ tasks, currentUser }) => {
                         )}
 
                         {/* Slide Footer */}
-                        <div className="bg-gray-50 border-t border-gray-100 p-4 text-center text-gray-400 text-xs font-medium uppercase tracking-widest">
+                        {/* <div className="bg-gray-50 border-t border-gray-100 p-4 text-center text-gray-400 text-xs font-medium uppercase tracking-widest">
                             Confidential • Internal Use Only • Slide {index + 1}
-                        </div>
+                        </div> */}
                     </div>
                 ))}
             </div>
