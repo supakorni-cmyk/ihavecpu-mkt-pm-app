@@ -5,15 +5,27 @@ import {
   Plus, 
   X, 
   Trash2, 
-  Calendar, 
-  Clock, 
   Users, 
-  FileText 
+  FileText,
+  CheckCircle2,
+  Clock
 } from 'lucide-react';
 
 // --- CONSTANTS ---
 const EMPLOYEES = ['Pae', 'Boom', 'Yuiizzz', 'Somruk', 'Bum', 'Mham', 'Manow'];
 const LEAVE_TYPES = ['Annual Leave', 'Sick Leave', 'Personal Leave', 'Unpaid Leave', 'Other'];
+
+// Standard Quotas (in Days)
+const QUOTAS = {
+    'Annual Leave': 6,
+    'Sick Leave': 30,
+    'Personal Leave': 6,
+    // Unpaid and Other are usually treated as unlimited or special cases
+    'Unpaid Leave': Infinity,
+    'Other': Infinity
+};
+
+const WORK_DAY_HOURS = 8;
 
 const LeaveView = ({ leaves, onAdd, onDelete }) => {
     const [activeTab, setActiveTab] = useState('overview');
@@ -26,6 +38,7 @@ const LeaveView = ({ leaves, onAdd, onDelete }) => {
         otherType: '',
         startDate: '',
         endDate: '',
+        isFullDay: false, // New Checkbox State
         startTime: '',
         endTime: '',
         duration: '',
@@ -35,29 +48,70 @@ const LeaveView = ({ leaves, onAdd, onDelete }) => {
     // --- HANDLERS ---
     const handleSubmit = (e) => {
         e.preventDefault();
-        // Use "OtherType" if "Other" is selected, otherwise use "type"
+        
         const finalType = formData.type === 'Other' ? formData.otherType : formData.type;
         
+        // Calculate duration logic
+        let finalDuration = formData.duration;
+        
+        // If Full Day is checked
+        if (formData.isFullDay) {
+            // Calculate days difference
+            const start = new Date(formData.startDate);
+            const end = new Date(formData.endDate);
+            const diffTime = Math.abs(end - start);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 to include start date
+            
+            // Set duration to days * 8 hours
+            finalDuration = diffDays * WORK_DAY_HOURS;
+        }
+
         onAdd({
             ...formData,
-            finalType: finalType || 'Unknown' // Store processed type
+            duration: finalDuration,
+            finalType: finalType || 'Unknown',
+            // Clear times if full day
+            startTime: formData.isFullDay ? '09:00' : formData.startTime,
+            endTime: formData.isFullDay ? '18:00' : formData.endTime,
         });
         
         setIsModalOpen(false);
-        // Reset Form
+        resetForm();
+    };
+
+    const resetForm = () => {
         setFormData({
             name: EMPLOYEES[0], type: LEAVE_TYPES[0], otherType: '',
-            startDate: '', endDate: '', startTime: '', endTime: '',
-            duration: '', details: ''
+            startDate: '', endDate: '', isFullDay: false,
+            startTime: '', endTime: '', duration: '', details: ''
         });
     };
 
     // --- CALCULATIONS FOR OVERVIEW ---
     const getEmployeeStats = (employeeName) => {
         const employeeLeaves = leaves.filter(l => l.name === employeeName);
+        
+        // Group by type
+        const usageByType = {};
+        LEAVE_TYPES.forEach(type => usageByType[type] = 0);
+
+        employeeLeaves.forEach(leave => {
+            // Map specific types back to main categories if needed, or stick to saved type
+            // Note: If "Other" had a custom name, we group it under "Other" for quota summary
+            let typeKey = LEAVE_TYPES.includes(leave.type) ? leave.type : 'Other';
+            if (leave.type === 'Other') typeKey = 'Other';
+
+            const hours = parseFloat(leave.duration) || 0;
+            const days = hours / WORK_DAY_HOURS;
+            
+            if (usageByType[typeKey] !== undefined) {
+                usageByType[typeKey] += days;
+            }
+        });
+
         const totalHours = employeeLeaves.reduce((acc, curr) => acc + (parseFloat(curr.duration) || 0), 0);
-        const days = (totalHours / 8).toFixed(1); // Assuming 8 hour work day
-        return { totalHours, days, count: employeeLeaves.length };
+        
+        return { usageByType, totalHours, count: employeeLeaves.length };
     };
 
     return (
@@ -92,29 +146,61 @@ const LeaveView = ({ leaves, onAdd, onDelete }) => {
                     
                     {/* --- TAB: OVERVIEW --- */}
                     {activeTab === 'overview' && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 animate-in fade-in slide-in-from-bottom-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4">
                             {EMPLOYEES.map(emp => {
                                 const stats = getEmployeeStats(emp);
                                 return (
-                                    <div key={emp} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 hover:shadow-md transition">
-                                        <div className="flex items-center gap-4 mb-4">
-                                            <div className="h-12 w-12 rounded-full bg-gray-100 flex items-center justify-center text-lg font-bold text-gray-600 border border-gray-200">
+                                    <div key={emp} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 hover:shadow-md transition flex flex-col">
+                                        <div className="flex items-center gap-4 mb-6">
+                                            <div className="h-12 w-12 rounded-full bg-orange-50 flex items-center justify-center text-lg font-bold text-orange-600 border border-orange-100">
                                                 {emp.charAt(0)}
                                             </div>
                                             <div>
                                                 <h3 className="font-bold text-gray-800 text-lg">{emp}</h3>
-                                                <span className="text-xs text-gray-400 font-medium">{stats.count} Records</span>
+                                                <span className="text-xs text-gray-400 font-medium">Total: {(stats.totalHours / 8).toFixed(1)} Days Taken</span>
                                             </div>
                                         </div>
-                                        <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-100">
-                                            <div>
-                                                <span className="text-xs font-bold text-gray-400 uppercase block mb-1">Total Hours</span>
-                                                <span className="text-2xl font-black text-orange-600">{stats.totalHours}</span>
-                                            </div>
-                                            <div>
-                                                <span className="text-xs font-bold text-gray-400 uppercase block mb-1">Approx. Days</span>
-                                                <span className="text-2xl font-bold text-gray-800">{stats.days}</span>
-                                            </div>
+                                        
+                                        {/* Quota Table */}
+                                        <div className="flex-1 overflow-hidden">
+                                            <table className="w-full text-xs text-left">
+                                                <thead className="text-gray-400 font-semibold border-b border-gray-100">
+                                                    <tr>
+                                                        <th className="pb-2">Type</th>
+                                                        <th className="pb-2 text-center">Quota</th>
+                                                        <th className="pb-2 text-center">Used</th>
+                                                        <th className="pb-2 text-right">Balance</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-gray-50">
+                                                    {['Annual Leave', 'Sick Leave', 'Personal Leave'].map(type => {
+                                                        const quota = QUOTAS[type];
+                                                        const used = stats.usageByType[type] || 0;
+                                                        const remaining = quota - used;
+                                                        const isLow = remaining < 2;
+
+                                                        return (
+                                                            <tr key={type} className="group">
+                                                                <td className="py-2.5 font-medium text-gray-600">{type.replace(' Leave', '')}</td>
+                                                                <td className="py-2.5 text-center text-gray-400">{quota}</td>
+                                                                <td className="py-2.5 text-center font-bold text-gray-800">{used > 0 ? used.toFixed(1) : '-'}</td>
+                                                                <td className={`py-2.5 text-right font-bold ${isLow ? 'text-red-500' : 'text-green-600'}`}>
+                                                                    {remaining.toFixed(1)}
+                                                                </td>
+                                                            </tr>
+                                                        )
+                                                    })}
+                                                    {/* Other/Unpaid Summary Row */}
+                                                    <tr>
+                                                        <td className="py-2.5 font-medium text-gray-400">Other/Unpaid</td>
+                                                        <td className="py-2.5 text-center text-gray-300">∞</td>
+                                                        <td className="py-2.5 text-center font-bold text-gray-500">
+                                                            {((stats.usageByType['Unpaid Leave'] || 0) + (stats.usageByType['Other'] || 0)).toFixed(1)}
+                                                        </td>
+                                                        <td className="py-2.5 text-right text-gray-300">-</td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
                                         </div>
                                     </div>
                                 );
@@ -131,8 +217,8 @@ const LeaveView = ({ leaves, onAdd, onDelete }) => {
                                         <th className="px-6 py-4">Name</th>
                                         <th className="px-6 py-4">Type</th>
                                         <th className="px-6 py-4">Dates</th>
-                                        <th className="px-6 py-4">Time</th>
-                                        <th className="px-6 py-4 text-center">Duration (Hr)</th>
+                                        <th className="px-6 py-4 text-center">Full Day</th>
+                                        <th className="px-6 py-4 text-center">Duration</th>
                                         <th className="px-6 py-4">Details</th>
                                         <th className="px-6 py-4 text-center">Action</th>
                                     </tr>
@@ -157,10 +243,17 @@ const LeaveView = ({ leaves, onAdd, onDelete }) => {
                                                         )}
                                                     </div>
                                                 </td>
-                                                <td className="px-6 py-4 text-xs font-mono text-gray-500">
-                                                    {leave.startTime ? `${leave.startTime} - ${leave.endTime || '?'}` : '-'}
+                                                <td className="px-6 py-4 text-center">
+                                                    {leave.isFullDay ? (
+                                                        <span className="inline-flex items-center justify-center w-6 h-6 bg-green-100 text-green-600 rounded-full"><CheckCircle2 size={14}/></span>
+                                                    ) : (
+                                                        <span className="text-xs text-gray-400 font-mono">{leave.startTime} - {leave.endTime}</span>
+                                                    )}
                                                 </td>
-                                                <td className="px-6 py-4 text-center font-bold text-gray-800">{leave.duration}</td>
+                                                <td className="px-6 py-4 text-center">
+                                                    <span className="font-bold text-gray-800">{leave.duration}</span>
+                                                    <span className="text-xs text-gray-400 ml-1">hrs</span>
+                                                </td>
                                                 <td className="px-6 py-4 text-gray-500 italic truncate max-w-xs">{leave.details || '-'}</td>
                                                 <td className="px-6 py-4 text-center">
                                                     <button onClick={() => onDelete(leave.id)} className="text-gray-300 hover:text-red-500 transition p-1 hover:bg-red-50 rounded">
@@ -229,21 +322,37 @@ const LeaveView = ({ leaves, onAdd, onDelete }) => {
                                 </div>
                             </div>
 
-                            {/* Row 3: Time & Duration */}
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-gray-50 p-4 rounded-xl border border-gray-100">
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Start Time (Opt)</label>
-                                    <input type="time" className="w-full border rounded-lg p-2 outline-none focus:ring-2 focus:ring-orange-500 bg-white" value={formData.startTime} onChange={e => setFormData({...formData, startTime: e.target.value})} />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-400 uppercase mb-2">End Time (Opt)</label>
-                                    <input type="time" className="w-full border rounded-lg p-2 outline-none focus:ring-2 focus:ring-orange-500 bg-white" value={formData.endTime} onChange={e => setFormData({...formData, endTime: e.target.value})} />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-orange-600 uppercase mb-2">Duration (Hours)</label>
-                                    <input required type="number" step="0.5" className="w-full border-2 border-orange-100 rounded-lg p-2 outline-none focus:ring-2 focus:ring-orange-500 font-bold text-center text-lg" placeholder="0.0" value={formData.duration} onChange={e => setFormData({...formData, duration: e.target.value})} />
-                                </div>
+                            {/* FULL DAY TOGGLE */}
+                            <div className="flex items-center gap-2 bg-orange-50 p-3 rounded-lg border border-orange-100">
+                                <input 
+                                    type="checkbox" 
+                                    id="fullDayCheck"
+                                    className="w-5 h-5 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                                    checked={formData.isFullDay} 
+                                    onChange={e => setFormData({...formData, isFullDay: e.target.checked})}
+                                />
+                                <label htmlFor="fullDayCheck" className="text-sm font-bold text-gray-700 cursor-pointer">
+                                    Full Day (Skip time input)
+                                </label>
                             </div>
+
+                            {/* Row 3: Time & Duration (HIDDEN IF FULL DAY) */}
+                            {!formData.isFullDay && (
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-gray-50 p-4 rounded-xl border border-gray-100 animate-in fade-in slide-in-from-top-2">
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Start Time</label>
+                                        <input type="time" className="w-full border rounded-lg p-2 outline-none focus:ring-2 focus:ring-orange-500 bg-white" value={formData.startTime} onChange={e => setFormData({...formData, startTime: e.target.value})} />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-400 uppercase mb-2">End Time</label>
+                                        <input type="time" className="w-full border rounded-lg p-2 outline-none focus:ring-2 focus:ring-orange-500 bg-white" value={formData.endTime} onChange={e => setFormData({...formData, endTime: e.target.value})} />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-orange-600 uppercase mb-2">Duration (Hours)</label>
+                                        <input required type="number" step="0.5" className="w-full border-2 border-orange-100 rounded-lg p-2 outline-none focus:ring-2 focus:ring-orange-500 font-bold text-center text-lg" placeholder="0.0" value={formData.duration} onChange={e => setFormData({...formData, duration: e.target.value})} />
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Details */}
                             <div>
