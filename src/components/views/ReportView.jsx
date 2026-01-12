@@ -8,7 +8,9 @@ import {
   Trash2, 
   Edit2, 
   Upload, 
-  Image as ImageIcon 
+  Image as ImageIcon,
+  X,
+  Clipboard
 } from 'lucide-react';
 
 // NOTE: Import your local logos here if you have them in src/assets/logos/
@@ -361,7 +363,7 @@ const ReportView = ({ tasks, currentUser }) => {
                                         <h2 className="text-5xl font-extrabold text-gray-800 leading-tight">{page.title}</h2>
                                     </div>
                                     <div className="pt-4"><p className="text-gray-600 text-lg leading-relaxed whitespace-pre-wrap">{page.bodyText}</p></div>
-                                    {/* <div className="pt-8 mt-auto"><p className="text-gray-400 text-sm font-medium">Prepared by</p><p className="text-gray-800 font-bold text-lg">{currentUser?.email || 'Marketing Team'}</p></div> */}
+                                    <div className="pt-8 mt-auto"><p className="text-gray-400 text-sm font-medium">Prepared by</p><p className="text-gray-800 font-bold text-lg">{currentUser?.email || 'Marketing Team'}</p></div>
                                 </div>
 
                                 <div className="flex-1 h-full flex flex-col gap-4">
