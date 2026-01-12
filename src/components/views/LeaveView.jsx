@@ -8,21 +8,21 @@ import {
   Users, 
   FileText,
   CheckCircle2,
-  Clock
 } from 'lucide-react';
 
 // --- CONSTANTS ---
-const EMPLOYEES = ['Pae', 'Boom', 'Yuiizzz', 'Somruk', 'Bum', 'Mham', 'Manow'];
+const EMPLOYEES = ['Pae', 'Boom', 'Yuiizzz', 'Somruk', 'Bum', 'Mham', 'Lemon'];
 const LEAVE_TYPES = ['Annual Leave', 'Sick Leave', 'Personal Leave', 'Unpaid Leave', 'Other'];
 
-// Standard Quotas (in Days)
-const QUOTAS = {
-    'Annual Leave': 6,
-    'Sick Leave': 30,
-    'Personal Leave': 6,
-    // Unpaid and Other are usually treated as unlimited or special cases
-    'Unpaid Leave': Infinity,
-    'Other': Infinity
+// --- INDIVIDUAL QUOTAS (Randomized for demo) ---
+const EMPLOYEE_QUOTAS = {
+    'Pae':      { 'Annual Leave': 12, 'Sick Leave': 30, 'Personal Leave': 6 },
+    'Boom':     { 'Annual Leave': 6,  'Sick Leave': 30, 'Personal Leave': 10 },
+    'Yuiizzz':  { 'Annual Leave': 8,  'Sick Leave': 30, 'Personal Leave': 6 },
+    'Somruk':   { 'Annual Leave': 10, 'Sick Leave': 45, 'Personal Leave': 8 },
+    'Bum':      { 'Annual Leave': 6,  'Sick Leave': 30, 'Personal Leave': 6 },
+    'Mham':     { 'Annual Leave': 15, 'Sick Leave': 30, 'Personal Leave': 12 },
+    'Lemon':    { 'Annual Leave': 7,  'Sick Leave': 30, 'Personal Leave': 6 },
 };
 
 const WORK_DAY_HOURS = 8;
