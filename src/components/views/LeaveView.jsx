@@ -7,11 +7,11 @@ import {
   Trash2, 
   Users, 
   FileText,
-  CheckCircle2,
+  CheckCircle2
 } from 'lucide-react';
 
 // --- CONSTANTS ---
-const EMPLOYEES = ['Pae', 'Boom', 'Yuiizzz', 'Somruk', 'Bum', 'Mham', 'Lemon'];
+const EMPLOYEES = ['Pae', 'Boom', 'Yuiizzz', 'Somruk', 'Bum', 'Mham', 'Manow'];
 const LEAVE_TYPES = ['Annual Leave', 'Sick Leave', 'Personal Leave', 'Unpaid Leave', 'Other'];
 
 // --- INDIVIDUAL QUOTAS (Randomized for demo) ---
@@ -22,7 +22,7 @@ const EMPLOYEE_QUOTAS = {
     'Somruk':   { 'Annual Leave': 10, 'Sick Leave': 45, 'Personal Leave': 8 },
     'Bum':      { 'Annual Leave': 6,  'Sick Leave': 30, 'Personal Leave': 6 },
     'Mham':     { 'Annual Leave': 15, 'Sick Leave': 30, 'Personal Leave': 12 },
-    'Lemon':    { 'Annual Leave': 7,  'Sick Leave': 30, 'Personal Leave': 6 },
+    'Manow':    { 'Annual Leave': 7,  'Sick Leave': 30, 'Personal Leave': 6 },
 };
 
 const WORK_DAY_HOURS = 8;
@@ -38,7 +38,7 @@ const LeaveView = ({ leaves, onAdd, onDelete }) => {
         otherType: '',
         startDate: '',
         endDate: '',
-        isFullDay: false, // New Checkbox State
+        isFullDay: false, 
         startTime: '',
         endTime: '',
         duration: '',
@@ -56,13 +56,11 @@ const LeaveView = ({ leaves, onAdd, onDelete }) => {
         
         // If Full Day is checked
         if (formData.isFullDay) {
-            // Calculate days difference
             const start = new Date(formData.startDate);
             const end = new Date(formData.endDate);
             const diffTime = Math.abs(end - start);
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 to include start date
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; 
             
-            // Set duration to days * 8 hours
             finalDuration = diffDays * WORK_DAY_HOURS;
         }
 
@@ -70,7 +68,6 @@ const LeaveView = ({ leaves, onAdd, onDelete }) => {
             ...formData,
             duration: finalDuration,
             finalType: finalType || 'Unknown',
-            // Clear times if full day
             startTime: formData.isFullDay ? '09:00' : formData.startTime,
             endTime: formData.isFullDay ? '18:00' : formData.endTime,
         });
@@ -91,13 +88,10 @@ const LeaveView = ({ leaves, onAdd, onDelete }) => {
     const getEmployeeStats = (employeeName) => {
         const employeeLeaves = leaves.filter(l => l.name === employeeName);
         
-        // Group by type
         const usageByType = {};
         LEAVE_TYPES.forEach(type => usageByType[type] = 0);
 
         employeeLeaves.forEach(leave => {
-            // Map specific types back to main categories if needed, or stick to saved type
-            // Note: If "Other" had a custom name, we group it under "Other" for quota summary
             let typeKey = LEAVE_TYPES.includes(leave.type) ? leave.type : 'Other';
             if (leave.type === 'Other') typeKey = 'Other';
 
@@ -146,9 +140,12 @@ const LeaveView = ({ leaves, onAdd, onDelete }) => {
                     
                     {/* --- TAB: OVERVIEW --- */}
                     {activeTab === 'overview' && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 animate-in fade-in slide-in-from-bottom-4">
                             {EMPLOYEES.map(emp => {
                                 const stats = getEmployeeStats(emp);
+                                // Get this specific employee's quota object
+                                const personQuota = EMPLOYEE_QUOTAS[emp] || { 'Annual Leave': 6, 'Sick Leave': 30, 'Personal Leave': 6 };
+
                                 return (
                                     <div key={emp} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 hover:shadow-md transition flex flex-col">
                                         <div className="flex items-center gap-4 mb-6">
@@ -174,7 +171,7 @@ const LeaveView = ({ leaves, onAdd, onDelete }) => {
                                                 </thead>
                                                 <tbody className="divide-y divide-gray-50">
                                                     {['Annual Leave', 'Sick Leave', 'Personal Leave'].map(type => {
-                                                        const quota = QUOTAS[type];
+                                                        const quota = personQuota[type];
                                                         const used = stats.usageByType[type] || 0;
                                                         const remaining = quota - used;
                                                         const isLow = remaining < 2;
