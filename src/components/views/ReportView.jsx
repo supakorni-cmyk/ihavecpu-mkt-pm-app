@@ -20,9 +20,10 @@ const ReportView = ({ tasks, currentUser }) => {
     // --- Local State ---
     const [selectedBrand, setSelectedBrand] = useState('iHAVECPU');
     const [activePageId, setActivePageId] = useState(1);
+    const [customLogo, setCustomLogo] = useState(null);
     
     // Format: dd/mm/yyyy
-    const [reportDate] = useState(new Date().toLocaleDateString('en-GB', {
+    const [reportDate] = useState(new Date().toLocaleDateString('en-GB', {  
         day: '2-digit', month: '2-digit', year: 'numeric'
     }));
     
@@ -73,6 +74,30 @@ const ReportView = ({ tasks, currentUser }) => {
         }
     };
 
+    // --- NEW: Custom Logo Handlers ---
+    const handleLogoUpload = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => setCustomLogo(reader.result);
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const handleLogoPaste = (e) => {
+        const items = e.clipboardData.items;
+        for (let i = 0; i < items.length; i++) {
+            if (items[i].type.indexOf("image") !== -1) {
+                const blob = items[i].getAsFile();
+                const reader = new FileReader();
+                reader.onloadend = () => setCustomLogo(reader.result);
+                reader.readAsDataURL(blob);
+                e.preventDefault(); // Prevent default paste behavior
+                break;
+            }
+        }
+    };
+
     const addNewPage = () => {
         const newId = Date.now();
         setPages([...pages, { 
@@ -114,7 +139,7 @@ const ReportView = ({ tasks, currentUser }) => {
                     </h2>
                     <div className="flex gap-3">
                         <button onClick={() => window.print()} className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold shadow-lg flex items-center gap-2 hover:bg-blue-700 transition">
-                            <Printer size={18} /> Export PDF
+                            <Printer size={18} /> Export to PDF
                         </button>
                     </div>
                 </div>
@@ -152,18 +177,56 @@ const ReportView = ({ tasks, currentUser }) => {
                             </div>
                         </div>
 
-                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-                            <label className="block text-xs font-bold text-gray-500 uppercase mb-3">Select Brand</label>
-                            <div className="grid grid-cols-2 gap-2">
-                                {brands.map(brand => (
-                                    <button 
-                                        key={brand.name} 
-                                        onClick={() => setSelectedBrand(brand.name)} 
-                                        className={`p-2 rounded-lg border-2 text-xs font-bold transition ${selectedBrand === brand.name ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-100 hover:bg-gray-50 text-gray-600'}`}
+                        {/* BRAND & LOGO SELECTOR */}
+                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 space-y-6">
+                            
+                            {/* 1. Standard Brand Color/Name Selection */}
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-3">Select Brand Color</label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {brands.map(brand => (
+                                        <button 
+                                            key={brand.name} 
+                                            onClick={() => setSelectedBrand(brand.name)} 
+                                            className={`p-2 rounded-lg border-2 text-xs font-bold transition ${selectedBrand === brand.name ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-100 hover:bg-gray-50 text-gray-600'}`}
+                                        >
+                                            {brand.name}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* 2. Custom Logo Upload/Paste Area */}
+                            <div>
+                                <label className="flex justify-between items-center text-xs font-bold text-gray-500 uppercase mb-3">
+                                    <span>Brand Logo</span>
+                                    {customLogo && <button onClick={() => setCustomLogo(null)} className="text-red-500 text-xs hover:underline flex items-center gap-1"><X size={12}/> Clear</button>}
+                                </label>
+                                
+                                {customLogo ? (
+                                    <div className="w-full h-24 bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-center p-2 relative group">
+                                        <img src={customLogo} alt="Custom Logo" className="max-h-full max-w-full object-contain" />
+                                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition flex items-center justify-center rounded-lg">
+                                            <button onClick={() => setCustomLogo(null)} className="text-white bg-red-500 p-1.5 rounded-full"><Trash2 size={16}/></button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div 
+                                        className="border-2 border-dashed border-gray-300 rounded-xl p-4 text-center relative group hover:bg-blue-50 hover:border-blue-300 transition cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        onPaste={handleLogoPaste}
+                                        tabIndex="0" // Makes the div focusable for paste events
+                                        title="Click then Ctrl+V to paste"
                                     >
-                                        {brand.name}
-                                    </button>
-                                ))}
+                                        <input type="file" accept="image/*" onChange={handleLogoUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                                        <div className="flex flex-col items-center justify-center text-gray-400 group-hover:text-blue-500">
+                                            <div className="flex gap-2 mb-1">
+                                                <Upload size={20} />
+                                                <Clipboard size={20} />
+                                            </div>
+                                            <span className="text-xs font-medium">Upload or Paste Logo</span>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -298,7 +361,7 @@ const ReportView = ({ tasks, currentUser }) => {
                                         <h2 className="text-5xl font-extrabold text-gray-800 leading-tight">{page.title}</h2>
                                     </div>
                                     <div className="pt-4"><p className="text-gray-600 text-lg leading-relaxed whitespace-pre-wrap">{page.bodyText}</p></div>
-                                    <div className="pt-8 mt-auto"><p className="text-gray-400 text-sm font-medium">Prepared by</p><p className="text-gray-800 font-bold text-lg">{currentUser?.email || 'Marketing Team'}</p></div>
+                                    {/* <div className="pt-8 mt-auto"><p className="text-gray-400 text-sm font-medium">Prepared by</p><p className="text-gray-800 font-bold text-lg">{currentUser?.email || 'Marketing Team'}</p></div> */}
                                 </div>
 
                                 <div className="flex-1 h-full flex flex-col gap-4">
