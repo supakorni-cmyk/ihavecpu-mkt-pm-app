@@ -17,16 +17,32 @@ import {
 
 import ihavecpuLogo from '../../assets/logos/ihavecpu.png'
 
+const BRANDS = [
+        { name: 'iHAVECPU', color: 'bg-gray-900 text-white', logo: ihavecpuLogo },
+        { name: 'Intel', color: 'bg-blue-600 text-white', logo: null },
+        { name: 'AMD', color: 'bg-black text-white', logo: null },
+        { name: 'NVIDIA', color: 'bg-green-500 text-white', logo: null },
+        { name: 'ASUS', color: 'bg-blue-800 text-white', logo: null },
+        { name: 'MSI', color: 'bg-red-600 text-white', logo: null }
+    ];
+
 const ReportView = ({ tasks, currentUser }) => {
     // --- Local State ---
     const [selectedBrand, setSelectedBrand] = useState('iHAVECPU');
     const [activePageId, setActivePageId] = useState(1);
     const [customLogo, setCustomLogo] = useState(null);
     
-    // Format: dd/mm/yyyy
-    const [reportDate] = useState(new Date().toLocaleDateString('en-GB', {  
-        day: '2-digit', month: '2-digit', year: 'numeric'
-    }));
+    // Date Formatter
+    const getFormattedDate = () => {
+        try {
+            return new Date().toLocaleDateString('en-GB', {
+                day: '2-digit', month: '2-digit', year: 'numeric'
+            });
+        } catch (e) {
+            return new Date().toLocaleDateString();
+        }
+    };
+    const [reportDate] = useState(getFormattedDate());
     
     // Default initial slides
     const [pages, setPages] = useState([
@@ -50,38 +66,38 @@ const ReportView = ({ tasks, currentUser }) => {
 
     const dragItem = useRef(null);
     const dragOverItem = useRef(null);
-    const activePage = pages.find(p => p.id === activePageId) || pages[0];
 
-    const brands = [
-        { name: 'iHAVECPU', color: 'bg-gray-900 text-white', logo: ihavecpuLogo },
-        { name: 'Intel', color: 'bg-blue-600 text-white', logo: null },
-        { name: 'AMD', color: 'bg-black text-white', logo: null },
-        { name: 'NVIDIA', color: 'bg-green-500 text-white', logo: null },
-        { name: 'ASUS', color: 'bg-blue-800 text-white', logo: null },
-        { name: 'MSI', color: 'bg-red-600 text-white', logo: null }
-    ];
+    // --- Derived State ---
+    const activePage = useMemo(() => {
+        return pages.find(p => p.id === activePageId) || pages[0] || {};
+    }, [pages, activePageId]);
 
     // --- Handlers ---
-    const updatePage = (field, value) => {
+   const updatePage = (field, value) => {
+        if (!activePage.id) return;
         setPages(prev => prev.map(p => p.id === activePageId ? { ...p, [field]: value } : p));
     };
 
     const handleImageUpload = (e, slot) => {
-        const file = e.target.files[0];
+        const file = e.target.files?.[0];
         if (file) {
             const reader = new FileReader();
-            reader.onloadend = () => updatePage(slot, reader.result);
+            reader.onload = (ev) => updatePage(slot, ev.target.result);
             reader.readAsDataURL(file);
+            e.target.value = ''; // Reset input
         }
     };
 
     // --- NEW: Custom Logo Handlers ---
     const handleLogoUpload = (e) => {
-        const file = e.target.files && e.target.files[0];
+        const file = e.target.files?.[0];
         if (file) {
             const reader = new FileReader();
-            reader.onloadend = () => setCustomLogo(reader.result);
+            reader.onload = (ev) => {
+                setCustomLogo(ev.target.result);
+            };
             reader.readAsDataURL(file);
+            e.target.value = ''; // Reset input to allow re-uploading same file
         }
     };
 
@@ -112,11 +128,6 @@ const ReportView = ({ tasks, currentUser }) => {
         _pages.splice(dragOverItem.current, 0, item);
         setPages(_pages);
     };
-
-    const currentBrandConfig = brands.find(b => b.name === selectedBrand) || brands[0];
-
-    // Priority: Custom Logo > Brand Logo > null (renders text)
-    const activeLogo = customLogo || currentBrandConfig.logo;
 
     if (!pages || pages.length === 0) return <div>Loading...</div>;
 
@@ -176,7 +187,7 @@ const ReportView = ({ tasks, currentUser }) => {
                             <div>
                                 <label className="block text-xs font-bold text-gray-500 uppercase mb-3">Select Brand Color</label>
                                 <div className="grid grid-cols-2 gap-2">
-                                    {brands.map(brand => (
+                                    {BRANDS.map(brand => (
                                         <button 
                                             key={brand.name} 
                                             onClick={() => setSelectedBrand(brand.name)} 
