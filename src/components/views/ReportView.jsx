@@ -67,10 +67,15 @@ const ReportView = ({ tasks, currentUser }) => {
     const dragItem = useRef(null);
     const dragOverItem = useRef(null);
 
-    // --- Derived State ---
+    // --- Derived State & Safety ---
     const activePage = useMemo(() => {
-        return pages.find(p => p.id === activePageId) || pages[0] || {};
+        const found = pages.find(p => p.id === activePageId);
+        return found || pages[0]; // Always fall back to first page
     }, [pages, activePageId]);
+
+    // Calculate Active Logo
+    const currentBrandConfig = BRANDS.find(b => b.name === selectedBrand) || BRANDS[0];
+    const activeLogo = customLogo || currentBrandConfig.logo;
 
     // --- Handlers ---
    const updatePage = (field, value) => {
@@ -79,25 +84,27 @@ const ReportView = ({ tasks, currentUser }) => {
     };
 
     const handleImageUpload = (e, slot) => {
-        const file = e.target.files?.[0];
+        const file = e.target.files && e.target.files[0];
         if (file) {
             const reader = new FileReader();
-            reader.onload = (ev) => updatePage(slot, ev.target.result);
+            reader.onload = (ev) => {
+                if(ev.target?.result) updatePage(slot, ev.target.result);
+            };
             reader.readAsDataURL(file);
-            e.target.value = ''; // Reset input
+            e.target.value = ''; 
         }
     };
 
     // --- NEW: Custom Logo Handlers ---
     const handleLogoUpload = (e) => {
-        const file = e.target.files?.[0];
+        const file = e.target.files && e.target.files[0];
         if (file) {
             const reader = new FileReader();
             reader.onload = (ev) => {
-                setCustomLogo(ev.target.result);
+                if(ev.target?.result) setCustomLogo(ev.target.result);
             };
             reader.readAsDataURL(file);
-            e.target.value = ''; // Reset input to allow re-uploading same file
+            e.target.value = ''; 
         }
     };
 
@@ -129,7 +136,10 @@ const ReportView = ({ tasks, currentUser }) => {
         setPages(_pages);
     };
 
-    if (!pages || pages.length === 0) return <div>Loading...</div>;
+    if (!activePage) return <div className="p-10 text-center text-gray-500">Loading Slides...</div>;
+
+    // Helper to safely check template string
+    const template = activePage.template || 'title-only';
 
     return (
         <div className="p-6 md:p-10 h-full w-full bg-gray-100 overflow-y-auto">
