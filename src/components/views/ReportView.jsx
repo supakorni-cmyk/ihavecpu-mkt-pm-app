@@ -1,5 +1,5 @@
 // src/components/views/ReportView.jsx
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { 
   Presentation, 
   Printer, 
@@ -9,22 +9,19 @@ import {
   Edit2, 
   Upload, 
   Image as ImageIcon,
-  X
+  X,
+  Link as LinkIcon 
 } from 'lucide-react';
 
-// NOTE: Import your local logos here if you have them in src/assets/logos/
-// import intelLogo from '../../assets/logos/intel.svg';
-
-import ihavecpuLogo from '../../assets/logos/ihavecpu.png'
-
+// --- CONSTANTS ---
 const BRANDS = [
-        { name: 'iHAVECPU', color: 'bg-gray-900 text-white', logo: ihavecpuLogo },
-        { name: 'Intel', color: 'bg-blue-600 text-white', logo: null },
-        { name: 'AMD', color: 'bg-black text-white', logo: null },
-        { name: 'NVIDIA', color: 'bg-green-500 text-white', logo: null },
-        { name: 'ASUS', color: 'bg-blue-800 text-white', logo: null },
-        { name: 'MSI', color: 'bg-red-600 text-white', logo: null }
-    ];
+    { name: 'iHAVECPU', color: 'bg-gray-900 text-white', logo: null },
+    { name: 'Intel', color: 'bg-blue-600 text-white', logo: null },
+    { name: 'AMD', color: 'bg-black text-white', logo: null },
+    { name: 'NVIDIA', color: 'bg-green-500 text-white', logo: null },
+    { name: 'ASUS', color: 'bg-blue-800 text-white', logo: null },
+    { name: 'MSI', color: 'bg-red-600 text-white', logo: null }
+];
 
 const ReportView = ({ tasks, currentUser }) => {
     // --- Local State ---
@@ -32,19 +29,19 @@ const ReportView = ({ tasks, currentUser }) => {
     const [activePageId, setActivePageId] = useState(1);
     const [customLogo, setCustomLogo] = useState(null);
     
-    // Date Formatter
+    // Safe Date Formatter
     const getFormattedDate = () => {
         try {
             return new Date().toLocaleDateString('en-GB', {
                 day: '2-digit', month: '2-digit', year: 'numeric'
             });
         } catch (e) {
-            return new Date().toLocaleDateString();
+            return "Date";
         }
     };
     const [reportDate] = useState(getFormattedDate());
     
-    // Default initial slides
+    // Pages State
     const [pages, setPages] = useState([
         { 
             id: 1, 
@@ -60,7 +57,7 @@ const ReportView = ({ tasks, currentUser }) => {
             bodyText: 'Here is a look at our new product lineup layout.', 
             image: null, 
             image2: null, 
-            template: 'top-1-landscape' // New default example
+            template: 'top-1-landscape' 
         }
     ]);
 
@@ -78,9 +75,9 @@ const ReportView = ({ tasks, currentUser }) => {
     const activeLogo = customLogo || currentBrandConfig.logo;
 
     // --- Handlers ---
-   const updatePage = (field, value) => {
-        if (!activePage.id) return;
-        setPages(prev => prev.map(p => p.id === activePageId ? { ...p, [field]: value } : p));
+    const updatePage = (field, value) => {
+        if (!activePage) return;
+        setPages(prev => prev.map(p => p.id === activePage.id ? { ...p, [field]: value } : p));
     };
 
     const handleImageUpload = (e, slot) => {
@@ -95,7 +92,6 @@ const ReportView = ({ tasks, currentUser }) => {
         }
     };
 
-    // --- NEW: Custom Logo Handlers ---
     const handleLogoUpload = (e) => {
         const file = e.target.files && e.target.files[0];
         if (file) {
@@ -126,6 +122,7 @@ const ReportView = ({ tasks, currentUser }) => {
         if (pages.length === 1) return; 
         const newPages = pages.filter(p => p.id !== id);
         setPages(newPages);
+        // If we deleted the active page, switch to the first available
         if (activePageId === id) setActivePageId(newPages[0].id);
     };
 
@@ -136,6 +133,7 @@ const ReportView = ({ tasks, currentUser }) => {
         setPages(_pages);
     };
 
+    // --- Safety Check Before Render ---
     if (!activePage) return <div className="p-10 text-center text-gray-500">Loading Slides...</div>;
 
     // Helper to safely check template string
@@ -152,7 +150,7 @@ const ReportView = ({ tasks, currentUser }) => {
                     </h2>
                     <div className="flex gap-3">
                         <button onClick={() => window.print()} className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold shadow-lg flex items-center gap-2 hover:bg-blue-700 transition">
-                            <Printer size={18} /> Export to PDF
+                            <Printer size={18} /> Export PDF
                         </button>
                     </div>
                 </div>
@@ -192,8 +190,7 @@ const ReportView = ({ tasks, currentUser }) => {
 
                         {/* BRAND & LOGO SELECTOR */}
                         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 space-y-6">
-                            
-                            {/* 1. Standard Brand Color/Name Selection */}
+                            {/* Brand Color */}
                             <div>
                                 <label className="block text-xs font-bold text-gray-500 uppercase mb-3">Select Brand Color</label>
                                 <div className="grid grid-cols-2 gap-2">
@@ -209,7 +206,7 @@ const ReportView = ({ tasks, currentUser }) => {
                                 </div>
                             </div>
 
-                            {/* CUSTOM LOGO UPLOAD (No Paste) */}
+                            {/* Custom Logo Upload */}
                             <div>
                                 <label className="flex justify-between items-center text-xs font-bold text-gray-500 uppercase mb-3">
                                     <span>Brand Logo</span>
@@ -236,9 +233,7 @@ const ReportView = ({ tasks, currentUser }) => {
                                             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" 
                                         />
                                         <div className="flex flex-col items-center justify-center text-gray-400 group-hover:text-blue-500">
-                                            <div className="flex gap-2 mb-1">
-                                                <Upload size={20} />
-                                            </div>
+                                            <Upload size={20} className="mb-1" />
                                             <span className="text-xs font-medium">Click to Upload Logo</span>
                                         </div>
                                     </div>
@@ -255,12 +250,12 @@ const ReportView = ({ tasks, currentUser }) => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
                                 <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Title</label>
-                                <input type="text" value={activePage.title} onChange={(e) => updatePage('title', e.target.value)} className="w-full border rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none" />
+                                <input type="text" value={activePage.title || ''} onChange={(e) => updatePage('title', e.target.value)} className="w-full border rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none" />
                             </div>
                             <div>
                                 <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Template</label>
                                 <select 
-                                    value={activePage.template} 
+                                    value={template} 
                                     onChange={(e) => updatePage('template', e.target.value)} 
                                     className="w-full border rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none bg-white"
                                 >
@@ -279,11 +274,10 @@ const ReportView = ({ tasks, currentUser }) => {
                             </div>
                             <div className="md:col-span-2">
                                 <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Content</label>
-                                <textarea value={activePage.bodyText} onChange={(e) => updatePage('bodyText', e.target.value)} className="w-full border rounded-lg p-3 h-20 resize-none focus:ring-2 focus:ring-blue-500 outline-none" />
+                                <textarea value={activePage.bodyText || ''} onChange={(e) => updatePage('bodyText', e.target.value)} className="w-full border rounded-lg p-3 h-20 resize-none focus:ring-2 focus:ring-blue-500 outline-none" />
                             </div>
                             
-                            {/* Logic to show Image Inputs */}
-                            {activePage.template !== 'title-only' && (
+                            {template !== 'title-only' && (
                                 <div className="md:col-span-2 grid grid-cols-2 gap-4">
                                     <div className="border-2 border-dashed border-gray-300 rounded-xl p-4 text-center relative group hover:bg-gray-50 transition">
                                         <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'image')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
@@ -291,8 +285,7 @@ const ReportView = ({ tasks, currentUser }) => {
                                         <span className="text-xs text-gray-500">Image 1</span>
                                     </div>
                                     
-                                    {/* Show Image 2 input if template string contains '2' */}
-                                    {(activePage.template.includes('2') || activePage.template.includes('top-2')) && (
+                                    {(template.includes('2') || template.includes('top-2')) && (
                                         <div className="border-2 border-dashed border-gray-300 rounded-xl p-4 text-center relative group hover:bg-gray-50 transition">
                                             <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'image2')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                                             <Upload className="mx-auto text-gray-400" size={24} />
@@ -316,39 +309,34 @@ const ReportView = ({ tasks, currentUser }) => {
                         {/* Slide Header */}
                         <div className={`h-24 flex items-center px-10 justify-between ${currentBrandConfig.color}`}>
                             <div></div>
-                            {currentBrandConfig.logo ? (
-                                <img src={currentBrandConfig.logo} alt="Logo" className="h-12 object-contain bg-white/10 p-1 rounded" />
+                            {/* Force Render Custom Logo if exists, else Brand Logo, else Brand Name */}
+                            {activeLogo ? (
+                                <img src={activeLogo} alt="Logo" className="h-12 object-contain bg-white/10 p-1 rounded" />
                             ) : (
                                 <span className="text-xl font-black">{selectedBrand}</span>
                             )}
                         </div>
 
-                        {/* ======================= RENDER LOGIC ======================= */}
-                        
-                        {/* 1. TITLE ONLY */}
-                        {page.template === 'title-only' && (
+                        {/* RENDER LOGIC */}
+                        {(page.template || 'title-only') === 'title-only' && (
                             <div className="flex-1 p-20 flex flex-col items-center justify-start pt-32 text-center">
                                 <span className="inline-block px-4 py-1.5 rounded-full bg-gray-100 text-gray-500 text-sm font-bold uppercase tracking-wider mb-6">{reportDate}</span>
                                 <h2 className="text-6xl md:text-7xl font-extrabold text-gray-900 leading-tight mb-8">{page.title}</h2>
                                 <div className="w-32 h-2 bg-blue-600 rounded-full mb-10"></div>
                                 <p className="text-gray-600 text-2xl leading-relaxed max-w-4xl">{page.bodyText}</p>
-                                {/* <div className="mt-auto pt-12 opacity-80">
+                                <div className="mt-auto pt-12 opacity-80">
                                     <p className="text-gray-400 text-sm font-medium uppercase tracking-widest">Prepared by</p>
                                     <p className="text-gray-800 font-bold text-xl mt-1">{currentUser?.email || 'Marketing Team'}</p>
-                                </div> */}
+                                </div>
                             </div>
                         )}
 
-                        {/* 2. TOP CENTER LAYOUTS (New) */}
-                        {page.template.startsWith('top-') && (
+                        {(page.template || '').startsWith('top-') && (
                             <div className="flex-1 p-10 flex flex-col">
-                                {/* Top Text Section */}
                                 <div className="text-center mb-6">
                                     <h2 className="text-4xl font-extrabold text-gray-800 leading-tight mb-2">{page.title}</h2>
                                     <p className="text-gray-600 text-lg">{page.bodyText}</p>
                                 </div>
-                                
-                                {/* Bottom Image Section */}
                                 <div className="flex-1 w-full min-h-0">
                                     {page.template === 'top-1-landscape' ? (
                                         <div className="w-full h-full bg-gray-100 rounded-2xl overflow-hidden border border-gray-200 flex items-center justify-center">
@@ -368,8 +356,7 @@ const ReportView = ({ tasks, currentUser }) => {
                             </div>
                         )}
 
-                        {/* 3. STANDARD SIDE-BY-SIDE LAYOUTS */}
-                        {!page.template.startsWith('top-') && page.template !== 'title-only' && (
+                        {!(page.template || '').startsWith('top-') && (page.template || 'title-only') !== 'title-only' && (
                             <div className="flex-1 p-10 flex gap-8">
                                 <div className="flex-1 flex flex-col justify-center space-y-6">
                                     <div>
@@ -377,7 +364,7 @@ const ReportView = ({ tasks, currentUser }) => {
                                         <h2 className="text-5xl font-extrabold text-gray-800 leading-tight">{page.title}</h2>
                                     </div>
                                     <div className="pt-4"><p className="text-gray-600 text-lg leading-relaxed whitespace-pre-wrap">{page.bodyText}</p></div>
-                                    {/* <div className="pt-8 mt-auto"><p className="text-gray-400 text-sm font-medium">Prepared by</p><p className="text-gray-800 font-bold text-lg">{currentUser?.email || 'Marketing Team'}</p></div> */}
+                                    <div className="pt-8 mt-auto"><p className="text-gray-400 text-sm font-medium">Prepared by</p><p className="text-gray-800 font-bold text-lg">{currentUser?.email || 'Marketing Team'}</p></div>
                                 </div>
 
                                 <div className="flex-1 h-full flex flex-col gap-4">
@@ -408,9 +395,9 @@ const ReportView = ({ tasks, currentUser }) => {
                         )}
 
                         {/* Slide Footer */}
-                        {/* <div className="bg-gray-50 border-t border-gray-100 p-4 text-center text-gray-400 text-xs font-medium uppercase tracking-widest">
+                        <div className="bg-gray-50 border-t border-gray-100 p-4 text-center text-gray-400 text-xs font-medium uppercase tracking-widest">
                             Confidential • Internal Use Only • Slide {index + 1}
-                        </div> */}
+                        </div>
                     </div>
                 ))}
             </div>
