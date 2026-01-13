@@ -32,7 +32,7 @@ export default function Dashboard() {
   const data = useTaskData(currentUser); // Access all our data logic
 
   // 2. Local UI State
-  const [currentView, setCurrentView] = useState('board');
+  const [currentView, setCurrentView] = useState('home');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState(null);
   const [activeRequirementId, setActiveRequirementId] = useState(null);
