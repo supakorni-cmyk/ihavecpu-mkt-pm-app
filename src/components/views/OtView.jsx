@@ -33,11 +33,48 @@ const OTView = ({ records, onAdd, onDelete, onUpdateStatus, currentUser }) => {
         date: new Date().toISOString().split('T')[0],
         startTime: '',
         endTime: '',
-        duration: '', // Format HH:MM
+        duration: '', // Auto-calculated HH:MM
         details: ''
     });
 
     // --- HANDLERS ---
+    
+    // NEW: Auto Calculation Logic
+    const calculateAutoDuration = (start, end) => {
+        if (!start || !end) return '';
+        
+        const [startH, startM] = start.split(':').map(Number);
+        const [endH, endM] = end.split(':').map(Number);
+        
+        // Convert to total minutes
+        const startTotal = startH * 60 + startM;
+        const endTotal = endH * 60 + endM;
+        
+        let diffMinutes = endTotal - startTotal;
+        
+        // Handle overnight (e.g. 23:00 to 01:00)
+        if (diffMinutes < 0) {
+            diffMinutes += 24 * 60;
+        }
+
+        const hours = Math.floor(diffMinutes / 60);
+        const minutes = diffMinutes % 60;
+        
+        // Format as HH:MM
+        return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+    };
+
+    const handleTimeChange = (field, value) => {
+        // Create temporary state to calculate duration based on new input
+        const updatedData = { ...formData, [field]: value };
+        
+        if (updatedData.startTime && updatedData.endTime) {
+            updatedData.duration = calculateAutoDuration(updatedData.startTime, updatedData.endTime);
+        }
+        
+        setFormData(updatedData);
+    };
+
     const handleSubmit = (e) => {
         e.preventDefault();
         onAdd(formData);
@@ -49,7 +86,7 @@ const OTView = ({ records, onAdd, onDelete, onUpdateStatus, currentUser }) => {
         });
     };
 
-    // --- HELPER: Parse Duration "HH:MM" to float hours ---
+    // --- HELPER: Parse Duration "HH:MM" to float hours for stats ---
     const parseDuration = (durationStr) => {
         if (!durationStr) return 0;
         const [hours, minutes] = durationStr.split(':').map(Number);
@@ -191,7 +228,7 @@ const OTView = ({ records, onAdd, onDelete, onUpdateStatus, currentUser }) => {
                                                         </>
                                                     )}
                                                     
-                                                    {/* Delete Button - Available to everyone or restrict if needed */}
+                                                    {/* Delete Button */}
                                                     <button onClick={() => onDelete(r.id)} className="text-gray-300 hover:text-red-500 transition p-1 hover:bg-red-50 rounded">
                                                         <Trash2 size={16} />
                                                     </button>
@@ -234,15 +271,21 @@ const OTView = ({ records, onAdd, onDelete, onUpdateStatus, currentUser }) => {
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-gray-50 p-4 rounded-xl border border-gray-100">
                                 <div>
                                     <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Start Time</label>
-                                    <input required type="time" className="w-full border rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500 bg-white" value={formData.startTime} onChange={e => setFormData({...formData, startTime: e.target.value})} />
+                                    <input required type="time" className="w-full border rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500 bg-white" value={formData.startTime} onChange={e => handleTimeChange('startTime', e.target.value)} />
                                 </div>
                                 <div>
                                     <label className="block text-xs font-bold text-gray-400 uppercase mb-2">End Time</label>
-                                    <input required type="time" className="w-full border rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500 bg-white" value={formData.endTime} onChange={e => setFormData({...formData, endTime: e.target.value})} />
+                                    <input required type="time" className="w-full border rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500 bg-white" value={formData.endTime} onChange={e => handleTimeChange('endTime', e.target.value)} />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-bold text-indigo-600 uppercase mb-2">Total (Hr:Min)</label>
-                                    <input required type="text" placeholder="e.g. 02:30" className="w-full border-2 border-indigo-100 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-center text-lg" value={formData.duration} onChange={e => setFormData({...formData, duration: e.target.value})} />
+                                    <label className="block text-xs font-bold text-indigo-600 uppercase mb-2">Total (Calculated)</label>
+                                    <input 
+                                        readOnly 
+                                        type="text" 
+                                        placeholder="00:00" 
+                                        className="w-full border-2 border-indigo-100 bg-indigo-50 rounded-lg p-2 outline-none font-bold text-center text-lg text-indigo-700 cursor-not-allowed" 
+                                        value={formData.duration} 
+                                    />
                                 </div>
                             </div>
 
