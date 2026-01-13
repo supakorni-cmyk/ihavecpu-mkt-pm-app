@@ -8,109 +8,102 @@ import {
   Wallet, 
   Activity, 
   Trash2, 
+  Edit2, 
   X,
-  FileText, // Icon for file
-  Upload,   // Icon for upload
-  Paperclip // Icon for attachment indication
+  FileText,
+  Upload,
+  Paperclip
 } from 'lucide-react';
 
-// Import shared constants
-import { BUDGET_CATEGORIES, formatDate } from '../../utils/constants';
+import { BUDGET_CATEGORIES } from '../../utils/constants';
 
-// Local Constant for this view
 const TOTAL_BUDGET_CONST = 33000000;
 const BUDGET_STATUSES = ['Pending', 'Follow-up', 'Complete'];
 
+// Placeholder for Google Script
+const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbyyGyQ43TIECVSxd8iQKMkWBx5r9xrBMh58ZYdv4gDgm-TyzP0IrdNsHlNBaH7awhQ3/exec"; 
+
 const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
     const [activeTab, setActiveTab] = useState('overview');
-    const [isAddOpen, setIsAddOpen] = useState(false);
     
-    // Form State
+    // --- ADD STATE ---
+    const [isAddOpen, setIsAddOpen] = useState(false);
     const [newTransaction, setNewTransaction] = useState({
-        type: 'income', 
-        date: new Date().toISOString().split('T')[0],
-        brand: '', 
-        category: BUDGET_CATEGORIES[0], 
-        description: '', 
-        amount: '',
+        type: 'income', date: new Date().toISOString().split('T')[0],
+        brand: '', category: BUDGET_CATEGORIES[0], description: '', amount: '',
         company: '', 
-        invoice: '', 
-        invoiceFile: null, // NEW: Store Base64 string of the file
-        paymentDate: '', 
-        status: 'Pending', 
-        remark: ''
+        emailSubject: '', // NEW FIELD
+        invoice: '', invoiceFile: null, paymentDate: '', status: 'Pending', remark: ''
     });
 
+    // --- EDIT STATE ---
+    const [isEditOpen, setIsEditOpen] = useState(false);
+    const [editFormData, setEditFormData] = useState(null);
+
     // --- Calculations ---
-    const totalIncome = transactions
-        .filter(t => t.type === 'income')
-        .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
-    
-    const totalSpending = transactions
-        .filter(t => t.type === 'spending')
-        .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
-    
+    const totalIncome = transactions.filter(t => t.type === 'income').reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+    const totalSpending = transactions.filter(t => t.type === 'spending').reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
     const netSpending = totalSpending - totalIncome;
     const budgetBalance = TOTAL_BUDGET_CONST - totalSpending;
 
-    // Data preparation for Chart
+    // Chart Data
     const sortedTransactions = [...transactions].sort((a, b) => new Date(a.date) - new Date(b.date));
-    let runningBalance = TOTAL_BUDGET_CONST;
     const balanceData = [{ date: 'Start', value: TOTAL_BUDGET_CONST }];
-    
+    let runningBalance = TOTAL_BUDGET_CONST;
     sortedTransactions.forEach(t => {
         if(t.type === 'spending') runningBalance -= (parseFloat(t.amount) || 0);
         balanceData.push({ date: t.date, value: runningBalance });
     });
 
-    // Filtering for Table Views
     const filteredTransactions = transactions.filter(t => t.type === activeTab);
     const tabTotal = filteredTransactions.reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
 
     // --- Handlers ---
-    
-    // NEW: Handle File Upload (Convert to Base64)
+
     const handleFileUpload = (e) => {
         const file = e.target.files[0];
-        if (file) {
-            // Check size (Limit to ~1MB for Firestore stability)
-            if (file.size > 1024 * 1024) {
-                alert("File is too large! Please upload a document smaller than 1MB.");
-                return;
-            }
-
+        if (file && file.size <= 1024 * 1024) {
             const reader = new FileReader();
-            reader.onloadend = () => {
-                setNewTransaction(prev => ({ ...prev, invoiceFile: reader.result }));
-            };
+            reader.onloadend = () => setNewTransaction(prev => ({ ...prev, invoiceFile: reader.result }));
+            reader.readAsDataURL(file);
+        } else if(file) { alert("File too large (>1MB)"); }
+    };
+
+    const handleEditFileUpload = (e) => {
+        const file = e.target.files[0];
+        if (file && file.size <= 1024 * 1024) {
+            const reader = new FileReader();
+            reader.onloadend = () => setEditFormData(prev => ({ ...prev, invoiceFile: reader.result }));
             reader.readAsDataURL(file);
         }
     };
 
-    const handleAddTransaction = (e) => {
+    const handleAddTransaction = async (e) => {
         e.preventDefault();
-        onAdd({ 
-            ...newTransaction, 
-            type: activeTab === 'overview' ? 'income' : activeTab, 
-            createdAt: new Date(), 
-            id: Date.now().toString() 
-        });
+        const data = { ...newTransaction, type: activeTab === 'overview' ? 'income' : activeTab, createdAt: new Date(), id: Date.now().toString() };
+        onAdd(data);
+        
+        if(GOOGLE_SHEET_URL && GOOGLE_SHEET_URL !== "https://script.google.com/macros/s/AKfycbyyGyQ43TIECVSxd8iQKMkWBx5r9xrBMh58ZYdv4gDgm-TyzP0IrdNsHlNBaH7awhQ3/exec") {
+            try { fetch(GOOGLE_SHEET_URL, { method: 'POST', mode: 'no-cors', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) }); } catch(e) { console.error(e); }
+        }
+
         setIsAddOpen(false);
-        // Reset form
         setNewTransaction({ 
-            type: activeTab === 'overview' ? 'income' : activeTab, 
-            date: new Date().toISOString().split('T')[0], 
-            brand: '', 
-            category: BUDGET_CATEGORIES[0], 
-            description: '', 
-            amount: '', 
-            company: '', 
-            invoice: '', 
-            invoiceFile: null,
-            paymentDate: '', 
-            status: 'Pending', 
-            remark: '' 
+            type: 'income', date: new Date().toISOString().split('T')[0], brand: '', category: BUDGET_CATEGORIES[0], description: '', amount: '', 
+            company: '', emailSubject: '', invoice: '', invoiceFile: null, paymentDate: '', status: 'Pending', remark: '' 
         });
+    };
+
+    const handleEditClick = (transaction) => {
+        setEditFormData({ ...transaction });
+        setIsEditOpen(true);
+    };
+
+    const handleEditSubmit = (e) => {
+        e.preventDefault();
+        onUpdate(editFormData.id, editFormData);
+        setIsEditOpen(false);
+        setEditFormData(null);
     };
 
     return (
@@ -121,26 +114,11 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                     <div className={`p-2 rounded-lg ${activeTab === 'income' ? 'bg-green-100 text-green-600' : activeTab === 'spending' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>
                         {activeTab === 'income' ? <TrendingUp size={24} /> : activeTab === 'spending' ? <TrendingDown size={24} /> : <BarChart3 size={24} />}
                     </div>
-                    <div>
-                        <h2 className="text-2xl font-bold text-gray-800">Budget Recorder</h2>
-                        <p className="text-sm text-gray-500 font-medium">Track your project finances</p>
-                    </div>
+                    <div><h2 className="text-2xl font-bold text-gray-800">Budget Recorder</h2><p className="text-sm text-gray-500 font-medium">Track your project finances</p></div>
                 </div>
                 <div className="flex items-center gap-6">
-                    {activeTab !== 'overview' && (
-                        <div className="text-right">
-                            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Total {activeTab}</p>
-                            <p className={`text-2xl font-black ${activeTab === 'income' ? 'text-green-600' : 'text-red-600'}`}>
-                                ฿{tabTotal.toLocaleString()}
-                            </p>
-                        </div>
-                    )}
-                    <button 
-                        onClick={() => setIsAddOpen(true)} 
-                        className="bg-gray-900 hover:bg-black text-white px-5 py-2.5 rounded-lg font-bold shadow-lg flex items-center gap-2 transition-all transform hover:scale-105"
-                    >
-                        <Plus size={18} /> Add Record
-                    </button>
+                    {activeTab !== 'overview' && (<div className="text-right"><p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Total {activeTab}</p><p className={`text-2xl font-black ${activeTab === 'income' ? 'text-green-600' : 'text-red-600'}`}>฿{tabTotal.toLocaleString()}</p></div>)}
+                    <button onClick={() => setIsAddOpen(true)} className="bg-gray-900 hover:bg-black text-white px-5 py-2.5 rounded-lg font-bold shadow-lg flex items-center gap-2 transition-all transform hover:scale-105"><Plus size={18} /> Add Record</button>
                 </div>
             </header>
 
@@ -148,17 +126,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
             <div className="flex-1 overflow-hidden flex flex-col">
                 <div className="px-8 pt-6 pb-0 flex gap-1 border-b border-gray-200 bg-gray-50">
                     {['overview', 'income', 'spending'].map(tab => (
-                        <button 
-                            key={tab}
-                            onClick={() => setActiveTab(tab)} 
-                            className={`px-8 py-3 font-bold text-sm rounded-t-xl transition-all capitalize relative 
-                                ${activeTab === tab ? 'bg-white shadow-sm border border-b-0 border-gray-200' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'} 
-                                ${activeTab === tab && tab === 'income' ? 'text-green-600' : activeTab === tab && tab === 'spending' ? 'text-red-600' : activeTab === tab ? 'text-blue-600' : ''}`
-                            }
-                        >
-                            {tab}
-                            {activeTab === tab && <div className={`absolute top-0 left-0 w-full h-1 rounded-t-xl ${tab === 'income' ? 'bg-green-500' : tab === 'spending' ? 'bg-red-500' : 'bg-blue-500'}`}></div>}
-                        </button>
+                        <button key={tab} onClick={() => setActiveTab(tab)} className={`px-8 py-3 font-bold text-sm rounded-t-xl transition-all capitalize relative ${activeTab === tab ? 'bg-white shadow-sm border border-b-0 border-gray-200 text-blue-600' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'} ${activeTab === tab && tab === 'income' ? 'text-green-600' : activeTab === tab && tab === 'spending' ? 'text-red-600' : ''}`}>{tab}{activeTab === tab && <div className={`absolute top-0 left-0 w-full h-1 rounded-t-xl ${tab === 'income' ? 'bg-green-500' : tab === 'spending' ? 'bg-red-500' : 'bg-blue-500'}`}></div>}</button>
                     ))}
                 </div>
 
@@ -167,50 +135,25 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                             {/* Summary Cards */}
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                                <div className="bg-blue-600 text-white p-6 rounded-2xl shadow-lg flex flex-col justify-between h-32">
-                                    <div className="flex justify-between items-start"><span className="text-blue-200 text-xs font-bold uppercase tracking-wider">Total Budget</span><Wallet size={20} className="text-blue-200"/></div>
-                                    <div className="text-3xl font-black tracking-tight">฿{TOTAL_BUDGET_CONST.toLocaleString()}</div>
-                                </div>
-                                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex flex-col justify-between h-32">
-                                    <div className="flex justify-between items-start"><span className="text-gray-400 text-xs font-bold uppercase tracking-wider">Total Income</span><div className="p-1.5 bg-green-50 rounded text-green-600"><TrendingUp size={16}/></div></div>
-                                    <div className="text-2xl font-bold text-gray-800">฿{totalIncome.toLocaleString()}</div>
-                                </div>
-                                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex flex-col justify-between h-32">
-                                    <div className="flex justify-between items-start"><span className="text-gray-400 text-xs font-bold uppercase tracking-wider">Total Spending</span><div className="p-1.5 bg-red-50 rounded text-red-600"><TrendingDown size={16}/></div></div>
-                                    <div className="text-2xl font-bold text-gray-800">฿{totalSpending.toLocaleString()}</div>
-                                </div>
-                                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex flex-col justify-between h-32">
-                                    <div className="flex justify-between items-start"><span className="text-gray-400 text-xs font-bold uppercase tracking-wider">Net (Spending - Income)</span><Activity size={20} className="text-gray-300"/></div>
-                                    <div className={`text-2xl font-bold ${netSpending > 0 ? 'text-red-600' : 'text-green-600'}`}>฿{netSpending.toLocaleString()}</div>
-                                </div>
+                                <div className="bg-blue-600 text-white p-6 rounded-2xl shadow-lg flex flex-col justify-between h-32"><div className="flex justify-between items-start"><span className="text-blue-200 text-xs font-bold uppercase tracking-wider">Total Budget</span><Wallet size={20} className="text-blue-200"/></div><div className="text-3xl font-black tracking-tight">฿{TOTAL_BUDGET_CONST.toLocaleString()}</div></div>
+                                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex flex-col justify-between h-32"><div className="flex justify-between items-start"><span className="text-gray-400 text-xs font-bold uppercase tracking-wider">Total Income</span><div className="p-1.5 bg-green-50 rounded text-green-600"><TrendingUp size={16}/></div></div><div className="text-2xl font-bold text-gray-800">฿{totalIncome.toLocaleString()}</div></div>
+                                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex flex-col justify-between h-32"><div className="flex justify-between items-start"><span className="text-gray-400 text-xs font-bold uppercase tracking-wider">Total Spending</span><div className="p-1.5 bg-red-50 rounded text-red-600"><TrendingDown size={16}/></div></div><div className="text-2xl font-bold text-gray-800">฿{totalSpending.toLocaleString()}</div></div>
+                                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex flex-col justify-between h-32"><div className="flex justify-between items-start"><span className="text-gray-400 text-xs font-bold uppercase tracking-wider">Net (Spending - Income)</span><Activity size={20} className="text-gray-300"/></div><div className={`text-2xl font-bold ${netSpending > 0 ? 'text-red-600' : 'text-green-600'}`}>฿{netSpending.toLocaleString()}</div></div>
                             </div>
-
-                            {/* Charts Section */}
+                            {/* Chart */}
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 h-80">
                                 <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-200 p-6 flex flex-col">
-                                    <div className="flex justify-between items-center mb-6">
-                                        <h3 className="font-bold text-gray-700 flex items-center gap-2"><Activity size={18} className="text-blue-500"/> Budget Balance History</h3>
-                                        <span className="text-xs font-bold bg-blue-50 text-blue-600 px-3 py-1 rounded-full">Realtime</span>
-                                    </div>
-                                    <div className="flex-1 w-full bg-gray-50 rounded-xl overflow-hidden relative border border-gray-100 p-4">
-                                        <SimpleLineChart data={balanceData} color="#3b82f6" />
-                                    </div>
+                                    <div className="flex justify-between items-center mb-6"><h3 className="font-bold text-gray-700 flex items-center gap-2"><Activity size={18} className="text-blue-500"/> Budget Balance History</h3><span className="text-xs font-bold bg-blue-50 text-blue-600 px-3 py-1 rounded-full">Realtime</span></div>
+                                    <div className="flex-1 w-full bg-gray-50 rounded-xl overflow-hidden relative border border-gray-100 p-4"><SimpleLineChart data={balanceData} color="#3b82f6" /></div>
                                 </div>
                                 <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 flex flex-col justify-center items-center text-center">
-                                    <div className="w-40 h-40 rounded-full border-[6px] border-blue-500 flex items-center justify-center mb-4 shadow-inner">
-                                        <div className="text-center">
-                                            <span className="block text-xs font-bold text-gray-400 uppercase">Remaining</span>
-                                            <span className="block text-xl font-black text-gray-800">{((budgetBalance / TOTAL_BUDGET_CONST) * 100).toFixed(1)}%</span>
-                                        </div>
-                                    </div>
-                                    <h3 className="text-lg font-bold text-gray-800">Budget Balance</h3>
-                                    <p className={`text-2xl font-black mt-2 ${budgetBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>฿{budgetBalance.toLocaleString()}</p>
-                                    <p className="text-xs text-gray-400 mt-2">Target: ฿{TOTAL_BUDGET_CONST.toLocaleString()}</p>
+                                    <div className="w-40 h-40 rounded-full border-[6px] border-blue-500 flex items-center justify-center mb-4 shadow-inner"><div className="text-center"><span className="block text-xs font-bold text-gray-400 uppercase">Remaining</span><span className="block text-xl font-black text-gray-800">{((budgetBalance / TOTAL_BUDGET_CONST) * 100).toFixed(1)}%</span></div></div>
+                                    <h3 className="text-lg font-bold text-gray-800">Budget Balance</h3><p className={`text-2xl font-black mt-2 ${budgetBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>฿{budgetBalance.toLocaleString()}</p>
                                 </div>
                             </div>
                         </div>
                     ) : (
-                        /* EDITABLE TABLE */
+                        /* DATA TABLE */
                         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                             <table className="w-full text-sm text-left">
                                 <thead className="text-xs text-gray-500 uppercase bg-gray-50 font-bold border-b border-gray-200 sticky top-0 z-10">
@@ -221,6 +164,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                         <th className="px-6 py-4 w-64">Description</th>
                                         <th className="px-6 py-4 text-right">Amount (THB)</th>
                                         <th className="px-6 py-4">Company</th>
+                                        <th className="px-6 py-4 w-48">Email Subject</th> {/* NEW HEADER */}
                                         <th className="px-6 py-4">Invoice</th>
                                         <th className="px-6 py-4">Payment Date</th>
                                         <th className="px-6 py-4 text-center">Status</th>
@@ -231,87 +175,41 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                 <tbody className="divide-y divide-gray-100">
                                     {filteredTransactions.map((t) => (
                                         <tr key={t.id} className="hover:bg-blue-50/30 transition-colors group">
-                                            {/* Date */}
-                                            <td className="px-4 py-4">
-                                                <EditableCell type="date" value={t.date} onSave={(val) => onUpdate(t.id, { date: val })} />
-                                            </td>
-                                            {/* Brand */}
-                                            <td className="px-4 py-4">
-                                                <EditableCell value={t.brand} className="font-bold text-gray-700" onSave={(val) => onUpdate(t.id, { brand: val })} />
-                                            </td>
-                                            {/* Category */}
-                                            <td className="px-4 py-4">
-                                                <EditableCell type="select" options={BUDGET_CATEGORIES} value={t.category} onSave={(val) => onUpdate(t.id, { category: val })} />
-                                            </td>
-                                            {/* Description */}
-                                            <td className="px-4 py-4">
-                                                <EditableCell value={t.description} onSave={(val) => onUpdate(t.id, { description: val })} />
-                                            </td>
-                                            {/* Amount */}
-                                            <td className="px-4 py-4 text-right">
-                                                <EditableCell 
-                                                    type="number" 
-                                                    value={t.amount} 
-                                                    className={`font-mono font-bold text-right ${activeTab === 'income' ? 'text-green-600' : 'text-red-600'}`} 
-                                                    onSave={(val) => onUpdate(t.id, { amount: val })} 
-                                                />
-                                            </td>
-                                            {/* Company */}
-                                            <td className="px-4 py-4">
-                                                <EditableCell value={t.company} onSave={(val) => onUpdate(t.id, { company: val })} />
-                                            </td>
+                                            <td className="px-4 py-4"><EditableCell type="date" value={t.date} onSave={(val) => onUpdate(t.id, { date: val })} /></td>
+                                            <td className="px-4 py-4"><EditableCell value={t.brand} className="font-bold text-gray-700" onSave={(val) => onUpdate(t.id, { brand: val })} /></td>
+                                            <td className="px-4 py-4"><EditableCell type="select" options={BUDGET_CATEGORIES} value={t.category} onSave={(val) => onUpdate(t.id, { category: val })} /></td>
+                                            <td className="px-4 py-4"><EditableCell value={t.description} onSave={(val) => onUpdate(t.id, { description: val })} /></td>
+                                            <td className="px-4 py-4 text-right"><EditableCell type="number" value={t.amount} className={`font-mono font-bold text-right ${activeTab === 'income' ? 'text-green-600' : 'text-red-600'}`} onSave={(val) => onUpdate(t.id, { amount: val })} /></td>
+                                            <td className="px-4 py-4"><EditableCell value={t.company} onSave={(val) => onUpdate(t.id, { company: val })} /></td>
                                             
-                                            {/* Invoice Column with File Icon */}
+                                            {/* NEW: Email Subject Cell */}
                                             <td className="px-4 py-4">
-                                                <div className="flex items-center gap-2">
-                                                    <EditableCell 
-                                                        value={t.invoice} 
-                                                        className="font-mono text-xs w-20" 
-                                                        onSave={(val) => onUpdate(t.id, { invoice: val })} 
-                                                    />
-                                                    {t.invoiceFile && (
-                                                        <a 
-                                                            href={t.invoiceFile} 
-                                                            target="_blank" 
-                                                            rel="noreferrer" 
-                                                            className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-1 rounded transition"
-                                                            title="View Document"
-                                                        >
-                                                            <FileText size={16} />
-                                                        </a>
-                                                    )}
-                                                </div>
+                                                <EditableCell 
+                                                    value={t.emailSubject} 
+                                                    className="text-gray-600 truncate text-xs" 
+                                                    onSave={(val) => onUpdate(t.id, { emailSubject: val })} 
+                                                />
                                             </td>
 
-                                            {/* Payment Date */}
                                             <td className="px-4 py-4">
-                                                <EditableCell type="date" value={t.paymentDate} onSave={(val) => onUpdate(t.id, { paymentDate: val })} />
+                                                <div className="flex items-center gap-2">
+                                                    <EditableCell value={t.invoice} className="font-mono text-xs w-20" onSave={(val) => onUpdate(t.id, { invoice: val })} />
+                                                    {t.invoiceFile && <a href={t.invoiceFile} target="_blank" rel="noreferrer" className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-1 rounded transition"><FileText size={16} /></a>}
+                                                </div>
                                             </td>
-                                            {/* Status */}
-                                            <td className="px-4 py-4 text-center">
-                                                <EditableCell 
-                                                    type="select" 
-                                                    options={BUDGET_STATUSES} 
-                                                    value={t.status} 
-                                                    className={`rounded-full text-xs font-bold border px-2 py-1 ${t.status === 'Complete' ? 'bg-green-50 text-green-700 border-green-200' : t.status === 'Follow-up' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : 'bg-gray-50 text-gray-500 border-gray-200'}`} 
-                                                    onSave={(val) => onUpdate(t.id, { status: val })} 
-                                                />
-                                            </td>
-                                            {/* Remark */}
-                                            <td className="px-4 py-4">
-                                                <EditableCell value={t.remark} className="italic text-gray-500 text-xs" onSave={(val) => onUpdate(t.id, { remark: val })} />
-                                            </td>
-                                            {/* Action */}
+                                            <td className="px-4 py-4"><EditableCell type="date" value={t.paymentDate} onSave={(val) => onUpdate(t.id, { paymentDate: val })} /></td>
+                                            <td className="px-4 py-4 text-center"><EditableCell type="select" options={BUDGET_STATUSES} value={t.status} className={`rounded-full text-xs font-bold border px-2 py-1 ${t.status === 'Complete' ? 'bg-green-50 text-green-700 border-green-200' : t.status === 'Follow-up' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : 'bg-gray-50 text-gray-500 border-gray-200'}`} onSave={(val) => onUpdate(t.id, { status: val })} /></td>
+                                            <td className="px-4 py-4"><EditableCell value={t.remark} className="italic text-gray-500 text-xs" onSave={(val) => onUpdate(t.id, { remark: val })} /></td>
+                                            
                                             <td className="px-6 py-4 text-center">
-                                                <button onClick={() => onDelete(t.id)} className="text-gray-300 hover:text-red-500 transition opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-red-50">
-                                                    <Trash2 size={16} />
-                                                </button>
+                                                <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition">
+                                                    <button onClick={() => handleEditClick(t)} className="text-blue-400 hover:text-blue-600 p-1 rounded-md hover:bg-blue-50" title="Edit"><Edit2 size={16} /></button>
+                                                    <button onClick={() => onDelete(t.id)} className="text-gray-300 hover:text-red-500 p-1 rounded-md hover:bg-red-50" title="Delete"><Trash2 size={16} /></button>
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}
-                                    {filteredTransactions.length === 0 && (
-                                        <tr><td colSpan="11" className="px-6 py-12 text-center text-gray-400 font-medium">No records found for this view.</td></tr>
-                                    )}
+                                    {filteredTransactions.length === 0 && <tr><td colSpan="12" className="px-6 py-12 text-center text-gray-400 font-medium">No records found.</td></tr>}
                                 </tbody>
                             </table>
                         </div>
@@ -329,43 +227,63 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                         </div>
                         <form onSubmit={handleAddTransaction} className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                             <div className="space-y-6">
-                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Type</label><select className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 bg-white transition" value={newTransaction.type} onChange={e => setNewTransaction({...newTransaction, type: e.target.value})}><option value="income">Income</option><option value="spending">Spending</option></select></div>
-                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Date</label><input required type="date" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 transition" value={newTransaction.date} onChange={e => setNewTransaction({...newTransaction, date: e.target.value})} /></div>
-                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Brand</label><input required type="text" placeholder="e.g. Intel, AMD" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 transition" value={newTransaction.brand} onChange={e => setNewTransaction({...newTransaction, brand: e.target.value})} /></div>
-                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Category</label><select className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 bg-white transition" value={newTransaction.category} onChange={e => setNewTransaction({...newTransaction, category: e.target.value})}>{BUDGET_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}</select></div>
-                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Amount</label><input required type="number" placeholder="0.00" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 font-mono text-lg font-bold transition" value={newTransaction.amount} onChange={e => setNewTransaction({...newTransaction, amount: e.target.value})} /></div>
+                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Type</label><select className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 bg-white" value={newTransaction.type} onChange={e => setNewTransaction({...newTransaction, type: e.target.value})}><option value="income">Income</option><option value="spending">Spending</option></select></div>
+                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Date</label><input required type="date" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={newTransaction.date} onChange={e => setNewTransaction({...newTransaction, date: e.target.value})} /></div>
+                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Brand</label><input required type="text" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={newTransaction.brand} onChange={e => setNewTransaction({...newTransaction, brand: e.target.value})} /></div>
+                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Category</label><select className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={newTransaction.category} onChange={e => setNewTransaction({...newTransaction, category: e.target.value})}>{BUDGET_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}</select></div>
+                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Amount</label><input required type="number" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 font-mono" value={newTransaction.amount} onChange={e => setNewTransaction({...newTransaction, amount: e.target.value})} /></div>
                             </div>
                             <div className="space-y-6">
-                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Description</label><textarea className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px] transition" value={newTransaction.description} onChange={e => setNewTransaction({...newTransaction, description: e.target.value})} /></div>
-                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Company</label><input type="text" placeholder="Company Name" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 transition" value={newTransaction.company} onChange={e => setNewTransaction({...newTransaction, company: e.target.value})} /></div>
-                                
+                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Description</label><textarea className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px]" value={newTransaction.description} onChange={e => setNewTransaction({...newTransaction, description: e.target.value})} /></div>
                                 <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Invoice No.</label>
-                                        <input type="text" placeholder="INV-001" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 font-mono transition" value={newTransaction.invoice} onChange={e => setNewTransaction({...newTransaction, invoice: e.target.value})} />
-                                    </div>
-                                    <div>
-                                        {/* NEW: Invoice File Upload */}
-                                        <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Upload Document</label>
-                                        <div className="relative border border-dashed border-gray-300 rounded-lg p-2.5 text-center hover:bg-gray-50 transition cursor-pointer">
-                                            <input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={handleFileUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                                            {newTransaction.invoiceFile ? (
-                                                <div className="flex items-center justify-center gap-2 text-green-600 text-xs font-bold"><Paperclip size={16}/> Attached</div>
-                                            ) : (
-                                                <div className="flex items-center justify-center gap-2 text-gray-400 text-xs"><Upload size={16}/> Select File</div>
-                                            )}
-                                        </div>
-                                    </div>
+                                    <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Company</label><input type="text" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={newTransaction.company} onChange={e => setNewTransaction({...newTransaction, company: e.target.value})} /></div>
+                                    <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Email Subject</label><input type="text" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={newTransaction.emailSubject} onChange={e => setNewTransaction({...newTransaction, emailSubject: e.target.value})} /></div> {/* NEW ADD INPUT */}
                                 </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Invoice No.</label><input type="text" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={newTransaction.invoice} onChange={e => setNewTransaction({...newTransaction, invoice: e.target.value})} /></div>
+                                    <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Upload</label><div className="border border-dashed border-gray-300 rounded-lg p-2.5 text-center cursor-pointer"><input type="file" accept=".pdf,.jpg,.png" onChange={handleFileUpload} className="hidden" id="addFile"/><label htmlFor="addFile" className="flex items-center justify-center gap-2 text-xs text-gray-500 cursor-pointer">{newTransaction.invoiceFile ? "Attached" : "Select File"}</label></div></div>
+                                </div>
+                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Payment Date</label><input type="date" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={newTransaction.paymentDate} onChange={e => setNewTransaction({...newTransaction, paymentDate: e.target.value})} /></div>
+                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Status</label><select className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={newTransaction.status} onChange={e => setNewTransaction({...newTransaction, status: e.target.value})}>{BUDGET_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
+                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Remark</label><textarea className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px]" value={newTransaction.remark} onChange={e => setNewTransaction({...newTransaction, remark: e.target.value})} /></div>
+                            </div>
+                            <div className="md:col-span-2 pt-6 border-t flex justify-end gap-3"><button type="button" onClick={() => setIsAddOpen(false)} className="px-6 py-3 rounded-lg font-bold text-gray-500 hover:bg-gray-100">Cancel</button><button type="submit" className="px-8 py-3 rounded-lg font-bold text-white bg-blue-600 hover:bg-blue-700">Save Record</button></div>
+                        </form>
+                    </div>
+                </div>
+            )}
 
-                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Payment Date</label><input type="date" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 transition" value={newTransaction.paymentDate} onChange={e => setNewTransaction({...newTransaction, paymentDate: e.target.value})} /></div>
-                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Status</label><select className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 bg-white transition" value={newTransaction.status} onChange={e => setNewTransaction({...newTransaction, status: e.target.value})}>{BUDGET_STATUSES.map(st => <option key={st} value={st}>{st}</option>)}</select></div>
-                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Remark</label><textarea placeholder="Additional notes..." className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px] transition" value={newTransaction.remark} onChange={e => setNewTransaction({...newTransaction, remark: e.target.value})} /></div>
+            {/* EDIT TRANSACTION MODAL */}
+            {isEditOpen && editFormData && (
+                <div className="fixed inset-0 bg-black/60 z-[80] flex items-center justify-center p-4 backdrop-blur-sm">
+                    <div className="bg-white rounded-2xl w-full max-w-4xl p-8 shadow-2xl overflow-y-auto max-h-[90vh]">
+                        <div className="flex justify-between items-center mb-8 border-b border-gray-100 pb-4">
+                            <div><h3 className="text-2xl font-bold text-gray-900">Edit Record</h3><p className="text-sm text-gray-500 mt-1">Modify transaction details.</p></div>
+                            <button onClick={() => setIsEditOpen(false)} className="text-gray-400 hover:text-gray-900 p-2 hover:bg-gray-100 rounded-full"><X size={24}/></button>
+                        </div>
+                        <form onSubmit={handleEditSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                            <div className="space-y-6">
+                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Type</label><select className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 bg-white" value={editFormData.type} onChange={e => setEditFormData({...editFormData, type: e.target.value})}><option value="income">Income</option><option value="spending">Spending</option></select></div>
+                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Date</label><input required type="date" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={editFormData.date} onChange={e => setEditFormData({...editFormData, date: e.target.value})} /></div>
+                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Brand</label><input required type="text" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={editFormData.brand} onChange={e => setEditFormData({...editFormData, brand: e.target.value})} /></div>
+                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Category</label><select className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={editFormData.category} onChange={e => setEditFormData({...editFormData, category: e.target.value})}>{BUDGET_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}</select></div>
+                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Amount</label><input required type="number" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 font-mono" value={editFormData.amount} onChange={e => setEditFormData({...editFormData, amount: e.target.value})} /></div>
                             </div>
-                            <div className="md:col-span-2 pt-6 border-t border-gray-100 flex justify-end gap-3">
-                                <button type="button" onClick={() => setIsAddOpen(false)} className="px-6 py-3 rounded-lg font-bold text-gray-500 hover:bg-gray-100 transition">Cancel</button>
-                                <button type="submit" className={`px-8 py-3 rounded-lg font-bold text-white shadow-lg transition transform hover:scale-105 ${activeTab === 'income' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}`}>Save Record</button>
+                            <div className="space-y-6">
+                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Description</label><textarea className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px]" value={editFormData.description} onChange={e => setEditFormData({...editFormData, description: e.target.value})} /></div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Company</label><input type="text" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={editFormData.company} onChange={e => setEditFormData({...editFormData, company: e.target.value})} /></div>
+                                    <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Email Subject</label><input type="text" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={editFormData.emailSubject} onChange={e => setEditFormData({...editFormData, emailSubject: e.target.value})} /></div> {/* NEW EDIT INPUT */}
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Invoice No.</label><input type="text" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={editFormData.invoice} onChange={e => setEditFormData({...editFormData, invoice: e.target.value})} /></div>
+                                    <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Update File</label><div className="border border-dashed border-gray-300 rounded-lg p-2.5 text-center cursor-pointer"><input type="file" accept=".pdf,.jpg,.png" onChange={handleEditFileUpload} className="hidden" id="editFile"/><label htmlFor="editFile" className="flex items-center justify-center gap-2 text-xs text-gray-500 cursor-pointer">{editFormData.invoiceFile ? "Changed/Attached" : "Select New"}</label></div></div>
+                                </div>
+                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Payment Date</label><input type="date" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={editFormData.paymentDate} onChange={e => setEditFormData({...editFormData, paymentDate: e.target.value})} /></div>
+                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Status</label><select className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={editFormData.status} onChange={e => setEditFormData({...editFormData, status: e.target.value})}>{BUDGET_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
+                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Remark</label><textarea className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px]" value={editFormData.remark} onChange={e => setEditFormData({...editFormData, remark: e.target.value})} /></div>
                             </div>
+                            <div className="md:col-span-2 pt-6 border-t flex justify-end gap-3"><button type="button" onClick={() => setIsEditOpen(false)} className="px-6 py-3 rounded-lg font-bold text-gray-500 hover:bg-gray-100">Cancel</button><button type="submit" className="px-8 py-3 rounded-lg font-bold text-white bg-blue-600 hover:bg-blue-700">Save Changes</button></div>
                         </form>
                     </div>
                 </div>
@@ -374,35 +292,22 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
     );
 };
 
-// --- Sub-Component: Simple Line Chart ---
+// ... SimpleLineChart and EditableCell components (Unchanged) ...
 const SimpleLineChart = ({ data, color = "#C81E23" }) => {
     if (!data || data.length < 2) return <div className="h-full w-full flex items-center justify-center text-gray-400 text-sm">Not enough data for chart</div>;
-    
-    const height = 150;
-    const width = 1000; 
-    const padding = 10;
-
-    const maxVal = Math.max(...data.map(d => d.value));
-    const minVal = Math.min(...data.map(d => d.value));
+    const height = 150; const width = 1000; const padding = 10;
+    const maxVal = Math.max(...data.map(d => d.value)); const minVal = Math.min(...data.map(d => d.value));
     const range = maxVal - minVal || 1;
-
     const points = data.map((d, i) => {
         const x = (i / (data.length - 1)) * (width - 2 * padding) + padding;
         const y = height - padding - ((d.value - minVal) / range) * (height - 2 * padding);
         return `${x},${y}`;
     }).join(' ');
-
     const fillPath = `${points} ${width - padding},${height} ${padding},${height}`;
-
     return (
         <div className="w-full h-full relative">
             <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-visible" preserveAspectRatio="none">
-                <defs>
-                    <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={color} stopOpacity="0.2" />
-                        <stop offset="100%" stopColor={color} stopOpacity="0" />
-                    </linearGradient>
-                </defs>
+                <defs><linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={color} stopOpacity="0.2" /><stop offset="100%" stopColor={color} stopOpacity="0" /></linearGradient></defs>
                 <path d={`M ${points.split(' ')[0]} L ${fillPath} Z`} fill="url(#chartGradient)" stroke="none" />
                 <polyline fill="none" stroke={color} strokeWidth="3" points={points} strokeLinecap="round" strokeLinejoin="round" />
             </svg>
@@ -412,48 +317,19 @@ const SimpleLineChart = ({ data, color = "#C81E23" }) => {
     );
 };
 
-// --- Editable Cell Component ---
 const EditableCell = ({ value, onSave, type = "text", options = null, className = "" }) => {
     const [localValue, setLocalValue] = useState(value || "");
-
-    useEffect(() => {
-        setLocalValue(value || "");
-    }, [value]);
-
-    const handleBlur = () => {
-        if (localValue !== value) {
-            onSave(localValue);
-        }
-    };
-
+    useEffect(() => { setLocalValue(value || ""); }, [value]);
+    const handleBlur = () => { if (localValue !== value) { onSave(localValue); } };
     const baseStyle = `w-full bg-transparent outline-none focus:bg-white focus:ring-2 focus:ring-blue-200 rounded px-1 transition-all ${className}`;
-
     if (type === 'select' && options) {
         return (
-            <select 
-                value={localValue} 
-                onChange={(e) => {
-                    setLocalValue(e.target.value);
-                    onSave(e.target.value); 
-                }}
-                className={`${baseStyle} cursor-pointer appearance-none`}
-            >
+            <select value={localValue} onChange={(e) => { setLocalValue(e.target.value); onSave(e.target.value); }} className={`${baseStyle} cursor-pointer appearance-none`}>
                 {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
             </select>
         );
     }
-
-    return (
-        <input 
-            type={type}
-            value={localValue} 
-            onChange={(e) => setLocalValue(e.target.value)} 
-            onBlur={handleBlur}
-            onKeyDown={(e) => e.key === 'Enter' && e.target.blur()}
-            className={baseStyle}
-            placeholder="-"
-        />
-    );
+    return <input type={type} value={localValue} onChange={(e) => setLocalValue(e.target.value)} onBlur={handleBlur} onKeyDown={(e) => e.key === 'Enter' && e.target.blur()} className={baseStyle} placeholder="-" />;
 };
 
 export default BudgetView;
