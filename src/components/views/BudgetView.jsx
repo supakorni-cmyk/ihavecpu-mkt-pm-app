@@ -12,16 +12,14 @@ import {
   X,
   FileText,
   Upload,
-  Paperclip
+  Paperclip,
+  Eye // Added Eye icon for preview
 } from 'lucide-react';
 
 import { BUDGET_CATEGORIES } from '../../utils/constants';
 
 const TOTAL_BUDGET_CONST = 33000000;
 const BUDGET_STATUSES = ['Pending', 'Follow-up', 'Complete'];
-
-// Placeholder for Google Script
-const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbyyGyQ43TIECVSxd8iQKMkWBx5r9xrBMh58ZYdv4gDgm-TyzP0IrdNsHlNBaH7awhQ3/exec"; 
 
 const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
     const [activeTab, setActiveTab] = useState('overview');
@@ -32,13 +30,16 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
         type: 'income', date: new Date().toISOString().split('T')[0],
         brand: '', category: BUDGET_CATEGORIES[0], description: '', amount: '',
         company: '', 
-        emailSubject: '', // NEW FIELD
+        emailSubject: '', 
         invoice: '', invoiceFile: null, paymentDate: '', status: 'Pending', remark: ''
     });
 
     // --- EDIT STATE ---
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [editFormData, setEditFormData] = useState(null);
+
+    // --- PREVIEW STATE (NEW) ---
+    const [previewFile, setPreviewFile] = useState(null); // Stores the base64 string to view
 
     // --- Calculations ---
     const totalIncome = transactions.filter(t => t.type === 'income').reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
@@ -78,15 +79,15 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
         }
     };
 
-    const handleAddTransaction = async (e) => {
+    const handleAddTransaction = (e) => {
         e.preventDefault();
-        const data = { ...newTransaction, type: activeTab === 'overview' ? 'income' : activeTab, createdAt: new Date(), id: Date.now().toString() };
+        const data = { 
+            ...newTransaction, 
+            type: activeTab === 'overview' ? 'income' : activeTab, 
+            createdAt: new Date(), 
+            id: Date.now().toString() 
+        };
         onAdd(data);
-        
-        if(GOOGLE_SHEET_URL && GOOGLE_SHEET_URL !== "https://script.google.com/macros/s/AKfycbyyGyQ43TIECVSxd8iQKMkWBx5r9xrBMh58ZYdv4gDgm-TyzP0IrdNsHlNBaH7awhQ3/exec") {
-            try { fetch(GOOGLE_SHEET_URL, { method: 'POST', mode: 'no-cors', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) }); } catch(e) { console.error(e); }
-        }
-
         setIsAddOpen(false);
         setNewTransaction({ 
             type: 'income', date: new Date().toISOString().split('T')[0], brand: '', category: BUDGET_CATEGORIES[0], description: '', amount: '', 
@@ -164,7 +165,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                         <th className="px-6 py-4 w-64">Description</th>
                                         <th className="px-6 py-4 text-right">Amount (THB)</th>
                                         <th className="px-6 py-4">Company</th>
-                                        <th className="px-6 py-4 w-48">Email Subject</th> {/* NEW HEADER */}
+                                        <th className="px-6 py-4 w-48">Email Subject</th>
                                         <th className="px-6 py-4">Invoice</th>
                                         <th className="px-6 py-4">Payment Date</th>
                                         <th className="px-6 py-4 text-center">Status</th>
@@ -181,22 +182,25 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                             <td className="px-4 py-4"><EditableCell value={t.description} onSave={(val) => onUpdate(t.id, { description: val })} /></td>
                                             <td className="px-4 py-4 text-right"><EditableCell type="number" value={t.amount} className={`font-mono font-bold text-right ${activeTab === 'income' ? 'text-green-600' : 'text-red-600'}`} onSave={(val) => onUpdate(t.id, { amount: val })} /></td>
                                             <td className="px-4 py-4"><EditableCell value={t.company} onSave={(val) => onUpdate(t.id, { company: val })} /></td>
-                                            
-                                            {/* NEW: Email Subject Cell */}
-                                            <td className="px-4 py-4">
-                                                <EditableCell 
-                                                    value={t.emailSubject} 
-                                                    className="text-gray-600 truncate text-xs" 
-                                                    onSave={(val) => onUpdate(t.id, { emailSubject: val })} 
-                                                />
-                                            </td>
+                                            <td className="px-4 py-4"><EditableCell value={t.emailSubject} className="text-gray-600 truncate text-xs" onSave={(val) => onUpdate(t.id, { emailSubject: val })} /></td>
 
+                                            {/* File Preview Column */}
                                             <td className="px-4 py-4">
                                                 <div className="flex items-center gap-2">
                                                     <EditableCell value={t.invoice} className="font-mono text-xs w-20" onSave={(val) => onUpdate(t.id, { invoice: val })} />
-                                                    {t.invoiceFile && <a href={t.invoiceFile} target="_blank" rel="noreferrer" className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-1 rounded transition"><FileText size={16} /></a>}
+                                                    {t.invoiceFile && (
+                                                        // CHANGED: Use a button to open modal instead of anchor tag
+                                                        <button 
+                                                            onClick={() => setPreviewFile(t.invoiceFile)} 
+                                                            className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-1 rounded transition"
+                                                            title="Preview File"
+                                                        >
+                                                            <Eye size={16} />
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </td>
+
                                             <td className="px-4 py-4"><EditableCell type="date" value={t.paymentDate} onSave={(val) => onUpdate(t.id, { paymentDate: val })} /></td>
                                             <td className="px-4 py-4 text-center"><EditableCell type="select" options={BUDGET_STATUSES} value={t.status} className={`rounded-full text-xs font-bold border px-2 py-1 ${t.status === 'Complete' ? 'bg-green-50 text-green-700 border-green-200' : t.status === 'Follow-up' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : 'bg-gray-50 text-gray-500 border-gray-200'}`} onSave={(val) => onUpdate(t.id, { status: val })} /></td>
                                             <td className="px-4 py-4"><EditableCell value={t.remark} className="italic text-gray-500 text-xs" onSave={(val) => onUpdate(t.id, { remark: val })} /></td>
@@ -237,7 +241,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Description</label><textarea className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px]" value={newTransaction.description} onChange={e => setNewTransaction({...newTransaction, description: e.target.value})} /></div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Company</label><input type="text" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={newTransaction.company} onChange={e => setNewTransaction({...newTransaction, company: e.target.value})} /></div>
-                                    <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Email Subject</label><input type="text" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={newTransaction.emailSubject} onChange={e => setNewTransaction({...newTransaction, emailSubject: e.target.value})} /></div> {/* NEW ADD INPUT */}
+                                    <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Email Subject</label><input type="text" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={newTransaction.emailSubject} onChange={e => setNewTransaction({...newTransaction, emailSubject: e.target.value})} /></div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Invoice No.</label><input type="text" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={newTransaction.invoice} onChange={e => setNewTransaction({...newTransaction, invoice: e.target.value})} /></div>
@@ -273,7 +277,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Description</label><textarea className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px]" value={editFormData.description} onChange={e => setEditFormData({...editFormData, description: e.target.value})} /></div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Company</label><input type="text" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={editFormData.company} onChange={e => setEditFormData({...editFormData, company: e.target.value})} /></div>
-                                    <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Email Subject</label><input type="text" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={editFormData.emailSubject} onChange={e => setEditFormData({...editFormData, emailSubject: e.target.value})} /></div> {/* NEW EDIT INPUT */}
+                                    <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Email Subject</label><input type="text" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={editFormData.emailSubject} onChange={e => setEditFormData({...editFormData, emailSubject: e.target.value})} /></div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Invoice No.</label><input type="text" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={editFormData.invoice} onChange={e => setEditFormData({...editFormData, invoice: e.target.value})} /></div>
@@ -285,6 +289,25 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                             </div>
                             <div className="md:col-span-2 pt-6 border-t flex justify-end gap-3"><button type="button" onClick={() => setIsEditOpen(false)} className="px-6 py-3 rounded-lg font-bold text-gray-500 hover:bg-gray-100">Cancel</button><button type="submit" className="px-8 py-3 rounded-lg font-bold text-white bg-blue-600 hover:bg-blue-700">Save Changes</button></div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* PREVIEW MODAL (NEW) */}
+            {previewFile && (
+                <div className="fixed inset-0 z-[90] bg-black/80 flex items-center justify-center p-4 backdrop-blur-md" onClick={() => setPreviewFile(null)}>
+                    <div className="relative w-full h-full max-w-5xl max-h-[90vh] bg-white rounded-lg overflow-hidden flex flex-col shadow-2xl" onClick={e => e.stopPropagation()}>
+                        <div className="flex justify-between items-center p-4 border-b bg-gray-50">
+                            <h3 className="font-bold text-gray-700 flex items-center gap-2"><FileText size={20}/> Document Preview</h3>
+                            <button onClick={() => setPreviewFile(null)} className="p-2 bg-gray-200 hover:bg-red-100 hover:text-red-500 rounded-full transition"><X size={20}/></button>
+                        </div>
+                        <div className="flex-1 bg-gray-100 overflow-auto flex items-center justify-center p-4">
+                            {previewFile.startsWith('data:image') ? (
+                                <img src={previewFile} alt="Invoice" className="max-w-full max-h-full object-contain shadow-lg" />
+                            ) : (
+                                <iframe src={previewFile} title="Document Preview" className="w-full h-full border-none shadow-lg bg-white rounded" />
+                            )}
+                        </div>
                     </div>
                 </div>
             )}
