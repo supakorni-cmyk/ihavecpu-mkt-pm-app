@@ -13,7 +13,8 @@ import {
   FileText,
   Upload,
   Paperclip,
-  Eye 
+  Eye,
+  PieChart as PieChartIcon
 } from 'lucide-react';
 
 import { BUDGET_CATEGORIES } from '../../utils/constants';
@@ -29,8 +30,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
     const [newTransaction, setNewTransaction] = useState({
         type: 'income', date: new Date().toISOString().split('T')[0],
         brand: '', category: BUDGET_CATEGORIES[0], description: '', amount: '',
-        company: '', 
-        emailSubject: '', 
+        company: '', emailSubject: '', 
         invoice: '', invoiceFile: null, paymentDate: '', status: 'Pending', remark: ''
     });
 
@@ -41,27 +41,71 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
     // --- PREVIEW STATE ---
     const [previewFile, setPreviewFile] = useState(null);
 
-    // --- Calculations ---
+    // --- DATA PROCESSING FOR CHARTS ---
+    const getMonthlyData = (type) => {
+        const data = {};
+        transactions
+            .filter(t => t.type === type)
+            .forEach(t => {
+                const date = new Date(t.date);
+                const key = `${date.toLocaleString('default', { month: 'short' })} ${date.getFullYear()}`; 
+                if (!data[key]) data[key] = { amount: 0, dateObj: date }; 
+                data[key].amount += parseFloat(t.amount) || 0;
+            });
+        
+        return Object.entries(data)
+            .map(([label, val]) => ({ date: label, value: val.amount, dateObj: val.dateObj }))
+            .sort((a, b) => a.dateObj - b.dateObj);
+    };
+
+    const getCategoryData = (type) => {
+        const data = {};
+        transactions
+            .filter(t => t.type === type)
+            .forEach(t => {
+                const cat = t.category || 'Uncategorized';
+                if (!data[cat]) data[cat] = 0;
+                data[cat] += parseFloat(t.amount) || 0;
+            });
+        return Object.entries(data)
+            .map(([name, value]) => ({ name, value }))
+            .sort((a, b) => b.value - a.value);
+    };
+
+    const getTopTransactions = (type) => {
+        return [...transactions]
+            .filter(t => t.type === type)
+            .sort((a, b) => (parseFloat(b.amount) || 0) - (parseFloat(a.amount) || 0))
+            .slice(0, 10);
+    };
+
+    // --- AGGREGATED DATA ---
+    const incomeTrend = getMonthlyData('income');
+    const spendingTrend = getMonthlyData('spending');
+    const incomeCategories = getCategoryData('income');
+    const spendingCategories = getCategoryData('spending');
+    const topIncome = getTopTransactions('income');
+    const topSpending = getTopTransactions('spending');
+
+    // Combined Data for Comparison Chart
+    const allMonths = Array.from(new Set([...incomeTrend.map(d => d.date), ...spendingTrend.map(d => d.date)]))
+        .sort((a, b) => new Date(a) - new Date(b));
+    
+    const combinedData = allMonths.map(month => {
+        const inc = incomeTrend.find(d => d.date === month)?.value || 0;
+        const spd = spendingTrend.find(d => d.date === month)?.value || 0;
+        return { date: month, income: inc, spending: spd };
+    });
+
     const totalIncome = transactions.filter(t => t.type === 'income').reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
     const totalSpending = transactions.filter(t => t.type === 'spending').reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
     const netSpending = totalSpending - totalIncome;
-    const budgetBalance = TOTAL_BUDGET_CONST - totalSpending;
-
-    // Chart Data
-    const sortedTransactions = [...transactions].sort((a, b) => new Date(a.date) - new Date(b.date));
-    const balanceData = [{ date: 'Start', value: TOTAL_BUDGET_CONST }];
-    let runningBalance = TOTAL_BUDGET_CONST;
-    sortedTransactions.forEach(t => {
-        if(t.type === 'spending') runningBalance -= (parseFloat(t.amount) || 0);
-        balanceData.push({ date: t.date, value: runningBalance });
-    });
-
     const filteredTransactions = transactions.filter(t => t.type === activeTab);
     const tabTotal = filteredTransactions.reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
 
     // --- Handlers ---
 
-    // File Upload Handler (Add)
+    // File Upload (Add)
     const handleFileUpload = (e) => {
         const file = e.target.files[0];
         if (file && file.size <= 1024 * 1024) {
@@ -71,15 +115,14 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
         } else if(file) { alert("File too large (>1MB)"); }
     };
 
-    // Remove File Handler (Add)
+    // Remove File (Add)
     const handleRemoveFile = () => {
         setNewTransaction(prev => ({ ...prev, invoiceFile: null }));
-        // Reset input value so same file can be selected again if needed
         const input = document.getElementById('addFile');
         if(input) input.value = '';
     };
 
-    // File Upload Handler (Edit)
+    // File Upload (Edit)
     const handleEditFileUpload = (e) => {
         const file = e.target.files[0];
         if (file && file.size <= 1024 * 1024) {
@@ -89,7 +132,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
         } else if(file) { alert("File too large (>1MB)"); }
     };
 
-    // Remove File Handler (Edit)
+    // Remove File (Edit)
     const handleRemoveEditFile = () => {
         setEditFormData(prev => ({ ...prev, invoiceFile: null }));
         const input = document.getElementById('editFile');
@@ -98,31 +141,14 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
 
     const handleAddTransaction = (e) => {
         e.preventDefault();
-        const data = { 
-            ...newTransaction, 
-            type: activeTab === 'overview' ? 'income' : activeTab, 
-            createdAt: new Date(), 
-            id: Date.now().toString() 
-        };
-        onAdd(data);
+        onAdd({ ...newTransaction, type: activeTab === 'overview' ? 'income' : activeTab, createdAt: new Date(), id: Date.now().toString() });
         setIsAddOpen(false);
-        setNewTransaction({ 
-            type: 'income', date: new Date().toISOString().split('T')[0], brand: '', category: BUDGET_CATEGORIES[0], description: '', amount: '', 
-            company: '', emailSubject: '', invoice: '', invoiceFile: null, paymentDate: '', status: 'Pending', remark: '' 
-        });
+        setNewTransaction({ type: 'income', date: new Date().toISOString().split('T')[0], brand: '', category: BUDGET_CATEGORIES[0], description: '', amount: '', company: '', emailSubject: '', invoice: '', invoiceFile: null, paymentDate: '', status: 'Pending', remark: '' });
     };
 
-    const handleEditClick = (transaction) => {
-        setEditFormData({ ...transaction });
-        setIsEditOpen(true);
-    };
-
-    const handleEditSubmit = (e) => {
-        e.preventDefault();
-        onUpdate(editFormData.id, editFormData);
-        setIsEditOpen(false);
-        setEditFormData(null);
-    };
+    const handleEditClick = (t) => { setEditFormData({ ...t }); setIsEditOpen(true); };
+    
+    const handleEditSubmit = (e) => { e.preventDefault(); onUpdate(editFormData.id, editFormData); setIsEditOpen(false); setEditFormData(null); };
 
     return (
         <div className="flex flex-col h-full bg-gray-50 font-sans">
@@ -140,7 +166,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                 </div>
             </header>
 
-            {/* Tabs & Content */}
+            {/* Tabs */}
             <div className="flex-1 overflow-hidden flex flex-col">
                 <div className="px-8 pt-6 pb-0 flex gap-1 border-b border-gray-200 bg-gray-50">
                     {['overview', 'income', 'spending'].map(tab => (
@@ -150,44 +176,106 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
 
                 <div className="flex-1 overflow-auto p-8">
                     {activeTab === 'overview' ? (
-                        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                            {/* Summary Cards */}
+                        <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10">
+                            {/* 1. Summary Cards */}
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                                 <div className="bg-blue-600 text-white p-6 rounded-2xl shadow-lg flex flex-col justify-between h-32"><div className="flex justify-between items-start"><span className="text-blue-200 text-xs font-bold uppercase tracking-wider">Total Budget</span><Wallet size={20} className="text-blue-200"/></div><div className="text-3xl font-black tracking-tight">฿{TOTAL_BUDGET_CONST.toLocaleString()}</div></div>
                                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex flex-col justify-between h-32"><div className="flex justify-between items-start"><span className="text-gray-400 text-xs font-bold uppercase tracking-wider">Total Income</span><div className="p-1.5 bg-green-50 rounded text-green-600"><TrendingUp size={16}/></div></div><div className="text-2xl font-bold text-gray-800">฿{totalIncome.toLocaleString()}</div></div>
                                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex flex-col justify-between h-32"><div className="flex justify-between items-start"><span className="text-gray-400 text-xs font-bold uppercase tracking-wider">Total Spending</span><div className="p-1.5 bg-red-50 rounded text-red-600"><TrendingDown size={16}/></div></div><div className="text-2xl font-bold text-gray-800">฿{totalSpending.toLocaleString()}</div></div>
                                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex flex-col justify-between h-32"><div className="flex justify-between items-start"><span className="text-gray-400 text-xs font-bold uppercase tracking-wider">Net (Spending - Income)</span><Activity size={20} className="text-gray-300"/></div><div className={`text-2xl font-bold ${netSpending > 0 ? 'text-red-600' : 'text-green-600'}`}>฿{netSpending.toLocaleString()}</div></div>
                             </div>
-                            {/* Chart */}
-                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 h-80">
-                                <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-200 p-6 flex flex-col">
-                                    <div className="flex justify-between items-center mb-6"><h3 className="font-bold text-gray-700 flex items-center gap-2"><Activity size={18} className="text-blue-500"/> Budget Balance History</h3><span className="text-xs font-bold bg-blue-50 text-blue-600 px-3 py-1 rounded-full">Realtime</span></div>
-                                    <div className="flex-1 w-full bg-gray-50 rounded-xl overflow-hidden relative border border-gray-100 p-4"><SimpleLineChart data={balanceData} color="#3b82f6" /></div>
+
+                            {/* 2. Combined Chart Section */}
+                            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+                                <div className="flex justify-between items-center mb-6">
+                                    <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2"><Activity size={20} className="text-blue-500"/> Monthly Overview (Income vs Spending)</h3>
                                 </div>
-                                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 flex flex-col justify-center items-center text-center">
-                                    <div className="w-40 h-40 rounded-full border-[6px] border-blue-500 flex items-center justify-center mb-4 shadow-inner"><div className="text-center"><span className="block text-xs font-bold text-gray-400 uppercase">Remaining</span><span className="block text-xl font-black text-gray-800">{((budgetBalance / TOTAL_BUDGET_CONST) * 100).toFixed(1)}%</span></div></div>
-                                    <h3 className="text-lg font-bold text-gray-800">Budget Balance</h3><p className={`text-2xl font-black mt-2 ${budgetBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>฿{budgetBalance.toLocaleString()}</p>
+                                <div className="h-64 w-full bg-gray-50 rounded-xl p-4 border border-gray-100">
+                                    <CombinedLineChart data={combinedData} />
+                                </div>
+                            </div>
+
+                            {/* 3. INCOME SECTION */}
+                            <div>
+                                <h3 className="text-xl font-black text-gray-800 mb-4 flex items-center gap-2 border-b pb-2"><TrendingUp className="text-green-600"/> Income Analysis</h3>
+                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                    {/* Income Trend */}
+                                    <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+                                        <h4 className="text-sm font-bold text-gray-500 uppercase mb-4">Monthly Income Trend</h4>
+                                        <div className="h-48"><SimpleLineChart data={incomeTrend} color="#16a34a" /></div>
+                                    </div>
+                                    {/* Income Pie */}
+                                    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 flex flex-col">
+                                        <h4 className="text-sm font-bold text-gray-500 uppercase mb-4 flex items-center gap-2"><PieChartIcon size={16}/> By Category</h4>
+                                        <div className="flex-1 min-h-[200px]"><SimplePieChart data={incomeCategories} /></div>
+                                    </div>
+                                </div>
+                                {/* Top 10 Income Table */}
+                                <div className="mt-6 bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                                    <div className="px-6 py-4 bg-green-50 border-b border-green-100"><h4 className="font-bold text-green-800 text-sm uppercase">Top 10 Income Sources</h4></div>
+                                    <table className="w-full text-sm text-left">
+                                        <thead className="text-xs text-gray-500 uppercase bg-gray-50 font-bold border-b border-gray-200">
+                                            <tr><th className="px-6 py-3">Brand</th><th className="px-6 py-3">Description</th><th className="px-6 py-3">Month</th><th className="px-6 py-3 text-right">Amount</th></tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100">
+                                            {topIncome.map((t, idx) => (
+                                                <tr key={idx} className="hover:bg-green-50/20">
+                                                    <td className="px-6 py-3 font-medium text-gray-700">{t.brand || '-'}</td>
+                                                    <td className="px-6 py-3 text-gray-500 truncate max-w-xs">{t.description}</td>
+                                                    <td className="px-6 py-3 text-gray-500">{new Date(t.date).toLocaleString('default', { month: 'short', year: '2-digit' })}</td>
+                                                    <td className="px-6 py-3 text-right font-bold text-green-600">฿{parseFloat(t.amount).toLocaleString()}</td>
+                                                </tr>
+                                            ))}
+                                            {topIncome.length === 0 && <tr><td colSpan="4" className="px-6 py-4 text-center text-gray-400">No data available</td></tr>}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            {/* 4. SPENDING SECTION */}
+                            <div>
+                                <h3 className="text-xl font-black text-gray-800 mb-4 flex items-center gap-2 border-b pb-2"><TrendingDown className="text-red-600"/> Spending Analysis</h3>
+                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                    {/* Spending Trend */}
+                                    <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+                                        <h4 className="text-sm font-bold text-gray-500 uppercase mb-4">Monthly Spending Trend</h4>
+                                        <div className="h-48"><SimpleLineChart data={spendingTrend} color="#dc2626" /></div>
+                                    </div>
+                                    {/* Spending Pie */}
+                                    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 flex flex-col">
+                                        <h4 className="text-sm font-bold text-gray-500 uppercase mb-4 flex items-center gap-2"><PieChartIcon size={16}/> By Category</h4>
+                                        <div className="flex-1 min-h-[200px]"><SimplePieChart data={spendingCategories} /></div>
+                                    </div>
+                                </div>
+                                {/* Top 10 Spending Table */}
+                                <div className="mt-6 bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                                    <div className="px-6 py-4 bg-red-50 border-b border-red-100"><h4 className="font-bold text-red-800 text-sm uppercase">Top 10 Expenses</h4></div>
+                                    <table className="w-full text-sm text-left">
+                                        <thead className="text-xs text-gray-500 uppercase bg-gray-50 font-bold border-b border-gray-200">
+                                            <tr><th className="px-6 py-3">Brand</th><th className="px-6 py-3">Description</th><th className="px-6 py-3">Month</th><th className="px-6 py-3 text-right">Amount</th></tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100">
+                                            {topSpending.map((t, idx) => (
+                                                <tr key={idx} className="hover:bg-red-50/20">
+                                                    <td className="px-6 py-3 font-medium text-gray-700">{t.brand || '-'}</td>
+                                                    <td className="px-6 py-3 text-gray-500 truncate max-w-xs">{t.description}</td>
+                                                    <td className="px-6 py-3 text-gray-500">{new Date(t.date).toLocaleString('default', { month: 'short', year: '2-digit' })}</td>
+                                                    <td className="px-6 py-3 text-right font-bold text-red-600">฿{parseFloat(t.amount).toLocaleString()}</td>
+                                                </tr>
+                                            ))}
+                                            {topSpending.length === 0 && <tr><td colSpan="4" className="px-6 py-4 text-center text-gray-400">No data available</td></tr>}
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
                         </div>
                     ) : (
-                        /* DATA TABLE */
+                        /* DATA TABLE (Income / Spending) */
                         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                             <table className="w-full text-sm text-left">
                                 <thead className="text-xs text-gray-500 uppercase bg-gray-50 font-bold border-b border-gray-200 sticky top-0 z-10">
                                     <tr>
-                                        <th className="px-6 py-4">Date</th>
-                                        <th className="px-6 py-4">Brand</th>
-                                        <th className="px-6 py-4">Category</th>
-                                        <th className="px-6 py-4 w-64">Description</th>
-                                        <th className="px-6 py-4 text-right">Amount (THB)</th>
-                                        <th className="px-6 py-4">Company</th>
-                                        <th className="px-6 py-4 w-48">Email Subject</th>
-                                        <th className="px-6 py-4">Invoice</th>
-                                        <th className="px-6 py-4">Payment Date</th>
-                                        <th className="px-6 py-4 text-center">Status</th>
-                                        <th className="px-6 py-4 w-48">Remark</th>
-                                        <th className="px-6 py-4 text-center">Action</th>
+                                        <th className="px-6 py-4">Date</th><th className="px-6 py-4">Brand</th><th className="px-6 py-4">Category</th><th className="px-6 py-4 w-64">Description</th><th className="px-6 py-4 text-right">Amount (THB)</th><th className="px-6 py-4">Company</th><th className="px-6 py-4 w-48">Email Subject</th><th className="px-6 py-4">Invoice</th><th className="px-6 py-4">Payment Date</th><th className="px-6 py-4 text-center">Status</th><th className="px-6 py-4 w-48">Remark</th><th className="px-6 py-4 text-center">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
@@ -200,31 +288,19 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                             <td className="px-4 py-4 text-right"><EditableCell type="number" value={t.amount} className={`font-mono font-bold text-right ${activeTab === 'income' ? 'text-green-600' : 'text-red-600'}`} onSave={(val) => onUpdate(t.id, { amount: val })} /></td>
                                             <td className="px-4 py-4"><EditableCell value={t.company} onSave={(val) => onUpdate(t.id, { company: val })} /></td>
                                             <td className="px-4 py-4"><EditableCell value={t.emailSubject} className="text-gray-600 truncate text-xs" onSave={(val) => onUpdate(t.id, { emailSubject: val })} /></td>
-
-                                            {/* File Preview Column */}
                                             <td className="px-4 py-4">
                                                 <div className="flex items-center gap-2">
                                                     <EditableCell value={t.invoice} className="font-mono text-xs w-20" onSave={(val) => onUpdate(t.id, { invoice: val })} />
-                                                    {t.invoiceFile && (
-                                                        <button 
-                                                            onClick={() => setPreviewFile(t.invoiceFile)} 
-                                                            className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-1 rounded transition"
-                                                            title="Preview File"
-                                                        >
-                                                            <Eye size={16} />
-                                                        </button>
-                                                    )}
+                                                    {t.invoiceFile && (<button onClick={() => setPreviewFile(t.invoiceFile)} className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-1 rounded transition" title="Preview"><Eye size={16} /></button>)}
                                                 </div>
                                             </td>
-
                                             <td className="px-4 py-4"><EditableCell type="date" value={t.paymentDate} onSave={(val) => onUpdate(t.id, { paymentDate: val })} /></td>
                                             <td className="px-4 py-4 text-center"><EditableCell type="select" options={BUDGET_STATUSES} value={t.status} className={`rounded-full text-xs font-bold border px-2 py-1 ${t.status === 'Complete' ? 'bg-green-50 text-green-700 border-green-200' : t.status === 'Follow-up' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : 'bg-gray-50 text-gray-500 border-gray-200'}`} onSave={(val) => onUpdate(t.id, { status: val })} /></td>
                                             <td className="px-4 py-4"><EditableCell value={t.remark} className="italic text-gray-500 text-xs" onSave={(val) => onUpdate(t.id, { remark: val })} /></td>
-                                            
                                             <td className="px-6 py-4 text-center">
                                                 <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition">
-                                                    <button onClick={() => handleEditClick(t)} className="text-blue-400 hover:text-blue-600 p-1 rounded-md hover:bg-blue-50" title="Edit"><Edit2 size={16} /></button>
-                                                    <button onClick={() => onDelete(t.id)} className="text-gray-300 hover:text-red-500 p-1 rounded-md hover:bg-red-50" title="Delete"><Trash2 size={16} /></button>
+                                                    <button onClick={() => handleEditClick(t)} className="text-blue-400 hover:text-blue-600 p-1 rounded-md hover:bg-blue-50"><Edit2 size={16} /></button>
+                                                    <button onClick={() => onDelete(t.id)} className="text-gray-300 hover:text-red-500 p-1 rounded-md hover:bg-red-50"><Trash2 size={16} /></button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -261,30 +337,17 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Invoice No.</label><input type="text" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={newTransaction.invoice} onChange={e => setNewTransaction({...newTransaction, invoice: e.target.value})} /></div>
-                                    
-                                    {/* UPLOAD & DELETE SECTION (ADD MODAL) */}
                                     <div>
                                         <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Upload</label>
                                         {newTransaction.invoiceFile ? (
                                             <div className="flex items-center justify-between border border-green-200 bg-green-50 rounded-lg p-2.5">
-                                                <span className="flex items-center gap-2 text-xs text-green-700 font-bold">
-                                                    <Paperclip size={16}/> Attached
-                                                </span>
-                                                <button 
-                                                    type="button" 
-                                                    onClick={handleRemoveFile} 
-                                                    className="text-red-500 hover:text-red-700 p-1 hover:bg-red-100 rounded transition"
-                                                    title="Remove File"
-                                                >
-                                                    <Trash2 size={16} />
-                                                </button>
+                                                <span className="flex items-center gap-2 text-xs text-green-700 font-bold"><Paperclip size={16}/> Attached</span>
+                                                <button type="button" onClick={handleRemoveFile} className="text-red-500 hover:text-red-700 p-1 hover:bg-red-100 rounded transition"><Trash2 size={16} /></button>
                                             </div>
                                         ) : (
                                             <div className="border border-dashed border-gray-300 rounded-lg p-2.5 text-center cursor-pointer hover:bg-gray-50 transition">
                                                 <input type="file" accept=".pdf,.jpg,.png" onChange={handleFileUpload} className="hidden" id="addFile"/>
-                                                <label htmlFor="addFile" className="flex items-center justify-center gap-2 text-xs text-gray-500 cursor-pointer w-full h-full">
-                                                    <Upload size={16}/> Select File
-                                                </label>
+                                                <label htmlFor="addFile" className="flex items-center justify-center gap-2 text-xs text-gray-500 cursor-pointer w-full h-full"><Upload size={16}/> Select File</label>
                                             </div>
                                         )}
                                     </div>
@@ -323,30 +386,17 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Invoice No.</label><input type="text" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={editFormData.invoice} onChange={e => setEditFormData({...editFormData, invoice: e.target.value})} /></div>
-                                    
-                                    {/* UPLOAD & DELETE SECTION (EDIT MODAL) */}
                                     <div>
                                         <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Update File</label>
                                         {editFormData.invoiceFile ? (
                                             <div className="flex items-center justify-between border border-green-200 bg-green-50 rounded-lg p-2.5">
-                                                <span className="flex items-center gap-2 text-xs text-green-700 font-bold truncate max-w-[150px]">
-                                                    <Paperclip size={16}/> File Attached
-                                                </span>
-                                                <button 
-                                                    type="button" 
-                                                    onClick={handleRemoveEditFile} 
-                                                    className="text-red-500 hover:text-red-700 p-1 hover:bg-red-100 rounded transition"
-                                                    title="Remove File"
-                                                >
-                                                    <Trash2 size={16} />
-                                                </button>
+                                                <span className="flex items-center gap-2 text-xs text-green-700 font-bold truncate max-w-[150px]"><Paperclip size={16}/> File Attached</span>
+                                                <button type="button" onClick={handleRemoveEditFile} className="text-red-500 hover:text-red-700 p-1 hover:bg-red-100 rounded transition"><Trash2 size={16} /></button>
                                             </div>
                                         ) : (
                                             <div className="border border-dashed border-gray-300 rounded-lg p-2.5 text-center cursor-pointer hover:bg-gray-50 transition">
                                                 <input type="file" accept=".pdf,.jpg,.png" onChange={handleEditFileUpload} className="hidden" id="editFile"/>
-                                                <label htmlFor="editFile" className="flex items-center justify-center gap-2 text-xs text-gray-500 cursor-pointer w-full h-full">
-                                                    <Upload size={16}/> Select New
-                                                </label>
+                                                <label htmlFor="editFile" className="flex items-center justify-center gap-2 text-xs text-gray-500 cursor-pointer w-full h-full"><Upload size={16}/> Select New</label>
                                             </div>
                                         )}
                                     </div>
@@ -383,27 +433,101 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
     );
 };
 
-// ... SimpleLineChart and EditableCell components (Unchanged) ...
+// --- CHARTS & SUB-COMPONENTS ---
+
 const SimpleLineChart = ({ data, color = "#C81E23" }) => {
-    if (!data || data.length < 2) return <div className="h-full w-full flex items-center justify-center text-gray-400 text-sm">Not enough data for chart</div>;
-    const height = 150; const width = 1000; const padding = 10;
-    const maxVal = Math.max(...data.map(d => d.value)); const minVal = Math.min(...data.map(d => d.value));
-    const range = maxVal - minVal || 1;
+    if (!data || data.length < 2) return <div className="h-full w-full flex items-center justify-center text-gray-400 text-sm">Not enough data</div>;
+    const height = 150; const width = 1000; const padding = 20;
+    const maxVal = Math.max(...data.map(d => d.value)) || 100;
     const points = data.map((d, i) => {
         const x = (i / (data.length - 1)) * (width - 2 * padding) + padding;
-        const y = height - padding - ((d.value - minVal) / range) * (height - 2 * padding);
+        const y = height - padding - ((d.value / maxVal) * (height - 2 * padding));
         return `${x},${y}`;
     }).join(' ');
-    const fillPath = `${points} ${width - padding},${height} ${padding},${height}`;
+    
+    return (
+        <div className="w-full h-full relative group">
+            <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-visible" preserveAspectRatio="none">
+                <polyline fill="none" stroke={color} strokeWidth="3" points={points} strokeLinecap="round" strokeLinejoin="round" />
+                {data.map((d, i) => {
+                    const x = (i / (data.length - 1)) * (width - 2 * padding) + padding;
+                    const y = height - padding - ((d.value / maxVal) * (height - 2 * padding));
+                    return (
+                        <g key={i} className="group-hover:opacity-100 opacity-0 transition-opacity">
+                            <circle cx={x} cy={y} r="4" fill={color} />
+                            <text x={x} y={y - 10} textAnchor="middle" fontSize="20" fill="#333" fontWeight="bold">฿{d.value.toLocaleString()}</text>
+                            <text x={x} y={height + 15} textAnchor="middle" fontSize="16" fill="#999">{d.date.split(' ')[0]}</text>
+                        </g>
+                    );
+                })}
+            </svg>
+        </div>
+    );
+};
+
+const CombinedLineChart = ({ data }) => {
+    if (!data || data.length === 0) return <div className="h-full w-full flex items-center justify-center text-gray-400 text-sm">No data</div>;
+    const height = 200; const width = 1000; const padding = 20;
+    const maxVal = Math.max(...data.map(d => Math.max(d.income, d.spending))) || 100;
+    
+    const getPoints = (key) => data.map((d, i) => {
+        const x = (i / (data.length - 1 || 1)) * (width - 2 * padding) + padding;
+        const y = height - padding - ((d[key] / maxVal) * (height - 2 * padding));
+        return `${x},${y}`;
+    }).join(' ');
+
     return (
         <div className="w-full h-full relative">
             <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-visible" preserveAspectRatio="none">
-                <defs><linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={color} stopOpacity="0.2" /><stop offset="100%" stopColor={color} stopOpacity="0" /></linearGradient></defs>
-                <path d={`M ${points.split(' ')[0]} L ${fillPath} Z`} fill="url(#chartGradient)" stroke="none" />
-                <polyline fill="none" stroke={color} strokeWidth="3" points={points} strokeLinecap="round" strokeLinejoin="round" />
+                {/* Income Line */}
+                <polyline fill="none" stroke="#16a34a" strokeWidth="3" points={getPoints('income')} />
+                {/* Spending Line */}
+                <polyline fill="none" stroke="#dc2626" strokeWidth="3" points={getPoints('spending')} />
+                {/* Labels at bottom */}
+                {data.map((d, i) => {
+                    const x = (i / (data.length - 1 || 1)) * (width - 2 * padding) + padding;
+                    return <text key={i} x={x} y={height + 20} textAnchor="middle" fontSize="14" fill="#999">{d.date.split(' ')[0]}</text>;
+                })}
             </svg>
-            <div className="absolute top-0 right-0 bg-white/80 px-2 py-1 text-xs font-bold rounded text-gray-500">Max: {maxVal.toLocaleString()}</div>
-            <div className="absolute bottom-0 right-0 bg-white/80 px-2 py-1 text-xs font-bold rounded text-gray-500">Min: {minVal.toLocaleString()}</div>
+            <div className="absolute top-0 right-0 flex gap-4 text-xs font-bold">
+                <span className="text-green-600 flex items-center gap-1"><span className="w-3 h-3 bg-green-600 rounded-full"></span> Income</span>
+                <span className="text-red-600 flex items-center gap-1"><span className="w-3 h-3 bg-red-600 rounded-full"></span> Spending</span>
+            </div>
+        </div>
+    );
+};
+
+const SimplePieChart = ({ data }) => {
+    if (!data || data.length === 0) return <div className="h-full w-full flex items-center justify-center text-gray-400 text-sm">No data</div>;
+    const total = data.reduce((acc, cur) => acc + cur.value, 0);
+    let currentAngle = 0;
+    const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#6366f1'];
+
+    return (
+        <div className="flex items-center gap-6 h-full">
+            <div className="w-32 h-32 relative shrink-0">
+                <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
+                    {data.map((d, i) => {
+                        const sliceAngle = (d.value / total) * 360;
+                        const x1 = 50 + 50 * Math.cos(Math.PI * currentAngle / 180);
+                        const y1 = 50 + 50 * Math.sin(Math.PI * currentAngle / 180);
+                        const x2 = 50 + 50 * Math.cos(Math.PI * (currentAngle + sliceAngle) / 180);
+                        const y2 = 50 + 50 * Math.sin(Math.PI * (currentAngle + sliceAngle) / 180);
+                        const largeArc = sliceAngle > 180 ? 1 : 0;
+                        const pathData = `M 50 50 L ${x1} ${y1} A 50 50 0 ${largeArc} 1 ${x2} ${y2} Z`;
+                        currentAngle += sliceAngle;
+                        return <path key={i} d={pathData} fill={colors[i % colors.length]} stroke="white" strokeWidth="1"/>;
+                    })}
+                </svg>
+            </div>
+            <div className="flex-1 space-y-1 overflow-y-auto max-h-40 text-xs custom-scrollbar">
+                {data.map((d, i) => (
+                    <div key={i} className="flex justify-between items-center">
+                        <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full" style={{backgroundColor: colors[i % colors.length]}}></span><span className="text-gray-600 truncate max-w-[100px]" title={d.name}>{d.name}</span></div>
+                        <span className="font-bold text-gray-800">{((d.value / total) * 100).toFixed(0)}%</span>
+                    </div>
+                ))}
+            </div>
         </div>
     );
 };
@@ -414,11 +538,7 @@ const EditableCell = ({ value, onSave, type = "text", options = null, className 
     const handleBlur = () => { if (localValue !== value) { onSave(localValue); } };
     const baseStyle = `w-full bg-transparent outline-none focus:bg-white focus:ring-2 focus:ring-blue-200 rounded px-1 transition-all ${className}`;
     if (type === 'select' && options) {
-        return (
-            <select value={localValue} onChange={(e) => { setLocalValue(e.target.value); onSave(e.target.value); }} className={`${baseStyle} cursor-pointer appearance-none`}>
-                {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-            </select>
-        );
+        return ( <select value={localValue} onChange={(e) => { setLocalValue(e.target.value); onSave(e.target.value); }} className={`${baseStyle} cursor-pointer appearance-none`}>{options.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select>);
     }
     return <input type={type} value={localValue} onChange={(e) => setLocalValue(e.target.value)} onBlur={handleBlur} onKeyDown={(e) => e.key === 'Enter' && e.target.blur()} className={baseStyle} placeholder="-" />;
 };
