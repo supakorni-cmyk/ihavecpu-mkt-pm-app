@@ -8,7 +8,10 @@ import {
   Wallet, 
   Activity, 
   Trash2, 
-  X 
+  X,
+  FileText, // Icon for file
+  Upload,   // Icon for upload
+  Paperclip // Icon for attachment indication
 } from 'lucide-react';
 
 // Import shared constants
@@ -31,8 +34,8 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
         description: '', 
         amount: '',
         company: '', 
-        email: '',
         invoice: '', 
+        invoiceFile: null, // NEW: Store Base64 string of the file
         paymentDate: '', 
         status: 'Pending', 
         remark: ''
@@ -48,7 +51,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
         .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
     
     const netSpending = totalSpending - totalIncome;
-    const budgetBalance = TOTAL_BUDGET_CONST - netSpending;
+    const budgetBalance = TOTAL_BUDGET_CONST - totalSpending;
 
     // Data preparation for Chart
     const sortedTransactions = [...transactions].sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -65,6 +68,25 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
     const tabTotal = filteredTransactions.reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
 
     // --- Handlers ---
+    
+    // NEW: Handle File Upload (Convert to Base64)
+    const handleFileUpload = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            // Check size (Limit to ~1MB for Firestore stability)
+            if (file.size > 1024 * 1024) {
+                alert("File is too large! Please upload a document smaller than 1MB.");
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setNewTransaction(prev => ({ ...prev, invoiceFile: reader.result }));
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
     const handleAddTransaction = (e) => {
         e.preventDefault();
         onAdd({ 
@@ -74,7 +96,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
             id: Date.now().toString() 
         });
         setIsAddOpen(false);
-        // Reset form but keep logical defaults
+        // Reset form
         setNewTransaction({ 
             type: activeTab === 'overview' ? 'income' : activeTab, 
             date: new Date().toISOString().split('T')[0], 
@@ -83,8 +105,8 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
             description: '', 
             amount: '', 
             company: '', 
-            email: '',
             invoice: '', 
+            invoiceFile: null,
             paymentDate: '', 
             status: 'Pending', 
             remark: '' 
@@ -199,7 +221,6 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                         <th className="px-6 py-4 w-64">Description</th>
                                         <th className="px-6 py-4 text-right">Amount (THB)</th>
                                         <th className="px-6 py-4">Company</th>
-                                        <th className="px-6 py-4 w-48">Email</th>
                                         <th className="px-6 py-4">Invoice</th>
                                         <th className="px-6 py-4">Payment Date</th>
                                         <th className="px-6 py-4 text-center">Status</th>
@@ -239,13 +260,29 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                             <td className="px-4 py-4">
                                                 <EditableCell value={t.company} onSave={(val) => onUpdate(t.id, { company: val })} />
                                             </td>
+                                            
+                                            {/* Invoice Column with File Icon */}
                                             <td className="px-4 py-4">
-                                                <EditableCell value={t.email} onSave={(val) => onUpdate(t.id, { email: val })} />
+                                                <div className="flex items-center gap-2">
+                                                    <EditableCell 
+                                                        value={t.invoice} 
+                                                        className="font-mono text-xs w-20" 
+                                                        onSave={(val) => onUpdate(t.id, { invoice: val })} 
+                                                    />
+                                                    {t.invoiceFile && (
+                                                        <a 
+                                                            href={t.invoiceFile} 
+                                                            target="_blank" 
+                                                            rel="noreferrer" 
+                                                            className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-1 rounded transition"
+                                                            title="View Document"
+                                                        >
+                                                            <FileText size={16} />
+                                                        </a>
+                                                    )}
+                                                </div>
                                             </td>
-                                            {/* Invoice */}
-                                            <td className="px-4 py-4">
-                                                <EditableCell value={t.invoice} className="font-mono text-xs" onSave={(val) => onUpdate(t.id, { invoice: val })} />
-                                            </td>
+
                                             {/* Payment Date */}
                                             <td className="px-4 py-4">
                                                 <EditableCell type="date" value={t.paymentDate} onSave={(val) => onUpdate(t.id, { paymentDate: val })} />
@@ -301,8 +338,26 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                             <div className="space-y-6">
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Description</label><textarea className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px] transition" value={newTransaction.description} onChange={e => setNewTransaction({...newTransaction, description: e.target.value})} /></div>
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Company</label><input type="text" placeholder="Company Name" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 transition" value={newTransaction.company} onChange={e => setNewTransaction({...newTransaction, company: e.target.value})} /></div>
-                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Email</label><input type="text" placeholder="Email Subject" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 transition" value={newTransaction.email} onChange={e => setNewTransaction({...newTransaction, email: e.target.value})} /></div>
-                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Invoice No.</label><input type="text" placeholder="INV-001" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 font-mono transition" value={newTransaction.invoice} onChange={e => setNewTransaction({...newTransaction, invoice: e.target.value})} /></div>
+                                
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Invoice No.</label>
+                                        <input type="text" placeholder="INV-001" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 font-mono transition" value={newTransaction.invoice} onChange={e => setNewTransaction({...newTransaction, invoice: e.target.value})} />
+                                    </div>
+                                    <div>
+                                        {/* NEW: Invoice File Upload */}
+                                        <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Upload Document</label>
+                                        <div className="relative border border-dashed border-gray-300 rounded-lg p-2.5 text-center hover:bg-gray-50 transition cursor-pointer">
+                                            <input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={handleFileUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                                            {newTransaction.invoiceFile ? (
+                                                <div className="flex items-center justify-center gap-2 text-green-600 text-xs font-bold"><Paperclip size={16}/> Attached</div>
+                                            ) : (
+                                                <div className="flex items-center justify-center gap-2 text-gray-400 text-xs"><Upload size={16}/> Select File</div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Payment Date</label><input type="date" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 transition" value={newTransaction.paymentDate} onChange={e => setNewTransaction({...newTransaction, paymentDate: e.target.value})} /></div>
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Status</label><select className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 bg-white transition" value={newTransaction.status} onChange={e => setNewTransaction({...newTransaction, status: e.target.value})}>{BUDGET_STATUSES.map(st => <option key={st} value={st}>{st}</option>)}</select></div>
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Remark</label><textarea placeholder="Additional notes..." className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px] transition" value={newTransaction.remark} onChange={e => setNewTransaction({...newTransaction, remark: e.target.value})} /></div>
@@ -357,7 +412,7 @@ const SimpleLineChart = ({ data, color = "#C81E23" }) => {
     );
 };
 
-// --- NEW: Editable Cell Component ---
+// --- Editable Cell Component ---
 const EditableCell = ({ value, onSave, type = "text", options = null, className = "" }) => {
     const [localValue, setLocalValue] = useState(value || "");
 
@@ -371,7 +426,6 @@ const EditableCell = ({ value, onSave, type = "text", options = null, className 
         }
     };
 
-    // Common styling for inputs to make them look clean in the table
     const baseStyle = `w-full bg-transparent outline-none focus:bg-white focus:ring-2 focus:ring-blue-200 rounded px-1 transition-all ${className}`;
 
     if (type === 'select' && options) {
@@ -380,7 +434,7 @@ const EditableCell = ({ value, onSave, type = "text", options = null, className 
                 value={localValue} 
                 onChange={(e) => {
                     setLocalValue(e.target.value);
-                    onSave(e.target.value); // Selects save immediately
+                    onSave(e.target.value); 
                 }}
                 className={`${baseStyle} cursor-pointer appearance-none`}
             >
