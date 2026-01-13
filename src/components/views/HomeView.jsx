@@ -3,6 +3,7 @@ import React from 'react';
 import { Home, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 
 // --- USER NAME MAPPING ---
+// Maps specific email addresses to display names
 const USER_MAP = {
     'supakorn.i@ihavecpu.com': 'Boom',
     'sophisa.p@ihavecpu.com': 'E.Yuiizz',
@@ -11,12 +12,12 @@ const USER_MAP = {
 };
 
 const HomeView = ({ currentUser, tasks }) => {
-    // Determine Display Name
+    // Determine Display Name based on email
     const email = currentUser?.email;
     const displayName = USER_MAP[email] || email || 'Team Member';
 
     // Basic Stats Calculation
-    // Ensure tasks is an array to prevent crashes if data hasn't loaded
+    // Ensure tasks is an array to prevent crashes if data hasn't loaded yet
     const taskList = Array.isArray(tasks) ? tasks : [];
     const totalTasks = taskList.length;
     const completedTasks = taskList.filter(t => t.status === 'Done').length;
@@ -33,22 +34,33 @@ const HomeView = ({ currentUser, tasks }) => {
 
             {/* Quick Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                {/* Total Tasks Card */}
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4 transition hover:shadow-md">
-                    <div className="p-4 bg-blue-50 text-blue-600 rounded-xl"><Home size={28}/></div>
+                    <div className="p-4 bg-blue-50 text-blue-600 rounded-xl">
+                        <Home size={28}/>
+                    </div>
                     <div>
                         <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">Total Tasks</p>
                         <p className="text-3xl font-black text-gray-800">{totalTasks}</p>
                     </div>
                 </div>
+
+                {/* Completed Tasks Card */}
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4 transition hover:shadow-md">
-                    <div className="p-4 bg-green-50 text-green-600 rounded-xl"><CheckCircle size={28}/></div>
+                    <div className="p-4 bg-green-50 text-green-600 rounded-xl">
+                        <CheckCircle size={28}/>
+                    </div>
                     <div>
                         <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">Completed</p>
                         <p className="text-3xl font-black text-gray-800">{completedTasks}</p>
                     </div>
                 </div>
+
+                {/* Pending Tasks Card */}
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4 transition hover:shadow-md">
-                    <div className="p-4 bg-orange-50 text-orange-600 rounded-xl"><Clock size={28}/></div>
+                    <div className="p-4 bg-orange-50 text-orange-600 rounded-xl">
+                        <Clock size={28}/>
+                    </div>
                     <div>
                         <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">Pending</p>
                         <p className="text-3xl font-black text-gray-800">{pendingTasks}</p>
@@ -56,7 +68,7 @@ const HomeView = ({ currentUser, tasks }) => {
                 </div>
             </div>
 
-            {/* Recent Tasks */}
+            {/* Recent Tasks Section */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
@@ -70,7 +82,10 @@ const HomeView = ({ currentUser, tasks }) => {
                             <div key={task.id} className="flex justify-between items-center p-4 hover:bg-gray-50 rounded-xl border border-gray-100 transition group">
                                 <div className="flex flex-col">
                                     <span className="font-bold text-gray-700 group-hover:text-indigo-600 transition">{task.title}</span>
-                                    <span className="text-xs text-gray-400 mt-1">Updated: {task.createdAt ? new Date(task.createdAt).toLocaleDateString() : 'Recently'}</span>
+                                    <span className="text-xs text-gray-400 mt-1">
+                                        {/* Show date or placeholder */}
+                                        Updated: {task.createdAt ? new Date(task.createdAt).toLocaleDateString() : 'Recently'}
+                                    </span>
                                 </div>
                                 <span className={`text-xs px-3 py-1.5 rounded-full font-bold uppercase tracking-wide ${
                                     task.status === 'Done' ? 'bg-green-100 text-green-700' : 
