@@ -1,107 +1,142 @@
 // src/components/views/HomeView.jsx
 import React from 'react';
-import { Home, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { 
+  ListTodo, 
+  CheckCircle2, 
+  Activity, 
+  PieChart 
+} from 'lucide-react';
+import { TAG_COLORS } from '../../utils/constants';
 
-// --- USER NAME MAPPING ---
-// Maps specific email addresses to display names
-const USER_MAP = {
+// --- CUSTOM NAME MAPPING ---
+// Add your team members' emails and their desired display names here
+const USER_NICKNAMES = {
     'supakorn.i@ihavecpu.com': 'Boom',
     'sophisa.p@ihavecpu.com': 'E.Yuiizz',
     'jittikorn.m@ihavecpu.com': 'Uncle Tony',
     'suchada.t@ihavecpu.com': 'Bum'
+    // 'email@address.com': 'Custom Name',
 };
 
-const HomeView = ({ currentUser, tasks }) => {
-    // Determine Display Name based on email
-    const email = currentUser?.email;
-    const displayName = USER_MAP[email] || email || 'Team Member';
+const HomeView = ({ tasks = [], currentUser }) => {
+    // --- Helper Logic ---
+    const getTasksByStatus = (status) => {
+        return tasks.filter(task => {
+            if (status === 'todo') return (task.status === 'pending' || !task.status || task.status === 'todo');
+            if (status === 'done') return (task.status === 'completed' || task.status === 'done');
+            return task.status === status;
+        });
+    };
 
-    // Basic Stats Calculation
-    // Ensure tasks is an array to prevent crashes if data hasn't loaded yet
-    const taskList = Array.isArray(tasks) ? tasks : [];
-    const totalTasks = taskList.length;
-    const completedTasks = taskList.filter(t => t.status === 'Done').length;
-    const pendingTasks = totalTasks - completedTasks;
+    const totalTasks = tasks.length;
+    const completedTasks = getTasksByStatus('done').length;
+    const inProgressTasks = getTasksByStatus('inprogress').length;
+    const reviewTasks = getTasksByStatus('review').length;
+    const todoTasks = getTasksByStatus('todo').length;
+
+    const tagCounts = tasks.reduce((acc, task) => { 
+        const tag = task.tag || 'Uncategorized'; 
+        acc[tag] = (acc[tag] || 0) + 1; 
+        return acc; 
+    }, {});
+    const maxTagCount = Math.max(...Object.values(tagCounts), 1);
+
+    // --- GET DISPLAY NAME ---
+    // If the email is in our list, use that name. Otherwise, split the email string.
+    const userEmail = currentUser?.email;
+    const displayName = USER_NICKNAMES[userEmail] || userEmail || 'User';
 
     return (
-        <div className="p-8 h-full overflow-y-auto bg-gray-50 font-sans">
-            <header className="mb-8">
-                <h1 className="text-3xl font-bold text-gray-800">
-                    Welcome back, <span className="text-indigo-600">{displayName}</span>
-                </h1>
-                <p className="text-gray-500 mt-1">Here is what's happening with your projects today.</p>
+        <div className="flex flex-col h-full w-full bg-gray-50">
+            <header className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-white/80 backdrop-blur-md z-10">
+                <h2 className="text-2xl font-bold text-gray-800">Overview</h2>
+                <div className="text-sm font-medium text-gray-500">
+                    {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
+                </div>
             </header>
 
-            {/* Quick Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                {/* Total Tasks Card */}
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4 transition hover:shadow-md">
-                    <div className="p-4 bg-blue-50 text-blue-600 rounded-xl">
-                        <Home size={28}/>
+            <div className="p-6 md:p-10 overflow-y-auto flex-1">
+                <div className="max-w-6xl mx-auto space-y-8">
+                    <div className="flex justify-between items-end">
+                        <div>
+                            {/* UPDATED GREETING LINE */}
+                            <h2 className="text-3xl font-bold text-gray-800">
+                                Welcome Back, <span className="text-blue-600">{displayName}</span>!
+                            </h2>
+                            <p className="text-gray-500 mt-1">Here is your project overview at a glance.</p>
+                        </div>
                     </div>
-                    <div>
-                        <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">Total Tasks</p>
-                        <p className="text-3xl font-black text-gray-800">{totalTasks}</p>
-                    </div>
-                </div>
 
-                {/* Completed Tasks Card */}
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4 transition hover:shadow-md">
-                    <div className="p-4 bg-green-50 text-green-600 rounded-xl">
-                        <CheckCircle size={28}/>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <StatsCard title="Total Tasks" value={totalTasks} sub="tasks" icon={ListTodo} color="blue" />
+                        <StatsCard title="Completed" value={completedTasks} sub="finished" icon={CheckCircle2} color="green" />
+                        <StatsCard title="In Progress" value={inProgressTasks} sub="active" icon={Activity} color="yellow" />
+                        <StatsCard title="Review" value={reviewTasks} sub="pending" icon={PieChart} color="purple" />
                     </div>
-                    <div>
-                        <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">Completed</p>
-                        <p className="text-3xl font-black text-gray-800">{completedTasks}</p>
-                    </div>
-                </div>
 
-                {/* Pending Tasks Card */}
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4 transition hover:shadow-md">
-                    <div className="p-4 bg-orange-50 text-orange-600 rounded-xl">
-                        <Clock size={28}/>
-                    </div>
-                    <div>
-                        <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">Pending</p>
-                        <p className="text-3xl font-black text-gray-800">{pendingTasks}</p>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
+                            <h3 className="text-lg font-bold text-gray-800 mb-6">Task Status</h3>
+                            <div className="flex items-end justify-between h-64 gap-4">
+                                {[
+                                    { label: 'To Do', count: todoTasks, color: 'bg-gray-200' }, 
+                                    { label: 'In Progress', count: inProgressTasks, color: 'bg-blue-500' }, 
+                                    { label: 'Review', count: reviewTasks, color: 'bg-purple-500' }, 
+                                    { label: 'Done', count: completedTasks, color: 'bg-green-500' }
+                                ].map((stat) => (
+                                    <div key={stat.label} className="flex flex-col items-center gap-2 flex-1 h-full justify-end group">
+                                        <div className="font-bold text-gray-800 mb-1 opacity-0 group-hover:opacity-100 transition-opacity transform translate-y-2 group-hover:translate-y-0">{stat.count}</div>
+                                        <div className={`w-full rounded-t-xl transition-all duration-500 ${stat.color} hover:opacity-90`} style={{ height: `${totalTasks > 0 ? (stat.count / totalTasks) * 100 : 0}%`, minHeight: '8px' }}></div>
+                                        <div className="text-xs font-bold text-gray-400 uppercase text-center mt-2">{stat.label}</div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
+                            <h3 className="text-lg font-bold text-gray-800 mb-6">Workload</h3>
+                            <div className="space-y-5">
+                                {Object.keys(TAG_COLORS).map((tag) => { 
+                                    const count = tasks.filter(t => t.tag === tag).length; 
+                                    const colorClass = (TAG_COLORS[tag] || 'bg-gray-200').split(' ')[0];
+                                    return (
+                                        <div key={tag}>
+                                            <div className="flex justify-between text-sm font-bold mb-2">
+                                                <span className="text-gray-600">{tag}</span>
+                                                <span className="text-gray-400">{count} Tasks</span>
+                                            </div>
+                                            <div className="h-3 w-full bg-gray-100 rounded-full overflow-hidden">
+                                                <div className={`h-full rounded-full transition-all duration-500 ${colorClass}`} style={{ width: `${(count / maxTagCount) * 100}%` }}></div>
+                                            </div>
+                                        </div>
+                                    ) 
+                                })}
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
+        </div>
+    );
+};
 
-            {/* Recent Tasks Section */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-                <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                        <AlertCircle size={20} className="text-indigo-500"/> Recent Activity
-                    </h2>
-                </div>
-                
-                {taskList.length > 0 ? (
-                    <div className="space-y-3">
-                        {taskList.slice(0, 5).map(task => (
-                            <div key={task.id} className="flex justify-between items-center p-4 hover:bg-gray-50 rounded-xl border border-gray-100 transition group">
-                                <div className="flex flex-col">
-                                    <span className="font-bold text-gray-700 group-hover:text-indigo-600 transition">{task.title}</span>
-                                    <span className="text-xs text-gray-400 mt-1">
-                                        {/* Show date or placeholder */}
-                                        Updated: {task.createdAt ? new Date(task.createdAt).toLocaleDateString() : 'Recently'}
-                                    </span>
-                                </div>
-                                <span className={`text-xs px-3 py-1.5 rounded-full font-bold uppercase tracking-wide ${
-                                    task.status === 'Done' ? 'bg-green-100 text-green-700' : 
-                                    task.status === 'In Progress' ? 'bg-blue-100 text-blue-700' : 
-                                    'bg-gray-100 text-gray-600'
-                                }`}>
-                                    {task.status}
-                                </span>
-                            </div>
-                        ))}
-                    </div>
-                ) : (
-                    <div className="text-center py-12 bg-gray-50 rounded-xl border-dashed border-2 border-gray-200">
-                        <p className="text-gray-400 font-medium">No tasks found. Get started by creating one!</p>
-                    </div>
-                )}
+const StatsCard = ({ title, value, sub, icon: Icon, color }) => {
+    const colors = {
+        blue: { bg: 'bg-blue-50', text: 'text-blue-600' },
+        green: { bg: 'bg-green-50', text: 'text-green-600' },
+        yellow: { bg: 'bg-yellow-50', text: 'text-yellow-600' },
+        purple: { bg: 'bg-purple-50', text: 'text-purple-600' },
+    };
+    const activeColor = colors[color] || colors.blue;
+    return (
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between h-32 hover:shadow-md transition">
+            <div className="flex justify-between items-start">
+                <div className={`${activeColor.bg} ${activeColor.text} p-2 rounded-lg`}><Icon size={24} /></div>
+                <span className="text-xs font-bold text-gray-400 uppercase">{title}</span>
+            </div>
+            <div>
+                <span className="text-3xl font-bold text-gray-800">{value}</span>
+                <span className="text-sm text-gray-400 ml-2">{sub}</span>
             </div>
         </div>
     );
