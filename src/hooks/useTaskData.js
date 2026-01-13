@@ -18,6 +18,7 @@ export const useTaskData = (currentUser) => {
   const [transactions, setTransactions] = usePersistedState('transactions', []);
   const [albums, setAlbums] = usePersistedState('albums', []);
   const [photos, setPhotos] = usePersistedState('photos', []);
+  const [otRecords, setOtRecords] = usePersistedState('otRecords', []);
 
   // --- ACTIONS ---
 
@@ -73,11 +74,32 @@ export const useTaskData = (currentUser) => {
     }
   };
 
+  const addOTRecord = (record) => {
+    setOtRecords([{ 
+      ...record, 
+      id: Date.now().toString(), 
+      createdAt: new Date(), 
+      status: 'Request' // Default status
+    }, ...otRecords]);
+  };
+
+  const deleteOTRecord = (id) => {
+    if (confirm("Delete this OT record?")) {
+      setOtRecords(prev => prev.filter(r => r.id !== id));
+    }
+  };
+
+  // Used for Approving/Rejecting
+  const updateOTStatus = (id, newStatus) => {
+    setOtRecords(prev => prev.map(r => r.id === id ? { ...r, status: newStatus } : r));
+  };
+
   return {
     tasks, addTask, updateTask, deleteTask, moveTask,
     transactions, addTransaction, deleteTransaction,
     albums, addAlbum, deleteAlbum,
     photos, addPhoto, deletePhoto,
-    leaves, addLeave, deleteLeave // <--- Export new functions
+    leaves, addLeave, deleteLeave,// <--- Export new functions
+    otRecords, addOTRecord, deleteOTRecord, updateOTStatus
   };
 };

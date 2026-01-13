@@ -18,6 +18,7 @@ import BudgetRecorderView from './components/views/BudgetView';
 import LeaveView from './components/views/LeaveView';
 import SelfHealView from './components/views/SelfHealView';
 import ReportView from './components/views/ReportView';
+import OTView from './components/views/OtView';
 
 // Modals
 import AddTaskModal from './components/modals/AddTaskModal';
@@ -103,6 +104,17 @@ export default function Dashboard() {
             leaves={data.leaves} 
             onAdd={data.addLeave} 
             onDelete={data.deleteLeave} 
+          />
+        )}
+
+        {/* ADD OT VIEW BLOCK */}
+        {currentView === 'ot' && (
+          <OTView 
+            records={data.otRecords} 
+            onAdd={data.addOTRecord} 
+            onDelete={data.deleteOTRecord}
+            onUpdateStatus={data.updateOTStatus}
+            currentUser={currentUser} // Important for permission check
           />
         )}
 
