@@ -13,7 +13,7 @@ import {
   FileText,
   Upload,
   Paperclip,
-  Eye // Added Eye icon for preview
+  Eye 
 } from 'lucide-react';
 
 import { BUDGET_CATEGORIES } from '../../utils/constants';
@@ -38,8 +38,8 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [editFormData, setEditFormData] = useState(null);
 
-    // --- PREVIEW STATE (NEW) ---
-    const [previewFile, setPreviewFile] = useState(null); // Stores the base64 string to view
+    // --- PREVIEW STATE ---
+    const [previewFile, setPreviewFile] = useState(null);
 
     // --- Calculations ---
     const totalIncome = transactions.filter(t => t.type === 'income').reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
@@ -61,6 +61,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
 
     // --- Handlers ---
 
+    // File Upload Handler (Add)
     const handleFileUpload = (e) => {
         const file = e.target.files[0];
         if (file && file.size <= 1024 * 1024) {
@@ -70,13 +71,29 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
         } else if(file) { alert("File too large (>1MB)"); }
     };
 
+    // Remove File Handler (Add)
+    const handleRemoveFile = () => {
+        setNewTransaction(prev => ({ ...prev, invoiceFile: null }));
+        // Reset input value so same file can be selected again if needed
+        const input = document.getElementById('addFile');
+        if(input) input.value = '';
+    };
+
+    // File Upload Handler (Edit)
     const handleEditFileUpload = (e) => {
         const file = e.target.files[0];
         if (file && file.size <= 1024 * 1024) {
             const reader = new FileReader();
             reader.onloadend = () => setEditFormData(prev => ({ ...prev, invoiceFile: reader.result }));
             reader.readAsDataURL(file);
-        }
+        } else if(file) { alert("File too large (>1MB)"); }
+    };
+
+    // Remove File Handler (Edit)
+    const handleRemoveEditFile = () => {
+        setEditFormData(prev => ({ ...prev, invoiceFile: null }));
+        const input = document.getElementById('editFile');
+        if(input) input.value = '';
     };
 
     const handleAddTransaction = (e) => {
@@ -189,7 +206,6 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                                 <div className="flex items-center gap-2">
                                                     <EditableCell value={t.invoice} className="font-mono text-xs w-20" onSave={(val) => onUpdate(t.id, { invoice: val })} />
                                                     {t.invoiceFile && (
-                                                        // CHANGED: Use a button to open modal instead of anchor tag
                                                         <button 
                                                             onClick={() => setPreviewFile(t.invoiceFile)} 
                                                             className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-1 rounded transition"
@@ -245,7 +261,33 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Invoice No.</label><input type="text" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={newTransaction.invoice} onChange={e => setNewTransaction({...newTransaction, invoice: e.target.value})} /></div>
-                                    <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Upload</label><div className="border border-dashed border-gray-300 rounded-lg p-2.5 text-center cursor-pointer"><input type="file" accept=".pdf,.jpg,.png" onChange={handleFileUpload} className="hidden" id="addFile"/><label htmlFor="addFile" className="flex items-center justify-center gap-2 text-xs text-gray-500 cursor-pointer">{newTransaction.invoiceFile ? "Attached" : "Select File"}</label></div></div>
+                                    
+                                    {/* UPLOAD & DELETE SECTION (ADD MODAL) */}
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Upload</label>
+                                        {newTransaction.invoiceFile ? (
+                                            <div className="flex items-center justify-between border border-green-200 bg-green-50 rounded-lg p-2.5">
+                                                <span className="flex items-center gap-2 text-xs text-green-700 font-bold">
+                                                    <Paperclip size={16}/> Attached
+                                                </span>
+                                                <button 
+                                                    type="button" 
+                                                    onClick={handleRemoveFile} 
+                                                    className="text-red-500 hover:text-red-700 p-1 hover:bg-red-100 rounded transition"
+                                                    title="Remove File"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <div className="border border-dashed border-gray-300 rounded-lg p-2.5 text-center cursor-pointer hover:bg-gray-50 transition">
+                                                <input type="file" accept=".pdf,.jpg,.png" onChange={handleFileUpload} className="hidden" id="addFile"/>
+                                                <label htmlFor="addFile" className="flex items-center justify-center gap-2 text-xs text-gray-500 cursor-pointer w-full h-full">
+                                                    <Upload size={16}/> Select File
+                                                </label>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Payment Date</label><input type="date" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={newTransaction.paymentDate} onChange={e => setNewTransaction({...newTransaction, paymentDate: e.target.value})} /></div>
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Status</label><select className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={newTransaction.status} onChange={e => setNewTransaction({...newTransaction, status: e.target.value})}>{BUDGET_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
@@ -281,7 +323,33 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Invoice No.</label><input type="text" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={editFormData.invoice} onChange={e => setEditFormData({...editFormData, invoice: e.target.value})} /></div>
-                                    <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Update File</label><div className="border border-dashed border-gray-300 rounded-lg p-2.5 text-center cursor-pointer"><input type="file" accept=".pdf,.jpg,.png" onChange={handleEditFileUpload} className="hidden" id="editFile"/><label htmlFor="editFile" className="flex items-center justify-center gap-2 text-xs text-gray-500 cursor-pointer">{editFormData.invoiceFile ? "Changed/Attached" : "Select New"}</label></div></div>
+                                    
+                                    {/* UPLOAD & DELETE SECTION (EDIT MODAL) */}
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Update File</label>
+                                        {editFormData.invoiceFile ? (
+                                            <div className="flex items-center justify-between border border-green-200 bg-green-50 rounded-lg p-2.5">
+                                                <span className="flex items-center gap-2 text-xs text-green-700 font-bold truncate max-w-[150px]">
+                                                    <Paperclip size={16}/> File Attached
+                                                </span>
+                                                <button 
+                                                    type="button" 
+                                                    onClick={handleRemoveEditFile} 
+                                                    className="text-red-500 hover:text-red-700 p-1 hover:bg-red-100 rounded transition"
+                                                    title="Remove File"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <div className="border border-dashed border-gray-300 rounded-lg p-2.5 text-center cursor-pointer hover:bg-gray-50 transition">
+                                                <input type="file" accept=".pdf,.jpg,.png" onChange={handleEditFileUpload} className="hidden" id="editFile"/>
+                                                <label htmlFor="editFile" className="flex items-center justify-center gap-2 text-xs text-gray-500 cursor-pointer w-full h-full">
+                                                    <Upload size={16}/> Select New
+                                                </label>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Payment Date</label><input type="date" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={editFormData.paymentDate} onChange={e => setEditFormData({...editFormData, paymentDate: e.target.value})} /></div>
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Status</label><select className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={editFormData.status} onChange={e => setEditFormData({...editFormData, status: e.target.value})}>{BUDGET_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
@@ -293,7 +361,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                 </div>
             )}
 
-            {/* PREVIEW MODAL (NEW) */}
+            {/* PREVIEW MODAL */}
             {previewFile && (
                 <div className="fixed inset-0 z-[90] bg-black/80 flex items-center justify-center p-4 backdrop-blur-md" onClick={() => setPreviewFile(null)}>
                     <div className="relative w-full h-full max-w-5xl max-h-[90vh] bg-white rounded-lg overflow-hidden flex flex-col shadow-2xl" onClick={e => e.stopPropagation()}>
