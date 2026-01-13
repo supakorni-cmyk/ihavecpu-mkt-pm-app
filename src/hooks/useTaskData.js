@@ -29,7 +29,7 @@ export const useTaskData = (currentUser) => {
   const EMAIL_TEMPLATE_ID = "template_y1drpcl"; // Replace with real ID
   const EMAIL_PUBLIC_KEY = "jDQgm1SiqFlSBF9d3";   // Replace with real Key
   
-  const TARGET_EMAILS = "mkt@ihavecpu.com, suchada.t@ihavecpu.com";
+  const TARGET_EMAILS = "mkt@ihavecpu.com";
 
   // --- HELPER: SEND EMAIL ---
   const sendEmailNotification = (action, taskTitle, details) => {
