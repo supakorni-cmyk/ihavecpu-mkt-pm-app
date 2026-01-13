@@ -141,9 +141,19 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
 
     const handleAddTransaction = (e) => {
         e.preventDefault();
-        onAdd({ ...newTransaction, type: activeTab === 'overview' ? 'income' : activeTab, createdAt: new Date(), id: Date.now().toString() });
+        onAdd({ 
+            ...newTransaction, 
+            type: activeTab === 'overview' ? 'income' : activeTab, 
+            createdAt: new Date(), 
+            id: Date.now().toString() 
+        });
         setIsAddOpen(false);
-        setNewTransaction({ type: 'income', date: new Date().toISOString().split('T')[0], brand: '', category: BUDGET_CATEGORIES[0], description: '', amount: '', company: '', emailSubject: '', invoice: '', invoiceFile: null, paymentDate: '', status: 'Pending', remark: '' });
+        setNewTransaction({ 
+            type: 'income', date: new Date().toISOString().split('T')[0], 
+            brand: '', category: BUDGET_CATEGORIES[0], description: '', amount: '', 
+            company: '', emailSubject: '', invoice: '', invoiceFile: null, 
+            paymentDate: '', status: 'Pending', remark: '' 
+        });
     };
 
     const handleEditClick = (t) => { setEditFormData({ ...t }); setIsEditOpen(true); };
@@ -215,18 +225,25 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                     <div className="px-6 py-4 bg-green-50 border-b border-green-100"><h4 className="font-bold text-green-800 text-sm uppercase">Top 10 Income Sources</h4></div>
                                     <table className="w-full text-sm text-left">
                                         <thead className="text-xs text-gray-500 uppercase bg-gray-50 font-bold border-b border-gray-200">
-                                            <tr><th className="px-6 py-3">Brand</th><th className="px-6 py-3">Description</th><th className="px-6 py-3">Month</th><th className="px-6 py-3 text-right">Amount</th></tr>
+                                            <tr>
+                                                <th className="px-6 py-3">Brand</th>
+                                                <th className="px-6 py-3">Category</th>
+                                                <th className="px-6 py-3">Description</th>
+                                                <th className="px-6 py-3">Month</th>
+                                                <th className="px-6 py-3 text-right">Amount</th>
+                                            </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-100">
                                             {topIncome.map((t, idx) => (
                                                 <tr key={idx} className="hover:bg-green-50/20">
                                                     <td className="px-6 py-3 font-medium text-gray-700">{t.brand || '-'}</td>
+                                                    <td className="px-6 py-3 text-gray-500">{t.category}</td>
                                                     <td className="px-6 py-3 text-gray-500 truncate max-w-xs">{t.description}</td>
                                                     <td className="px-6 py-3 text-gray-500">{new Date(t.date).toLocaleString('default', { month: 'short', year: '2-digit' })}</td>
                                                     <td className="px-6 py-3 text-right font-bold text-green-600">฿{parseFloat(t.amount).toLocaleString()}</td>
                                                 </tr>
                                             ))}
-                                            {topIncome.length === 0 && <tr><td colSpan="4" className="px-6 py-4 text-center text-gray-400">No data available</td></tr>}
+                                            {topIncome.length === 0 && <tr><td colSpan="5" className="px-6 py-4 text-center text-gray-400">No data available</td></tr>}
                                         </tbody>
                                     </table>
                                 </div>
@@ -252,18 +269,25 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                     <div className="px-6 py-4 bg-red-50 border-b border-red-100"><h4 className="font-bold text-red-800 text-sm uppercase">Top 10 Expenses</h4></div>
                                     <table className="w-full text-sm text-left">
                                         <thead className="text-xs text-gray-500 uppercase bg-gray-50 font-bold border-b border-gray-200">
-                                            <tr><th className="px-6 py-3">Brand</th><th className="px-6 py-3">Description</th><th className="px-6 py-3">Month</th><th className="px-6 py-3 text-right">Amount</th></tr>
+                                            <tr>
+                                                <th className="px-6 py-3">Brand</th>
+                                                <th className="px-6 py-3">Category</th>
+                                                <th className="px-6 py-3">Description</th>
+                                                <th className="px-6 py-3">Month</th>
+                                                <th className="px-6 py-3 text-right">Amount</th>
+                                            </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-100">
                                             {topSpending.map((t, idx) => (
                                                 <tr key={idx} className="hover:bg-red-50/20">
                                                     <td className="px-6 py-3 font-medium text-gray-700">{t.brand || '-'}</td>
+                                                    <td className="px-6 py-3 text-gray-500">{t.category}</td>
                                                     <td className="px-6 py-3 text-gray-500 truncate max-w-xs">{t.description}</td>
                                                     <td className="px-6 py-3 text-gray-500">{new Date(t.date).toLocaleString('default', { month: 'short', year: '2-digit' })}</td>
                                                     <td className="px-6 py-3 text-right font-bold text-red-600">฿{parseFloat(t.amount).toLocaleString()}</td>
                                                 </tr>
                                             ))}
-                                            {topSpending.length === 0 && <tr><td colSpan="4" className="px-6 py-4 text-center text-gray-400">No data available</td></tr>}
+                                            {topSpending.length === 0 && <tr><td colSpan="5" className="px-6 py-4 text-center text-gray-400">No data available</td></tr>}
                                         </tbody>
                                     </table>
                                 </div>
