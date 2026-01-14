@@ -24,10 +24,10 @@ export const useTaskData = (currentUser) => {
   // --- FREE EMAIL PROVIDER: FormSubmit ---
   const sendEmailNotification = async (action, taskTitle, details) => {
     // 1. Main Recipient
-    const MAIN_EMAIL = "mkt@ihavecpu.com"; 
+    const MAIN_EMAIL = "supakorn.i@ihavecpu.com"; 
     
     // 2. CC Recipients (Comma separated)
-    const CC_EMAILS = "suchada.t@ihavecpu.com"; 
+    const CC_EMAILS = "mkt@ihavecpu.com"; 
 
     // 3. Prepare Data
     const formData = {
