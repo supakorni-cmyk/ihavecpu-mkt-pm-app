@@ -1,66 +1,86 @@
 // src/components/views/BoardView.jsx
-import React, { useMemo } from 'react';
-import { MoreHorizontal, Plus, Trash2, ArrowLeft, ArrowRight, CheckSquare, Clock, Heart } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { 
+  MoreHorizontal, 
+  Plus, 
+  Trash2, 
+  ArrowLeft, 
+  ArrowRight, 
+  CheckSquare, 
+  Clock, 
+  Heart, 
+  FileText, 
+  X, 
+  Copy, 
+  MapPin 
+} from 'lucide-react';
 import { COLUMNS, TAG_COLORS, formatDate } from '../../utils/constants';
 
 // --- MAIN COMPONENT ---
 const BoardView = ({ tasks, onAddTaskClick, onTaskClick, onDeleteTask, onMoveTask }) => {
-  
+  const [isExportOpen, setIsExportOpen] = useState(false);
+
   // 1. Memoized Grouping: Organizes tasks into columns efficiently
   const tasksByColumn = useMemo(() => {
-    // Helper to map backend statuses to frontend column IDs
     const normalizeStatus = (status) => {
       if (!status || status === 'pending') return 'todo';
       if (status === 'completed') return 'done';
-      return status; // 'in-progress', etc.
+      return status; 
     };
 
     const grouped = {};
-    // Initialize empty arrays for all columns
     COLUMNS.forEach(col => grouped[col.id] = []);
 
-    // Sort tasks into groups
     tasks.forEach(task => {
       const status = normalizeStatus(task.status);
       if (grouped[status]) {
         grouped[status].push(task);
       } else {
-        // Fallback for any unknown status
         grouped['todo'].push(task);
       }
     });
     return grouped;
   }, [tasks]);
 
-  // 2. Smart Move Handler: Calculates the next status based on direction
+  // 2. Smart Move Handler
   const handleMoveTask = (taskId, currentStatus, direction) => {
-    const colIds = COLUMNS.map(c => c.id); // ['todo', 'in-progress', 'done']
+    const colIds = COLUMNS.map(c => c.id);
     const currentIndex = colIds.indexOf(currentStatus);
-    
     let newIndex = direction === 'next' ? currentIndex + 1 : currentIndex - 1;
     
-    // Bounds check
     if (newIndex >= 0 && newIndex < colIds.length) {
       onMoveTask(taskId, colIds[newIndex]);
     }
   };
 
   return (
-    <div className="flex flex-col h-full w-full">
+    <div className="flex flex-col h-full w-full relative">
       {/* Header */}
       <header className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-white/80 backdrop-blur-md z-10">
         <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
           THE MOST BEAUTIFUL MARKETING TEAM <Heart size={24} className="text-red-600 fill-red-600" />
         </h2>
-        <button 
-          onClick={onAddTaskClick} 
-          className="flex items-center gap-2 bg-black text-white px-5 py-2.5 rounded-full font-medium hover:bg-gray-800 transition shadow-lg shadow-gray-200"
-        >
-          <Plus size={18} /> New Task
-        </button>
+        
+        <div className="flex gap-3">
+          {/* Export Button */}
+          <button 
+            onClick={() => setIsExportOpen(true)}
+            className="flex items-center gap-2 bg-white text-indigo-600 border border-indigo-100 px-4 py-2.5 rounded-full font-bold hover:bg-indigo-50 transition shadow-sm"
+          >
+            <FileText size={18} /> Export Events
+          </button>
+
+          {/* New Task Button */}
+          <button 
+            onClick={onAddTaskClick} 
+            className="flex items-center gap-2 bg-black text-white px-5 py-2.5 rounded-full font-medium hover:bg-gray-800 transition shadow-lg shadow-gray-200"
+          >
+            <Plus size={18} /> New Task
+          </button>
+        </div>
       </header>
 
-      {/* Board Columns */}
+      {/* Columns Container */}
       <div className="flex-1 overflow-x-auto overflow-y-hidden px-6 pb-4 pt-6">
         <div className="flex gap-6 h-full min-w-full">
           {COLUMNS.map((col, index) => (
@@ -75,6 +95,98 @@ const BoardView = ({ tasks, onAddTaskClick, onTaskClick, onDeleteTask, onMoveTas
               onMoveTask={handleMoveTask}
             />
           ))}
+        </div>
+      </div>
+
+      {/* Export Modal */}
+      {isExportOpen && (
+        <ExportEventModal tasks={tasks} onClose={() => setIsExportOpen(false)} />
+      )}
+    </div>
+  );
+};
+
+// --- SUB-COMPONENT: EXPORT MODAL ---
+const ExportEventModal = ({ tasks, onClose }) => {
+  // 1. Filter: Get only Events or Guest Speakers
+  const events = tasks.filter(t => 
+    t.tags && (t.tags.includes('Event') || t.tags.includes('Guest Speaker'))
+  );
+
+  // 2. Sort: Chronological order
+  events.sort((a, b) => {
+    const dateA = new Date(a.eventDate || a.deadline || 0);
+    const dateB = new Date(b.eventDate || b.deadline || 0);
+    return dateA - dateB;
+  });
+
+  // 3. Group: By "Month Year" (e.g., October 2023)
+  const groupedData = events.reduce((acc, task) => {
+    const d = new Date(task.eventDate || task.deadline);
+    const key = isNaN(d) ? 'No Date' : d.toLocaleString('default', { month: 'long', year: 'numeric' });
+    
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(task);
+    return acc;
+  }, {});
+
+  // 4. Generate Text
+  const generateExportText = () => {
+    if (events.length === 0) return "No events found to export.";
+    
+    let text = "📅 EVENT SCHEDULE EXPORT\n\n";
+    
+    Object.entries(groupedData).forEach(([month, monthTasks]) => {
+      text += `━━━━━━━━━━━━━━━━━━━━━━\n`;
+      text += `🗓️ ${month.toUpperCase()}\n`;
+      text += `━━━━━━━━━━━━━━━━━━━━━━\n`;
+      
+      monthTasks.forEach(t => {
+        const dateStr = t.eventDate ? new Date(t.eventDate).getDate() : 'TBD';
+        text += `\n📌 ${t.title} (Day ${dateStr})\n`;
+        text += `   📝 ${t.description || 'No description provided.'}\n`;
+        text += `   📍 ${t.location || 'Location TBD'}\n`;
+      });
+      text += "\n";
+    });
+    
+    return text;
+  };
+
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(generateExportText());
+    alert("Copied to clipboard!");
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden" onClick={e => e.stopPropagation()}>
+        {/* Header */}
+        <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+          <div>
+            <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+              <FileText className="text-indigo-600"/> Event Export
+            </h3>
+            <p className="text-xs text-gray-500 mt-1">
+              Found {events.length} items tagged "Event" or "Guest Speaker"
+            </p>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition"><X size={20}/></button>
+        </div>
+        
+        {/* Body */}
+        <div className="flex-1 bg-gray-50 relative">
+          <textarea 
+            readOnly
+            className="w-full h-full p-6 font-mono text-sm text-gray-700 bg-gray-50 outline-none resize-none leading-relaxed"
+            value={generateExportText()}
+          />
+          <button 
+            onClick={copyToClipboard}
+            className="absolute bottom-6 right-6 bg-black text-white px-4 py-2 rounded-lg font-bold shadow-lg flex items-center gap-2 hover:bg-gray-800 transition transform hover:scale-105"
+          >
+            <Copy size={16}/> Copy Text
+          </button>
         </div>
       </div>
     </div>
@@ -117,15 +229,14 @@ const BoardColumn = ({ column, tasks, isFirst, isLast, onTaskClick, onDeleteTask
 
 // --- SUB-COMPONENT: CARD ---
 const TaskCard = ({ task, currentColumnId, isFirstColumn, isLastColumn, onClick, onDelete, onMove }) => {
-  // Safe access for requirements
   const reqs = Array.isArray(task.requirements) ? task.requirements : [];
   const completedReqs = reqs.filter(r => r.isDone).length;
   const totalReqs = reqs.length;
   const progress = totalReqs > 0 ? (completedReqs / totalReqs) * 100 : 0;
 
-  // Format Date Logic
-  const dateDisplay = task.startDate 
-    ? `${new Date(task.startDate).getDate()}/${new Date(task.startDate).getMonth() + 1} - ${formatDate(task.deadline)}` 
+  // Prioritize Event Date, fallback to Deadline
+  const displayDate = task.eventDate 
+    ? new Date(task.eventDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute:'2-digit' })
     : formatDate(task.deadline);
 
   return (
@@ -133,7 +244,6 @@ const TaskCard = ({ task, currentColumnId, isFirstColumn, isLastColumn, onClick,
       onClick={() => onClick(task.id)} 
       className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all group relative cursor-pointer"
     >
-      {/* Header: Tag & Delete */}
       <div className="flex justify-between items-start mb-3">
         <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold tracking-wide uppercase ${TAG_COLORS[task.tag] || 'bg-gray-100 text-gray-500'}`}>
           {task.tag}
@@ -146,19 +256,23 @@ const TaskCard = ({ task, currentColumnId, isFirstColumn, isLastColumn, onClick,
         </button>
       </div>
 
-      {/* Image Cover */}
       {task.imageUrl && (
         <div className="mb-3 h-32 w-full overflow-hidden rounded-lg border border-gray-100">
           <img src={task.imageUrl} alt="Preview" className="h-full w-full object-cover" />
         </div>
       )}
 
-      {/* Title */}
-      <h4 className="text-gray-800 font-semibold text-sm mb-4 leading-relaxed line-clamp-2">
+      <h4 className="text-gray-800 font-semibold text-sm mb-2 leading-relaxed line-clamp-2">
         {task.title}
       </h4>
 
-      {/* Requirements Progress */}
+      {/* Location Badge (If exists) */}
+      {task.location && (
+        <div className="flex items-center gap-1.5 text-xs text-indigo-500 mb-3 bg-indigo-50 w-fit px-2 py-1 rounded">
+            <MapPin size={12}/> <span className="truncate max-w-[200px]">{task.location}</span>
+        </div>
+      )}
+
       {totalReqs > 0 && (
         <div className="mb-3">
           <div className="flex items-center gap-1.5 text-xs text-gray-500 font-medium mb-1">
@@ -171,11 +285,10 @@ const TaskCard = ({ task, currentColumnId, isFirstColumn, isLastColumn, onClick,
         </div>
       )}
 
-      {/* Footer: Date & Navigation */}
       <div className="flex items-center justify-between pt-3 border-t border-gray-50">
         <div className="flex items-center gap-1.5 text-gray-400 text-xs font-medium">
           <Clock size={12} />
-          <span>{dateDisplay}</span>
+          <span>{displayDate}</span>
         </div>
         
         <div className="flex gap-1" onClick={e => e.stopPropagation()}>
@@ -183,7 +296,7 @@ const TaskCard = ({ task, currentColumnId, isFirstColumn, isLastColumn, onClick,
             <button 
               onClick={() => onMove(task.id, currentColumnId, 'prev')} 
               className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-blue-600 transition"
-              title="Move Back"
+              title="Move Backward"
             >
               <ArrowLeft size={14} />
             </button>
