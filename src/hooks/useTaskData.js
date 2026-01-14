@@ -110,7 +110,7 @@ export const useTaskData = (currentUser) => {
             "Requirement": task.requirements || [], 
             "Due Date": task.deadline || 'No Date',
             "Reference": task.reference || '-',
-            "Final Link": task.link || '='
+            "Final Link": task.link || '-'
         });
     } catch (error) { console.error("Error adding task:", error); }
   };
