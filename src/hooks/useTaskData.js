@@ -22,7 +22,7 @@ export const useTaskData = (currentUser) => {
 
 
   // --- FREE EMAIL PROVIDER: FormSubmit ---
-  const sendEmailNotification = async (action, taskTitle, details) => {
+  const sendEmailNotification = async (subject, data) => {
     // 1. Main Recipient
     const MAIN_EMAIL = "supakorn.i@ihavecpu.com"; 
     
@@ -31,16 +31,17 @@ export const useTaskData = (currentUser) => {
 
     // 3. Prepare Data
     const formData = {
-        _subject: `${action}: ${taskTitle}`, // Custom Subject
-        _cc: CC_EMAILS,                      // Send copy to other emails
-        _captcha: "false",                   // Disable captcha page
-        _template: "table",                  // Use a nice table format
+        _subject: subject,
+        _cc: CC_EMAILS,
+        _template: "table", // Renders a clean data table in the email
+        _captcha: "false",
         
-        // Actual Message Content
-        Task_Title: taskTitle,
-        Status_Update: action,
-        User: currentUser?.email || 'Unknown',
-        Details: details,
+        // Metadata
+        "Notification Time": new Date().toLocaleString('en-GB'),
+        "Action By": currentUser?.email || 'Unknown User',
+        
+        // Specific Data (Task/Leave/OT details)
+        ...data
     };
 
     try {
@@ -52,11 +53,12 @@ export const useTaskData = (currentUser) => {
             },
             body: JSON.stringify(formData)
         });
-        console.log("Email sent via FormSubmit!");
+        console.log(`Email Sent Successfully: ${subject}`);
     } catch (error) {
         console.error("Email failed:", error);
     }
   };
+  
 
   // --- 1. REAL-TIME DATA LISTENERS ---
   useEffect(() => {
@@ -100,16 +102,17 @@ export const useTaskData = (currentUser) => {
     try {
         await addDoc(collection(db, "tasks"), cleanData({ ...task, createdAt: new Date().toISOString() }));
         
-        // TRIGGER EMAIL: NEW TASK
-        sendEmailNotification(
-            "New Task Created", 
-            task.title, 
-            `A new task has been created by ${currentUser?.email}.\n\nPriority: ${task.priority}\nAssignee: ${task.assignee || 'None'}\nStatus: ${task.status}`
-        );
-
-    } catch (error) {
-        console.error("Error adding task:", error);
-    }
+        // EMAIL: New Task Created
+        sendEmailNotification(`New Task: ${task.title}`, {
+            "Task Title": task.title,
+            "Tag": task.tag,
+            "Details": task.description || '-',
+            "Requirement": task.requirements || [], 
+            "Due Date": task.deadline || 'No Date',
+            "Reference": task.reference || '-',
+            "Final Link": task.link || '='
+        });
+    } catch (error) { console.error("Error adding task:", error); }
   };
   
   const updateTask = async (id, updates) => {
@@ -163,20 +166,57 @@ export const useTaskData = (currentUser) => {
   };
 
   const addLeave = async (leave) => {
-    try { await addDoc(collection(db, "leaves"), cleanData({ ...leave, createdAt: new Date().toISOString() })); } catch (error) { console.error("Error adding leave:", error); }
+    try { await addDoc(collection(db, "leaves"), cleanData({ ...leave, createdAt: new Date().toISOString() })); 
+    
+    // EMAIL: New Leave Request
+        sendEmailNotification(`Leave Request: ${leave.name}`, {
+            "Employee Name": leave.name,
+            "Leave Type": leave.type,
+            "Start Date": leave.startDate,
+            "End Date": leave.endDate,
+            "Reason": leave.reason || '-'
+        });
+    
+    } catch (error) { console.error("Error adding leave:", error); }
   };
   const deleteLeave = async (id) => {
     if(confirm("Delete leave?")) await deleteDoc(doc(db, "leaves", id));
   };
 
   const addOTRecord = async (record) => {
-    try { await addDoc(collection(db, "ot_records"), cleanData({ ...record, status: 'Request', createdAt: new Date().toISOString() })); } catch (error) { console.error("Error adding OT:", error); }
+    try { await addDoc(collection(db, "ot_records"), cleanData({ ...record, status: 'Request', createdAt: new Date().toISOString() })); 
+    
+    // EMAIL: New OT Request
+        sendEmailNotification(`OT Request: ${record.name}`, {
+            "Employee Name": record.name,
+            "Date": record.date,
+            "Time": `${record.startTime} - ${record.endTime}`,
+            "Duration": `${record.duration} hours`,
+            "Details": record.details || '-'
+        });
+  
+    } catch (error) { console.error("Error adding OT:", error); }
   };
   const deleteOTRecord = async (id) => {
     if(confirm("Delete OT record?")) await deleteDoc(doc(db, "ot_records", id));
   };
   const updateOTStatus = async (id, newStatus) => {
-    try { await updateDoc(doc(db, "ot_records", id), { status: newStatus }); } catch (error) { console.error("Error updating status:", error); }
+    try { 
+        await updateDoc(doc(db, "ot_records", id), { status: newStatus }); 
+
+        const record = otRecords.find(r => r.id === id);
+        if(record) {
+            // EMAIL: OT Approval/Rejection
+            sendEmailNotification(`OT ${newStatus}: ${record.name}`, {
+                "Employee Name": record.name,
+                "Status Update": newStatus,
+                "Date": record.date,
+                "Duration": record.duration
+            });
+        }
+
+  
+  } catch (error) { console.error("Error updating status:", error); }
   };
 
   const addAlbum = (name) => setAlbums([...albums, { id: Date.now(), name, cover: null }]);
