@@ -20,7 +20,6 @@ import { COLUMNS, TAG_COLORS, formatDate } from '../../utils/constants';
 const BoardView = ({ tasks, onAddTaskClick, onTaskClick, onDeleteTask, onMoveTask }) => {
   const [isExportOpen, setIsExportOpen] = useState(false);
 
-  // 1. Memoized Grouping: Organizes tasks into columns efficiently
   const tasksByColumn = useMemo(() => {
     const normalizeStatus = (status) => {
       if (!status || status === 'pending') return 'todo';
@@ -42,7 +41,6 @@ const BoardView = ({ tasks, onAddTaskClick, onTaskClick, onDeleteTask, onMoveTas
     return grouped;
   }, [tasks]);
 
-  // 2. Smart Move Handler
   const handleMoveTask = (taskId, currentStatus, direction) => {
     const colIds = COLUMNS.map(c => c.id);
     const currentIndex = colIds.indexOf(currentStatus);
@@ -62,7 +60,6 @@ const BoardView = ({ tasks, onAddTaskClick, onTaskClick, onDeleteTask, onMoveTas
         </h2>
         
         <div className="flex gap-3">
-          {/* Export Button */}
           <button 
             onClick={() => setIsExportOpen(true)}
             className="flex items-center gap-2 bg-white text-indigo-600 border border-indigo-100 px-4 py-2.5 rounded-full font-bold hover:bg-indigo-50 transition shadow-sm"
@@ -70,7 +67,6 @@ const BoardView = ({ tasks, onAddTaskClick, onTaskClick, onDeleteTask, onMoveTas
             <FileText size={18} /> Export Events
           </button>
 
-          {/* New Task Button */}
           <button 
             onClick={onAddTaskClick} 
             className="flex items-center gap-2 bg-black text-white px-5 py-2.5 rounded-full font-medium hover:bg-gray-800 transition shadow-lg shadow-gray-200"
@@ -80,7 +76,7 @@ const BoardView = ({ tasks, onAddTaskClick, onTaskClick, onDeleteTask, onMoveTas
         </div>
       </header>
 
-      {/* Columns Container */}
+      {/* Columns */}
       <div className="flex-1 overflow-x-auto overflow-y-hidden px-6 pb-4 pt-6">
         <div className="flex gap-6 h-full min-w-full">
           {COLUMNS.map((col, index) => (
@@ -108,21 +104,28 @@ const BoardView = ({ tasks, onAddTaskClick, onTaskClick, onDeleteTask, onMoveTas
 
 // --- SUB-COMPONENT: EXPORT MODAL ---
 const ExportEventModal = ({ tasks, onClose }) => {
-  // 1. Filter: Get only Events or Guest Speakers
-  const events = tasks.filter(t => 
-    t.tags && (t.tags.includes('Event') || t.tags.includes('Guest Speaker'))
-  );
+  // 1. FIXED FILTER LOGIC HERE
+  const events = tasks.filter(t => {
+      // Check singular tag (matches your current data structure)
+      if (t.tag === 'Event' || t.tag === 'Guest Speaker') return true;
+      
+      // Check plural tags (fallback if data structure changes)
+      if (Array.isArray(t.tags) && (t.tags.includes('Event') || t.tags.includes('Guest Speaker'))) return true;
+      
+      return false;
+  });
 
-  // 2. Sort: Chronological order
+  // 2. Sort Logic
   events.sort((a, b) => {
-    const dateA = new Date(a.eventDate || a.deadline || 0);
-    const dateB = new Date(b.eventDate || b.deadline || 0);
+    const dateA = new Date(a.eventDate || a.startDate || a.deadline || 0);
+    const dateB = new Date(b.eventDate || b.startDate || b.deadline || 0);
     return dateA - dateB;
   });
 
-  // 3. Group: By "Month Year" (e.g., October 2023)
+  // 3. Group Logic
   const groupedData = events.reduce((acc, task) => {
-    const d = new Date(task.eventDate || task.deadline);
+    // Try eventDate first, then startDate, then deadline
+    const d = new Date(task.eventDate || task.startDate || task.deadline);
     const key = isNaN(d) ? 'No Date' : d.toLocaleString('default', { month: 'long', year: 'numeric' });
     
     if (!acc[key]) acc[key] = [];
@@ -142,7 +145,10 @@ const ExportEventModal = ({ tasks, onClose }) => {
       text += `━━━━━━━━━━━━━━━━━━━━━━\n`;
       
       monthTasks.forEach(t => {
-        const dateStr = t.eventDate ? new Date(t.eventDate).getDate() : 'TBD';
+        // Find the best date to display
+        const bestDate = t.eventDate || t.startDate || t.deadline;
+        const dateStr = bestDate ? new Date(bestDate).getDate() : 'TBD';
+        
         text += `\n📌 ${t.title} (Day ${dateStr})\n`;
         text += `   📝 ${t.description || 'No description provided.'}\n`;
         text += `   📍 ${t.location || 'Location TBD'}\n`;
@@ -161,7 +167,6 @@ const ExportEventModal = ({ tasks, onClose }) => {
   return (
     <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm" onClick={onClose}>
       <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden" onClick={e => e.stopPropagation()}>
-        {/* Header */}
         <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
           <div>
             <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
@@ -174,7 +179,6 @@ const ExportEventModal = ({ tasks, onClose }) => {
           <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition"><X size={20}/></button>
         </div>
         
-        {/* Body */}
         <div className="flex-1 bg-gray-50 relative">
           <textarea 
             readOnly
@@ -266,7 +270,7 @@ const TaskCard = ({ task, currentColumnId, isFirstColumn, isLastColumn, onClick,
         {task.title}
       </h4>
 
-      {/* Location Badge (If exists) */}
+      {/* Location Badge */}
       {task.location && (
         <div className="flex items-center gap-1.5 text-xs text-indigo-500 mb-3 bg-indigo-50 w-fit px-2 py-1 rounded">
             <MapPin size={12}/> <span className="truncate max-w-[200px]">{task.location}</span>
