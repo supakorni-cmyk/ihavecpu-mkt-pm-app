@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { 
     X, Edit2, Save, CheckSquare, AlignLeft, 
     Paperclip, Link as LinkIcon, FileText, 
-    ImageIcon, Trash2, Plus, Calendar
+    ImageIcon, Trash2, Plus, Calendar, LocateIcon
 } from 'lucide-react';
 import { TAG_COLORS, getSafeRequirements, formatDate } from '../../utils/constants';
 
@@ -17,7 +17,7 @@ const EditTaskModal = ({ task, onClose, onUpdate, onOpenRequirement }) => {
         const safeReqs = getSafeRequirements(task);
         // Ensure startDate exists, fallback to today if missing
         const startDate = task.startDate || new Date().toISOString().split('T')[0];
-        setEditedTask({ ...task, requirements: safeReqs, startDate });
+        setEditedTask({ ...task, requirements: safeReqs, startDate, location });
         setIsEditing(true);
     };
 
@@ -136,7 +136,12 @@ const EditTaskModal = ({ task, onClose, onUpdate, onOpenRequirement }) => {
                                 <h4 className="flex items-center gap-2 text-lg font-bold text-gray-800 mb-3"><AlignLeft size={20} className="text-gray-400" /> Details</h4>
                                 <p className="text-gray-600 leading-relaxed whitespace-pre-wrap pl-7">{task.description || <span className="italic text-gray-400">No details provided.</span>}</p>
                             </div>
-
+                            <div>
+                                <h4 className="flex items-center gap-2 text-lg font-bold text-gray-800 mb-3"><LocateIcon size={20} className="text-gray-400" /> Location</h4>
+                                <div className="flex flex-col gap-2 ml-7">
+                                    {task.location && <a href={task.location} target="_blank" rel="noreferer" className="text-blue-600 hover:underline flex items-center gap-2"><LocateIcon size={14}/> Location Link</a>}
+                                </div>
+                            </div>
                             {(task.reference || task.fileUrl) && (
                                 <div>
                                     <h4 className="flex items-center gap-2 text-lg font-bold text-gray-800 mb-3"><Paperclip size={20} className="text-gray-400" /> Attachments</h4>
@@ -190,7 +195,11 @@ const EditTaskModal = ({ task, onClose, onUpdate, onOpenRequirement }) => {
                                     <button type="button" onClick={addRequirementToEdit} className="bg-gray-100 p-2 rounded hover:bg-gray-200"><Plus size={20}/></button>
                                 </div>
                             </div>
-
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div><label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Location</label>
+                                <input type="url" className="w-full border rounded p-2" value={editedTask.location} onChange={e => setEditedTask({...editedTask, location: e.target.value})} />
+                                </div>
+                            </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div><label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Reference Link</label><input type="url" className="w-full border rounded p-2" value={editedTask.reference} onChange={e => setEditedTask({...editedTask, reference: e.target.value})} /></div>
                                 <div><label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Final File Link</label><input type="url" className="w-full border rounded p-2" value={editedTask.fileUrl} onChange={e => setEditedTask({...editedTask, fileUrl: e.target.value})} /></div>

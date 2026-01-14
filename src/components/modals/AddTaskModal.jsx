@@ -11,6 +11,7 @@ const AddTaskModal = ({ onClose, onAdd }) => {
         deadline: '', 
         description: '', 
         requirements: [], 
+        location: '',
         reference: '', 
         link: '', 
         imageUrl: '', 
@@ -114,7 +115,12 @@ const AddTaskModal = ({ onClose, onAdd }) => {
                             ))}
                         </div>
                     </div>
-
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Location</label>
+                            <input type="url" className="w-full border-gray-200 bg-gray-50 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800" placeholder="Google Maps Link" value={newTask.location} onChange={e => setNewTask({...newTask, location: e.target.value})} />
+                        </div>
+                    </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Reference Link</label>
