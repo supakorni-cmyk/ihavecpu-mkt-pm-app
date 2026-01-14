@@ -12,6 +12,8 @@ import {
   orderBy 
 } from 'firebase/firestore';
 
+import { openGoogleCalendarEvent } from '../utils/calendarHelper';
+
 export const useTaskData = (currentUser) => {
   const [tasks, setTasks] = useState([]);
   const [transactions, setTransactions] = useState([]);
@@ -112,6 +114,13 @@ export const useTaskData = (currentUser) => {
             "Reference": task.reference || '-',
             "Final Link": task.link || '-'
         });
+
+        // 2. CHECK TAGS FOR CALENDAR AUTO-CREATE
+        // If tags include specific keywords, open Google Calendar
+        if (task.tags && (task.tags.includes('Event') || task.tags.includes('Guest Speaker'))) {
+            openGoogleCalendarEvent(task);
+        }
+
     } catch (error) { console.error("Error adding task:", error); }
   };
   
@@ -174,7 +183,8 @@ export const useTaskData = (currentUser) => {
             "Leave Type": leave.type,
             "Start Date": leave.startDate,
             "End Date": leave.endDate,
-            "Reason": leave.reason || '-'
+            "Duration": leave.duration,
+            "Details": leave.details || '-'
         });
     
     } catch (error) { console.error("Error adding leave:", error); }
