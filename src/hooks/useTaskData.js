@@ -1,7 +1,6 @@
 // src/hooks/useTaskData.js
 import { useState, useEffect } from 'react';
 import { db } from '../firebase'; 
-import emailjs from '@emailjs/browser'; // Import EmailJS
 import { 
   collection, 
   onSnapshot, 
@@ -21,42 +20,42 @@ export const useTaskData = (currentUser) => {
   const [albums, setAlbums] = useState([]); 
   const [photos, setPhotos] = useState([]);
 
-  // --- EMAIL CONFIGURATION ---
-  // 1. Sign up at https://www.emailjs.com/
-  // 2. Create a generic Email Service (e.g., Gmail)
-  // 3. Create an Email Template with variables: {{subject}}, {{message}}, {{to_email}}
-  const EMAIL_SERVICE_ID = "service_ld9gdun"; // Replace with real ID
-  const EMAIL_TEMPLATE_ID = "template_y1drpcl"; // Replace with real ID
-  const EMAIL_PUBLIC_KEY = "jDQgm1SiqFlSBF9d3";   // Replace with real Key
-  
-  const TARGET_EMAILS = "mkt@ihavecpu.com";
 
-  // --- HELPER: SEND EMAIL ---
-  const sendEmailNotification = (action, taskTitle, details) => {
-    // If keys are not set, just log to console (Simulation Mode)
-    if (EMAIL_SERVICE_ID === "service_ld9gdun") {
-        console.log(`%c[EMAIL SIMULATION]`, 'color: cyan; font-weight: bold;');
-        console.log(`To: ${TARGET_EMAILS}`);
-        console.log(`Subject: ${action} - ${taskTitle}`);
-        console.log(`Body: ${details}`);
-        return;
-    }
+  // --- FREE EMAIL PROVIDER: FormSubmit ---
+  const sendEmailNotification = async (action, taskTitle, details) => {
+    // 1. Main Recipient
+    const MAIN_EMAIL = "mkt@ihavecpu.com"; 
+    
+    // 2. CC Recipients (Comma separated)
+    const CC_EMAILS = "suchada.t@ihavecpu.com"; 
 
-    const templateParams = {
-        to_email: TARGET_EMAILS,
-        subject: `${action}: ${taskTitle}`,
-        message: details,
-        task_title: taskTitle,
-        action_type: action,
-        user_email: currentUser?.email || 'Unknown User'
+    // 3. Prepare Data
+    const formData = {
+        _subject: `${action}: ${taskTitle}`, // Custom Subject
+        _cc: CC_EMAILS,                      // Send copy to other emails
+        _captcha: "false",                   // Disable captcha page
+        _template: "table",                  // Use a nice table format
+        
+        // Actual Message Content
+        Task_Title: taskTitle,
+        Status_Update: action,
+        User: currentUser?.email || 'Unknown',
+        Details: details,
     };
 
-    emailjs.send(EMAIL_SERVICE_ID, EMAIL_TEMPLATE_ID, templateParams, EMAIL_PUBLIC_KEY)
-        .then((response) => {
-            console.log('SUCCESS! Email sent.', response.status, response.text);
-        }, (err) => {
-            console.error('FAILED to send email...', err);
+    try {
+        await fetch(`https://formsubmit.co/ajax/${MAIN_EMAIL}`, {
+            method: "POST",
+            headers: { 
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            },
+            body: JSON.stringify(formData)
         });
+        console.log("Email sent via FormSubmit!");
+    } catch (error) {
+        console.error("Email failed:", error);
+    }
   };
 
   // --- 1. REAL-TIME DATA LISTENERS ---
