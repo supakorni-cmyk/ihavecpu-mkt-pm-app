@@ -104,28 +104,23 @@ const BoardView = ({ tasks, onAddTaskClick, onTaskClick, onDeleteTask, onMoveTas
 
 // --- SUB-COMPONENT: EXPORT MODAL ---
 const ExportEventModal = ({ tasks, onClose }) => {
-  // 1. FIXED FILTER LOGIC HERE
+  // 1. FILTER LOGIC
   const events = tasks.filter(t => {
-      // Check singular tag (matches your current data structure)
       if (t.tag === 'Event' || t.tag === 'Guest Speaker') return true;
-      
-      // Check plural tags (fallback if data structure changes)
       if (Array.isArray(t.tags) && (t.tags.includes('Event') || t.tags.includes('Guest Speaker'))) return true;
-      
       return false;
   });
 
   // 2. Sort Logic
   events.sort((a, b) => {
-    const dateA = new Date(a.eventDate || a.startDate || a.deadline || 0);
-    const dateB = new Date(b.eventDate || b.startDate || b.deadline || 0);
+    const dateA = new Date( a.startDate || a.deadline || 0);
+    const dateB = new Date( b.startDate || b.deadline || 0);
     return dateA - dateB;
   });
 
   // 3. Group Logic
   const groupedData = events.reduce((acc, task) => {
-    // Try eventDate first, then startDate, then deadline
-    const d = new Date(task.eventDate || task.startDate || task.deadline);
+    const d = new Date(task.startDate || task.deadline);
     const key = isNaN(d) ? 'No Date' : d.toLocaleString('default', { month: 'long', year: 'numeric' });
     
     if (!acc[key]) acc[key] = [];
@@ -137,7 +132,7 @@ const ExportEventModal = ({ tasks, onClose }) => {
   const generateExportText = () => {
     if (events.length === 0) return "No events found to export.";
     
-    let text = "📅 EVENT SCHEDULE EXPORT\n\n";
+    let text = "☀️🌈อัพเดทตารางงานพี่เปา⭐️⭐️\n\n";
     
     Object.entries(groupedData).forEach(([month, monthTasks]) => {
       text += `━━━━━━━━━━━━━━━━━━━━━━\n`;
@@ -145,11 +140,19 @@ const ExportEventModal = ({ tasks, onClose }) => {
       text += `━━━━━━━━━━━━━━━━━━━━━━\n`;
       
       monthTasks.forEach(t => {
-        // Find the best date to display
-        const bestDate = t.eventDate || t.startDate || t.deadline;
-        const dateStr = bestDate ? new Date(bestDate).getDate() : 'TBD';
+        const bestDate = t.startDate || t.deadline;
+        let dateStr ='TBD';
+        if (bestDate) {
+          dateStr = new Date(bestDate).toLocaleDateString('en-GB', {
+            weekday: 'long', 
+            day: 'numeric',  
+            month: 'long',   
+            year: 'numeric'
+          })
+        }
         
-        text += `\n📌 ${t.title} (Day ${dateStr})\n`;
+        text += `   📅 ${dateStr}\n`;
+        text += `\n📌 ${t.title}\n`;
         text += `   📝 ${t.description || 'No description provided.'}\n`;
         text += `   📍 ${t.location || 'Location TBD'}\n`;
       });
@@ -166,7 +169,11 @@ const ExportEventModal = ({ tasks, onClose }) => {
 
   return (
     <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden" onClick={e => e.stopPropagation()}>
+      {/* UPDATED CLASSES HERE: max-w-5xl and h-[85vh] */}
+      <div 
+        className="bg-white rounded-2xl w-full max-w-5xl shadow-2xl flex flex-col h-[85vh] overflow-hidden" 
+        onClick={e => e.stopPropagation()}
+      >
         <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
           <div>
             <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
@@ -182,12 +189,12 @@ const ExportEventModal = ({ tasks, onClose }) => {
         <div className="flex-1 bg-gray-50 relative">
           <textarea 
             readOnly
-            className="w-full h-full p-6 font-mono text-sm text-gray-700 bg-gray-50 outline-none resize-none leading-relaxed"
+            className="w-full h-full p-8 font-mono text-sm text-gray-700 bg-gray-50 outline-none resize-none leading-relaxed"
             value={generateExportText()}
           />
           <button 
             onClick={copyToClipboard}
-            className="absolute bottom-6 right-6 bg-black text-white px-4 py-2 rounded-lg font-bold shadow-lg flex items-center gap-2 hover:bg-gray-800 transition transform hover:scale-105"
+            className="absolute bottom-8 right-8 bg-black text-white px-6 py-3 rounded-lg font-bold shadow-lg flex items-center gap-2 hover:bg-gray-800 transition transform hover:scale-105"
           >
             <Copy size={16}/> Copy Text
           </button>
