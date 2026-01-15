@@ -28,7 +28,7 @@ export const useTaskData = (currentUser) => {
     const MAIN_EMAIL = "supakorn.i@ihavecpu.com"; 
     
     // 2. CC Recipients (Comma separated)
-    const CC_EMAILS = "mkt@ihavecpu.com"; 
+    const CC_EMAILS = "mkt@ihavecpu.com, suchada.t@ihavecpu.com"; 
 
     // 3. Prepare Data
     const formData = {
