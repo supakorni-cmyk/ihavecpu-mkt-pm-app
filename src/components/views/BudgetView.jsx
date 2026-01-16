@@ -170,7 +170,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
             reader.readAsDataURL(file);
         } else if(file) { alert("File too large (>1MB)"); }
     };
-    const handleRemoveEditSlip = () => { setEditFormData(prev => ({ ...prev, slipFile: null })); const input = document.getElementById('slipQt'); if(input) input.value = ''; };
+    const handleRemoveEditSlip = () => { setEditFormData(prev => ({ ...prev, slipFile: null })); const input = document.getElementById('editSlip'); if(input) input.value = ''; };
 
 
     const handleAddTransaction = (e) => {
