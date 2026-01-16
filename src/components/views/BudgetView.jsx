@@ -516,7 +516,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                     <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Slip</label><input type="text" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={editFormData.invoice} onChange={e => setEditFormData({...editFormData, invoice: e.target.value})} /></div>
                                     <div>
                                         <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Update File</label>
-                                        {editFormData.invoiceFile ? (
+                                        {editFormData.slipFile ? (
                                             <div className="flex items-center justify-between border border-green-200 bg-green-50 rounded-lg p-2.5">
                                                 <span className="flex items-center gap-2 text-xs text-green-700 font-bold truncate max-w-[150px]"><Paperclip size={16}/> File Attached</span>
                                                 <button type="button" onClick={handleRemoveEditSlip} className="text-red-500 hover:text-red-700 p-1 hover:bg-red-100 rounded transition"><Trash2 size={16} /></button>
