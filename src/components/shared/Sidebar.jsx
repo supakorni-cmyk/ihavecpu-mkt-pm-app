@@ -26,7 +26,7 @@ export default function Sidebar({ currentView, setCurrentView, onLogout }) {
         <NavItem view="home" icon={Home} label="Home" />
         <NavItem view="board" icon={Layout} label="Board" />
         <NavItem view="calendar" icon={CalendarIcon} label="Calendar" />
-        <NavItem view="report" icon={Presentation} label="Report" />
+        <NavItem view="report" icon={Presentation} label="Report Builder" />
         <NavItem view="album" icon={ImageIcon} label="Photo Album" colorClass="text-purple-600 bg-purple-50" />
         <NavItem view="budget" icon={Table} label="Budget" colorClass="text-emerald-600 bg-emerald-50" />
         {/* ADD THIS NEW ITEM */}
