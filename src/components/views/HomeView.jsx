@@ -1,145 +1,182 @@
 // src/components/views/HomeView.jsx
-import React from 'react';
+import React, { useState } from 'react';
 import { 
-  ListTodo, 
-  CheckCircle2, 
-  Activity, 
-  PieChart 
+  Heart, Calendar, CheckCircle2, Clock, 
+  ArrowRight, User, Briefcase 
 } from 'lucide-react';
-import { TAG_COLORS } from '../../utils/constants';
+import { formatDate } from '../../utils/constants';
 
-// --- CUSTOM NAME MAPPING ---
-// Add your team members' emails and their desired display names here
-const USER_NICKNAMES = {
-    'supakorn.i@ihavecpu.com': 'Boom',
-    'sophisa.p@ihavecpu.com': 'E.Yuiizz',
-    'jittikorn.m@ihavecpu.com': 'Uncle Tony',
-    'suchada.t@ihavecpu.com': 'Bum'
-    // 'email@address.com': 'Custom Name',
+// --- SYSTEM DEFAULT AVATARS ---
+// High-quality static images from Unsplash
+const SYSTEM_AVATARS = {
+  jittikorn: "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=200&h=200&fit=crop", // Male (Business)
+  supakorn: "https://images.unsplash.com/photo-1599566150163-29194dcaad36?w=200&h=200&fit=crop", // Male (Casual)
+  sophisa: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&h=200&fit=crop", // Female (Smiling)
+  suchada: "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=200&h=200&fit=crop", // Female (Portrait)
 };
 
-const HomeView = ({ tasks = [], currentUser }) => {
-    // --- Helper Logic ---
-    const getTasksByStatus = (status) => {
-        return tasks.filter(task => {
-            if (status === 'todo') return (task.status === 'pending' || !task.status || task.status === 'todo');
-            if (status === 'done') return (task.status === 'completed' || task.status === 'done');
-            return task.status === status;
-        });
-    };
+// --- TEAM CONFIGURATION ---
+const INITIAL_TEAM = [
+  { 
+    id: 1, 
+    name: 'Jittikorn M.', 
+    email: 'jittikorn.m@ihavecpu.com',
+    role: 'Marketing Lead', 
+    avatar: SYSTEM_AVATARS.jittikorn 
+  },
+  { 
+    id: 2, 
+    name: 'Supakorn I.', 
+    email: 'supakorn.i@ihavecpu.com',
+    role: 'Creative Director', 
+    avatar: SYSTEM_AVATARS.supakorn 
+  },
+  { 
+    id: 3, 
+    name: 'Sophisa P.', 
+    email: 'sophisa.p@ihavecpu.com',
+    role: 'Content Creator', 
+    avatar: SYSTEM_AVATARS.sophisa 
+  },
+  { 
+    id: 4, 
+    name: 'Suchada T.', 
+    email: 'suchada.t@ihavecpu.com',
+    role: 'Coordinator', 
+    avatar: SYSTEM_AVATARS.suchada 
+  },
+];
 
-    const totalTasks = tasks.length;
-    const completedTasks = getTasksByStatus('done').length;
-    const inProgressTasks = getTasksByStatus('inprogress').length;
-    const reviewTasks = getTasksByStatus('review').length;
-    const todoTasks = getTasksByStatus('todo').length;
+const HomeView = ({ tasks }) => {
+  const [team] = useState(INITIAL_TEAM);
 
-    const tagCounts = tasks.reduce((acc, task) => { 
-        const tag = task.tag || 'Uncategorized'; 
-        acc[tag] = (acc[tag] || 0) + 1; 
-        return acc; 
-    }, {});
-    const maxTagCount = Math.max(...Object.values(tagCounts), 1);
+  // Helper stats
+  const pendingTasks = tasks.filter(t => t.status !== 'completed').length;
+  const completedTasks = tasks.filter(t => t.status === 'completed').length;
+  const upcomingEvents = tasks.filter(t => t.tags && (t.tags.includes('Event') || t.tags.includes('Guest Speaker')));
 
-    // --- GET DISPLAY NAME ---
-    // If the email is in our list, use that name. Otherwise, split the email string.
-    const userEmail = currentUser?.email;
-    const displayName = USER_NICKNAMES[userEmail] || userEmail || 'User';
+  // Current User (Defaults to Jittikorn for the "Welcome Back" message)
+  const currentUser = team[0]; 
 
-    return (
-        <div className="flex flex-col h-full w-full bg-gray-50">
-            <header className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-white/80 backdrop-blur-md z-10">
-                <h2 className="text-2xl font-bold text-gray-800">Overview</h2>
-                <div className="text-sm font-medium text-gray-500">
-                    {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
+  return (
+    <div className="flex flex-col h-full overflow-y-auto bg-gray-50 p-8 font-sans">
+      {/* --- WELCOME HEADER --- */}
+      <div className="mb-10 flex items-center gap-5">
+        {/* Recommended Size: w-16 h-16 (64px) */}
+        <div className="relative">
+            <img 
+                src={currentUser.avatar} 
+                alt="Profile" 
+                className="w-16 h-16 rounded-full border-4 border-white shadow-md object-cover"
+            />
+            <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
+        </div>
+        <div>
+            <h1 className="text-3xl font-black text-gray-800 flex items-center gap-2">
+            Welcome Back, {currentUser.name.split(' ')[0]}! <span className="text-2xl animate-pulse">👋</span>
+            </h1>
+            <p className="text-gray-500 mt-1 font-medium">Dashboard overview for {currentUser.email}</p>
+        </div>
+      </div>
+
+      {/* --- TEAM SECTION (READ-ONLY) --- */}
+      <div className="mb-12">
+        <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <User className="text-blue-600" size={20}/> Team Members
+        </h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
+            {team.map(member => (
+                <div key={member.id} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center text-center hover:shadow-md transition group">
+                    
+                    {/* Recommended Size: w-20 h-20 (80px) */}
+                    <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center mb-4 overflow-hidden border-2 border-white shadow-sm relative">
+                        <img 
+                            src={member.avatar} 
+                            alt={member.name} 
+                            className="w-full h-full object-cover transition transform group-hover:scale-110 duration-500" 
+                        />
+                    </div>
+
+                    <h4 className="font-bold text-gray-800">{member.name}</h4>
+                    <span className="text-xs text-gray-500 font-medium bg-gray-100 px-2 py-0.5 rounded-full mt-1 mb-1">
+                        {member.role}
+                    </span>
+                    <span className="text-[10px] text-gray-400 truncate w-full px-2">{member.email}</span>
                 </div>
-            </header>
-
-            <div className="p-6 md:p-10 overflow-y-auto flex-1">
-                <div className="max-w-6xl mx-auto space-y-8">
-                    <div className="flex justify-between items-end">
-                        <div>
-                            {/* UPDATED GREETING LINE */}
-                            <h2 className="text-3xl font-bold text-gray-800">
-                                Welcome Back, <span className="text-blue-600">{displayName}</span>!
-                            </h2>
-                            <p className="text-gray-500 mt-1">Here is your project overview at a glance.</p>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                        <StatsCard title="Total Tasks" value={totalTasks} sub="tasks" icon={ListTodo} color="blue" />
-                        <StatsCard title="Completed" value={completedTasks} sub="finished" icon={CheckCircle2} color="green" />
-                        <StatsCard title="In Progress" value={inProgressTasks} sub="active" icon={Activity} color="yellow" />
-                        <StatsCard title="Review" value={reviewTasks} sub="pending" icon={PieChart} color="purple" />
-                    </div>
-
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
-                            <h3 className="text-lg font-bold text-gray-800 mb-6">Task Status</h3>
-                            <div className="flex items-end justify-between h-64 gap-4">
-                                {[
-                                    { label: 'To Do', count: todoTasks, color: 'bg-gray-200' }, 
-                                    { label: 'In Progress', count: inProgressTasks, color: 'bg-blue-500' }, 
-                                    { label: 'Review', count: reviewTasks, color: 'bg-purple-500' }, 
-                                    { label: 'Done', count: completedTasks, color: 'bg-green-500' }
-                                ].map((stat) => (
-                                    <div key={stat.label} className="flex flex-col items-center gap-2 flex-1 h-full justify-end group">
-                                        <div className="font-bold text-gray-800 mb-1 opacity-0 group-hover:opacity-100 transition-opacity transform translate-y-2 group-hover:translate-y-0">{stat.count}</div>
-                                        <div className={`w-full rounded-t-xl transition-all duration-500 ${stat.color} hover:opacity-90`} style={{ height: `${totalTasks > 0 ? (stat.count / totalTasks) * 100 : 0}%`, minHeight: '8px' }}></div>
-                                        <div className="text-xs font-bold text-gray-400 uppercase text-center mt-2">{stat.label}</div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
-                            <h3 className="text-lg font-bold text-gray-800 mb-6">Workload</h3>
-                            <div className="space-y-5">
-                                {Object.keys(TAG_COLORS).map((tag) => { 
-                                    const count = tasks.filter(t => t.tag === tag).length; 
-                                    const colorClass = (TAG_COLORS[tag] || 'bg-gray-200').split(' ')[0];
-                                    return (
-                                        <div key={tag}>
-                                            <div className="flex justify-between text-sm font-bold mb-2">
-                                                <span className="text-gray-600">{tag}</span>
-                                                <span className="text-gray-400">{count} Tasks</span>
-                                            </div>
-                                            <div className="h-3 w-full bg-gray-100 rounded-full overflow-hidden">
-                                                <div className={`h-full rounded-full transition-all duration-500 ${colorClass}`} style={{ width: `${(count / maxTagCount) * 100}%` }}></div>
-                                            </div>
-                                        </div>
-                                    ) 
-                                })}
-                            </div>
-                        </div>
-                    </div>
+            ))}
+            
+            {/* Static Invite Button */}
+            <div className="border-2 border-dashed border-gray-200 p-6 rounded-2xl flex flex-col items-center justify-center text-center cursor-pointer hover:bg-gray-50 transition hover:border-gray-300 opacity-60 hover:opacity-100">
+                <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-2">
+                    <span className="text-2xl text-gray-400">+</span>
                 </div>
+                <span className="text-sm font-bold text-gray-400">Invite New</span>
             </div>
         </div>
-    );
-};
+      </div>
 
-const StatsCard = ({ title, value, sub, icon: Icon, color }) => {
-    const colors = {
-        blue: { bg: 'bg-blue-50', text: 'text-blue-600' },
-        green: { bg: 'bg-green-50', text: 'text-green-600' },
-        yellow: { bg: 'bg-yellow-50', text: 'text-yellow-600' },
-        purple: { bg: 'bg-purple-50', text: 'text-purple-600' },
-    };
-    const activeColor = colors[color] || colors.blue;
-    return (
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between h-32 hover:shadow-md transition">
-            <div className="flex justify-between items-start">
-                <div className={`${activeColor.bg} ${activeColor.text} p-2 rounded-lg`}><Icon size={24} /></div>
-                <span className="text-xs font-bold text-gray-400 uppercase">{title}</span>
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+        <div className="bg-indigo-600 text-white p-6 rounded-2xl shadow-lg shadow-indigo-200">
+            <div className="flex justify-between items-start mb-4">
+                <div className="p-2 bg-indigo-500/50 rounded-lg"><Briefcase size={24}/></div>
+                <span className="text-xs font-bold bg-indigo-500/50 px-2 py-1 rounded">Active</span>
             </div>
-            <div>
-                <span className="text-3xl font-bold text-gray-800">{value}</span>
-                <span className="text-sm text-gray-400 ml-2">{sub}</span>
-            </div>
+            <div className="text-4xl font-black mb-1">{pendingTasks}</div>
+            <div className="text-indigo-100 text-sm font-medium">Pending Tasks</div>
         </div>
-    );
+
+        <div className="bg-emerald-500 text-white p-6 rounded-2xl shadow-lg shadow-emerald-200">
+            <div className="flex justify-between items-start mb-4">
+                <div className="p-2 bg-emerald-400/50 rounded-lg"><CheckCircle2 size={24}/></div>
+                <span className="text-xs font-bold bg-emerald-400/50 px-2 py-1 rounded">Done</span>
+            </div>
+            <div className="text-4xl font-black mb-1">{completedTasks}</div>
+            <div className="text-emerald-50 text-sm font-medium">Completed Tasks</div>
+        </div>
+
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+            <div className="flex justify-between items-start mb-4">
+                <div className="p-2 bg-pink-50 text-pink-500 rounded-lg"><Heart size={24}/></div>
+            </div>
+            <div className="text-4xl font-black mb-1 text-gray-800">{upcomingEvents.length}</div>
+            <div className="text-gray-400 text-sm font-medium">Upcoming Events</div>
+        </div>
+      </div>
+
+      {/* Upcoming Events List */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 flex-1">
+        <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
+            <Calendar className="text-orange-500" size={20}/> Upcoming Schedule
+        </h3>
+        
+        <div className="space-y-4">
+            {upcomingEvents.length > 0 ? upcomingEvents.slice(0, 5).map(task => (
+                <div key={task.id} className="flex items-center p-4 hover:bg-gray-50 rounded-xl transition border border-gray-50 hover:border-gray-200 group cursor-pointer">
+                    <div className="w-14 h-14 bg-blue-50 rounded-xl flex flex-col items-center justify-center text-blue-600 font-bold shrink-0 mr-4">
+                        <span className="text-xs uppercase">{new Date(task.startDate || task.deadline).toLocaleString('default', { month: 'short' })}</span>
+                        <span className="text-xl leading-none">{new Date(task.startDate || task.deadline).getDate()}</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <h4 className="font-bold text-gray-800 truncate">{task.title}</h4>
+                        <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
+                            <span className="flex items-center gap-1"><Clock size={12}/> {task.deadline ? formatDate(task.deadline) : 'No time'}</span>
+                        </div>
+                    </div>
+                    <div className="opacity-0 group-hover:opacity-100 transition text-gray-300">
+                        <ArrowRight size={20} />
+                    </div>
+                </div>
+            )) : (
+                <div className="text-center py-10 text-gray-400">
+                    <Calendar size={48} className="mx-auto mb-3 opacity-20"/>
+                    <p>No upcoming events scheduled.</p>
+                </div>
+            )}
+        </div>
+      </div>
+    </div>
+  );
 };
 
 export default HomeView;
