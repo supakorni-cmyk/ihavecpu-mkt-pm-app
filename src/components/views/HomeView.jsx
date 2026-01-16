@@ -8,40 +8,40 @@ import { formatDate } from '../../utils/constants';
 
 // --- SYSTEM DEFAULT AVATARS ---
 const SYSTEM_AVATARS = {
-  jittikorn: '/avatars/pae.jpg', 
-  supakorn: '/avatars/boom.jpg', 
-  sophisa: '/avatars/yui.jpg', 
-  suchada: '/avatars/bum.jpg', 
+  jittikorn: "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=200&h=200&fit=crop", 
+  supakorn: "https://images.unsplash.com/photo-1599566150163-29194dcaad36?w=200&h=200&fit=crop", 
+  sophisa: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&h=200&fit=crop", 
+  suchada: "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=200&h=200&fit=crop", 
 };
 
 // --- TEAM CONFIGURATION ---
 const INITIAL_TEAM = [
   { 
     id: 1, 
-    name: 'เป้ ไข่หมุน', 
+    name: 'Jittikorn M.', 
     email: 'jittikorn.m@ihavecpu.com',
-    role: 'Marketing Manager', 
+    role: 'Marketing Lead', 
     avatar: SYSTEM_AVATARS.jittikorn 
   },
   { 
     id: 2, 
-    name: 'SPARKIEZZ', 
+    name: 'Supakorn I.', 
     email: 'supakorn.i@ihavecpu.com',
-    role: 'Assistant Manager', 
+    role: 'Creative Director', 
     avatar: SYSTEM_AVATARS.supakorn 
   },
   { 
     id: 3, 
-    name: 'อียุ้ยคนสวย', 
+    name: 'Sophisa P.', 
     email: 'sophisa.p@ihavecpu.com',
-    role: 'Assistant Manager', 
+    role: 'Content Creator', 
     avatar: SYSTEM_AVATARS.sophisa 
   },
   { 
     id: 4, 
-    name: 'ณ๊องส์บิ๋ม', 
+    name: 'Suchada T.', 
     email: 'suchada.t@ihavecpu.com',
-    role: 'Graphic Head', 
+    role: 'Coordinator', 
     avatar: SYSTEM_AVATARS.suchada 
   },
 ];
@@ -105,13 +105,13 @@ const HomeView = ({ tasks }) => {
                 </div>
             ))}
             
-            {/* Static Invite Button
+            {/* Static Invite Button */}
             <div className="border-2 border-dashed border-gray-200 p-6 rounded-2xl flex flex-col items-center justify-center text-center cursor-pointer hover:bg-gray-50 transition hover:border-gray-300 opacity-60 hover:opacity-100">
                 <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-2">
                     <span className="text-2xl text-gray-400">+</span>
                 </div>
                 <span className="text-sm font-bold text-gray-400">Invite New</span>
-            </div> */}
+            </div>
         </div>
       </div>
 
