@@ -8,45 +8,46 @@ import { formatDate } from '../../utils/constants';
 
 // --- SYSTEM DEFAULT AVATARS ---
 const SYSTEM_AVATARS = {
-  jittikorn: "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=200&h=200&fit=crop", 
-  supakorn: "https://images.unsplash.com/photo-1599566150163-29194dcaad36?w=200&h=200&fit=crop", 
-  sophisa: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&h=200&fit=crop", 
-  suchada: "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=200&h=200&fit=crop", 
+  jittikorn: '/avatars/pae.jpg', 
+  supakorn: '/avatars/boom.jpg', 
+  sophisa: '/avatars/yui.jpg', 
+  suchada: '/avatars/bum.jpg', 
 };
 
 // --- TEAM CONFIGURATION ---
 const INITIAL_TEAM = [
   { 
     id: 1, 
-    name: 'Jittikorn M.', 
+    name: 'เป้ ไข่หมุน', 
     email: 'jittikorn.m@ihavecpu.com',
-    role: 'Marketing Lead', 
+    role: 'Marketing Manager', 
     avatar: SYSTEM_AVATARS.jittikorn 
   },
   { 
     id: 2, 
-    name: 'Supakorn I.', 
+    name: 'SPARKIEZZ', 
     email: 'supakorn.i@ihavecpu.com',
-    role: 'Creative Director', 
+    role: 'Assistant Manager', 
     avatar: SYSTEM_AVATARS.supakorn 
   },
   { 
     id: 3, 
-    name: 'Sophisa P.', 
+    name: 'อียุ้ยคนสวย', 
     email: 'sophisa.p@ihavecpu.com',
-    role: 'Content Creator', 
+    role: 'Assistant Manager', 
     avatar: SYSTEM_AVATARS.sophisa 
   },
   { 
     id: 4, 
-    name: 'Suchada T.', 
+    name: 'ณ๊องส์บิ๋ม', 
     email: 'suchada.t@ihavecpu.com',
-    role: 'Coordinator', 
+    role: 'Graphic Head', 
     avatar: SYSTEM_AVATARS.suchada 
   },
 ];
 
-const HomeView = ({ tasks }) => {
+// Updated to accept currentUser prop
+const HomeView = ({ tasks, currentUser }) => {
   const [team] = useState(INITIAL_TEAM);
 
   // Helper stats
@@ -54,8 +55,10 @@ const HomeView = ({ tasks }) => {
   const completedTasks = tasks.filter(t => t.status === 'completed').length;
   const upcomingEvents = tasks.filter(t => t.tags && (t.tags.includes('Event') || t.tags.includes('Guest Speaker')));
 
-  // Current User
-  const currentUser = team[0]; 
+  // --- LOGIC CHANGE ---
+  // Find the team member that matches the logged-in user's email.
+  // If no match is found (or no one is logged in), fallback to the first user (Pae) as default.
+  const displayUser = team.find(member => member.email === currentUser?.email) || team[0];
   
   // Get Current Day Name (e.g., "Friday")
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
@@ -66,7 +69,7 @@ const HomeView = ({ tasks }) => {
       <div className="mb-10 flex items-center gap-5">
         <div className="relative">
             <img 
-                src={currentUser.avatar} 
+                src={displayUser.avatar} 
                 alt="Profile" 
                 className="w-16 h-16 rounded-full border-4 border-white shadow-md object-cover"
             />
@@ -74,9 +77,8 @@ const HomeView = ({ tasks }) => {
         </div>
         <div>
             <h1 className="text-3xl font-black text-gray-800 flex items-center gap-2">
-            Welcome Back, {currentUser.name.split(' ')[0]}! <span className="text-2xl animate-pulse">👋</span>
+            Welcome Back, {displayUser.name.split(' ')[0]}! <span className="text-2xl animate-pulse">👋</span>
             </h1>
-            {/* UPDATED TEXT HERE */}
             <p className="text-gray-500 mt-1 font-medium">Wish you have a good {today}</p>
         </div>
       </div>
@@ -88,7 +90,7 @@ const HomeView = ({ tasks }) => {
         </h3>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
             {team.map(member => (
-                <div key={member.id} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center text-center hover:shadow-md transition group">
+                <div key={member.id} className={`bg-white p-6 rounded-2xl shadow-sm border ${member.email === currentUser?.email ? 'border-blue-500 ring-2 ring-blue-100' : 'border-gray-100'} flex flex-col items-center justify-center text-center hover:shadow-md transition group`}>
                     <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center mb-4 overflow-hidden border-2 border-white shadow-sm relative">
                         <img 
                             src={member.avatar} 
@@ -104,14 +106,6 @@ const HomeView = ({ tasks }) => {
                     <span className="text-[10px] text-gray-400 truncate w-full px-2">{member.email}</span>
                 </div>
             ))}
-            
-            {/* Static Invite Button */}
-            <div className="border-2 border-dashed border-gray-200 p-6 rounded-2xl flex flex-col items-center justify-center text-center cursor-pointer hover:bg-gray-50 transition hover:border-gray-300 opacity-60 hover:opacity-100">
-                <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-2">
-                    <span className="text-2xl text-gray-400">+</span>
-                </div>
-                <span className="text-sm font-bold text-gray-400">Invite New</span>
-            </div>
         </div>
       </div>
 
