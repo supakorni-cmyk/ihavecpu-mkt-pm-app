@@ -30,7 +30,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
     const [newTransaction, setNewTransaction] = useState({
         type: 'income', date: new Date().toISOString().split('T')[0],
         brand: '', category: BUDGET_CATEGORIES[0], description: '', amount: '',
-        company: '', emailSubject: '', 
+        company: '', emailSubject: '', quotation: '', qtFile: null,
         invoice: '', invoiceFile: null, paymentDate: '', status: 'Pending', remark: ''
     });
 
@@ -122,6 +122,21 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
         if(input) input.value = '';
     };
 
+    const handleQtUpload = (e) => {
+        const file = e.target.files[0];
+        if (file && file.size <= 1024 * 1024) {
+            const reader = new FileReader();
+            reader.onloadend = () => setNewTransaction(prev => ({ ...prev, qtFile: reader.result }));
+            reader.readAsDataURL(file);
+        } else if(file) { alert("File too large (>1MB)"); }
+    };
+
+    const handleRemoveQt = () => {
+        setNewTransaction(prev => ({ ...prev, qtFile: null }));
+        const input = document.getElementById('addQt');
+        if(input) input.value = '';
+    };
+
     // File Upload (Edit)
     const handleEditFileUpload = (e) => {
         const file = e.target.files[0];
@@ -139,6 +154,22 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
         if(input) input.value = '';
     };
 
+    const handleEditQt = (e) => {
+        const file = e.target.files[0];
+        if (file && file.size <= 1024 * 1024) {
+            const reader = new FileReader();
+            reader.onloadend = () => setEditFormData(prev => ({ ...prev, qtFile: reader.result }));
+            reader.readAsDataURL(file);
+        } else if(file) { alert("File too large (>1MB)"); }
+    };
+
+    // Remove File (Edit)
+    const handleRemoveEditQt = () => {
+        setEditFormData(prev => ({ ...prev, qtFile: null }));
+        const input = document.getElementById('editQt');
+        if(input) input.value = '';
+    };
+
     const handleAddTransaction = (e) => {
         e.preventDefault();
         onAdd({ 
@@ -151,7 +182,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
         setNewTransaction({ 
             type: 'income', date: new Date().toISOString().split('T')[0], 
             brand: '', category: BUDGET_CATEGORIES[0], description: '', amount: '', 
-            company: '', emailSubject: '', invoice: '', invoiceFile: null, 
+            company: '', emailSubject: '', invoice: '', invoiceFile: null, quotation: '', qtFile: null,
             paymentDate: '', status: 'Pending', remark: '' 
         });
     };
@@ -168,7 +199,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                     <div className={`p-2 rounded-lg ${activeTab === 'income' ? 'bg-green-100 text-green-600' : activeTab === 'spending' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>
                         {activeTab === 'income' ? <TrendingUp size={24} /> : activeTab === 'spending' ? <TrendingDown size={24} /> : <BarChart3 size={24} />}
                     </div>
-                    <div><h2 className="text-2xl font-bold text-gray-800">Budget Recorder</h2><p className="text-sm text-gray-500 font-medium">Track your project finances</p></div>
+                    <div><h2 className="text-2xl font-bold text-gray-800">Budget Overview</h2><p className="text-sm text-gray-500 font-medium">Track your project finances</p></div>
                 </div>
                 <div className="flex items-center gap-6">
                     {activeTab !== 'overview' && (<div className="text-right"><p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Total {activeTab}</p><p className={`text-2xl font-black ${activeTab === 'income' ? 'text-green-600' : 'text-red-600'}`}>฿{tabTotal.toLocaleString()}</p></div>)}
@@ -314,6 +345,12 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                             <td className="px-4 py-4"><EditableCell value={t.emailSubject} className="text-gray-600 truncate text-xs" onSave={(val) => onUpdate(t.id, { emailSubject: val })} /></td>
                                             <td className="px-4 py-4">
                                                 <div className="flex items-center gap-2">
+                                                    <EditableCell value={t.quotation} className="font-mono text-xs w-20" onSave={(val) => onUpdate(t.id, { quotation: val })} />
+                                                    {t.qtFile && (<button onClick={() => setPreviewFile(t.qtFile)} className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-1 rounded transition" title="Preview"><Eye size={16} /></button>)}
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-4">
+                                                <div className="flex items-center gap-2">
                                                     <EditableCell value={t.invoice} className="font-mono text-xs w-20" onSave={(val) => onUpdate(t.id, { invoice: val })} />
                                                     {t.invoiceFile && (<button onClick={() => setPreviewFile(t.invoiceFile)} className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-1 rounded transition" title="Preview"><Eye size={16} /></button>)}
                                                 </div>
@@ -358,6 +395,23 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                 <div className="grid grid-cols-2 gap-4">
                                     <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Company</label><input type="text" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={newTransaction.company} onChange={e => setNewTransaction({...newTransaction, company: e.target.value})} /></div>
                                     <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Email Subject</label><input type="text" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={newTransaction.emailSubject} onChange={e => setNewTransaction({...newTransaction, emailSubject: e.target.value})} /></div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Quotation No.</label><input type="text" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={newTransaction.invoice} onChange={e => setNewTransaction({...newTransaction, invoice: e.target.value})} /></div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Upload Quotation</label>
+                                        {newTransaction.qtFile ? (
+                                            <div className="flex items-center justify-between border border-green-200 bg-green-50 rounded-lg p-2.5">
+                                                <span className="flex items-center gap-2 text-xs text-green-700 font-bold"><Paperclip size={16}/> Attached</span>
+                                                <button type="button" onClick={handleRemoveQt} className="text-red-500 hover:text-red-700 p-1 hover:bg-red-100 rounded transition"><Trash2 size={16} /></button>
+                                            </div>
+                                        ) : (
+                                            <div className="border border-dashed border-gray-300 rounded-lg p-2.5 text-center cursor-pointer hover:bg-gray-50 transition">
+                                                <input type="file" accept=".pdf,.jpg,.png" onChange={handleFileUpload} className="hidden" id="addQt"/>
+                                                <label htmlFor="addQt" className="flex items-center justify-center gap-2 text-xs text-gray-500 cursor-pointer w-full h-full"><Upload size={16}/> Select File</label>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Invoice No.</label><input type="text" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={newTransaction.invoice} onChange={e => setNewTransaction({...newTransaction, invoice: e.target.value})} /></div>
@@ -409,6 +463,23 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                     <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Email Subject</label><input type="text" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={editFormData.emailSubject} onChange={e => setEditFormData({...editFormData, emailSubject: e.target.value})} /></div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
+                                    <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Quotation No.</label><input type="text" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={editFormData.invoice} onChange={e => setEditFormData({...editFormData, invoice: e.target.value})} /></div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Update File</label>
+                                        {editFormData.qtFile ? (
+                                            <div className="flex items-center justify-between border border-green-200 bg-green-50 rounded-lg p-2.5">
+                                                <span className="flex items-center gap-2 text-xs text-green-700 font-bold truncate max-w-[150px]"><Paperclip size={16}/> File Attached</span>
+                                                <button type="button" onClick={handleRemoveEditQt} className="text-red-500 hover:text-red-700 p-1 hover:bg-red-100 rounded transition"><Trash2 size={16} /></button>
+                                            </div>
+                                        ) : (
+                                            <div className="border border-dashed border-gray-300 rounded-lg p-2.5 text-center cursor-pointer hover:bg-gray-50 transition">
+                                                <input type="file" accept=".pdf,.jpg,.png" onChange={handleEditQt} className="hidden" id="editQt"/>
+                                                <label htmlFor="editQt" className="flex items-center justify-center gap-2 text-xs text-gray-500 cursor-pointer w-full h-full"><Upload size={16}/> Select New</label>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
                                     <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Invoice No.</label><input type="text" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={editFormData.invoice} onChange={e => setEditFormData({...editFormData, invoice: e.target.value})} /></div>
                                     <div>
                                         <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Update File</label>
@@ -453,6 +524,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                     </div>
                 </div>
             )}
+            
         </div>
     );
 };
