@@ -7,12 +7,11 @@ import {
 import { formatDate } from '../../utils/constants';
 
 // --- SYSTEM DEFAULT AVATARS ---
-// High-quality static images from Unsplash
 const SYSTEM_AVATARS = {
-  jittikorn: "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=200&h=200&fit=crop", // Male (Business)
-  supakorn: "https://images.unsplash.com/photo-1599566150163-29194dcaad36?w=200&h=200&fit=crop", // Male (Casual)
-  sophisa: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&h=200&fit=crop", // Female (Smiling)
-  suchada: "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=200&h=200&fit=crop", // Female (Portrait)
+  jittikorn: "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=200&h=200&fit=crop", 
+  supakorn: "https://images.unsplash.com/photo-1599566150163-29194dcaad36?w=200&h=200&fit=crop", 
+  sophisa: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&h=200&fit=crop", 
+  suchada: "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=200&h=200&fit=crop", 
 };
 
 // --- TEAM CONFIGURATION ---
@@ -55,14 +54,16 @@ const HomeView = ({ tasks }) => {
   const completedTasks = tasks.filter(t => t.status === 'completed').length;
   const upcomingEvents = tasks.filter(t => t.tags && (t.tags.includes('Event') || t.tags.includes('Guest Speaker')));
 
-  // Current User (Defaults to Jittikorn for the "Welcome Back" message)
+  // Current User
   const currentUser = team[0]; 
+  
+  // Get Current Day Name (e.g., "Friday")
+  const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
 
   return (
     <div className="flex flex-col h-full overflow-y-auto bg-gray-50 p-8 font-sans">
       {/* --- WELCOME HEADER --- */}
       <div className="mb-10 flex items-center gap-5">
-        {/* Recommended Size: w-16 h-16 (64px) */}
         <div className="relative">
             <img 
                 src={currentUser.avatar} 
@@ -75,7 +76,8 @@ const HomeView = ({ tasks }) => {
             <h1 className="text-3xl font-black text-gray-800 flex items-center gap-2">
             Welcome Back, {currentUser.name.split(' ')[0]}! <span className="text-2xl animate-pulse">👋</span>
             </h1>
-            <p className="text-gray-500 mt-1 font-medium">Dashboard overview for {currentUser.email}</p>
+            {/* UPDATED TEXT HERE */}
+            <p className="text-gray-500 mt-1 font-medium">Wish you have a good {today}</p>
         </div>
       </div>
 
@@ -87,8 +89,6 @@ const HomeView = ({ tasks }) => {
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
             {team.map(member => (
                 <div key={member.id} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center text-center hover:shadow-md transition group">
-                    
-                    {/* Recommended Size: w-20 h-20 (80px) */}
                     <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center mb-4 overflow-hidden border-2 border-white shadow-sm relative">
                         <img 
                             src={member.avatar} 
