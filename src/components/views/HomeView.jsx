@@ -18,30 +18,30 @@ const SYSTEM_AVATARS = {
 const INITIAL_TEAM = [
   { 
     id: 1, 
-    name: 'Jittikorn M.', 
+    name: 'เป้ ไข่หมุน', 
     email: 'jittikorn.m@ihavecpu.com',
-    role: 'Marketing Lead', 
+    role: 'Marketing Manager', 
     avatar: SYSTEM_AVATARS.jittikorn 
   },
   { 
     id: 2, 
-    name: 'Supakorn I.', 
+    name: 'SPARKIEZZ', 
     email: 'supakorn.i@ihavecpu.com',
-    role: 'Creative Director', 
+    role: 'Assistant Manager', 
     avatar: SYSTEM_AVATARS.supakorn 
   },
   { 
     id: 3, 
-    name: 'Sophisa P.', 
+    name: 'อียุ้ยคนสวย', 
     email: 'sophisa.p@ihavecpu.com',
-    role: 'Content Creator', 
+    role: 'Assistant Manager', 
     avatar: SYSTEM_AVATARS.sophisa 
   },
   { 
     id: 4, 
-    name: 'Suchada T.', 
+    name: 'ณ๊องส์บิ๋ม', 
     email: 'suchada.t@ihavecpu.com',
-    role: 'Coordinator', 
+    role: 'Graphic Head', 
     avatar: SYSTEM_AVATARS.suchada 
   },
 ];
@@ -105,13 +105,13 @@ const HomeView = ({ tasks }) => {
                 </div>
             ))}
             
-            {/* Static Invite Button */}
+            {/* Static Invite Button
             <div className="border-2 border-dashed border-gray-200 p-6 rounded-2xl flex flex-col items-center justify-center text-center cursor-pointer hover:bg-gray-50 transition hover:border-gray-300 opacity-60 hover:opacity-100">
                 <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-2">
                     <span className="text-2xl text-gray-400">+</span>
                 </div>
                 <span className="text-sm font-bold text-gray-400">Invite New</span>
-            </div>
+            </div> */}
         </div>
       </div>
 
