@@ -22,6 +22,14 @@ import { BUDGET_CATEGORIES } from '../../utils/constants';
 const TOTAL_BUDGET_CONST = 33000000;
 const BUDGET_STATUSES = ['Pending', 'Follow-up', 'Complete'];
 
+// --- HELPER: NUMBER FORMATTING ---
+const formatAmount = (num) => {
+    return new Intl.NumberFormat('en-US', { 
+        minimumFractionDigits: 2, 
+        maximumFractionDigits: 2 
+    }).format(num || 0);
+};
+
 const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
     const [activeTab, setActiveTab] = useState('overview');
     
@@ -104,8 +112,6 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
     const tabTotal = filteredTransactions.reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
 
     // --- Handlers ---
-
-    // File Upload (Add)
     const handleFileUpload = (e) => {
         const file = e.target.files[0];
         if (file && file.size <= 1024 * 1024) {
@@ -114,14 +120,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
             reader.readAsDataURL(file);
         } else if(file) { alert("File too large (>1MB)"); }
     };
-
-    // Remove File (Add)
-    const handleRemoveFile = () => {
-        setNewTransaction(prev => ({ ...prev, invoiceFile: null }));
-        const input = document.getElementById('addFile');
-        if(input) input.value = '';
-    };
-
+    const handleRemoveFile = () => { setNewTransaction(prev => ({ ...prev, invoiceFile: null })); const input = document.getElementById('addFile'); if(input) input.value = ''; };
     const handleQtUpload = (e) => {
         const file = e.target.files[0];
         if (file && file.size <= 1024 * 1024) {
@@ -130,14 +129,9 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
             reader.readAsDataURL(file);
         } else if(file) { alert("File too large (>1MB)"); }
     };
-
-    const handleRemoveQt = () => {
-        setNewTransaction(prev => ({ ...prev, qtFile: null }));
-        const input = document.getElementById('addQt');
-        if(input) input.value = '';
-    };
-
-    // File Upload (Edit)
+    const handleRemoveQt = () => { setNewTransaction(prev => ({ ...prev, qtFile: null })); const input = document.getElementById('addQt'); if(input) input.value = ''; };
+    
+    // Edit Handlers
     const handleEditFileUpload = (e) => {
         const file = e.target.files[0];
         if (file && file.size <= 1024 * 1024) {
@@ -146,14 +140,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
             reader.readAsDataURL(file);
         } else if(file) { alert("File too large (>1MB)"); }
     };
-
-    // Remove File (Edit)
-    const handleRemoveEditFile = () => {
-        setEditFormData(prev => ({ ...prev, invoiceFile: null }));
-        const input = document.getElementById('editFile');
-        if(input) input.value = '';
-    };
-
+    const handleRemoveEditFile = () => { setEditFormData(prev => ({ ...prev, invoiceFile: null })); const input = document.getElementById('editFile'); if(input) input.value = ''; };
     const handleEditQt = (e) => {
         const file = e.target.files[0];
         if (file && file.size <= 1024 * 1024) {
@@ -162,13 +149,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
             reader.readAsDataURL(file);
         } else if(file) { alert("File too large (>1MB)"); }
     };
-
-    // Remove File (Edit)
-    const handleRemoveEditQt = () => {
-        setEditFormData(prev => ({ ...prev, qtFile: null }));
-        const input = document.getElementById('editQt');
-        if(input) input.value = '';
-    };
+    const handleRemoveEditQt = () => { setEditFormData(prev => ({ ...prev, qtFile: null })); const input = document.getElementById('editQt'); if(input) input.value = ''; };
 
     const handleAddTransaction = (e) => {
         e.preventDefault();
@@ -186,9 +167,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
             paymentDate: '', status: 'Pending', remark: '' 
         });
     };
-
     const handleEditClick = (t) => { setEditFormData({ ...t }); setIsEditOpen(true); };
-    
     const handleEditSubmit = (e) => { e.preventDefault(); onUpdate(editFormData.id, editFormData); setIsEditOpen(false); setEditFormData(null); };
 
     return (
@@ -202,7 +181,13 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                     <div><h2 className="text-2xl font-bold text-gray-800">Budget Overview</h2><p className="text-sm text-gray-500 font-medium">Track your project finances</p></div>
                 </div>
                 <div className="flex items-center gap-6">
-                    {activeTab !== 'overview' && (<div className="text-right"><p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Total {activeTab}</p><p className={`text-2xl font-black ${activeTab === 'income' ? 'text-green-600' : 'text-red-600'}`}>฿{tabTotal.toLocaleString()}</p></div>)}
+                    {activeTab !== 'overview' && (
+                        <div className="text-right">
+                            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Total {activeTab}</p>
+                            {/* UPDATED: Format Total */}
+                            <p className={`text-2xl font-black ${activeTab === 'income' ? 'text-green-600' : 'text-red-600'}`}>฿{formatAmount(tabTotal)}</p>
+                        </div>
+                    )}
                     <button onClick={() => setIsAddOpen(true)} className="bg-gray-900 hover:bg-black text-white px-5 py-2.5 rounded-lg font-bold shadow-lg flex items-center gap-2 transition-all transform hover:scale-105"><Plus size={18} /> Add Record</button>
                 </div>
             </header>
@@ -218,15 +203,15 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                 <div className="flex-1 overflow-auto p-8">
                     {activeTab === 'overview' ? (
                         <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10">
-                            {/* 1. Summary Cards */}
+                            {/* 1. Summary Cards (UPDATED FORMATTING) */}
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                                <div className="bg-blue-600 text-white p-6 rounded-2xl shadow-lg flex flex-col justify-between h-32"><div className="flex justify-between items-start"><span className="text-blue-200 text-xs font-bold uppercase tracking-wider">Total Budget</span><Wallet size={20} className="text-blue-200"/></div><div className="text-3xl font-black tracking-tight">฿{TOTAL_BUDGET_CONST.toLocaleString()}</div></div>
-                                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex flex-col justify-between h-32"><div className="flex justify-between items-start"><span className="text-gray-400 text-xs font-bold uppercase tracking-wider">Total Income</span><div className="p-1.5 bg-green-50 rounded text-green-600"><TrendingUp size={16}/></div></div><div className="text-2xl font-bold text-gray-800">฿{totalIncome.toLocaleString()}</div></div>
-                                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex flex-col justify-between h-32"><div className="flex justify-between items-start"><span className="text-gray-400 text-xs font-bold uppercase tracking-wider">Total Spending</span><div className="p-1.5 bg-red-50 rounded text-red-600"><TrendingDown size={16}/></div></div><div className="text-2xl font-bold text-gray-800">฿{totalSpending.toLocaleString()}</div></div>
-                                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex flex-col justify-between h-32"><div className="flex justify-between items-start"><span className="text-gray-400 text-xs font-bold uppercase tracking-wider">Net (Spending - Income)</span><Activity size={20} className="text-gray-300"/></div><div className={`text-2xl font-bold ${netSpending > 0 ? 'text-red-600' : 'text-green-600'}`}>฿{netSpending.toLocaleString()}</div></div>
+                                <div className="bg-blue-600 text-white p-6 rounded-2xl shadow-lg flex flex-col justify-between h-32"><div className="flex justify-between items-start"><span className="text-blue-200 text-xs font-bold uppercase tracking-wider">Total Budget</span><Wallet size={20} className="text-blue-200"/></div><div className="text-3xl font-black tracking-tight">฿{formatAmount(TOTAL_BUDGET_CONST)}</div></div>
+                                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex flex-col justify-between h-32"><div className="flex justify-between items-start"><span className="text-gray-400 text-xs font-bold uppercase tracking-wider">Total Income</span><div className="p-1.5 bg-green-50 rounded text-green-600"><TrendingUp size={16}/></div></div><div className="text-2xl font-bold text-gray-800">฿{formatAmount(totalIncome)}</div></div>
+                                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex flex-col justify-between h-32"><div className="flex justify-between items-start"><span className="text-gray-400 text-xs font-bold uppercase tracking-wider">Total Spending</span><div className="p-1.5 bg-red-50 rounded text-red-600"><TrendingDown size={16}/></div></div><div className="text-2xl font-bold text-gray-800">฿{formatAmount(totalSpending)}</div></div>
+                                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex flex-col justify-between h-32"><div className="flex justify-between items-start"><span className="text-gray-400 text-xs font-bold uppercase tracking-wider">Net (Spending - Income)</span><Activity size={20} className="text-gray-300"/></div><div className={`text-2xl font-bold ${netSpending > 0 ? 'text-red-600' : 'text-green-600'}`}>฿{formatAmount(netSpending)}</div></div>
                             </div>
 
-                            {/* 2. Combined Chart Section */}
+                            {/* 2. Charts */}
                             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
                                 <div className="flex justify-between items-center mb-6">
                                     <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2"><Activity size={20} className="text-blue-500"/> Monthly Overview (Income vs Spending)</h3>
@@ -236,33 +221,24 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                 </div>
                             </div>
 
-                            {/* 3. INCOME SECTION */}
+                            {/* 3. INCOME SECTION (UPDATED TABLE FORMATTING) */}
                             <div>
                                 <h3 className="text-xl font-black text-gray-800 mb-4 flex items-center gap-2 border-b pb-2"><TrendingUp className="text-green-600"/> Income Analysis</h3>
                                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                                    {/* Income Trend */}
                                     <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
                                         <h4 className="text-sm font-bold text-gray-500 uppercase mb-4">Monthly Income Trend</h4>
                                         <div className="h-48"><SimpleLineChart data={incomeTrend} color="#16a34a" /></div>
                                     </div>
-                                    {/* Income Pie */}
                                     <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 flex flex-col">
                                         <h4 className="text-sm font-bold text-gray-500 uppercase mb-4 flex items-center gap-2"><PieChartIcon size={16}/> By Category</h4>
                                         <div className="flex-1 min-h-[200px]"><SimplePieChart data={incomeCategories} /></div>
                                     </div>
                                 </div>
-                                {/* Top 10 Income Table */}
                                 <div className="mt-6 bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
                                     <div className="px-6 py-4 bg-green-50 border-b border-green-100"><h4 className="font-bold text-green-800 text-sm uppercase">Top 10 Income Sources</h4></div>
                                     <table className="w-full text-sm text-left">
                                         <thead className="text-xs text-gray-500 uppercase bg-gray-50 font-bold border-b border-gray-200">
-                                            <tr>
-                                                <th className="px-6 py-3">Brand</th>
-                                                <th className="px-6 py-3">Category</th>
-                                                <th className="px-6 py-3">Description</th>
-                                                <th className="px-6 py-3">Month</th>
-                                                <th className="px-6 py-3 text-right">Amount</th>
-                                            </tr>
+                                            <tr><th className="px-6 py-3">Brand</th><th className="px-6 py-3">Category</th><th className="px-6 py-3">Description</th><th className="px-6 py-3">Month</th><th className="px-6 py-3 text-right">Amount</th></tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-100">
                                             {topIncome.map((t, idx) => (
@@ -271,7 +247,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                                     <td className="px-6 py-3 text-gray-500">{t.category}</td>
                                                     <td className="px-6 py-3 text-gray-500 truncate max-w-xs">{t.description}</td>
                                                     <td className="px-6 py-3 text-gray-500">{new Date(t.date).toLocaleString('default', { month: 'short', year: '2-digit' })}</td>
-                                                    <td className="px-6 py-3 text-right font-bold text-green-600">฿{parseFloat(t.amount).toLocaleString()}</td>
+                                                    <td className="px-6 py-3 text-right font-bold text-green-600">฿{formatAmount(t.amount)}</td>
                                                 </tr>
                                             ))}
                                             {topIncome.length === 0 && <tr><td colSpan="5" className="px-6 py-4 text-center text-gray-400">No data available</td></tr>}
@@ -280,33 +256,24 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                 </div>
                             </div>
 
-                            {/* 4. SPENDING SECTION */}
+                            {/* 4. SPENDING SECTION (UPDATED TABLE FORMATTING) */}
                             <div>
                                 <h3 className="text-xl font-black text-gray-800 mb-4 flex items-center gap-2 border-b pb-2"><TrendingDown className="text-red-600"/> Spending Analysis</h3>
                                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                                    {/* Spending Trend */}
                                     <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
                                         <h4 className="text-sm font-bold text-gray-500 uppercase mb-4">Monthly Spending Trend</h4>
                                         <div className="h-48"><SimpleLineChart data={spendingTrend} color="#dc2626" /></div>
                                     </div>
-                                    {/* Spending Pie */}
                                     <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 flex flex-col">
                                         <h4 className="text-sm font-bold text-gray-500 uppercase mb-4 flex items-center gap-2"><PieChartIcon size={16}/> By Category</h4>
                                         <div className="flex-1 min-h-[200px]"><SimplePieChart data={spendingCategories} /></div>
                                     </div>
                                 </div>
-                                {/* Top 10 Spending Table */}
                                 <div className="mt-6 bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
                                     <div className="px-6 py-4 bg-red-50 border-b border-red-100"><h4 className="font-bold text-red-800 text-sm uppercase">Top 10 Expenses</h4></div>
                                     <table className="w-full text-sm text-left">
                                         <thead className="text-xs text-gray-500 uppercase bg-gray-50 font-bold border-b border-gray-200">
-                                            <tr>
-                                                <th className="px-6 py-3">Brand</th>
-                                                <th className="px-6 py-3">Category</th>
-                                                <th className="px-6 py-3">Description</th>
-                                                <th className="px-6 py-3">Month</th>
-                                                <th className="px-6 py-3 text-right">Amount</th>
-                                            </tr>
+                                            <tr><th className="px-6 py-3">Brand</th><th className="px-6 py-3">Category</th><th className="px-6 py-3">Description</th><th className="px-6 py-3">Month</th><th className="px-6 py-3 text-right">Amount</th></tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-100">
                                             {topSpending.map((t, idx) => (
@@ -315,7 +282,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                                     <td className="px-6 py-3 text-gray-500">{t.category}</td>
                                                     <td className="px-6 py-3 text-gray-500 truncate max-w-xs">{t.description}</td>
                                                     <td className="px-6 py-3 text-gray-500">{new Date(t.date).toLocaleString('default', { month: 'short', year: '2-digit' })}</td>
-                                                    <td className="px-6 py-3 text-right font-bold text-red-600">฿{parseFloat(t.amount).toLocaleString()}</td>
+                                                    <td className="px-6 py-3 text-right font-bold text-red-600">฿{formatAmount(t.amount)}</td>
                                                 </tr>
                                             ))}
                                             {topSpending.length === 0 && <tr><td colSpan="5" className="px-6 py-4 text-center text-gray-400">No data available</td></tr>}
@@ -325,7 +292,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                             </div>
                         </div>
                     ) : (
-                        /* DATA TABLE (Income / Spending) */
+                        /* DATA TABLE (Updated EditableCell for Number) */
                         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                             <table className="w-full text-sm text-left">
                                 <thead className="text-xs text-gray-500 uppercase bg-gray-50 font-bold border-b border-gray-200 sticky top-0 z-10">
@@ -340,6 +307,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                             <td className="px-4 py-4"><EditableCell value={t.brand} className="font-bold text-gray-700" onSave={(val) => onUpdate(t.id, { brand: val })} /></td>
                                             <td className="px-4 py-4"><EditableCell type="select" options={BUDGET_CATEGORIES} value={t.category} onSave={(val) => onUpdate(t.id, { category: val })} /></td>
                                             <td className="px-4 py-4"><EditableCell value={t.description} onSave={(val) => onUpdate(t.id, { description: val })} /></td>
+                                            {/* Formatted Number Cell */}
                                             <td className="px-4 py-4 text-right"><EditableCell type="number" value={t.amount} className={`font-mono font-bold text-right ${activeTab === 'income' ? 'text-green-600' : 'text-red-600'}`} onSave={(val) => onUpdate(t.id, { amount: val })} /></td>
                                             <td className="px-4 py-4"><EditableCell value={t.company} onSave={(val) => onUpdate(t.id, { company: val })} /></td>
                                             <td className="px-4 py-4"><EditableCell value={t.emailSubject} className="text-gray-600 truncate text-xs" onSave={(val) => onUpdate(t.id, { emailSubject: val })} /></td>
@@ -374,7 +342,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                 </div>
             </div>
 
-            {/* ADD TRANSACTION MODAL */}
+            {/* Modals remain mostly unchanged, removed repetition for brevity but logically kept same structure */}
             {isAddOpen && (
                 <div className="fixed inset-0 bg-black/60 z-[80] flex items-center justify-center p-4 backdrop-blur-sm">
                     <div className="bg-white rounded-2xl w-full max-w-4xl p-8 shadow-2xl overflow-y-auto max-h-[90vh]">
@@ -439,7 +407,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                     </div>
                 </div>
             )}
-
+            
             {/* EDIT TRANSACTION MODAL */}
             {isEditOpen && editFormData && (
                 <div className="fixed inset-0 bg-black/60 z-[80] flex items-center justify-center p-4 backdrop-blur-sm">
@@ -524,13 +492,11 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                     </div>
                 </div>
             )}
-            
         </div>
     );
 };
 
 // --- CHARTS & SUB-COMPONENTS ---
-
 const SimpleLineChart = ({ data, color = "#C81E23" }) => {
     if (!data || data.length < 2) return <div className="h-full w-full flex items-center justify-center text-gray-400 text-sm">Not enough data</div>;
     const height = 150; const width = 1000; const padding = 20;
@@ -551,7 +517,8 @@ const SimpleLineChart = ({ data, color = "#C81E23" }) => {
                     return (
                         <g key={i} className="group-hover:opacity-100 opacity-0 transition-opacity">
                             <circle cx={x} cy={y} r="4" fill={color} />
-                            <text x={x} y={y - 10} textAnchor="middle" fontSize="20" fill="#333" fontWeight="bold">฿{d.value.toLocaleString()}</text>
+                            {/* UPDATED: Formatted Text */}
+                            <text x={x} y={y - 10} textAnchor="middle" fontSize="20" fill="#333" fontWeight="bold">฿{formatAmount(d.value)}</text>
                             <text x={x} y={height + 15} textAnchor="middle" fontSize="16" fill="#999">{d.date.split(' ')[0]}</text>
                         </g>
                     );
@@ -575,11 +542,8 @@ const CombinedLineChart = ({ data }) => {
     return (
         <div className="w-full h-full relative">
             <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-visible" preserveAspectRatio="none">
-                {/* Income Line */}
                 <polyline fill="none" stroke="#16a34a" strokeWidth="3" points={getPoints('income')} />
-                {/* Spending Line */}
                 <polyline fill="none" stroke="#dc2626" strokeWidth="3" points={getPoints('spending')} />
-                {/* Labels at bottom */}
                 {data.map((d, i) => {
                     const x = (i / (data.length - 1 || 1)) * (width - 2 * padding) + padding;
                     return <text key={i} x={x} y={height + 20} textAnchor="middle" fontSize="14" fill="#999">{d.date.split(' ')[0]}</text>;
@@ -628,15 +592,67 @@ const SimplePieChart = ({ data }) => {
     );
 };
 
+// --- UPDATED: REFACTORED EDITABLE CELL ---
 const EditableCell = ({ value, onSave, type = "text", options = null, className = "" }) => {
+    const [isEditing, setIsEditing] = useState(false);
     const [localValue, setLocalValue] = useState(value || "");
+
     useEffect(() => { setLocalValue(value || ""); }, [value]);
-    const handleBlur = () => { if (localValue !== value) { onSave(localValue); } };
-    const baseStyle = `w-full bg-transparent outline-none focus:bg-white focus:ring-2 focus:ring-blue-200 rounded px-1 transition-all ${className}`;
+
+    const handleBlur = () => {
+        setIsEditing(false);
+        if (localValue !== value) { onSave(localValue); }
+    };
+
+    const handleKeyDown = (e) => {
+        if (e.key === 'Enter') e.target.blur();
+    };
+
+    // 1. SELECT INPUT
     if (type === 'select' && options) {
-        return ( <select value={localValue} onChange={(e) => { setLocalValue(e.target.value); onSave(e.target.value); }} className={`${baseStyle} cursor-pointer appearance-none`}>{options.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select>);
+        return ( 
+            <select 
+                value={localValue} 
+                onChange={(e) => { setLocalValue(e.target.value); onSave(e.target.value); }} 
+                className={`w-full bg-transparent outline-none focus:bg-white focus:ring-2 focus:ring-blue-200 rounded px-1 transition-all cursor-pointer appearance-none ${className}`}
+            >
+                {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+            </select>
+        );
     }
-    return <input type={type} value={localValue} onChange={(e) => setLocalValue(e.target.value)} onBlur={handleBlur} onKeyDown={(e) => e.key === 'Enter' && e.target.blur()} className={baseStyle} placeholder="-" />;
+
+    // 2. EDIT MODE (Show Input)
+    if (isEditing) {
+        return (
+            <input 
+                type={type} 
+                value={localValue} 
+                onChange={(e) => setLocalValue(e.target.value)} 
+                onBlur={handleBlur} 
+                onKeyDown={handleKeyDown} 
+                autoFocus
+                className={`w-full bg-white outline-none ring-2 ring-blue-200 rounded px-1 ${className}`} 
+                placeholder="-" 
+            />
+        );
+    }
+
+    // 3. VIEW MODE (Show Formatted Text)
+    let displayValue = localValue;
+    if (type === 'number' && localValue) {
+        // Format if it's a number type
+        displayValue = formatAmount(localValue);
+    }
+
+    return (
+        <div 
+            onClick={() => setIsEditing(true)} 
+            className={`w-full cursor-text rounded px-1 hover:bg-gray-100 min-h-[24px] flex items-center ${className}`}
+            title="Click to edit"
+        >
+            {displayValue || "-"}
+        </div>
+    );
 };
 
 export default BudgetView;
