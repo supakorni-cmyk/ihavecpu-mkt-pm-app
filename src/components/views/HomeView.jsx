@@ -8,10 +8,10 @@ import { formatDate } from '../../utils/constants';
 
 // --- SYSTEM DEFAULT AVATARS ---
 const SYSTEM_AVATARS = {
-  jittikorn: '../../assets/avatars/pae.jpg', 
-  supakorn: '../../assets/avatars/boom.jpg', 
-  sophisa: '../../assets/avatars/yui.jpg', 
-  suchada: '../../assets/avatars/bum.jpg', 
+  jittikorn: '/assets/avatars/pae.jpg', 
+  supakorn: '/assets/avatars/boom.jpg', 
+  sophisa: '/assets/avatars/yui.jpg', 
+  suchada: '/assets/avatars/bum.jpg', 
 };
 
 // --- TEAM CONFIGURATION ---
