@@ -315,16 +315,17 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                         </div>
                     ) : (
                         /* DATA TABLE (Updated EditableCell for Number) */
-                        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                        // CHANGED: Added overflow-x-auto to wrapper and whitespace-nowrap to rows
+                        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto">
                             <table className="w-full text-sm text-left">
                                 <thead className="text-xs text-gray-500 uppercase bg-gray-50 font-bold border-b border-gray-200 sticky top-0 z-10">
-                                    <tr>
+                                    <tr className="whitespace-nowrap">
                                         <th className="px-6 py-4">Date</th><th className="px-6 py-4">Brand</th><th className="px-6 py-4">Category</th><th className="px-6 py-4 w-64">Description</th><th className="px-6 py-4 text-right">Amount (THB)</th><th className="px-6 py-4">Company</th><th className="px-6 py-4 w-48">Email Subject</th><th className="px-6 py-4">Quotation</th><th className="px-6 py-4">Invoice</th><th className="px-6 py-4">Payment Date</th><th className="px-6 py-4 text-center">Status</th><th className="px-6 py-4">Slip</th><th className="px-6 py-4 w-48">Remark</th><th className="px-6 py-4 text-center">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
                                     {filteredTransactions.map((t) => (
-                                        <tr key={t.id} className="hover:bg-blue-50/30 transition-colors group">
+                                        <tr key={t.id} className="hover:bg-blue-50/30 transition-colors group whitespace-nowrap">
                                             <td className="px-4 py-4"><EditableCell type="date" value={t.date} onSave={(val) => onUpdate(t.id, { date: val })} /></td>
                                             <td className="px-4 py-4"><EditableCell value={t.brand} className="font-bold text-gray-700" onSave={(val) => onUpdate(t.id, { brand: val })} /></td>
                                             <td className="px-4 py-4"><EditableCell type="select" options={BUDGET_CATEGORIES} value={t.category} onSave={(val) => onUpdate(t.id, { category: val })} /></td>
