@@ -8,10 +8,10 @@ import { formatDate } from '../../utils/constants';
 
 // --- SYSTEM DEFAULT AVATARS ---
 const SYSTEM_AVATARS = {
-  jittikorn: "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=200&h=200&fit=crop", 
-  supakorn: "https://images.unsplash.com/photo-1599566150163-29194dcaad36?w=200&h=200&fit=crop", 
-  sophisa: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&h=200&fit=crop", 
-  suchada: "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=200&h=200&fit=crop", 
+  jittikorn: '../../assets/avatars/pae.jpg', 
+  supakorn: '../../assets/avatars/boom.jpg', 
+  sophisa: '../../assets/avatars/yui.jpg', 
+  suchada: '../../assets/avatars/bum.jpg', 
 };
 
 // --- TEAM CONFIGURATION ---
