@@ -46,21 +46,31 @@ const INITIAL_TEAM = [
   },
 ];
 
-// Updated to accept currentUser prop
 const HomeView = ({ tasks, currentUser }) => {
   const [team] = useState(INITIAL_TEAM);
 
-  // Helper stats
+  // 1. Stats
   const pendingTasks = tasks.filter(t => t.status !== 'completed').length;
   const completedTasks = tasks.filter(t => t.status === 'completed').length;
-  const upcomingEvents = tasks.filter(t => t.tags && (t.tags.includes('Event') || t.tags.includes('Guest Speaker')));
 
-  // --- LOGIC CHANGE ---
-  // Find the team member that matches the logged-in user's email.
-  // If no match is found (or no one is logged in), fallback to the first user (Pae) as default.
+  // 2. FIXED: Robust Event Filtering (Checks singular 'tag' AND plural 'tags')
+  const upcomingEvents = tasks.filter(t => {
+      // Check singular tag
+      if (t.tag === 'Event' || t.tag === 'Guest Speaker') return true;
+      // Check plural tags array
+      if (Array.isArray(t.tags) && (t.tags.includes('Event') || t.tags.includes('Guest Speaker'))) return true;
+      return false;
+  });
+
+  // Sort events by date (nearest first)
+  upcomingEvents.sort((a, b) => {
+      const dateA = new Date(a.startDate || a.deadline || 0);
+      const dateB = new Date(b.startDate || b.deadline || 0);
+      return dateA - dateB;
+  });
+
+  // 3. User Logic
   const displayUser = team.find(member => member.email === currentUser?.email) || team[0];
-  
-  // Get Current Day Name (e.g., "Friday")
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
 
   return (
@@ -83,7 +93,7 @@ const HomeView = ({ tasks, currentUser }) => {
         </div>
       </div>
 
-      {/* --- TEAM SECTION (READ-ONLY) --- */}
+      {/* --- TEAM SECTION --- */}
       <div className="mb-12">
         <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
             <User className="text-blue-600" size={20}/> Team Members
@@ -98,11 +108,8 @@ const HomeView = ({ tasks, currentUser }) => {
                             className="w-full h-full object-cover transition transform group-hover:scale-110 duration-500" 
                         />
                     </div>
-
                     <h4 className="font-bold text-gray-800">{member.name}</h4>
-                    <span className="text-xs text-gray-500 font-medium bg-gray-100 px-2 py-0.5 rounded-full mt-1 mb-1">
-                        {member.role}
-                    </span>
+                    <span className="text-xs text-gray-500 font-medium bg-gray-100 px-2 py-0.5 rounded-full mt-1 mb-1">{member.role}</span>
                     <span className="text-[10px] text-gray-400 truncate w-full px-2">{member.email}</span>
                 </div>
             ))}
@@ -155,6 +162,7 @@ const HomeView = ({ tasks, currentUser }) => {
                         <h4 className="font-bold text-gray-800 truncate">{task.title}</h4>
                         <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
                             <span className="flex items-center gap-1"><Clock size={12}/> {task.deadline ? formatDate(task.deadline) : 'No time'}</span>
+                            {task.location && <span className="bg-gray-100 px-2 py-0.5 rounded text-gray-600">{task.location}</span>}
                         </div>
                     </div>
                     <div className="opacity-0 group-hover:opacity-100 transition text-gray-300">

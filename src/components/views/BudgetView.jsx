@@ -30,6 +30,15 @@ const formatAmount = (num) => {
     }).format(num || 0);
 };
 
+// --- HELPER: COMPACT NUMBER FORMAT (For Charts) ---
+// e.g. 1,200,000 -> 1.2M
+const formatCompactNumber = (num) => {
+    return new Intl.NumberFormat('en-US', {
+        notation: "compact",
+        maximumFractionDigits: 1
+    }).format(num);
+};
+
 const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
     const [activeTab, setActiveTab] = useState('overview');
     
@@ -170,7 +179,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
             reader.readAsDataURL(file);
         } else if(file) { alert("File too large (>1MB)"); }
     };
-    const handleRemoveEditSlip = () => { setEditFormData(prev => ({ ...prev, slipFile: null })); const input = document.getElementById('editSlip'); if(input) input.value = ''; };
+    const handleRemoveEditSlip = () => { setEditFormData(prev => ({ ...prev, slipFile: null })); const input = document.getElementById('slipQt'); if(input) input.value = ''; };
 
 
     const handleAddTransaction = (e) => {
@@ -206,7 +215,6 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                     {activeTab !== 'overview' && (
                         <div className="text-right">
                             <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Total {activeTab}</p>
-                            {/* UPDATED: Format Total */}
                             <p className={`text-2xl font-black ${activeTab === 'income' ? 'text-green-600' : 'text-red-600'}`}>฿{formatAmount(tabTotal)}</p>
                         </div>
                     )}
@@ -225,7 +233,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                 <div className="flex-1 overflow-auto p-8">
                     {activeTab === 'overview' ? (
                         <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10">
-                            {/* 1. Summary Cards (UPDATED FORMATTING) */}
+                            {/* 1. Summary Cards */}
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                                 <div className="bg-blue-600 text-white p-6 rounded-2xl shadow-lg flex flex-col justify-between h-32"><div className="flex justify-between items-start"><span className="text-blue-200 text-xs font-bold uppercase tracking-wider">Total Budget</span><Wallet size={20} className="text-blue-200"/></div><div className="text-3xl font-black tracking-tight">฿{formatAmount(TOTAL_BUDGET_CONST)}</div></div>
                                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex flex-col justify-between h-32"><div className="flex justify-between items-start"><span className="text-gray-400 text-xs font-bold uppercase tracking-wider">Total Income</span><div className="p-1.5 bg-green-50 rounded text-green-600"><TrendingUp size={16}/></div></div><div className="text-2xl font-bold text-gray-800">฿{formatAmount(totalIncome)}</div></div>
@@ -238,24 +246,25 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                 <div className="flex justify-between items-center mb-6">
                                     <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2"><Activity size={20} className="text-blue-500"/> Monthly Overview (Income vs Spending)</h3>
                                 </div>
-                                <div className="h-64 w-full bg-gray-50 rounded-xl p-4 border border-gray-100">
+                                <div className="h-72 w-full bg-gray-50 rounded-xl p-4 border border-gray-100">
                                     <CombinedLineChart data={combinedData} />
                                 </div>
                             </div>
 
-                            {/* 3. INCOME SECTION (UPDATED TABLE FORMATTING) */}
+                            {/* 3. INCOME SECTION */}
                             <div>
                                 <h3 className="text-xl font-black text-gray-800 mb-4 flex items-center gap-2 border-b pb-2"><TrendingUp className="text-green-600"/> Income Analysis</h3>
                                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                                     <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
                                         <h4 className="text-sm font-bold text-gray-500 uppercase mb-4">Monthly Income Trend</h4>
-                                        <div className="h-48"><SimpleLineChart data={incomeTrend} color="#16a34a" /></div>
+                                        <div className="h-64"><SimpleLineChart data={incomeTrend} color="#16a34a" /></div>
                                     </div>
                                     <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 flex flex-col">
                                         <h4 className="text-sm font-bold text-gray-500 uppercase mb-4 flex items-center gap-2"><PieChartIcon size={16}/> By Category</h4>
                                         <div className="flex-1 min-h-[200px]"><SimplePieChart data={incomeCategories} /></div>
                                     </div>
                                 </div>
+                                {/* Income Table ... */}
                                 <div className="mt-6 bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
                                     <div className="px-6 py-4 bg-green-50 border-b border-green-100"><h4 className="font-bold text-green-800 text-sm uppercase">Top 10 Income Sources</h4></div>
                                     <table className="w-full text-sm text-left">
@@ -278,19 +287,20 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                 </div>
                             </div>
 
-                            {/* 4. SPENDING SECTION (UPDATED TABLE FORMATTING) */}
+                            {/* 4. SPENDING SECTION */}
                             <div>
                                 <h3 className="text-xl font-black text-gray-800 mb-4 flex items-center gap-2 border-b pb-2"><TrendingDown className="text-red-600"/> Spending Analysis</h3>
                                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                                     <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
                                         <h4 className="text-sm font-bold text-gray-500 uppercase mb-4">Monthly Spending Trend</h4>
-                                        <div className="h-48"><SimpleLineChart data={spendingTrend} color="#dc2626" /></div>
+                                        <div className="h-64"><SimpleLineChart data={spendingTrend} color="#dc2626" /></div>
                                     </div>
                                     <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 flex flex-col">
                                         <h4 className="text-sm font-bold text-gray-500 uppercase mb-4 flex items-center gap-2"><PieChartIcon size={16}/> By Category</h4>
                                         <div className="flex-1 min-h-[200px]"><SimplePieChart data={spendingCategories} /></div>
                                     </div>
                                 </div>
+                                {/* Spending Table ... */}
                                 <div className="mt-6 bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
                                     <div className="px-6 py-4 bg-red-50 border-b border-red-100"><h4 className="font-bold text-red-800 text-sm uppercase">Top 10 Expenses</h4></div>
                                     <table className="w-full text-sm text-left">
@@ -314,8 +324,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                             </div>
                         </div>
                     ) : (
-                        /* DATA TABLE (Updated EditableCell for Number) */
-                        // CHANGED: Added overflow-x-auto to wrapper and whitespace-nowrap to rows
+                        /* DATA TABLE (Scrollable) */
                         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto">
                             <table className="w-full text-sm text-left">
                                 <thead className="text-xs text-gray-500 uppercase bg-gray-50 font-bold border-b border-gray-200 sticky top-0 z-10">
@@ -330,7 +339,6 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                             <td className="px-4 py-4"><EditableCell value={t.brand} className="font-bold text-gray-700" onSave={(val) => onUpdate(t.id, { brand: val })} /></td>
                                             <td className="px-4 py-4"><EditableCell type="select" options={BUDGET_CATEGORIES} value={t.category} onSave={(val) => onUpdate(t.id, { category: val })} /></td>
                                             <td className="px-4 py-4"><EditableCell value={t.description} onSave={(val) => onUpdate(t.id, { description: val })} /></td>
-                                            {/* Formatted Number Cell */}
                                             <td className="px-4 py-4 text-right"><EditableCell type="number" value={t.amount} className={`font-mono font-bold text-right ${activeTab === 'income' ? 'text-green-600' : 'text-red-600'}`} onSave={(val) => onUpdate(t.id, { amount: val })} /></td>
                                             <td className="px-4 py-4"><EditableCell value={t.company} onSave={(val) => onUpdate(t.id, { company: val })} /></td>
                                             <td className="px-4 py-4"><EditableCell value={t.emailSubject} className="text-gray-600 truncate text-xs" onSave={(val) => onUpdate(t.id, { emailSubject: val })} /></td>
@@ -371,16 +379,18 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                 </div>
             </div>
 
-            {/* Modals remain mostly unchanged, removed repetition for brevity but logically kept same structure */}
+            {/* Modals remain mostly unchanged */}
             {isAddOpen && (
                 <div className="fixed inset-0 bg-black/60 z-[80] flex items-center justify-center p-4 backdrop-blur-sm">
+                    {/* Add Transaction Modal Content (Same as previous) */}
                     <div className="bg-white rounded-2xl w-full max-w-4xl p-8 shadow-2xl overflow-y-auto max-h-[90vh]">
                         <div className="flex justify-between items-center mb-8 border-b border-gray-100 pb-4">
                             <div><h3 className="text-2xl font-bold text-gray-900">Add Record</h3><p className="text-sm text-gray-500 mt-1">Select type and fill details.</p></div>
                             <button onClick={() => setIsAddOpen(false)} className="text-gray-400 hover:text-gray-900 p-2 hover:bg-gray-100 rounded-full transition"><X size={24}/></button>
                         </div>
                         <form onSubmit={handleAddTransaction} className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                            <div className="space-y-6">
+                           {/* ... Form fields ... (Use same fields as provided in previous full code) */}
+                           <div className="space-y-6">
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Type</label><select className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 bg-white" value={newTransaction.type} onChange={e => setNewTransaction({...newTransaction, type: e.target.value})}><option value="income">Income</option><option value="spending">Spending</option></select></div>
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Date</label><input required type="date" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={newTransaction.date} onChange={e => setNewTransaction({...newTransaction, date: e.target.value})} /></div>
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Brand</label><input required type="text" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={newTransaction.brand} onChange={e => setNewTransaction({...newTransaction, brand: e.target.value})} /></div>
@@ -457,13 +467,15 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
             {/* EDIT TRANSACTION MODAL */}
             {isEditOpen && editFormData && (
                 <div className="fixed inset-0 bg-black/60 z-[80] flex items-center justify-center p-4 backdrop-blur-sm">
+                    {/* ... (Same Edit Modal content as before) ... */}
                     <div className="bg-white rounded-2xl w-full max-w-4xl p-8 shadow-2xl overflow-y-auto max-h-[90vh]">
                         <div className="flex justify-between items-center mb-8 border-b border-gray-100 pb-4">
                             <div><h3 className="text-2xl font-bold text-gray-900">Edit Record</h3><p className="text-sm text-gray-500 mt-1">Modify transaction details.</p></div>
                             <button onClick={() => setIsEditOpen(false)} className="text-gray-400 hover:text-gray-900 p-2 hover:bg-gray-100 rounded-full"><X size={24}/></button>
                         </div>
                         <form onSubmit={handleEditSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                            <div className="space-y-6">
+                            {/* ... Use same fields as edit form in previous full code ... */}
+                             <div className="space-y-6">
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Type</label><select className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 bg-white" value={editFormData.type} onChange={e => setEditFormData({...editFormData, type: e.target.value})}><option value="income">Income</option><option value="spending">Spending</option></select></div>
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Date</label><input required type="date" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={editFormData.date} onChange={e => setEditFormData({...editFormData, date: e.target.value})} /></div>
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Brand</label><input required type="text" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={editFormData.brand} onChange={e => setEditFormData({...editFormData, brand: e.target.value})} /></div>
@@ -513,10 +525,10 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Payment Date</label><input type="date" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={editFormData.paymentDate} onChange={e => setEditFormData({...editFormData, paymentDate: e.target.value})} /></div>
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Status</label><select className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={editFormData.status} onChange={e => setEditFormData({...editFormData, status: e.target.value})}>{BUDGET_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
                                 <div className="grid grid-cols-2 gap-4">
-                                    <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Slip</label><input type="text" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={editFormData.slip} onChange={e => setEditFormData({...editFormData, slip: e.target.value})} /></div>
+                                    <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Slip</label><input type="text" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={editFormData.invoice} onChange={e => setEditFormData({...editFormData, invoice: e.target.value})} /></div>
                                     <div>
                                         <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Update File</label>
-                                        {editFormData.slipFile ? (
+                                        {editFormData.invoiceFile ? (
                                             <div className="flex items-center justify-between border border-green-200 bg-green-50 rounded-lg p-2.5">
                                                 <span className="flex items-center gap-2 text-xs text-green-700 font-bold truncate max-w-[150px]"><Paperclip size={16}/> File Attached</span>
                                                 <button type="button" onClick={handleRemoveEditSlip} className="text-red-500 hover:text-red-700 p-1 hover:bg-red-100 rounded transition"><Trash2 size={16} /></button>
@@ -559,30 +571,45 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
     );
 };
 
-// --- CHARTS & SUB-COMPONENTS ---
+// --- UPDATED CHART COMPONENTS FOR BETTER VISIBILITY ---
+
 const SimpleLineChart = ({ data, color = "#C81E23" }) => {
     if (!data || data.length < 2) return <div className="h-full w-full flex items-center justify-center text-gray-400 text-sm">Not enough data</div>;
-    const height = 150; const width = 1000; const padding = 20;
-    const maxVal = Math.max(...data.map(d => d.value)) || 100;
+    const height = 200; // Increased fixed height to prevent cutting
+    const width = 1000;
+    const paddingX = 40;
+    const paddingY = 40; 
+    
+    // Add 10% buffer to max value so the highest point isn't touching the top
+    const maxVal = Math.max(...data.map(d => d.value)) * 1.1 || 100;
+    
     const points = data.map((d, i) => {
-        const x = (i / (data.length - 1)) * (width - 2 * padding) + padding;
-        const y = height - padding - ((d.value / maxVal) * (height - 2 * padding));
+        const x = (i / (data.length - 1)) * (width - 2 * paddingX) + paddingX;
+        const y = height - paddingY - ((d.value / maxVal) * (height - 2 * paddingY));
         return `${x},${y}`;
     }).join(' ');
     
     return (
         <div className="w-full h-full relative group">
             <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-visible" preserveAspectRatio="none">
+                {/* Horizontal Grid Lines */}
+                {[0.25, 0.5, 0.75].map(ratio => {
+                     const y = height - paddingY - (ratio * (height - 2 * paddingY));
+                     return <line key={ratio} x1={paddingX} y1={y} x2={width - paddingX} y2={y} stroke="#f3f4f6" strokeWidth="1" strokeDasharray="4 4"/>
+                })}
+
                 <polyline fill="none" stroke={color} strokeWidth="3" points={points} strokeLinecap="round" strokeLinejoin="round" />
+                
                 {data.map((d, i) => {
-                    const x = (i / (data.length - 1)) * (width - 2 * padding) + padding;
-                    const y = height - padding - ((d.value / maxVal) * (height - 2 * padding));
+                    const x = (i / (data.length - 1)) * (width - 2 * paddingX) + paddingX;
+                    const y = height - paddingY - ((d.value / maxVal) * (height - 2 * paddingY));
                     return (
                         <g key={i} className="group-hover:opacity-100 opacity-0 transition-opacity">
-                            <circle cx={x} cy={y} r="4" fill={color} />
-                            {/* UPDATED: Formatted Text */}
-                            <text x={x} y={y - 10} textAnchor="middle" fontSize="20" fill="#333" fontWeight="bold">฿{formatAmount(d.value)}</text>
-                            <text x={x} y={height + 15} textAnchor="middle" fontSize="16" fill="#999">{d.date.split(' ')[0]}</text>
+                            <circle cx={x} cy={y} r="5" fill={color} stroke="white" strokeWidth="2" />
+                            {/* Adjusted Text: Smaller font, positioned higher with buffer */}
+                            <text x={x} y={y - 12} textAnchor="middle" fontSize="12" fill="#333" fontWeight="bold">฿{formatCompactNumber(d.value)}</text>
+                            {/* Month Label: Positioned at bottom, always visible */}
+                            <text x={x} y={height - 10} textAnchor="middle" fontSize="11" fill="#9ca3af">{d.date.split(' ')[0]}</text>
                         </g>
                     );
                 })}
@@ -593,28 +620,49 @@ const SimpleLineChart = ({ data, color = "#C81E23" }) => {
 
 const CombinedLineChart = ({ data }) => {
     if (!data || data.length === 0) return <div className="h-full w-full flex items-center justify-center text-gray-400 text-sm">No data</div>;
-    const height = 200; const width = 1000; const padding = 20;
-    const maxVal = Math.max(...data.map(d => Math.max(d.income, d.spending))) || 100;
+    const height = 240; // Taller for combined view
+    const width = 1000;
+    const paddingX = 40;
+    const paddingY = 40;
+    
+    const maxVal = Math.max(...data.map(d => Math.max(d.income, d.spending))) * 1.1 || 100;
     
     const getPoints = (key) => data.map((d, i) => {
-        const x = (i / (data.length - 1 || 1)) * (width - 2 * padding) + padding;
-        const y = height - padding - ((d[key] / maxVal) * (height - 2 * padding));
+        const x = (i / (data.length - 1 || 1)) * (width - 2 * paddingX) + paddingX;
+        const y = height - paddingY - ((d[key] / maxVal) * (height - 2 * paddingY));
         return `${x},${y}`;
     }).join(' ');
 
     return (
         <div className="w-full h-full relative">
             <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-visible" preserveAspectRatio="none">
-                <polyline fill="none" stroke="#16a34a" strokeWidth="3" points={getPoints('income')} />
-                <polyline fill="none" stroke="#dc2626" strokeWidth="3" points={getPoints('spending')} />
+                {/* Horizontal Grid Lines */}
+                {[0, 0.25, 0.5, 0.75, 1].map(ratio => {
+                     const y = height - paddingY - (ratio * (height - 2 * paddingY));
+                     return <line key={ratio} x1={paddingX} y1={y} x2={width - paddingX} y2={y} stroke="#f3f4f6" strokeWidth="1"/>
+                })}
+
+                <polyline fill="none" stroke="#16a34a" strokeWidth="3" points={getPoints('income')} strokeLinecap="round" strokeLinejoin="round"/>
+                <polyline fill="none" stroke="#dc2626" strokeWidth="3" points={getPoints('spending')} strokeLinecap="round" strokeLinejoin="round"/>
+                
                 {data.map((d, i) => {
-                    const x = (i / (data.length - 1 || 1)) * (width - 2 * padding) + padding;
-                    return <text key={i} x={x} y={height + 20} textAnchor="middle" fontSize="14" fill="#999">{d.date.split(' ')[0]}</text>;
+                    const x = (i / (data.length - 1 || 1)) * (width - 2 * paddingX) + paddingX;
+                    // Always show month labels
+                    return (
+                        <g key={i}>
+                             <text x={x} y={height - 10} textAnchor="middle" fontSize="11" fill="#6b7280" fontWeight="500">
+                                {d.date.split(' ')[0]}
+                             </text>
+                             {/* Hover Circles */}
+                             <circle cx={x} cy={height - paddingY - ((d.income / maxVal) * (height - 2 * paddingY))} r="3" fill="#16a34a" opacity="0.5"/>
+                             <circle cx={x} cy={height - paddingY - ((d.spending / maxVal) * (height - 2 * paddingY))} r="3" fill="#dc2626" opacity="0.5"/>
+                        </g>
+                    );
                 })}
             </svg>
-            <div className="absolute top-0 right-0 flex gap-4 text-xs font-bold">
-                <span className="text-green-600 flex items-center gap-1"><span className="w-3 h-3 bg-green-600 rounded-full"></span> Income</span>
-                <span className="text-red-600 flex items-center gap-1"><span className="w-3 h-3 bg-red-600 rounded-full"></span> Spending</span>
+            <div className="absolute top-0 right-0 flex gap-4 text-xs font-bold bg-white/80 p-1 rounded backdrop-blur-sm">
+                <span className="text-green-600 flex items-center gap-1"><span className="w-2.5 h-2.5 bg-green-600 rounded-full"></span> Income</span>
+                <span className="text-red-600 flex items-center gap-1"><span className="w-2.5 h-2.5 bg-red-600 rounded-full"></span> Spending</span>
             </div>
         </div>
     );
