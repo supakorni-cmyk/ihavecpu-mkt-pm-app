@@ -22,25 +22,30 @@ export const useTaskData = (currentUser) => {
   const [photos, setPhotos] = useState([]);
   const [notifications, setNotifications] = useState([]); 
 
-  // --- 1. CRITICAL FIX: DEEP CLEAN DATA ---
-  // Recursively removes 'undefined' from all objects and nested objects.
-  // This fixes the issue where editing a task would fail silently.
+  // --- 1. CRITICAL: DEEP CLEAN DATA ---
+  // Fixes "undefined" errors by converting them to null recursively
   const cleanData = (data) => {
-    if (data === null || data === undefined) return null;
+    // Handle primitives
+    if (data === undefined) return null;
+    if (data === null) return null;
+    
+    // Handle Arrays
     if (Array.isArray(data)) return data.map(cleanData);
     
-    // Ensure we don't destroy Date objects (Firestore needs them)
+    // Handle Dates (Keep them as is)
     if (data instanceof Date) return data;
 
+    // Handle Objects (Recursive clean)
     if (typeof data === 'object') {
         const cleaned = {};
         Object.keys(data).forEach(key => {
             const value = cleanData(data[key]);
-            // If value is undefined, replace with null. Otherwise keep it.
-            cleaned[key] = value === undefined ? null : value;
+            cleaned[key] = value;
         });
         return cleaned;
     }
+    
+    // Return strings, numbers, booleans
     return data;
   };
 
@@ -115,7 +120,7 @@ export const useTaskData = (currentUser) => {
     });
   };
 
-  // --- 4. REAL-TIME LISTENERS ---
+  // --- 4. LISTENERS ---
   useEffect(() => {
     const safeSnapshot = (colName, setter) => {
         try {
@@ -123,9 +128,7 @@ export const useTaskData = (currentUser) => {
             return onSnapshot(q, (snapshot) => {
                 setter(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })));
             }, (error) => console.error(`Error reading ${colName}:`, error));
-        } catch (err) {
-            return () => {};
-        }
+        } catch (err) { return () => {}; }
     };
 
     const unsubTasks = onSnapshot(query(collection(db, "tasks"), orderBy("createdAt", "desc")), (snapshot) => {
@@ -152,17 +155,36 @@ export const useTaskData = (currentUser) => {
   }, [currentUser]);
 
   // --- 5. ACTIONS ---
-  
-  // Update Task (Now uses Deep Clean)
+
+  // *** UPDATED: Update Task with Better Error Handling ***
   const updateTask = async (id, updates) => {
     try {
-        console.log("Attempting to update task:", id, updates);
-        const cleanedUpdates = cleanData(updates); // Deep clean fixes the undefined error
+        console.log("Saving Task ID:", id);
+        
+        // 1. Deep Clean the data to remove undefined
+        const cleanedUpdates = cleanData(updates);
+        
+        // 2. Check Size roughly (Stringify length approx bytes)
+        const size = JSON.stringify(cleanedUpdates).length;
+        if (size > 800000) { // 800KB Safety Limit
+            throw new Error("Data size too large! (Image might be too big)");
+        }
+
+        // 3. Update Firestore
         await updateDoc(doc(db, "tasks", id), cleanedUpdates);
         console.log("Task Updated Successfully");
+        
     } catch (error) {
         console.error("FAILED to update task:", error);
-        alert("Failed to save changes. Check console for details.");
+        
+        // --- DISPLAY THE REAL ERROR ---
+        if (error.code === 'resource-exhausted') {
+            alert("Error: Image too large! Please upload a smaller photo.");
+        } else if (error.code === 'invalid-argument') {
+            alert(`Error: Invalid Data. (Details: ${error.message})`);
+        } else {
+            alert(`Failed to save: ${error.message}`);
+        }
     }
   };
 
@@ -174,13 +196,7 @@ export const useTaskData = (currentUser) => {
             notified7Days: false,
             notified2Days: false
         }));
-        
-        sendEmailNotification(`New Task: ${task.title}`, {
-            "Task Title": task.title,
-            "Tag": task.tag,
-            "Details": task.description || '-',
-            "Due Date": task.deadline || 'No Date'
-        });
+        sendEmailNotification(`New Task: ${task.title}`, { "Title": task.title });
     } catch (error) { console.error("Error adding task:", error); }
   };
   
@@ -190,25 +206,21 @@ export const useTaskData = (currentUser) => {
     try {
         await updateDoc(doc(db, "tasks", taskId), { status: newStatus });
         const task = tasks.find(t => t.id === taskId);
-        sendEmailNotification("Task Status Updated", { "Task": task?.title, "New Status": newStatus, "Updated By": currentUser?.email });
+        sendEmailNotification("Task Status Updated", { "Task": task?.title, "New Status": newStatus });
     } catch (error) { console.error("Error moving task:", error); }
   };
 
-  // Other Actions
+  // Other Actions (Standard)
   const markNotificationRead = async (id) => { try { await updateDoc(doc(db, "notifications", id), { isRead: true }); } catch(e) { console.error(e); } };
   const clearAllNotifications = async () => { notifications.forEach(async (n) => { try { await deleteDoc(doc(db, "notifications", n.id)); } catch(e) { console.error(e); } }); };
-  
   const addTransaction = async (t) => { try { await addDoc(collection(db, "transactions"), cleanData({ ...t, createdAt: new Date().toISOString() })); } catch (error) { console.error(error); } };
   const updateTransaction = async (id, u) => { try { await updateDoc(doc(db, "transactions", id), cleanData(u)); } catch (error) { console.error(error); } };
   const deleteTransaction = async (id) => { if(confirm("Delete record?")) await deleteDoc(doc(db, "transactions", id)); };
-  
   const addLeave = async (leave) => { try { await addDoc(collection(db, "leaves"), cleanData({ ...leave, createdAt: new Date().toISOString() })); sendEmailNotification(`Leave Request: ${leave.name}`, leave); } catch (error) { console.error(error); } };
   const deleteLeave = async (id) => { if(confirm("Delete leave?")) await deleteDoc(doc(db, "leaves", id)); };
-  
   const addOTRecord = async (record) => { try { await addDoc(collection(db, "ot_records"), cleanData({ ...record, status: 'Request', createdAt: new Date().toISOString() })); sendEmailNotification(`OT Request: ${record.name}`, record); } catch (error) { console.error(error); } };
   const deleteOTRecord = async (id) => { if(confirm("Delete OT record?")) await deleteDoc(doc(db, "ot_records", id)); };
   const updateOTStatus = async (id, newStatus) => { try { await updateDoc(doc(db, "ot_records", id), { status: newStatus }); } catch (error) { console.error(error); } };
-  
   const addAlbum = (name) => setAlbums([...albums, { id: Date.now(), name, cover: null }]);
   const deleteAlbum = (id) => setAlbums(albums.filter(a => a.id !== id));
   const addPhoto = (photo) => setPhotos([...photos, { ...photo, id: Date.now() }]);
