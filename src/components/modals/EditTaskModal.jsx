@@ -17,7 +17,14 @@ const EditTaskModal = ({ task, onClose, onUpdate, onOpenRequirement }) => {
         const safeReqs = getSafeRequirements(task);
         // Ensure startDate exists, fallback to today if missing
         const startDate = task.startDate || new Date().toISOString().split('T')[0];
-        setEditedTask({ ...task, requirements: safeReqs, startDate, location });
+        
+        // --- FIX IS HERE: Don't use 'location' by itself ---
+        setEditedTask({ 
+            ...task, 
+            requirements: safeReqs, 
+            startDate, 
+            location: task.location || ''  // <--- CHANGE THIS LINE
+        });
         setIsEditing(true);
     };
 

@@ -75,7 +75,7 @@ export const useTaskData = (currentUser) => {
     const PROXY_URL = "https://corsproxy.io/?";
     const TARGET_URL = "https://api.line.me/v2/bot/message/broadcast";
 
-    if (CHANNEL_ACCESS_TOKEN === "asI8bw3wLZAIlgAQbOvzD/OwRuontfeiEwsnV14iGyBCfuG95dlQaQHh4Q23VvUSObT9qqqu9RkJ6w0f0Z3bEtG9n2Ulg0vnnibU17BPM91hpcAuSfRerf/vtikl00eTh+RAyFQhNA25i6jdGf+8OAdB04t89/1O/w1cDnyilFU=") {
+    if (CHANNEL_ACCESS_TOKEN === "YOUR_LONG_TOKEN_FROM_LINE_DEVELOPERS") {
         console.warn("⚠️ LINE Token missing. Skipping alert.");
         return;
     }
