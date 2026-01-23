@@ -151,10 +151,11 @@ const ExportEventModal = ({ tasks, onClose }) => {
           })
         }
         
-        text += `   📅 ${dateStr}\n`;
-        text += `\n📌 ${t.title}\n`;
-        text += `   📝 ${t.description || 'No description provided.'}\n`;
-        text += `   📍 ${t.location || 'Location TBD'}\n`;
+        text += `\n📅 ${dateStr}\n`;
+        text += `📌 ${t.title}\n`;
+        text += `📝 ${t.description || 'No description provided.'}\n`;
+        text += `📍 ${t.location || 'Location TBD'}\n`;
+        text += `━━━━━━━━━━━━━━━━━\n`
       });
       text += "\n";
     });
