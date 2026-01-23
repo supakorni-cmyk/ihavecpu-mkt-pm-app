@@ -66,6 +66,7 @@ export default function Dashboard() {
             tasks={data.tasks} 
             onAddTaskClick={() => setIsAddModalOpen(true)}
             onTaskClick={setSelectedTaskId}
+            onUpdateTask={data.updateTask}
             onDeleteTask={data.deleteTask}
             onMoveTask={data.moveTask}
           />
