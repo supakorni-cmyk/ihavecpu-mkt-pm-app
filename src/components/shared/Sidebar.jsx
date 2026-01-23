@@ -17,8 +17,8 @@ export default function Sidebar({ currentView, setCurrentView, onLogout }) {
       <div className="p-6 flex items-center gap-3 mb-6">
         <div className="bg-red-600 p-2 rounded-lg text-white flex-shrink-0"><Computer size={24} /></div>
         <div className="flex flex-col justify-center overflow-hidden">
-          <h1 className="text-lg font-bold text-gray-900 leading-none truncate">iHAVECPU MARKETING</h1>
-          <span className="text-xs text-red-600 font-bold tracking-wider truncate">WORKSPACE</span>
+          <h1 className="text-lg font-bold text-gray-900 leading-none truncate">iHAVECPU</h1>
+          <span className="text-xs text-red-600 font-bold tracking-wider truncate">MARKETING WORKSPACE</span>
         </div>
       </div>
       

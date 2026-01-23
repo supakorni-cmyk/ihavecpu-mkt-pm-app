@@ -21,7 +21,7 @@ import { COLUMNS, TAG_COLORS, formatDate } from '../../utils/constants';
 // --- IMPORT THE SEPARATED MODAL ---
 import EditTaskModal from '../modals/EditTaskModal';
 
-const FILTER_CATEGORIES = ['All', 'Design', 'Dev', 'Marketing', 'Event', 'Guest Speaker'];
+const FILTER_CATEGORIES = ['Planning', 'Project', 'Product Review', 'Event', 'Guest Speaker'];
 
 // --- MAIN COMPONENT ---
 // Added onOpenRequirement to props so it can be passed down if needed
