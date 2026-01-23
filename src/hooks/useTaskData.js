@@ -67,17 +67,15 @@ export const useTaskData = (currentUser) => {
 
   // --- 3. LINE PUSH NOTIFICATION (GROUP) ---
   const sendLinePush = async (text) => {
-    // 🔴 1. PASTE YOUR LONG TOKEN HERE 🔴
-    const CHANNEL_ACCESS_TOKEN = "asI8bw3wLZAIlgAQbOvzD/OwRuontfeiEwsnV14iGyBCfuG95dlQaQHh4Q23VvUSObT9qqqu9RkJ6w0f0Z3bEtG9n2Ulg0vnnibU17BPM91hpcAuSfRerf/vtikl00eTh+RAyFQhNA25i6jdGf+8OAdB04t89/1O/w1cDnyilFU="; 
-    
-    // 🔴 2. PASTE YOUR GROUP ID HERE (Starts with C or G) 🔴
-    const GROUP_ID = "Cfb3a99b16a4599c8d386b0f6edf1100f"; 
+    // 🟢 YOUR CREDENTIALS HAVE BEEN ADDED HERE 🟢
+    const CHANNEL_ACCESS_TOKEN = "asI8bw3wLZAIlgAQbOvzD/OwRuontfeiEwsnV14iGyBCfuG95dlQaQHh4Q23VvUSObT9qqqu9RkJ6w0f0Z3bEtG9n2Ulg0vnnibU17BPM91hpcAuSfRerf/vtikl00eTh+RAyFQhNA25i6jdGf+8OAdB04t89/1O/w1cDnyilFU=";
+    const GROUP_ID = "Cfb3a99b16a4599c8d386b0f6edf1100f";
     
     const PROXY_URL = "https://corsproxy.io/?";
     const TARGET_URL = "https://api.line.me/v2/bot/message/push";
 
-    if (!GROUP_ID || GROUP_ID.includes("Cfb3a99b16a4599c8d386b0f6edf1100f")) {
-        console.warn("⚠️ Group ID missing. Notifications will not be sent to the group.");
+    if (!GROUP_ID || !CHANNEL_ACCESS_TOKEN) {
+        console.warn("⚠️ Credentials missing. Notification skipped.");
         return;
     }
 
@@ -119,7 +117,7 @@ export const useTaskData = (currentUser) => {
     });
 
     // B. Send LINE Push (Group)
-    const lineMsg = `${prefix} 🚨\n\n📌 Task: ${task.title}\n📅 Due: ${new Date(task.deadline).toLocaleDateString('en-GB')}\n`;
+    const lineMsg = `${prefix} 🚨\n\n📌 Task: ${task.title}\n📅 Due: ${new Date(task.deadline).toLocaleDateString('en-GB')}\n👤 Assignee: ${task.assignee?.name || 'Unassigned'}`;
     await sendLinePush(lineMsg);
 
     // C. Create In-App Notification
