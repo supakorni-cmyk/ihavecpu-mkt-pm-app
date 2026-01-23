@@ -76,7 +76,7 @@ export const useTaskData = (currentUser) => {
     // CHANGED: Use 'push' instead of 'broadcast'
     const TARGET_URL = "https://api.line.me/v2/bot/message/push";
 
-    if (!GROUP_ID || GROUP_ID.includes("Cfb3a99b16a4599c8d386b0f6edf1100f")) {
+    if (!GROUP_ID || GROUP_ID.includes("Cxxxx")) {
         console.warn("⚠️ Group ID missing.");
         return;
     }
