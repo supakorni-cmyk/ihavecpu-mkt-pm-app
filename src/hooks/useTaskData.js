@@ -22,28 +22,29 @@ export const useTaskData = (currentUser) => {
   const [photos, setPhotos] = useState([]);
   const [notifications, setNotifications] = useState([]); 
 
-  // --- HELPER: DEEP CLEAN DATA (CRITICAL FIX) ---
-  // Recursively removes 'undefined' from all objects and nested objects
-  // Firestore rejects updates if ANY field is undefined.
+  // --- 1. CRITICAL FIX: DEEP CLEAN DATA ---
+  // Recursively removes 'undefined' from all objects and nested objects.
+  // This fixes the issue where editing a task would fail silently.
   const cleanData = (data) => {
     if (data === null || data === undefined) return null;
     if (Array.isArray(data)) return data.map(cleanData);
+    
+    // Ensure we don't destroy Date objects (Firestore needs them)
+    if (data instanceof Date) return data;
+
     if (typeof data === 'object') {
         const cleaned = {};
         Object.keys(data).forEach(key => {
             const value = cleanData(data[key]);
-            if (value !== undefined) {
-                cleaned[key] = value;
-            } else {
-                cleaned[key] = null; // Convert undefined to null
-            }
+            // If value is undefined, replace with null. Otherwise keep it.
+            cleaned[key] = value === undefined ? null : value;
         });
         return cleaned;
     }
     return data;
   };
 
-  // --- EMAIL NOTIFICATION ---
+  // --- 2. EMAIL NOTIFICATION HELPER ---
   const sendEmailNotification = async (subject, data) => {
     const MAIN_EMAIL = "supakorn.i@ihavecpu.com"; 
     const CC_EMAILS = "mkt@ihavecpu.com, suchada.t@ihavecpu.com"; 
@@ -73,7 +74,7 @@ export const useTaskData = (currentUser) => {
     }
   };
 
-  // --- DEADLINE LOGIC ---
+  // --- 3. DEADLINE LOGIC ---
   const triggerAlert = async (task, prefix, userEmail, updateFlag) => {
     await sendEmailNotification(`${prefix}: ${task.title}`, {
         "Target User": userEmail,
@@ -114,7 +115,7 @@ export const useTaskData = (currentUser) => {
     });
   };
 
-  // --- DATA LISTENERS ---
+  // --- 4. REAL-TIME LISTENERS ---
   useEffect(() => {
     const safeSnapshot = (colName, setter) => {
         try {
@@ -150,9 +151,20 @@ export const useTaskData = (currentUser) => {
     };
   }, [currentUser]);
 
-  // --- ACTIONS ---
-  const markNotificationRead = async (id) => { try { await updateDoc(doc(db, "notifications", id), { isRead: true }); } catch(e) { console.error(e); } };
-  const clearAllNotifications = async () => { notifications.forEach(async (n) => { try { await deleteDoc(doc(db, "notifications", n.id)); } catch(e) { console.error(e); } }); };
+  // --- 5. ACTIONS ---
+  
+  // Update Task (Now uses Deep Clean)
+  const updateTask = async (id, updates) => {
+    try {
+        console.log("Attempting to update task:", id, updates);
+        const cleanedUpdates = cleanData(updates); // Deep clean fixes the undefined error
+        await updateDoc(doc(db, "tasks", id), cleanedUpdates);
+        console.log("Task Updated Successfully");
+    } catch (error) {
+        console.error("FAILED to update task:", error);
+        alert("Failed to save changes. Check console for details.");
+    }
+  };
 
   const addTask = async (task) => {
     try {
@@ -172,17 +184,6 @@ export const useTaskData = (currentUser) => {
     } catch (error) { console.error("Error adding task:", error); }
   };
   
-  // UPDATED: Added better logging
-  const updateTask = async (id, updates) => {
-    try {
-        const cleanedUpdates = cleanData(updates); // Deep clean before sending
-        await updateDoc(doc(db, "tasks", id), cleanedUpdates);
-        console.log("Task Updated Successfully:", id);
-    } catch (error) {
-        console.error("Error updating task (Check console for object details):", error, updates);
-    }
-  };
-  
   const deleteTask = async (id) => { if(confirm("Delete task?")) { try { await deleteDoc(doc(db, "tasks", id)); } catch (error) { console.error(error); } } };
   
   const moveTask = async (taskId, newStatus) => {
@@ -193,15 +194,21 @@ export const useTaskData = (currentUser) => {
     } catch (error) { console.error("Error moving task:", error); }
   };
 
-  // Other actions...
+  // Other Actions
+  const markNotificationRead = async (id) => { try { await updateDoc(doc(db, "notifications", id), { isRead: true }); } catch(e) { console.error(e); } };
+  const clearAllNotifications = async () => { notifications.forEach(async (n) => { try { await deleteDoc(doc(db, "notifications", n.id)); } catch(e) { console.error(e); } }); };
+  
   const addTransaction = async (t) => { try { await addDoc(collection(db, "transactions"), cleanData({ ...t, createdAt: new Date().toISOString() })); } catch (error) { console.error(error); } };
   const updateTransaction = async (id, u) => { try { await updateDoc(doc(db, "transactions", id), cleanData(u)); } catch (error) { console.error(error); } };
   const deleteTransaction = async (id) => { if(confirm("Delete record?")) await deleteDoc(doc(db, "transactions", id)); };
+  
   const addLeave = async (leave) => { try { await addDoc(collection(db, "leaves"), cleanData({ ...leave, createdAt: new Date().toISOString() })); sendEmailNotification(`Leave Request: ${leave.name}`, leave); } catch (error) { console.error(error); } };
   const deleteLeave = async (id) => { if(confirm("Delete leave?")) await deleteDoc(doc(db, "leaves", id)); };
+  
   const addOTRecord = async (record) => { try { await addDoc(collection(db, "ot_records"), cleanData({ ...record, status: 'Request', createdAt: new Date().toISOString() })); sendEmailNotification(`OT Request: ${record.name}`, record); } catch (error) { console.error(error); } };
   const deleteOTRecord = async (id) => { if(confirm("Delete OT record?")) await deleteDoc(doc(db, "ot_records", id)); };
   const updateOTStatus = async (id, newStatus) => { try { await updateDoc(doc(db, "ot_records", id), { status: newStatus }); } catch (error) { console.error(error); } };
+  
   const addAlbum = (name) => setAlbums([...albums, { id: Date.now(), name, cover: null }]);
   const deleteAlbum = (id) => setAlbums(albums.filter(a => a.id !== id));
   const addPhoto = (photo) => setPhotos([...photos, { ...photo, id: Date.now() }]);
