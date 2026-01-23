@@ -22,21 +22,27 @@ export const useTaskData = (currentUser) => {
   const [photos, setPhotos] = useState([]);
   const [notifications, setNotifications] = useState([]); 
 
-  // --- 1. CRITICAL: DEEP CLEAN DATA ---
-  // Fixes "undefined" errors by converting them to null recursively
+  // --- 1. CRITICAL FIX: SMART DEEP CLEAN DATA ---
   const cleanData = (data) => {
-    // Handle primitives
-    if (data === undefined) return null;
-    if (data === null) return null;
+    // 1. Handle Primitives & Nulls
+    if (data === undefined || data === null) return null;
     
-    // Handle Arrays
+    // 2. Remove Functions (Firestore cannot save functions)
+    if (typeof data === 'function') return null;
+
+    // 3. Handle Arrays
     if (Array.isArray(data)) return data.map(cleanData);
     
-    // Handle Dates (Keep them as is)
+    // 4. Handle Dates (Keep them as Date objects for Firestore)
     if (data instanceof Date) return data;
 
-    // Handle Objects (Recursive clean)
+    // 5. Handle Objects
     if (typeof data === 'object') {
+        // AUTO-FIX: If accidentally passed window.location, save the URL string instead
+        if (data.href && typeof data.assign === 'function') {
+            return data.href;
+        }
+
         const cleaned = {};
         Object.keys(data).forEach(key => {
             const value = cleanData(data[key]);
@@ -45,7 +51,6 @@ export const useTaskData = (currentUser) => {
         return cleaned;
     }
     
-    // Return strings, numbers, booleans
     return data;
   };
 
@@ -61,7 +66,7 @@ export const useTaskData = (currentUser) => {
         _captcha: "false",
         "Notification Time": new Date().toLocaleString('en-GB'),
         "Action By": currentUser?.email || 'System Auto-Alert',
-        ...data
+        ...cleanData(data) // Ensure email data is also clean
     };
 
     try {
@@ -156,17 +161,16 @@ export const useTaskData = (currentUser) => {
 
   // --- 5. ACTIONS ---
 
-  // *** UPDATED: Update Task with Better Error Handling ***
   const updateTask = async (id, updates) => {
     try {
         console.log("Saving Task ID:", id);
         
-        // 1. Deep Clean the data to remove undefined
+        // 1. Deep Clean (Fixes undefined & window.location issues)
         const cleanedUpdates = cleanData(updates);
         
-        // 2. Check Size roughly (Stringify length approx bytes)
+        // 2. Check Size
         const size = JSON.stringify(cleanedUpdates).length;
-        if (size > 800000) { // 800KB Safety Limit
+        if (size > 800000) { 
             throw new Error("Data size too large! (Image might be too big)");
         }
 
@@ -177,11 +181,11 @@ export const useTaskData = (currentUser) => {
     } catch (error) {
         console.error("FAILED to update task:", error);
         
-        // --- DISPLAY THE REAL ERROR ---
         if (error.code === 'resource-exhausted') {
             alert("Error: Image too large! Please upload a smaller photo.");
         } else if (error.code === 'invalid-argument') {
-            alert(`Error: Invalid Data. (Details: ${error.message})`);
+            // This is the error you were seeing. The alerts below will now help debug if it persists.
+            alert(`Error: Invalid Data Structure. (Details: ${error.message})`);
         } else {
             alert(`Failed to save: ${error.message}`);
         }
@@ -190,12 +194,14 @@ export const useTaskData = (currentUser) => {
 
   const addTask = async (task) => {
     try {
-        await addDoc(collection(db, "tasks"), cleanData({ 
+        const cleanedTask = cleanData({ 
             ...task, 
             createdAt: new Date().toISOString(),
             notified7Days: false,
             notified2Days: false
-        }));
+        });
+
+        await addDoc(collection(db, "tasks"), cleanedTask);
         sendEmailNotification(`New Task: ${task.title}`, { "Title": task.title });
     } catch (error) { console.error("Error adding task:", error); }
   };
@@ -210,7 +216,6 @@ export const useTaskData = (currentUser) => {
     } catch (error) { console.error("Error moving task:", error); }
   };
 
-  // Other Actions (Standard)
   const markNotificationRead = async (id) => { try { await updateDoc(doc(db, "notifications", id), { isRead: true }); } catch(e) { console.error(e); } };
   const clearAllNotifications = async () => { notifications.forEach(async (n) => { try { await deleteDoc(doc(db, "notifications", n.id)); } catch(e) { console.error(e); } }); };
   const addTransaction = async (t) => { try { await addDoc(collection(db, "transactions"), cleanData({ ...t, createdAt: new Date().toISOString() })); } catch (error) { console.error(error); } };
