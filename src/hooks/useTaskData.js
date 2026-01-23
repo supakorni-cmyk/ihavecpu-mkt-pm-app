@@ -65,23 +65,25 @@ export const useTaskData = (currentUser) => {
     } catch (error) { console.error("❌ Email Error:", error); }
   };
 
-  // --- 3. LINE MESSAGING API (BROADCAST) ---
-  // Replaces LINE Notify. Sends to all groups/users following the bot.
-  const sendLineBroadcast = async (text) => {
-    // 🔴 REPLACE WITH YOUR LONG-LIVED CHANNEL ACCESS TOKEN 🔴
+// --- 3. LINE MESSAGING API (PUSH TO GROUP) ---
+  const sendLinePush = async (text) => {
     const CHANNEL_ACCESS_TOKEN = "asI8bw3wLZAIlgAQbOvzD/OwRuontfeiEwsnV14iGyBCfuG95dlQaQHh4Q23VvUSObT9qqqu9RkJ6w0f0Z3bEtG9n2Ulg0vnnibU17BPM91hpcAuSfRerf/vtikl00eTh+RAyFQhNA25i6jdGf+8OAdB04t89/1O/w1cDnyilFU="; 
     
-    // We use a proxy because browsers block direct calls to LINE API
+    // 👇 PASTE THE GROUP ID YOU FOUND HERE (Starts with C or G)
+    const GROUP_ID = "Cfb3a99b16a4599c8d386b0f6edf1100f"; 
+    
     const PROXY_URL = "https://corsproxy.io/?";
-    const TARGET_URL = "https://api.line.me/v2/bot/message/broadcast";
+    // CHANGED: Use 'push' instead of 'broadcast'
+    const TARGET_URL = "https://api.line.me/v2/bot/message/push";
 
-    if (CHANNEL_ACCESS_TOKEN === "YOUR_LONG_TOKEN_FROM_LINE_DEVELOPERS") {
-        console.warn("⚠️ LINE Token missing. Skipping alert.");
+    if (!GROUP_ID || GROUP_ID.includes("Cfb3a99b16a4599c8d386b0f6edf1100f")) {
+        console.warn("⚠️ Group ID missing.");
         return;
     }
 
     try {
         const payload = {
+            to: GROUP_ID, // <--- Target the specific group
             messages: [
                 {
                     type: "text",
@@ -103,7 +105,7 @@ export const useTaskData = (currentUser) => {
             const err = await response.json();
             console.error("❌ LINE API Error:", err);
         } else {
-            console.log(`✅ LINE Broadcast Sent`);
+            console.log(`✅ LINE Group Message Sent`);
         }
     } catch (error) {
         console.error("❌ LINE Network Error:", error);
