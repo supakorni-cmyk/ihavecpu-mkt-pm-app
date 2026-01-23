@@ -65,31 +65,26 @@ export const useTaskData = (currentUser) => {
     } catch (error) { console.error("❌ Email Error:", error); }
   };
 
-// --- 3. LINE MESSAGING API (PUSH TO GROUP) ---
+  // --- 3. LINE PUSH NOTIFICATION (GROUP) ---
   const sendLinePush = async (text) => {
+    // 🔴 1. PASTE YOUR LONG TOKEN HERE 🔴
     const CHANNEL_ACCESS_TOKEN = "asI8bw3wLZAIlgAQbOvzD/OwRuontfeiEwsnV14iGyBCfuG95dlQaQHh4Q23VvUSObT9qqqu9RkJ6w0f0Z3bEtG9n2Ulg0vnnibU17BPM91hpcAuSfRerf/vtikl00eTh+RAyFQhNA25i6jdGf+8OAdB04t89/1O/w1cDnyilFU="; 
     
-    // 👇 PASTE THE GROUP ID YOU FOUND HERE (Starts with C or G)
+    // 🔴 2. PASTE YOUR GROUP ID HERE (Starts with C or G) 🔴
     const GROUP_ID = "Cfb3a99b16a4599c8d386b0f6edf1100f"; 
     
     const PROXY_URL = "https://corsproxy.io/?";
-    // CHANGED: Use 'push' instead of 'broadcast'
     const TARGET_URL = "https://api.line.me/v2/bot/message/push";
 
-    if (!GROUP_ID || GROUP_ID.includes("Cxxxx")) {
-        console.warn("⚠️ Group ID missing.");
+    if (!GROUP_ID || GROUP_ID.includes("Cfb3a99b16a4599c8d386b0f6edf1100f")) {
+        console.warn("⚠️ Group ID missing. Notifications will not be sent to the group.");
         return;
     }
 
     try {
         const payload = {
-            to: GROUP_ID, // <--- Target the specific group
-            messages: [
-                {
-                    type: "text",
-                    text: text
-                }
-            ]
+            to: GROUP_ID,
+            messages: [{ type: "text", text: text }]
         };
 
         const response = await fetch(PROXY_URL + encodeURIComponent(TARGET_URL), {
@@ -102,8 +97,7 @@ export const useTaskData = (currentUser) => {
         });
         
         if (!response.ok) {
-            const err = await response.json();
-            console.error("❌ LINE API Error:", err);
+            console.error("❌ LINE API Error:", await response.json());
         } else {
             console.log(`✅ LINE Group Message Sent`);
         }
@@ -112,7 +106,7 @@ export const useTaskData = (currentUser) => {
     }
   };
 
-  // --- 4. DEADLINE LOGIC ---
+  // --- 4. ALERT LOGIC (Used for 7 Days & 2 Days) ---
   const triggerAlert = async (task, prefix, userEmail, updateFlag) => {
     console.log(`🔔 Alerting: ${task.title}`);
 
@@ -124,11 +118,9 @@ export const useTaskData = (currentUser) => {
         "Status": task.status
     });
 
-    // B. Send LINE Message (New Format)
-    // Using Emojis to make it readable
-    const lineMsg = `${prefix} 🚨\n\n📌 Task: ${task.title}\n📅 Due: ${new Date(task.deadline).toLocaleDateString('en-GB')}\n👤 Assignee: ${task.assignee?.name || 'Unassigned'}`;
-    
-    await sendLineBroadcast(lineMsg);
+    // B. Send LINE Push (Group)
+    const lineMsg = `${prefix} 🚨\n\n📌 Task: ${task.title}\n📅 Due: ${new Date(task.deadline).toLocaleDateString('en-GB')}\n`;
+    await sendLinePush(lineMsg);
 
     // C. Create In-App Notification
     await addDoc(collection(db, "notifications"), {
@@ -140,7 +132,7 @@ export const useTaskData = (currentUser) => {
         type: 'alert'
     });
 
-    // D. Update Task
+    // D. Update Task (prevent spamming)
     await updateDoc(doc(db, "tasks", task.id), updateFlag);
   };
 
@@ -148,15 +140,18 @@ export const useTaskData = (currentUser) => {
     const now = new Date();
     taskList.forEach(async (task) => {
         if (task.status === 'completed' || !task.deadline) return;
+        // Only verify logic if assigned to current user to avoid duplicate checks
         if (task.assignee?.name && user.name && !task.assignee.name.includes(user.name.split(' ')[0])) return;
 
         const deadline = new Date(task.deadline);
         const timeDiff = deadline - now;
         const daysLeft = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
 
+        // 7 Days Alert
         if (daysLeft <= 7 && daysLeft > 2 && !task.notified7Days) {
             await triggerAlert(task, "⚠️ Reminder: 7 Days Left", user.email, { notified7Days: true });
         }
+        // 2 Days Alert
         if (daysLeft <= 2 && daysLeft >= 0 && !task.notified2Days) {
             await triggerAlert(task, "🔥 URGENT: 2 Days Left", user.email, { notified2Days: true });
         }
@@ -224,9 +219,11 @@ export const useTaskData = (currentUser) => {
 
         await addDoc(collection(db, "tasks"), cleanedTask);
         
-        // Notify
+        // Notify Email
         await sendEmailNotification(`New Task: ${task.title}`, { "Title": task.title });
-        await sendLineBroadcast(`🆕 New Task:\n${task.title}\n[${task.tag}]`);
+        
+        // Notify LINE (Push to Group)
+        await sendLinePush(`🆕 New Task Created:\n📌 ${task.title}\n🏷️ [${task.tag}]\n📅 Due: ${task.deadline || 'TBD'}`);
 
     } catch (error) { console.error("Error adding task:", error); }
   };
@@ -236,9 +233,10 @@ export const useTaskData = (currentUser) => {
         await updateDoc(doc(db, "tasks", taskId), { status: newStatus });
         const task = tasks.find(t => t.id === taskId);
         
-        // Notify
         await sendEmailNotification("Task Status Updated", { "Task": task?.title, "New Status": newStatus });
-        await sendLineBroadcast(`🔄 Status Update:\n${task?.title}\nNow: ${newStatus}`);
+        
+        // Notify LINE (Push to Group)
+        await sendLinePush(`🔄 Status Update:\n📌 ${task?.title}\n➡️ Now: ${newStatus}`);
 
     } catch (error) { console.error("Error moving task:", error); }
   };
