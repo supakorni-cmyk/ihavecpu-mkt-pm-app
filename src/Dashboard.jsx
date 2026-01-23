@@ -1,36 +1,35 @@
-// src/components/views/Dashboard.jsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../AuthContext'; 
+import { useAuth } from './AuthContext'; // Assuming you have this
 
 // Logic & Utilities
-import { useTaskData } from '../hooks/useTaskData';
-import { getSafeRequirements } from '../utils/constants';
+import { useTaskData } from './hooks/useTaskData';
+import { getSafeRequirements } from './utils/constants';
 
 // Shared Components
-import Sidebar from '../components/shared/Sidebar';
+import Sidebar from './components/shared/Sidebar';
 
 // Views
-import HomeView from '../components/views/HomeView';
-import BoardView from '../components/views/BoardView';
-import CalendarView from '../components/views/CalendarView';
-import PhotoAlbumView from '../components/views/AlbumView';
-import BudgetRecorderView from '../components/views/BudgetView';
-import LeaveView from '../components/views/LeaveView';
-import SelfHealView from '../components/views/SelfHealView';
-import ReportView from '../components/views/ReportView';
-import OTView from '../components/views/OtView';
+import HomeView from './components/views/HomeView';
+import BoardView from './components/views/BoardView';
+import CalendarView from './components/views/CalendarView';
+import PhotoAlbumView from './components/views/AlbumView';
+import BudgetRecorderView from './components/views/BudgetView';
+import LeaveView from './components/views/LeaveView';
+import SelfHealView from './components/views/SelfHealView';
+import ReportView from './components/views/ReportView';
+import OTView from './components/views/OtView';
 
 // Modals
-import AddTaskModal from '../components/modals/AddTaskModal';
-import EditTaskModal from '../components/modals/EditTaskModal';
-import RequirementSheetModal from '../components/modals/RequirementModal';
+import AddTaskModal from './components/modals/AddTaskModal';
+import EditTaskModal from './components/modals/EditTaskModal'; // Extract the edit modal content here
+import RequirementSheetModal from './components/modals/RequirementModal';
 
 export default function Dashboard() {
   // 1. Setup Hooks
   const { currentUser, logout } = useAuth();
   const navigate = useNavigate();
-  const data = useTaskData(currentUser); // Access all data logic
+  const data = useTaskData(currentUser); // Access all our data logic
 
   // 2. Local UI State
   const [currentView, setCurrentView] = useState('home');
@@ -107,6 +106,7 @@ export default function Dashboard() {
           />
         )}
 
+        {/* ADD THIS BLOCK */}
         {currentView === 'leave' && (
           <LeaveView 
             leaves={data.leaves} 
@@ -115,13 +115,14 @@ export default function Dashboard() {
           />
         )}
 
+        {/* ADD OT VIEW BLOCK */}
         {currentView === 'ot' && (
           <OTView 
             records={data.otRecords} 
             onAdd={data.addOTRecord} 
             onDelete={data.deleteOTRecord}
             onUpdateStatus={data.updateOTStatus}
-            currentUser={currentUser} 
+            currentUser={currentUser} // Important for permission check
           />
         )}
 
