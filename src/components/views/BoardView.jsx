@@ -13,22 +13,23 @@ import {
   X, 
   Copy, 
   MapPin,
-  User,
-  Upload,
-  Search, // Added
-  Filter  // Added
+  Search, 
+  Filter
 } from 'lucide-react';
 import { COLUMNS, TAG_COLORS, formatDate } from '../../utils/constants';
 
-// Define categories for the filter
+// --- IMPORT THE SEPARATED MODAL ---
+import EditTaskModal from '../modals/EditTaskModal';
+
 const FILTER_CATEGORIES = ['All', 'Design', 'Dev', 'Marketing', 'Event', 'Guest Speaker'];
 
 // --- MAIN COMPONENT ---
-const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTask }) => {
+// Added onOpenRequirement to props so it can be passed down if needed
+const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTask, onOpenRequirement }) => {
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   
-  // --- NEW: FILTER STATE ---
+  // --- FILTER STATE ---
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
 
@@ -50,7 +51,7 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
     });
   }, [tasks, searchQuery, selectedCategory]);
 
-  // --- GROUPING LOGIC (Uses filteredTasks now) ---
+  // --- GROUPING LOGIC ---
   const tasksByColumn = useMemo(() => {
     const normalizeStatus = (status) => {
       if (!status || status === 'pending') return 'todo';
@@ -61,7 +62,7 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
     const grouped = {};
     COLUMNS.forEach(col => grouped[col.id] = []);
 
-    filteredTasks.forEach(task => { // CHANGED: Iterating over filteredTasks
+    filteredTasks.forEach(task => {
       const status = normalizeStatus(task.status);
       if (grouped[status]) {
         grouped[status].push(task);
@@ -70,7 +71,7 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
       }
     });
     return grouped;
-  }, [filteredTasks]); // CHANGED: Dependency is now filteredTasks
+  }, [filteredTasks]);
 
   const handleMoveTask = (taskId, currentStatus, direction) => {
     const colIds = COLUMNS.map(c => c.id);
@@ -95,13 +96,12 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
         {/* Title Area */}
         <div className="flex items-center gap-4">
             <h2 className="text-2xl font-black text-gray-800 flex items-center gap-2 whitespace-nowrap">
-            THE TEAM <Heart size={24} className="text-red-600 fill-red-600 animate-pulse" />
+            WE LOVE OUR JOB <Heart size={24} className="text-red-600 fill-red-600 animate-pulse" />
             </h2>
             <div className="h-8 w-px bg-gray-200 hidden xl:block"></div>
             
-            {/* --- NEW: SEARCH & FILTER BAR --- */}
+            {/* Search & Filter */}
             <div className="flex items-center gap-2 flex-1">
-                {/* Search Input */}
                 <div className="relative group">
                     <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-indigo-500 transition-colors"/>
                     <input 
@@ -113,7 +113,6 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
                     />
                 </div>
 
-                {/* Category Dropdown */}
                 <div className="relative">
                     <Filter size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"/>
                     <select 
@@ -135,7 +134,7 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
             onClick={() => setIsExportOpen(true)}
             className="flex items-center gap-2 bg-white text-indigo-600 border border-indigo-100 px-4 py-2.5 rounded-full font-bold hover:bg-indigo-50 transition shadow-sm text-sm"
           >
-            <FileText size={16} /> <span className="hidden sm:inline">Export</span>
+            <FileText size={16} /> <span className="hidden sm:inline">Export Event</span>
           </button>
 
           <button 
@@ -170,90 +169,25 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
         <ExportEventModal tasks={tasks} onClose={() => setIsExportOpen(false)} />
       )}
 
-      {/* Edit Task Modal */}
+      {/* Edit Task Modal (Using the External Component) */}
       {editingTask && (
         <EditTaskModal 
             task={editingTask}
             onClose={() => setEditingTask(null)}
-            onSave={(updatedData) => {
+            // Changed from 'onSave' to 'onUpdate' to match the component prop
+            onUpdate={(updatedData) => {
                 onUpdateTask(editingTask.id, updatedData);
                 setEditingTask(null);
             }}
+            // Pass the requirement opener if available, otherwise dummy function
+            onOpenRequirement={onOpenRequirement || (() => {})}
         />
       )}
     </div>
   );
 };
 
-// --- SUB-COMPONENTS (Keep existing ones) ---
-
-const EditTaskModal = ({ task, onClose, onSave }) => {
-    const AVAILABLE_TAGS = ['Design', 'Dev', 'Marketing', 'Event', 'Guest Speaker'];
-    
-    const [formData, setFormData] = useState({
-        title: task.title || '',
-        description: task.description || '',
-        priority: task.priority || 'Medium',
-        tags: task.tags || (task.tag ? [task.tag] : []),
-        location: task.location || '',
-        startDate: task.startDate || '',
-        deadline: task.deadline || '',
-        status: task.status || 'todo',
-        assignee: task.assignee || { name: '', avatar: null }
-    });
-
-    const handleTagToggle = (tag) => {
-        setFormData(prev => {
-            const tags = prev.tags.includes(tag) ? prev.tags.filter(t => t !== tag) : [...prev.tags, tag];
-            return { ...prev, tags };
-        });
-    };
-
-    const handleAvatarUpload = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            if (file.size > 700 * 1024) { // 700KB Limit
-                alert("Image too large! Please select an image smaller than 700KB.");
-                e.target.value = "";
-                return;
-            }
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setFormData(prev => ({
-                    ...prev,
-                    assignee: { ...prev.assignee, avatar: reader.result }
-                }));
-            };
-            reader.readAsDataURL(file);
-        }
-    };
-
-    return (
-        <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
-            <div className="bg-white rounded-2xl w-full max-w-lg p-8 shadow-2xl overflow-y-auto max-h-[90vh]">
-                <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-xl font-bold text-gray-900">Edit Task</h3>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-900"><X size={24}/></button>
-                </div>
-                <form onSubmit={(e) => { e.preventDefault(); onSave(formData); }} className="space-y-4">
-                    <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Title</label><input required type="text" className="w-full border rounded-lg p-3 outline-none focus:ring-2 focus:ring-indigo-500" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} /></div>
-                    <div className="grid grid-cols-2 gap-4 items-end">
-                        <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Assign To</label><div className="flex items-center border rounded-lg p-3"><User size={16} className="text-gray-400 mr-2"/><input type="text" placeholder="Name" className="w-full outline-none text-sm" value={formData.assignee?.name || ''} onChange={e => setFormData({...formData, assignee: {...formData.assignee, name: e.target.value}})} /></div></div>
-                        <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Photo</label><label className="flex items-center justify-center gap-2 border border-dashed border-gray-300 rounded-lg p-3 cursor-pointer hover:bg-gray-50 text-sm text-gray-500 transition"><Upload size={16} />{formData.assignee?.avatar ? "Change" : "Upload"}<input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} /></label></div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Start Date</label><input type="datetime-local" className="w-full border rounded-lg p-2 text-sm" value={formData.startDate} onChange={e => setFormData({...formData, startDate: e.target.value})} /></div>
-                        <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Deadline</label><input type="datetime-local" className="w-full border rounded-lg p-2 text-sm" value={formData.deadline} onChange={e => setFormData({...formData, deadline: e.target.value})} /></div>
-                    </div>
-                    <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Location</label><div className="flex items-center border rounded-lg p-3"><MapPin size={16} className="text-gray-400 mr-2"/><input type="text" placeholder="e.g. Main Hall" className="w-full outline-none" value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} /></div></div>
-                    <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Tags</label><div className="flex flex-wrap gap-2">{AVAILABLE_TAGS.map(tag => (<button key={tag} type="button" onClick={() => handleTagToggle(tag)} className={`px-3 py-1.5 rounded-full text-xs font-bold border transition ${formData.tags.includes(tag) ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'}`}>{tag}</button>))}</div></div>
-                    <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Description</label><textarea className="w-full border rounded-lg p-3 outline-none min-h-[100px]" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} /></div>
-                    <div className="pt-2 flex gap-3"><button type="button" onClick={onClose} className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold py-3 rounded-lg transition">Cancel</button><button type="submit" className="flex-1 bg-black hover:bg-gray-800 text-white font-bold py-3 rounded-lg shadow-lg transition">Save Changes</button></div>
-                </form>
-            </div>
-        </div>
-    );
-};
+// --- SUB-COMPONENTS (Export & Column) ---
 
 const ExportEventModal = ({ tasks, onClose }) => {
   const events = tasks.filter(t => { if (t.tag === 'Event' || t.tag === 'Guest Speaker') return true; if (Array.isArray(t.tags) && (t.tags.includes('Event') || t.tags.includes('Guest Speaker'))) return true; return false; });
