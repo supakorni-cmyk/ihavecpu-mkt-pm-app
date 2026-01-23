@@ -14,17 +14,17 @@ import {
   Copy, 
   MapPin,
   Search, 
-  Filter
+  Filter,
+  XCircle // Added for Clear Button
 } from 'lucide-react';
 import { COLUMNS, TAG_COLORS, formatDate } from '../../utils/constants';
 
 // --- IMPORT THE SEPARATED MODAL ---
 import EditTaskModal from '../modals/EditTaskModal';
 
-const FILTER_CATEGORIES = ['Planning', 'Project', 'Product Review', 'Event', 'Guest Speaker'];
+const FILTER_CATEGORIES = ['All', 'Planning', 'Project', 'Product Review', 'Event', 'Guest Speaker'];
 
 // --- MAIN COMPONENT ---
-// Added onOpenRequirement to props so it can be passed down if needed
 const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTask, onOpenRequirement }) => {
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
@@ -50,6 +50,14 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
         return matchesSearch && matchesCategory;
     });
   }, [tasks, searchQuery, selectedCategory]);
+
+  // --- HELPER: CLEAR FILTER ---
+  const clearFilters = () => {
+      setSearchQuery("");
+      setSelectedCategory("All");
+  };
+
+  const isFiltered = searchQuery !== "" || selectedCategory !== "All";
 
   // --- GROUPING LOGIC ---
   const tasksByColumn = useMemo(() => {
@@ -102,29 +110,41 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
             
             {/* Search & Filter */}
             <div className="flex items-center gap-2 flex-1">
+                {/* Search Input */}
                 <div className="relative group">
                     <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-indigo-500 transition-colors"/>
                     <input 
                         type="text" 
                         placeholder="Search tasks..." 
-                        className="pl-9 pr-4 py-2 bg-gray-100 border-transparent focus:bg-white border focus:border-indigo-500 rounded-full text-sm outline-none transition-all w-48 focus:w-64"
+                        className="pl-9 pr-4 py-2 bg-gray-100 border-transparent focus:bg-white border focus:border-indigo-500 rounded-full text-sm outline-none transition-all w-32 focus:w-48 xl:w-64"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                     />
                 </div>
 
+                {/* Category Dropdown */}
                 <div className="relative">
                     <Filter size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"/>
                     <select 
                         value={selectedCategory}
                         onChange={(e) => setSelectedCategory(e.target.value)}
-                        className="pl-9 pr-8 py-2 bg-white border border-gray-200 hover:border-gray-300 rounded-full text-sm outline-none appearance-none cursor-pointer font-medium text-gray-700 focus:ring-2 focus:ring-indigo-100 transition-all"
+                        className="pl-9 pr-8 py-2 bg-white border border-gray-200 hover:border-gray-300 rounded-full text-sm outline-none appearance-none cursor-pointer font-medium text-gray-700 focus:ring-2 focus:ring-indigo-100 transition-all max-w-[150px]"
                     >
                         {FILTER_CATEGORIES.map(cat => (
                             <option key={cat} value={cat}>{cat}</option>
                         ))}
                     </select>
                 </div>
+
+                {/* Clear Filter Button */}
+                {isFiltered && (
+                    <button 
+                        onClick={clearFilters}
+                        className="ml-2 flex items-center gap-1 text-xs font-bold text-red-500 hover:bg-red-50 px-3 py-2 rounded-full transition animate-in fade-in zoom-in duration-200 whitespace-nowrap"
+                    >
+                        <XCircle size={14} /> Clear
+                    </button>
+                )}
             </div>
         </div>
         
@@ -169,17 +189,15 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
         <ExportEventModal tasks={tasks} onClose={() => setIsExportOpen(false)} />
       )}
 
-      {/* Edit Task Modal (Using the External Component) */}
+      {/* Edit Task Modal */}
       {editingTask && (
         <EditTaskModal 
             task={editingTask}
             onClose={() => setEditingTask(null)}
-            // Changed from 'onSave' to 'onUpdate' to match the component prop
             onUpdate={(updatedData) => {
                 onUpdateTask(editingTask.id, updatedData);
                 setEditingTask(null);
             }}
-            // Pass the requirement opener if available, otherwise dummy function
             onOpenRequirement={onOpenRequirement || (() => {})}
         />
       )}
@@ -187,7 +205,7 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
   );
 };
 
-// --- SUB-COMPONENTS (Export & Column) ---
+// --- SUB-COMPONENTS (Keep existing ones unchanged) ---
 
 const ExportEventModal = ({ tasks, onClose }) => {
   const events = tasks.filter(t => { if (t.tag === 'Event' || t.tag === 'Guest Speaker') return true; if (Array.isArray(t.tags) && (t.tags.includes('Event') || t.tags.includes('Guest Speaker'))) return true; return false; });
