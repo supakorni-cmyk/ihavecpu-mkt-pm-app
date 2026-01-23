@@ -155,7 +155,7 @@ const ExportEventModal = ({ tasks, onClose }) => {
         text += `📌 ${t.title}\n`;
         text += `📝 ${t.description || 'No description provided.'}\n`;
         text += `📍 ${t.location || 'Location TBD'}\n`;
-        text += `━━━━━━━━━━━━━━━━━\n`
+        text += `\n`
       });
       text += "\n";
     });
