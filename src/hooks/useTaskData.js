@@ -29,7 +29,7 @@ export const useTaskData = (currentUser) => {
     if (Array.isArray(data)) return data.map(cleanData);
     if (data instanceof Date) return data;
     if (typeof data === 'object') {
-        if (data.href && typeof data.assign === 'function') return data.href; // Fix window.location bug
+        if (data.href && typeof data.assign === 'function') return data.href;
         const cleaned = {};
         Object.keys(data).forEach(key => {
             cleaned[key] = cleanData(data[key]);
@@ -39,13 +39,10 @@ export const useTaskData = (currentUser) => {
     return data;
   };
 
-  // --- 2. EMAIL SYSTEM (UPDATED) ---
+  // --- 2. EMAIL NOTIFICATION ---
   const sendEmailNotification = async (subject, data) => {
     const MAIN_EMAIL = "supakorn.i@ihavecpu.com"; 
-    // CC Emails (FormSubmit allows chaining with + or using _cc field)
-    const CC_EMAILS = "mkt@ihavecpu.com,suchada.t@ihavecpu.com"; 
-
-    console.log(`📧 Attempting to send email: "${subject}"`);
+    const CC_EMAILS = "mkt@ihavecpu.com, suchada.t@ihavecpu.com"; 
 
     const formData = {
         _subject: subject,
@@ -55,46 +52,83 @@ export const useTaskData = (currentUser) => {
         "Target Email": MAIN_EMAIL,
         "Triggered By": currentUser?.email || 'System',
         "Time": new Date().toLocaleString('en-GB'),
-        ...data // Send raw data to avoid over-cleaning
+        ...data 
     };
 
     try {
-        const response = await fetch(`https://formsubmit.co/ajax/${MAIN_EMAIL}`, {
+        await fetch(`https://formsubmit.co/ajax/${MAIN_EMAIL}`, {
             method: "POST",
-            headers: { 
-                "Content-Type": "application/json",
-                "Accept": "application/json"
-            },
+            headers: { "Content-Type": "application/json", "Accept": "application/json" },
             body: JSON.stringify(formData)
         });
+        console.log(`✅ Email Sent: ${subject}`);
+    } catch (error) { console.error("❌ Email Error:", error); }
+  };
 
-        const result = await response.json();
+  // --- 3. LINE MESSAGING API (BROADCAST) ---
+  // Replaces LINE Notify. Sends to all groups/users following the bot.
+  const sendLineBroadcast = async (text) => {
+    // 🔴 REPLACE WITH YOUR LONG-LIVED CHANNEL ACCESS TOKEN 🔴
+    const CHANNEL_ACCESS_TOKEN = "asI8bw3wLZAIlgAQbOvzD/OwRuontfeiEwsnV14iGyBCfuG95dlQaQHh4Q23VvUSObT9qqqu9RkJ6w0f0Z3bEtG9n2Ulg0vnnibU17BPM91hpcAuSfRerf/vtikl00eTh+RAyFQhNA25i6jdGf+8OAdB04t89/1O/w1cDnyilFU="; 
+    
+    // We use a proxy because browsers block direct calls to LINE API
+    const PROXY_URL = "https://corsproxy.io/?";
+    const TARGET_URL = "https://api.line.me/v2/bot/message/broadcast";
+
+    if (CHANNEL_ACCESS_TOKEN === "asI8bw3wLZAIlgAQbOvzD/OwRuontfeiEwsnV14iGyBCfuG95dlQaQHh4Q23VvUSObT9qqqu9RkJ6w0f0Z3bEtG9n2Ulg0vnnibU17BPM91hpcAuSfRerf/vtikl00eTh+RAyFQhNA25i6jdGf+8OAdB04t89/1O/w1cDnyilFU=") {
+        console.warn("⚠️ LINE Token missing. Skipping alert.");
+        return;
+    }
+
+    try {
+        const payload = {
+            messages: [
+                {
+                    type: "text",
+                    text: text
+                }
+            ]
+        };
+
+        const response = await fetch(PROXY_URL + encodeURIComponent(TARGET_URL), {
+            method: "POST",
+            headers: { 
+                "Authorization": `Bearer ${CHANNEL_ACCESS_TOKEN}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(payload)
+        });
         
-        if (response.ok) {
-            console.log("✅ EMAIL SENT SUCCESS:", result);
+        if (!response.ok) {
+            const err = await response.json();
+            console.error("❌ LINE API Error:", err);
         } else {
-            console.error("❌ EMAIL SERVICE ERROR:", result);
-            alert(`Email Alert Failed: ${result.message || 'Check console'}`);
+            console.log(`✅ LINE Broadcast Sent`);
         }
     } catch (error) {
-        console.error("❌ NETWORK ERROR (Email):", error);
+        console.error("❌ LINE Network Error:", error);
     }
   };
 
-  // --- 3. DEADLINE LOGIC ---
+  // --- 4. DEADLINE LOGIC ---
   const triggerAlert = async (task, prefix, userEmail, updateFlag) => {
-    console.log(`🔔 Triggering Deadline Alert for: ${task.title}`);
-    
-    // 1. Send Email
+    console.log(`🔔 Alerting: ${task.title}`);
+
+    // A. Send Email
     await sendEmailNotification(`${prefix}: ${task.title}`, {
         "Target User": userEmail,
         "Task Title": task.title,
         "Due Date": new Date(task.deadline).toLocaleString('en-GB'),
-        "Status": task.status,
-        "Message": "Auto-generated deadline reminder."
+        "Status": task.status
     });
 
-    // 2. Create Notification
+    // B. Send LINE Message (New Format)
+    // Using Emojis to make it readable
+    const lineMsg = `${prefix} 🚨\n\n📌 Task: ${task.title}\n📅 Due: ${new Date(task.deadline).toLocaleDateString('en-GB')}\n👤 Assignee: ${task.assignee?.name || 'Unassigned'}`;
+    
+    await sendLineBroadcast(lineMsg);
+
+    // C. Create In-App Notification
     await addDoc(collection(db, "notifications"), {
         title: `${prefix}: ${task.title}`,
         taskId: task.id,
@@ -104,7 +138,7 @@ export const useTaskData = (currentUser) => {
         type: 'alert'
     });
 
-    // 3. Mark as Notified
+    // D. Update Task
     await updateDoc(doc(db, "tasks", task.id), updateFlag);
   };
 
@@ -112,25 +146,22 @@ export const useTaskData = (currentUser) => {
     const now = new Date();
     taskList.forEach(async (task) => {
         if (task.status === 'completed' || !task.deadline) return;
-        // Filter: Only alert if the task is assigned to the current user (by name match)
         if (task.assignee?.name && user.name && !task.assignee.name.includes(user.name.split(' ')[0])) return;
 
         const deadline = new Date(task.deadline);
         const timeDiff = deadline - now;
         const daysLeft = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
 
-        // 7 Days Alert
         if (daysLeft <= 7 && daysLeft > 2 && !task.notified7Days) {
-            await triggerAlert(task, "⚠️ 7 Days Left", user.email, { notified7Days: true });
+            await triggerAlert(task, "⚠️ Reminder: 7 Days Left", user.email, { notified7Days: true });
         }
-        // 2 Days Alert
         if (daysLeft <= 2 && daysLeft >= 0 && !task.notified2Days) {
             await triggerAlert(task, "🔥 URGENT: 2 Days Left", user.email, { notified2Days: true });
         }
     });
   };
 
-  // --- 4. LISTENERS ---
+  // --- 5. LISTENERS ---
   useEffect(() => {
     const safeSnapshot = (colName, setter) => {
         try {
@@ -164,7 +195,7 @@ export const useTaskData = (currentUser) => {
     };
   }, [currentUser]);
 
-  // --- 5. ACTIONS ---
+  // --- 6. ACTIONS ---
 
   const updateTask = async (id, updates) => {
     try {
@@ -191,13 +222,10 @@ export const useTaskData = (currentUser) => {
 
         await addDoc(collection(db, "tasks"), cleanedTask);
         
-        // Await here to ensure email triggers
-        await sendEmailNotification(`New Task: ${task.title}`, { 
-            "Title": task.title,
-            "Tag": task.tag,
-            "Due Date": task.deadline || '-'
-        });
-        
+        // Notify
+        await sendEmailNotification(`New Task: ${task.title}`, { "Title": task.title });
+        await sendLineBroadcast(`🆕 New Task:\n${task.title}\n[${task.tag}]`);
+
     } catch (error) { console.error("Error adding task:", error); }
   };
   
@@ -206,11 +234,10 @@ export const useTaskData = (currentUser) => {
         await updateDoc(doc(db, "tasks", taskId), { status: newStatus });
         const task = tasks.find(t => t.id === taskId);
         
-        await sendEmailNotification("Task Status Updated", { 
-            "Task": task?.title || 'Unknown', 
-            "New Status": newStatus,
-            "Updated By": currentUser?.email
-        });
+        // Notify
+        await sendEmailNotification("Task Status Updated", { "Task": task?.title, "New Status": newStatus });
+        await sendLineBroadcast(`🔄 Status Update:\n${task?.title}\nNow: ${newStatus}`);
+
     } catch (error) { console.error("Error moving task:", error); }
   };
 
