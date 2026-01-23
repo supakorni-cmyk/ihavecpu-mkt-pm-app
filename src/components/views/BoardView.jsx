@@ -16,9 +16,33 @@ import {
 } from 'lucide-react';
 import { COLUMNS, TAG_COLORS, formatDate } from '../../utils/constants';
 
+const FILTER_CATEGORIES = ['Planning', 'Project', 'Product Review', 'Event', 'Guest Speaker' ]
+
 // --- MAIN COMPONENT ---
 const BoardView = ({ tasks, onAddTaskClick, onTaskClick, onDeleteTask, onMoveTask }) => {
   const [isExportOpen, setIsExportOpen] = useState(false);
+
+  // --- NEW: FILTER STATE ---
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("All");
+
+  // --- FILTERING LOGIC ---
+  const filteredTasks = useMemo(() => {
+    return tasks.filter(task => {
+        // 1. Search Filter (Title)
+        const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase());
+        
+        // 2. Category Filter (Tags)
+        let matchesCategory = true;
+        if (selectedCategory !== 'All') {
+            const hasSingleTag = task.tag === selectedCategory;
+            const hasArrayTag = Array.isArray(task.tags) && task.tags.includes(selectedCategory);
+            matchesCategory = hasSingleTag || hasArrayTag;
+        }
+
+        return matchesSearch && matchesCategory;
+    });
+  }, [tasks, searchQuery, selectedCategory]);
 
   const tasksByColumn = useMemo(() => {
     const normalizeStatus = (status) => {
@@ -30,7 +54,7 @@ const BoardView = ({ tasks, onAddTaskClick, onTaskClick, onDeleteTask, onMoveTas
     const grouped = {};
     COLUMNS.forEach(col => grouped[col.id] = []);
 
-    tasks.forEach(task => {
+    filteredTasks.forEach(task => { // CHANGED: Iterating over filteredTasks
       const status = normalizeStatus(task.status);
       if (grouped[status]) {
         grouped[status].push(task);
@@ -39,7 +63,7 @@ const BoardView = ({ tasks, onAddTaskClick, onTaskClick, onDeleteTask, onMoveTas
       }
     });
     return grouped;
-  }, [tasks]);
+  }, [filteredTasks]); // CHANGED: Dependency is now filteredTasks
 
   const handleMoveTask = (taskId, currentStatus, direction) => {
     const colIds = COLUMNS.map(c => c.id);
@@ -55,9 +79,41 @@ const BoardView = ({ tasks, onAddTaskClick, onTaskClick, onDeleteTask, onMoveTas
     <div className="flex flex-col h-full w-full relative">
       {/* Header */}
       <header className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-white/80 backdrop-blur-md z-10">
-        <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-          THE MOST BEAUTIFUL MARKETING TEAM <Heart size={24} className="text-red-600 fill-red-600" />
-        </h2>
+        <div className="flex items-center gap-4">
+            <h2 className="text-2xl font-black text-gray-800 flex items-center gap-2 whitespace-nowrap">
+            THE MOST BEAUTIFUL MARKETING TEAM <Heart size={24} className="text-red-600 fill-red-600 animate-pulse" />
+            </h2>
+            <div className="h-8 w-px bg-gray-200 hidden xl:block"></div>
+            
+            {/* --- NEW: SEARCH & FILTER BAR --- */}
+            <div className="flex items-center gap-2 flex-1">
+                {/* Search Input */}
+                <div className="relative group">
+                    <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-indigo-500 transition-colors"/>
+                    <input 
+                        type="text" 
+                        placeholder="Search tasks..." 
+                        className="pl-9 pr-4 py-2 bg-gray-100 border-transparent focus:bg-white border focus:border-indigo-500 rounded-full text-sm outline-none transition-all w-48 focus:w-64"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                </div>
+
+                {/* Category Dropdown */}
+                <div className="relative">
+                    <Filter size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"/>
+                    <select 
+                        value={selectedCategory}
+                        onChange={(e) => setSelectedCategory(e.target.value)}
+                        className="pl-9 pr-8 py-2 bg-white border border-gray-200 hover:border-gray-300 rounded-full text-sm outline-none appearance-none cursor-pointer font-medium text-gray-700 focus:ring-2 focus:ring-indigo-100 transition-all"
+                    >
+                        {FILTER_CATEGORIES.map(cat => (
+                            <option key={cat} value={cat}>{cat}</option>
+                        ))}
+                    </select>
+                </div>
+            </div>
+        </div>
         
         <div className="flex gap-3">
           <button 
@@ -110,6 +166,7 @@ const ExportEventModal = ({ tasks, onClose }) => {
       if (Array.isArray(t.tags) && (t.tags.includes('Event') || t.tags.includes('Guest Speaker'))) return true;
       return false;
   });
+  
 
   // 2. Sort Logic
   events.sort((a, b) => {
