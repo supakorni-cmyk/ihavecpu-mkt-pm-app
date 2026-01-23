@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { 
   Heart, Calendar, CheckCircle2, Clock, 
-  ArrowRight, User, Briefcase 
+  ArrowRight, User, Briefcase, Bell 
 } from 'lucide-react';
 import { formatDate } from '../../utils/constants';
 
@@ -46,23 +46,21 @@ const INITIAL_TEAM = [
   },
 ];
 
-const HomeView = ({ tasks, currentUser }) => {
+const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead, clearAllNotifications }) => {
   const [team] = useState(INITIAL_TEAM);
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
 
   // 1. Stats
   const pendingTasks = tasks.filter(t => t.status !== 'completed').length;
   const completedTasks = tasks.filter(t => t.status === 'completed').length;
 
-  // 2. FIXED: Robust Event Filtering (Checks singular 'tag' AND plural 'tags')
+  // 2. Event Filtering
   const upcomingEvents = tasks.filter(t => {
-      // Check singular tag
       if (t.tag === 'Event' || t.tag === 'Guest Speaker') return true;
-      // Check plural tags array
       if (Array.isArray(t.tags) && (t.tags.includes('Event') || t.tags.includes('Guest Speaker'))) return true;
       return false;
   });
 
-  // Sort events by date (nearest first)
   upcomingEvents.sort((a, b) => {
       const dateA = new Date(a.startDate || a.deadline || 0);
       const dateB = new Date(b.startDate || b.deadline || 0);
@@ -73,23 +71,79 @@ const HomeView = ({ tasks, currentUser }) => {
   const displayUser = team.find(member => member.email === currentUser?.email) || team[0];
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
 
+  // 4. Notifications Logic
+  const unreadCount = notifications.filter(n => !n.isRead).length;
+
   return (
-    <div className="flex flex-col h-full overflow-y-auto bg-gray-50 p-8 font-sans">
+    <div className="flex flex-col h-full overflow-y-auto bg-gray-50 p-8 font-sans relative">
       {/* --- WELCOME HEADER --- */}
-      <div className="mb-10 flex items-center gap-5">
-        <div className="relative">
-            <img 
-                src={displayUser.avatar} 
-                alt="Profile" 
-                className="w-16 h-16 rounded-full border-4 border-white shadow-md object-cover"
-            />
-            <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
+      <div className="mb-10 flex justify-between items-start">
+        {/* User Info */}
+        <div className="flex items-center gap-5">
+            <div className="relative">
+                <img 
+                    src={displayUser.avatar} 
+                    alt="Profile" 
+                    className="w-16 h-16 rounded-full border-4 border-white shadow-md object-cover"
+                />
+                <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
+            </div>
+            <div>
+                <h1 className="text-3xl font-black text-gray-800 flex items-center gap-2">
+                Welcome Back, {displayUser.name.split(' ')[0]}! <span className="text-2xl animate-pulse">👋</span>
+                </h1>
+                <p className="text-gray-500 mt-1 font-medium">Wish you have a good {today}</p>
+            </div>
         </div>
-        <div>
-            <h1 className="text-3xl font-black text-gray-800 flex items-center gap-2">
-            Welcome Back, {displayUser.name.split(' ')[0]}! <span className="text-2xl animate-pulse">👋</span>
-            </h1>
-            <p className="text-gray-500 mt-1 font-medium">Wish you have a good {today}</p>
+
+        {/* --- NOTIFICATION BELL --- */}
+        <div className="relative">
+            <button 
+                onClick={() => setIsNotifOpen(!isNotifOpen)}
+                className="p-3 bg-white rounded-full shadow-sm border border-gray-200 hover:bg-gray-100 transition relative"
+            >
+                <Bell size={24} className="text-gray-600" />
+                {unreadCount > 0 && (
+                    <span className="absolute top-0 right-0 bg-red-500 text-white text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full shadow-sm border border-white">
+                        {unreadCount}
+                    </span>
+                )}
+            </button>
+
+            {/* Notification Dropdown */}
+            {isNotifOpen && (
+                <div className="absolute right-0 top-14 w-80 bg-white rounded-xl shadow-2xl border border-gray-100 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2">
+                    <div className="bg-gray-50 p-3 border-b border-gray-100 flex justify-between items-center">
+                        <h4 className="font-bold text-gray-700 text-sm">Notifications</h4>
+                        {notifications.length > 0 && (
+                            <button onClick={clearAllNotifications} className="text-[10px] text-red-500 hover:underline">Clear All</button>
+                        )}
+                    </div>
+                    <div className="max-h-64 overflow-y-auto custom-scrollbar">
+                        {notifications.length === 0 ? (
+                            <div className="p-6 text-center text-gray-400 text-xs">No new notifications</div>
+                        ) : (
+                            notifications.map(n => (
+                                <div 
+                                    key={n.id} 
+                                    className={`p-3 border-b border-gray-50 hover:bg-blue-50 transition cursor-pointer flex gap-3 ${!n.isRead ? 'bg-blue-50/30' : ''}`} 
+                                    onClick={() => markNotificationRead(n.id)}
+                                >
+                                    <div className="mt-1">
+                                        <div className={`w-2 h-2 rounded-full ${!n.isRead ? 'bg-blue-500' : 'bg-gray-300'}`}></div>
+                                    </div>
+                                    <div className="flex-1">
+                                        <p className={`text-xs ${!n.isRead ? 'font-bold text-gray-800' : 'text-gray-500'}`}>{n.title}</p>
+                                        <p className="text-[10px] text-gray-400 mt-1">
+                                            {new Date(n.createdAt).toLocaleDateString()} • {new Date(n.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                        </p>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
       </div>
 
