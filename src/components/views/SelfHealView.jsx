@@ -13,7 +13,7 @@ const SelfHealView = () => {
         // "lTRiuFIWV54",  // Deep Focus
         "KhP8jEXA6MQ", // Rain - Pixxie
         "ApCdvrKngIw", // ใจฉันตามเธอไป
-        "LsUYiE_d4A", // เจ้าหญิงคนต่อไป
+        "r-3G1JWR-4Q", // เจ้าหญิงคนต่อไป
     ];
     
     const [currentVideoId, setCurrentVideoId] = useState(videos[0]);
