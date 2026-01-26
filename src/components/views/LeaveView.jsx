@@ -11,18 +11,19 @@ import {
 } from 'lucide-react';
 
 // --- CONSTANTS ---
-const EMPLOYEES = ['Pae', 'Boom', 'Yuiizzz', 'Somruk', 'Bum', 'Mham', 'Lemon'];
+const EMPLOYEES = ['Pae', 'Boom', 'Yuiizzz', 'Somruk', 'Bum', 'Mham', 'Lemon', 'Guy'];
 const LEAVE_TYPES = ['Annual Leave', 'Sick Leave', 'Personal Leave', 'Unpaid Leave', 'Other'];
 
 // --- INDIVIDUAL QUOTAS (Randomized for demo) ---
 const EMPLOYEE_QUOTAS = {
-    'Pae':      { 'Annual Leave': 12, 'Sick Leave': 30, 'Personal Leave': 6 },
-    'Boom':     { 'Annual Leave': 6,  'Sick Leave': 30, 'Personal Leave': 10 },
-    'Yuiizzz':  { 'Annual Leave': 8,  'Sick Leave': 30, 'Personal Leave': 6 },
-    'Somruk':   { 'Annual Leave': 10, 'Sick Leave': 45, 'Personal Leave': 8 },
-    'Bum':      { 'Annual Leave': 6,  'Sick Leave': 30, 'Personal Leave': 6 },
-    'Mham':     { 'Annual Leave': 15, 'Sick Leave': 30, 'Personal Leave': 12 },
-    'Lemon':    { 'Annual Leave': 7,  'Sick Leave': 30, 'Personal Leave': 6 },
+    'Pae':      { 'Annual Leave': 7, 'Sick Leave': 30, 'Personal Leave': 3 },
+    'Boom':     { 'Annual Leave': 7,  'Sick Leave': 30, 'Personal Leave': 3 },
+    'Yuiizzz':  { 'Annual Leave': 6,  'Sick Leave': 30, 'Personal Leave': 3 },
+    'Somruk':   { 'Annual Leave': 6, 'Sick Leave': 30, 'Personal Leave': 3 },
+    'Bum':      { 'Annual Leave': 6,  'Sick Leave': 30, 'Personal Leave': 3 },
+    'Mham':     { 'Annual Leave': 6, 'Sick Leave': 30, 'Personal Leave': 3 },
+    'Lemon':    { 'Annual Leave': 6,  'Sick Leave': 30, 'Personal Leave': 3 },
+    'Guy':    { 'Annual Leave': 0,  'Sick Leave': 30, 'Personal Leave': 3 },
 };
 
 const WORK_DAY_HOURS = 8;

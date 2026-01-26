@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 
 // --- CONSTANTS ---
-const OT_EMPLOYEES = ['Somruk', 'Bum', 'Mham', 'Manow'];
+const OT_EMPLOYEES = ['Somruk', 'Bum', 'Mham', 'Manow', 'Guy'];
 
 // The list of users authorized to Approve/Reject
 const APPROVERS = [

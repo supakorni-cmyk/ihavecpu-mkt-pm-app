@@ -1,5 +1,5 @@
 // src/hooks/useTaskData.js
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react'; // Added useRef
 import { db } from '../firebase'; 
 import { 
   collection, 
@@ -21,6 +21,9 @@ export const useTaskData = (currentUser) => {
   const [albums, setAlbums] = useState([]); 
   const [photos, setPhotos] = useState([]);
   const [notifications, setNotifications] = useState([]); 
+  
+  // --- FIX: MEMORY TO PREVENT DUPLICATES ---
+  const processedAlerts = useRef(new Set()); 
 
   // --- 1. DATA CLEANER ---
   const cleanData = (data) => {
@@ -67,17 +70,13 @@ export const useTaskData = (currentUser) => {
 
   // --- 3. LINE PUSH NOTIFICATION (GROUP) ---
   const sendLinePush = async (text) => {
-    // 🟢 YOUR CREDENTIALS HAVE BEEN ADDED HERE 🟢
     const CHANNEL_ACCESS_TOKEN = "asI8bw3wLZAIlgAQbOvzD/OwRuontfeiEwsnV14iGyBCfuG95dlQaQHh4Q23VvUSObT9qqqu9RkJ6w0f0Z3bEtG9n2Ulg0vnnibU17BPM91hpcAuSfRerf/vtikl00eTh+RAyFQhNA25i6jdGf+8OAdB04t89/1O/w1cDnyilFU=";
     const GROUP_ID = "Cfb3a99b16a4599c8d386b0f6edf1100f";
     
     const PROXY_URL = "https://corsproxy.io/?";
     const TARGET_URL = "https://api.line.me/v2/bot/message/push";
 
-    if (!GROUP_ID || !CHANNEL_ACCESS_TOKEN) {
-        console.warn("⚠️ Credentials missing. Notification skipped.");
-        return;
-    }
+    if (!GROUP_ID || !CHANNEL_ACCESS_TOKEN) return;
 
     try {
         const payload = {
@@ -94,9 +93,7 @@ export const useTaskData = (currentUser) => {
             body: JSON.stringify(payload)
         });
         
-        if (!response.ok) {
-            console.error("❌ LINE API Error:", await response.json());
-        } else {
+        if (response.ok) {
             console.log(`✅ LINE Group Message Sent`);
         }
     } catch (error) {
@@ -104,11 +101,26 @@ export const useTaskData = (currentUser) => {
     }
   };
 
-  // --- 4. ALERT LOGIC (Used for 7 Days & 2 Days) ---
+  // --- 4. ALERT LOGIC (UPDATED WITH DUPLICATE CHECK) ---
   const triggerAlert = async (task, prefix, userEmail, updateFlag) => {
+    // A. Check if already processing this specific alert for this task
+    const alertId = `${task.id}-${Object.keys(updateFlag)[0]}`; // e.g., "task123-notified7Days"
+    
+    if (processedAlerts.current.has(alertId)) {
+        console.log(`🚫 Duplicate alert blocked: ${alertId}`);
+        return; 
+    }
+    
+    // B. Mark as processing immediately (Synchronous)
+    processedAlerts.current.add(alertId);
     console.log(`🔔 Alerting: ${task.title}`);
 
-    // A. Send Email
+    // C. Send LINE Push (Group)
+    // We send LINE first as it's the priority
+    const lineMsg = `${prefix} 🚨\n\n📌 Task: ${task.title}\n📅 Due: ${new Date(task.deadline).toLocaleDateString('en-GB')}`;
+    await sendLinePush(lineMsg);
+
+    // D. Send Email
     await sendEmailNotification(`${prefix}: ${task.title}`, {
         "Target User": userEmail,
         "Task Title": task.title,
@@ -116,11 +128,7 @@ export const useTaskData = (currentUser) => {
         "Status": task.status
     });
 
-    // B. Send LINE Push (Group)
-    const lineMsg = `${prefix} 🚨\n\n📌 Task: ${task.title}\n📅 Due: ${new Date(task.deadline).toLocaleDateString('en-GB')}\n👤 Assignee: ${task.assignee?.name || 'Unassigned'}`;
-    await sendLinePush(lineMsg);
-
-    // C. Create In-App Notification
+    // E. Create In-App Notification
     await addDoc(collection(db, "notifications"), {
         title: `${prefix}: ${task.title}`,
         taskId: task.id,
@@ -130,7 +138,7 @@ export const useTaskData = (currentUser) => {
         type: 'alert'
     });
 
-    // D. Update Task (prevent spamming)
+    // F. Update Task (This makes it permanent in DB)
     await updateDoc(doc(db, "tasks", task.id), updateFlag);
   };
 
@@ -138,7 +146,8 @@ export const useTaskData = (currentUser) => {
     const now = new Date();
     taskList.forEach(async (task) => {
         if (task.status === 'completed' || !task.deadline) return;
-        // Only verify logic if assigned to current user to avoid duplicate checks
+        // Logic: Only the assigned user (or system admin) checks to avoid everyone triggering it at once
+        // But since we use processedAlerts ref, it handles local duplicates well.
         if (task.assignee?.name && user.name && !task.assignee.name.includes(user.name.split(' ')[0])) return;
 
         const deadline = new Date(task.deadline);
@@ -191,13 +200,11 @@ export const useTaskData = (currentUser) => {
   }, [currentUser]);
 
   // --- 6. ACTIONS ---
-
   const updateTask = async (id, updates) => {
     try {
         const cleanedUpdates = cleanData(updates);
         const size = JSON.stringify(cleanedUpdates).length;
         if (size > 800000) throw new Error("Data size too large!");
-
         await updateDoc(doc(db, "tasks", id), cleanedUpdates);
         console.log("Task Updated Successfully");
     } catch (error) {
@@ -217,10 +224,7 @@ export const useTaskData = (currentUser) => {
 
         await addDoc(collection(db, "tasks"), cleanedTask);
         
-        // Notify Email
         await sendEmailNotification(`New Task: ${task.title}`, { "Title": task.title });
-        
-        // Notify LINE (Push to Group)
         await sendLinePush(`🆕 New Task Created:\n📌 ${task.title}\n🏷️ [${task.tag}]\n📅 Due: ${task.deadline || 'TBD'}`);
 
     } catch (error) { console.error("Error adding task:", error); }
@@ -232,14 +236,11 @@ export const useTaskData = (currentUser) => {
         const task = tasks.find(t => t.id === taskId);
         
         await sendEmailNotification("Task Status Updated", { "Task": task?.title, "New Status": newStatus });
-        
-        // Notify LINE (Push to Group)
         await sendLinePush(`🔄 Status Update:\n📌 ${task?.title}\n➡️ Now: ${newStatus}`);
 
     } catch (error) { console.error("Error moving task:", error); }
   };
 
-  // Boilerplate actions
   const deleteTask = async (id) => { if(confirm("Delete task?")) await deleteDoc(doc(db, "tasks", id)); };
   const markNotificationRead = async (id) => { try { await updateDoc(doc(db, "notifications", id), { isRead: true }); } catch(e) {} };
   const clearAllNotifications = async () => { notifications.forEach(async (n) => { try { await deleteDoc(doc(db, "notifications", n.id)); } catch(e) {} }); };
