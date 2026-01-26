@@ -7,10 +7,13 @@ const SelfHealView = () => {
     const videos = [
         "jfKfPfyJRdk", // Lofi Girl
         "eKFTSSKCzWA", // Relaxing Jazz
-        "inpok4MKVLM", // Rainy Window
-        "Dx5qFachd3A", // Piano
-        "tEmt1Znux58", // Nature Sounds
-        "lTRiuFIWV54"  // Deep Focus
+        // "inpok4MKVLM", // Rainy Window
+        // "Dx5qFachd3A", // Piano
+        // "tEmt1Znux58", // Nature Sounds
+        // "lTRiuFIWV54",  // Deep Focus
+        "KhP8jEXA6MQ", // Rain - Pixxie
+        "ApCdvrKngIw", // ใจฉันตามเธอไป
+        "LsUYiE_d4A", // เจ้าหญิงคนต่อไป
     ];
     
     const [currentVideoId, setCurrentVideoId] = useState(videos[0]);
