@@ -6,7 +6,7 @@ const SelfHealView = () => {
     // List of relaxing YouTube video IDs (Lofi, Jazz, Nature, etc.)
     const videos = [
         "jfKfPfyJRdk", // Lofi Girl
-        "eKFTSSKCzWA", // Relaxing Jazz
+        // "eKFTSSKCzWA", // Relaxing Jazz
         // "inpok4MKVLM", // Rainy Window
         // "Dx5qFachd3A", // Piano
         // "tEmt1Znux58", // Nature Sounds
