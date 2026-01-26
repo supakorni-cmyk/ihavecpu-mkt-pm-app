@@ -231,7 +231,7 @@ const ExportEventModal = ({ tasks, onClose }) => {
   );
 };
 
-// --- UPDATED BOARD COLUMN (Full Height Drop Zone) ---
+// --- UPDATED BOARD COLUMN (Fixed Drop Zone Structure) ---
 const BoardColumn = ({ column, tasks, onTaskClick, onDeleteTask }) => {
   return (
     <div className="flex-1 min-w-[300px] flex flex-col h-full rounded-2xl bg-white/50 backdrop-blur-sm border border-white shadow-sm">
@@ -244,30 +244,32 @@ const BoardColumn = ({ column, tasks, onTaskClick, onDeleteTask }) => {
         <MoreHorizontal size={16} className="text-gray-300 hover:text-gray-600 cursor-pointer" />
       </div>
 
-      {/* DROPPABLE AREA - FORCE FULL HEIGHT */}
+      {/* DROPPABLE AREA */}
       <Droppable droppableId={column.id}>
         {(provided, snapshot) => (
             <div 
                 {...provided.droppableProps}
                 ref={provided.innerRef}
-                // 'flex-grow' and 'min-h-0' ensure it fills the space but allows scrolling
-                className={`flex-1 p-3 overflow-y-auto custom-scrollbar transition-colors rounded-b-2xl flex flex-col
+                // FIX: Combined all styles into this ONE div. No inner wrapper.
+                className={`
+                    flex-1 p-3 overflow-y-auto custom-scrollbar transition-colors rounded-b-2xl flex flex-col gap-3
+                    min-h-[150px] 
                     ${snapshot.isDraggingOver ? 'bg-indigo-50/80 ring-2 ring-inset ring-indigo-200' : ''}
                 `}
             >
-                {/* The list of tasks */}
-                <div className="flex flex-col gap-3 min-h-[150px] flex-grow">
-                    {tasks.map((task, index) => (
-                        <TaskCard 
-                            key={task.id} 
-                            task={task} 
-                            index={index} 
-                            onClick={onTaskClick} 
-                            onDelete={onDeleteTask} 
-                        />
-                    ))}
-                    {provided.placeholder}
-                </div>
+                {/* Tasks are now DIRECT children of the ref container */}
+                {tasks.map((task, index) => (
+                    <TaskCard 
+                        key={task.id} 
+                        task={task} 
+                        index={index} 
+                        onClick={onTaskClick} 
+                        onDelete={onDeleteTask} 
+                    />
+                ))}
+                
+                {/* Placeholder must be a sibling to the tasks */}
+                {provided.placeholder}
             </div>
         )}
       </Droppable>
