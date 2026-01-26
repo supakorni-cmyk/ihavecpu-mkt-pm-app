@@ -270,7 +270,7 @@ const BoardColumn = ({ column, tasks, onTaskClick, onDeleteTask }) => {
   );
 };
 
-// --- UPDATED TASK CARD (With Draggable) ---
+// --- UPDATED TASK CARD (Fixes Drag Position Issue) ---
 const TaskCard = ({ task, index, onClick, onDelete }) => {
   const reqs = Array.isArray(task.requirements) ? task.requirements : [];
   const completedReqs = reqs.filter(r => r.isDone).length;
@@ -286,59 +286,76 @@ const TaskCard = ({ task, index, onClick, onDelete }) => {
 
   return (
     <Draggable draggableId={task.id} index={index}>
-        {(provided, snapshot) => (
-            <div 
-                ref={provided.innerRef}
-                {...provided.draggableProps}
-                {...provided.dragHandleProps}
-                style={{ ...provided.draggableProps.style }}
-                onClick={() => onClick(task.id)} 
-                className={`bg-white p-4 rounded-xl border hover:border-indigo-300 transition-all group relative cursor-pointer
-                    ${snapshot.isDragging ? 'shadow-2xl rotate-2 ring-2 ring-indigo-500 z-50' : 'shadow-sm border-gray-100 hover:shadow-md'}
-                `}
-            >
-                <div className="flex justify-between items-start mb-3">
-                    <div className="flex flex-wrap gap-1">{renderTags()}</div>
-                    <button onClick={(e) => { e.stopPropagation(); onDelete(task.id); }} className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1">
-                        <Trash2 size={14} />
-                    </button>
-                </div>
-                
-                {task.imageUrl && (
-                    <div className="mb-3 h-32 w-full overflow-hidden rounded-lg border border-gray-100">
-                        <img src={task.imageUrl} alt="Preview" className="h-full w-full object-cover" />
+        {(provided, snapshot) => {
+            // --- 🟢 FIX START: MERGE STYLES CORRECTLY ---
+            const cardStyle = {
+                ...provided.draggableProps.style,
+                // 1. Disable CSS transitions while dragging to prevent "lag" or "flying away"
+                transition: snapshot.isDragging ? 'none' : 'all 0.2s ease',
+                // 2. Keep the rotation effect by merging it with the drag movement
+                transform: snapshot.isDragging 
+                    ? `${provided.draggableProps.style.transform} rotate(3deg) scale(1.05)` 
+                    : provided.draggableProps.style.transform,
+                // 3. Ensure it stays on top
+                zIndex: snapshot.isDragging ? 9999 : 'auto',
+                cursor: snapshot.isDragging ? 'grabbing' : 'pointer'
+            };
+            // --- 🟢 FIX END ---
+
+            return (
+                <div 
+                    ref={provided.innerRef}
+                    {...provided.draggableProps}
+                    {...provided.dragHandleProps}
+                    style={cardStyle} // <--- Use our calculated style
+                    onClick={() => onClick(task.id)} 
+                    // Remove 'transition-all' and 'rotate-2' from className, we handle them in style above
+                    className={`bg-white p-4 rounded-xl border hover:border-indigo-300 group relative
+                        ${snapshot.isDragging ? 'shadow-2xl ring-2 ring-indigo-500' : 'shadow-sm border-gray-100 hover:shadow-md'}
+                    `}
+                >
+                    <div className="flex justify-between items-start mb-3">
+                        <div className="flex flex-wrap gap-1">{renderTags()}</div>
+                        <button onClick={(e) => { e.stopPropagation(); onDelete(task.id); }} className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1">
+                            <Trash2 size={14} />
+                        </button>
                     </div>
-                )}
-                
-                <h4 className="text-gray-800 font-semibold text-sm mb-2 leading-relaxed line-clamp-2">{task.title}</h4>
-                
-                {task.location && (
-                    <div className="flex items-center gap-1.5 text-xs text-indigo-500 mb-3 bg-indigo-50 w-fit px-2 py-1 rounded">
-                        <MapPin size={12}/> <span className="truncate max-w-[200px]">{task.location}</span>
-                    </div>
-                )}
-                
-                {reqs.length > 0 && (
-                    <div className="mb-3">
-                        <div className="flex items-center gap-1.5 text-xs text-gray-500 font-medium mb-1">
-                            <CheckSquare size={12} className="text-green-600" />
-                            <span>Requirements ({completedReqs}/{reqs.length})</span>
+                    
+                    {task.imageUrl && (
+                        <div className="mb-3 h-32 w-full overflow-hidden rounded-lg border border-gray-100">
+                            <img src={task.imageUrl} alt="Preview" className="h-full w-full object-cover" />
                         </div>
-                        <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
-                            <div className="bg-green-500 h-full transition-all duration-300" style={{ width: `${progress}%` }}></div>
+                    )}
+                    
+                    <h4 className="text-gray-800 font-semibold text-sm mb-2 leading-relaxed line-clamp-2">{task.title}</h4>
+                    
+                    {task.location && (
+                        <div className="flex items-center gap-1.5 text-xs text-indigo-500 mb-3 bg-indigo-50 w-fit px-2 py-1 rounded">
+                            <MapPin size={12}/> <span className="truncate max-w-[200px]">{task.location}</span>
+                        </div>
+                    )}
+                    
+                    {reqs.length > 0 && (
+                        <div className="mb-3">
+                            <div className="flex items-center gap-1.5 text-xs text-gray-500 font-medium mb-1">
+                                <CheckSquare size={12} className="text-green-600" />
+                                <span>Requirements ({completedReqs}/{reqs.length})</span>
+                            </div>
+                            <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
+                                <div className="bg-green-500 h-full transition-all duration-300" style={{ width: `${progress}%` }}></div>
+                            </div>
+                        </div>
+                    )}
+                    
+                    <div className="flex items-center justify-between pt-3 border-t border-gray-50">
+                        <div className="flex items-center gap-1.5 text-gray-400 text-xs font-medium">
+                            <Clock size={12} />
+                            <span>{displayDate}</span>
                         </div>
                     </div>
-                )}
-                
-                <div className="flex items-center justify-between pt-3 border-t border-gray-50">
-                    <div className="flex items-center gap-1.5 text-gray-400 text-xs font-medium">
-                        <Clock size={12} />
-                        <span>{displayDate}</span>
-                    </div>
-                    {/* (Optional) Avatar could go here */}
                 </div>
-            </div>
-        )}
+            );
+        }}
     </Draggable>
   );
 };
