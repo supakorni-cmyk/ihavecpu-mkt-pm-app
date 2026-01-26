@@ -1,11 +1,10 @@
 // src/components/views/BoardView.jsx
 import React, { useState, useMemo } from 'react';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'; // <--- NEW IMPORT
 import { 
   MoreHorizontal, 
   Plus, 
   Trash2, 
-  ArrowLeft, 
-  ArrowRight, 
   CheckSquare, 
   Clock, 
   Heart, 
@@ -15,7 +14,7 @@ import {
   MapPin,
   Search, 
   Filter,
-  XCircle // Added for Clear Button
+  XCircle 
 } from 'lucide-react';
 import { COLUMNS, TAG_COLORS, formatDate } from '../../utils/constants';
 
@@ -81,16 +80,27 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
     return grouped;
   }, [filteredTasks]);
 
-  const handleMoveTask = (taskId, currentStatus, direction) => {
-    const colIds = COLUMNS.map(c => c.id);
-    const currentIndex = colIds.indexOf(currentStatus);
-    let newIndex = direction === 'next' ? currentIndex + 1 : currentIndex - 1;
-    
-    if (newIndex >= 0 && newIndex < colIds.length) {
-      onMoveTask(taskId, colIds[newIndex]);
+  // --- NEW: DRAG END HANDLER ---
+  const onDragEnd = (result) => {
+    const { destination, source, draggableId } = result;
+
+    // 1. Dropped outside the list?
+    if (!destination) return;
+
+    // 2. Dropped in the same place?
+    if (
+      destination.droppableId === source.droppableId &&
+      destination.index === source.index
+    ) {
+      return;
     }
+
+    // 3. Move the task
+    // Note: 'destination.droppableId' corresponds to our column IDs ('todo', 'in-progress', etc.)
+    onMoveTask(draggableId, destination.droppableId);
   };
 
+  // Handler to open task for editing
   const handleTaskClick = (taskId) => {
     const task = tasks.find(t => t.id === taskId);
     if (task) setEditingTask(task);
@@ -166,23 +176,22 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
         </div>
       </header>
 
-      {/* Columns */}
-      <div className="flex-1 overflow-x-auto overflow-y-hidden px-6 pb-4 pt-6">
-        <div className="flex gap-6 h-full min-w-full">
-          {COLUMNS.map((col, index) => (
-            <BoardColumn 
-              key={col.id}
-              column={col}
-              tasks={tasksByColumn[col.id] || []}
-              isFirst={index === 0}
-              isLast={index === COLUMNS.length - 1}
-              onTaskClick={handleTaskClick} 
-              onDeleteTask={onDeleteTask}
-              onMoveTask={handleMoveTask}
-            />
-          ))}
+      {/* --- DRAG DROP CONTEXT WRAPPER --- */}
+      <DragDropContext onDragEnd={onDragEnd}>
+        <div className="flex-1 overflow-x-auto overflow-y-hidden px-6 pb-4 pt-6">
+          <div className="flex gap-6 h-full min-w-full">
+            {COLUMNS.map((col) => (
+              <BoardColumn 
+                key={col.id}
+                column={col}
+                tasks={tasksByColumn[col.id] || []}
+                onTaskClick={handleTaskClick} 
+                onDeleteTask={onDeleteTask}
+              />
+            ))}
+          </div>
         </div>
-      </div>
+      </DragDropContext>
 
       {/* Export Modal */}
       {isExportOpen && (
@@ -205,7 +214,7 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
   );
 };
 
-// --- SUB-COMPONENTS (Keep existing ones unchanged) ---
+// --- SUB-COMPONENTS ---
 
 const ExportEventModal = ({ tasks, onClose }) => {
   const events = tasks.filter(t => { if (t.tag === 'Event' || t.tag === 'Guest Speaker') return true; if (Array.isArray(t.tags) && (t.tags.includes('Event') || t.tags.includes('Guest Speaker'))) return true; return false; });
@@ -222,39 +231,115 @@ const ExportEventModal = ({ tasks, onClose }) => {
   );
 };
 
-const BoardColumn = ({ column, tasks, isFirst, isLast, onTaskClick, onDeleteTask, onMoveTask }) => {
+// --- UPDATED BOARD COLUMN (With Droppable) ---
+const BoardColumn = ({ column, tasks, onTaskClick, onDeleteTask }) => {
   return (
-    <div className="flex-1 min-w-[300px] flex flex-col h-full">
-      <div className="flex items-center justify-between mb-4 px-1">
-        <div className="flex items-center gap-2"><h3 className="text-gray-600 font-bold text-sm uppercase tracking-wider">{column.title}</h3><span className="bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full text-xs font-bold">{tasks.length}</span></div><MoreHorizontal size={16} className="text-gray-300 hover:text-gray-600 cursor-pointer" />
+    <div className="flex-1 min-w-[300px] flex flex-col h-full rounded-2xl bg-white/50 backdrop-blur-sm border border-white shadow-sm">
+      <div className="flex items-center justify-between mb-4 p-4 border-b border-gray-100">
+        <div className="flex items-center gap-2">
+            <h3 className="text-gray-700 font-black text-sm uppercase tracking-wider">{column.title}</h3>
+            <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${column.color.replace('text-', 'bg-').replace('50', '100')} ${column.color.split(' ')[1]}`}>{tasks.length}</span>
+        </div>
+        <MoreHorizontal size={16} className="text-gray-300 hover:text-gray-600 cursor-pointer" />
       </div>
-      <div className={`flex-1 rounded-2xl p-2 ${column.color} overflow-y-auto custom-scrollbar`}><div className="flex flex-col gap-3 pb-2">{tasks.map(task => (<TaskCard key={task.id} task={task} currentColumnId={column.id} isFirstColumn={isFirst} isLastColumn={isLast} onClick={onTaskClick} onDelete={onDeleteTask} onMove={onMoveTask} />))}</div></div>
+
+      {/* DROPPABLE AREA */}
+      <Droppable droppableId={column.id}>
+        {(provided, snapshot) => (
+            <div 
+                {...provided.droppableProps}
+                ref={provided.innerRef}
+                className={`flex-1 p-2 overflow-y-auto custom-scrollbar transition-colors rounded-b-2xl ${snapshot.isDraggingOver ? 'bg-indigo-50/50' : ''}`}
+            >
+                <div className="flex flex-col gap-3 pb-2 min-h-[100px]">
+                    {tasks.map((task, index) => (
+                        <TaskCard 
+                            key={task.id} 
+                            task={task} 
+                            index={index} 
+                            onClick={onTaskClick} 
+                            onDelete={onDeleteTask} 
+                        />
+                    ))}
+                    {provided.placeholder}
+                </div>
+            </div>
+        )}
+      </Droppable>
     </div>
   );
 };
 
-const TaskCard = ({ task, currentColumnId, isFirstColumn, isLastColumn, onClick, onDelete, onMove }) => {
+// --- UPDATED TASK CARD (With Draggable) ---
+const TaskCard = ({ task, index, onClick, onDelete }) => {
   const reqs = Array.isArray(task.requirements) ? task.requirements : [];
   const completedReqs = reqs.filter(r => r.isDone).length;
   const progress = reqs.length > 0 ? (completedReqs / reqs.length) * 100 : 0;
   const displayDate = task.eventDate ? new Date(task.eventDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute:'2-digit' }) : formatDate(task.deadline);
-  const renderTags = () => { const tags = task.tags && task.tags.length > 0 ? task.tags : (task.tag ? [task.tag] : []); return tags.map(tag => (<span key={tag} className={`px-2.5 py-1 rounded-md text-[10px] font-bold tracking-wide uppercase mr-1 ${TAG_COLORS[tag] || 'bg-gray-100 text-gray-500'}`}>{tag}</span>)); };
+  
+  const renderTags = () => { 
+      const tags = task.tags && task.tags.length > 0 ? task.tags : (task.tag ? [task.tag] : []); 
+      return tags.map((tag, idx) => (
+        <span key={idx} className={`px-2.5 py-1 rounded-md text-[10px] font-bold tracking-wide uppercase mr-1 ${TAG_COLORS[tag] || 'bg-gray-100 text-gray-500'}`}>{tag}</span>
+      )); 
+  };
 
   return (
-    <div onClick={() => onClick(task.id)} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all group relative cursor-pointer">
-      <div className="flex justify-between items-start mb-3"><div className="flex flex-wrap gap-1">{renderTags()}</div><button onClick={(e) => { e.stopPropagation(); onDelete(task.id); }} className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1"><Trash2 size={14} /></button></div>
-      {task.imageUrl && (<div className="mb-3 h-32 w-full overflow-hidden rounded-lg border border-gray-100"><img src={task.imageUrl} alt="Preview" className="h-full w-full object-cover" /></div>)}
-      <h4 className="text-gray-800 font-semibold text-sm mb-2 leading-relaxed line-clamp-2">{task.title}</h4>
-      {task.location && (<div className="flex items-center gap-1.5 text-xs text-indigo-500 mb-3 bg-indigo-50 w-fit px-2 py-1 rounded"><MapPin size={12}/> <span className="truncate max-w-[200px]">{task.location}</span></div>)}
-      {reqs.length > 0 && (<div className="mb-3"><div className="flex items-center gap-1.5 text-xs text-gray-500 font-medium mb-1"><CheckSquare size={12} className="text-green-600" /><span>Requirements ({completedReqs}/{reqs.length})</span></div><div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden"><div className="bg-green-500 h-full transition-all duration-300" style={{ width: `${progress}%` }}></div></div></div>)}
-      <div className="flex items-center justify-between pt-3 border-t border-gray-50">
-        <div className="flex items-center gap-1.5 text-gray-400 text-xs font-medium"><Clock size={12} /><span>{displayDate}</span></div>
-        <div className="flex gap-1" onClick={e => e.stopPropagation()}>
-          {!isFirstColumn && (<button onClick={() => onMove(task.id, currentColumnId, 'prev')} className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-blue-600 transition" title="Move Backward"><ArrowLeft size={14} /></button>)}
-          {!isLastColumn && (<button onClick={() => onMove(task.id, currentColumnId, 'next')} className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-blue-600 transition" title="Move Forward"><ArrowRight size={14} /></button>)}
-        </div>
-      </div>
-    </div>
+    <Draggable draggableId={task.id} index={index}>
+        {(provided, snapshot) => (
+            <div 
+                ref={provided.innerRef}
+                {...provided.draggableProps}
+                {...provided.dragHandleProps}
+                style={{ ...provided.draggableProps.style }}
+                onClick={() => onClick(task.id)} 
+                className={`bg-white p-4 rounded-xl border hover:border-indigo-300 transition-all group relative cursor-pointer
+                    ${snapshot.isDragging ? 'shadow-2xl rotate-2 ring-2 ring-indigo-500 z-50' : 'shadow-sm border-gray-100 hover:shadow-md'}
+                `}
+            >
+                <div className="flex justify-between items-start mb-3">
+                    <div className="flex flex-wrap gap-1">{renderTags()}</div>
+                    <button onClick={(e) => { e.stopPropagation(); onDelete(task.id); }} className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1">
+                        <Trash2 size={14} />
+                    </button>
+                </div>
+                
+                {task.imageUrl && (
+                    <div className="mb-3 h-32 w-full overflow-hidden rounded-lg border border-gray-100">
+                        <img src={task.imageUrl} alt="Preview" className="h-full w-full object-cover" />
+                    </div>
+                )}
+                
+                <h4 className="text-gray-800 font-semibold text-sm mb-2 leading-relaxed line-clamp-2">{task.title}</h4>
+                
+                {task.location && (
+                    <div className="flex items-center gap-1.5 text-xs text-indigo-500 mb-3 bg-indigo-50 w-fit px-2 py-1 rounded">
+                        <MapPin size={12}/> <span className="truncate max-w-[200px]">{task.location}</span>
+                    </div>
+                )}
+                
+                {reqs.length > 0 && (
+                    <div className="mb-3">
+                        <div className="flex items-center gap-1.5 text-xs text-gray-500 font-medium mb-1">
+                            <CheckSquare size={12} className="text-green-600" />
+                            <span>Requirements ({completedReqs}/{reqs.length})</span>
+                        </div>
+                        <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
+                            <div className="bg-green-500 h-full transition-all duration-300" style={{ width: `${progress}%` }}></div>
+                        </div>
+                    </div>
+                )}
+                
+                <div className="flex items-center justify-between pt-3 border-t border-gray-50">
+                    <div className="flex items-center gap-1.5 text-gray-400 text-xs font-medium">
+                        <Clock size={12} />
+                        <span>{displayDate}</span>
+                    </div>
+                    {/* (Optional) Avatar could go here */}
+                </div>
+            </div>
+        )}
+    </Draggable>
   );
 };
 
