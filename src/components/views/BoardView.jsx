@@ -1,15 +1,29 @@
 // src/components/views/BoardView.jsx
 import React, { useState, useMemo } from 'react';
-import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'; 
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'; // <--- NEW IMPORT
 import { 
-  MoreHorizontal, Plus, Trash2, CheckSquare, Clock, Heart, 
-  FileText, X, Copy, MapPin, Search, Filter, XCircle 
+  MoreHorizontal, 
+  Plus, 
+  Trash2, 
+  CheckSquare, 
+  Clock, 
+  Heart, 
+  FileText, 
+  X, 
+  Copy, 
+  MapPin,
+  Search, 
+  Filter,
+  XCircle 
 } from 'lucide-react';
 import { COLUMNS, TAG_COLORS, formatDate } from '../../utils/constants';
+
+// --- IMPORT THE SEPARATED MODAL ---
 import EditTaskModal from '../modals/EditTaskModal';
 
 const FILTER_CATEGORIES = ['All', 'Planning', 'Project', 'Product Review', 'Event', 'Guest Speaker'];
 
+// --- MAIN COMPONENT ---
 const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTask, onOpenRequirement }) => {
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
@@ -21,18 +35,27 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
   // --- FILTERING LOGIC ---
   const filteredTasks = useMemo(() => {
     return tasks.filter(task => {
+        // 1. Search Filter (Title)
         const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase());
+        
+        // 2. Category Filter (Tags)
         let matchesCategory = true;
         if (selectedCategory !== 'All') {
             const hasSingleTag = task.tag === selectedCategory;
             const hasArrayTag = Array.isArray(task.tags) && task.tags.includes(selectedCategory);
             matchesCategory = hasSingleTag || hasArrayTag;
         }
+
         return matchesSearch && matchesCategory;
     });
   }, [tasks, searchQuery, selectedCategory]);
 
-  const clearFilters = () => { setSearchQuery(""); setSelectedCategory("All"); };
+  // --- HELPER: CLEAR FILTER ---
+  const clearFilters = () => {
+      setSearchQuery("");
+      setSelectedCategory("All");
+  };
+
   const isFiltered = searchQuery !== "" || selectedCategory !== "All";
 
   // --- GROUPING LOGIC ---
@@ -48,31 +71,36 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
 
     filteredTasks.forEach(task => {
       const status = normalizeStatus(task.status);
-      if (grouped[status]) grouped[status].push(task);
-      else grouped['todo'].push(task);
+      if (grouped[status]) {
+        grouped[status].push(task);
+      } else {
+        grouped['todo'].push(task);
+      }
     });
     return grouped;
   }, [filteredTasks]);
 
-  // --- DRAG END HANDLER ---
+  // --- NEW: DRAG END HANDLER ---
   const onDragEnd = (result) => {
     const { destination, source, draggableId } = result;
-    if (!destination) return;
-    if (destination.droppableId === source.droppableId && destination.index === source.index) return;
 
-    // Convert column ID to Status Name if needed
-    const statusMap = {
-      'todo': 'To Do',
-      'in-progress': 'In Progress',
-      'review': 'Review',
-      'done': 'Completed',
-      'completed': 'Completed'
-    };
-    const newStatus = statusMap[destination.droppableId] || destination.droppableId;
-    
-    onMoveTask(draggableId, newStatus);
+    // 1. Dropped outside the list?
+    if (!destination) return;
+
+    // 2. Dropped in the same place?
+    if (
+      destination.droppableId === source.droppableId &&
+      destination.index === source.index
+    ) {
+      return;
+    }
+
+    // 3. Move the task
+    // Note: 'destination.droppableId' corresponds to our column IDs ('todo', 'in-progress', etc.)
+    onMoveTask(draggableId, destination.droppableId);
   };
 
+  // Handler to open task for editing
   const handleTaskClick = (taskId) => {
     const task = tasks.find(t => t.id === taskId);
     if (task) setEditingTask(task);
@@ -82,42 +110,73 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
     <div className="flex flex-col h-full w-full relative bg-gray-50">
       {/* Header */}
       <header className="px-6 py-4 border-b border-gray-200 bg-white shadow-sm z-10 flex flex-col xl:flex-row justify-between xl:items-center gap-4">
+        
+        {/* Title Area */}
         <div className="flex items-center gap-4">
             <h2 className="text-2xl font-black text-gray-800 flex items-center gap-2 whitespace-nowrap">
             WE LOVE OUR JOB <Heart size={24} className="text-red-600 fill-red-600 animate-pulse" />
             </h2>
             <div className="h-8 w-px bg-gray-200 hidden xl:block"></div>
+            
+            {/* Search & Filter */}
             <div className="flex items-center gap-2 flex-1">
+                {/* Search Input */}
                 <div className="relative group">
                     <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-indigo-500 transition-colors"/>
-                    <input type="text" placeholder="Search tasks..." className="pl-9 pr-4 py-2 bg-gray-100 border-transparent focus:bg-white border focus:border-indigo-500 rounded-full text-sm outline-none transition-all w-32 focus:w-48 xl:w-64"
-                        value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+                    <input 
+                        type="text" 
+                        placeholder="Search tasks..." 
+                        className="pl-9 pr-4 py-2 bg-gray-100 border-transparent focus:bg-white border focus:border-indigo-500 rounded-full text-sm outline-none transition-all w-32 focus:w-48 xl:w-64"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                    />
                 </div>
+
+                {/* Category Dropdown */}
                 <div className="relative">
                     <Filter size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"/>
-                    <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)}
-                        className="pl-9 pr-8 py-2 bg-white border border-gray-200 hover:border-gray-300 rounded-full text-sm outline-none appearance-none cursor-pointer font-medium text-gray-700 focus:ring-2 focus:ring-indigo-100 transition-all max-w-[150px]">
-                        {FILTER_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                    <select 
+                        value={selectedCategory}
+                        onChange={(e) => setSelectedCategory(e.target.value)}
+                        className="pl-9 pr-8 py-2 bg-white border border-gray-200 hover:border-gray-300 rounded-full text-sm outline-none appearance-none cursor-pointer font-medium text-gray-700 focus:ring-2 focus:ring-indigo-100 transition-all max-w-[150px]"
+                    >
+                        {FILTER_CATEGORIES.map(cat => (
+                            <option key={cat} value={cat}>{cat}</option>
+                        ))}
                     </select>
                 </div>
+
+                {/* Clear Filter Button */}
                 {isFiltered && (
-                    <button onClick={clearFilters} className="ml-2 flex items-center gap-1 text-xs font-bold text-red-500 hover:bg-red-50 px-3 py-2 rounded-full transition whitespace-nowrap">
+                    <button 
+                        onClick={clearFilters}
+                        className="ml-2 flex items-center gap-1 text-xs font-bold text-red-500 hover:bg-red-50 px-3 py-2 rounded-full transition animate-in fade-in zoom-in duration-200 whitespace-nowrap"
+                    >
                         <XCircle size={14} /> Clear
                     </button>
                 )}
             </div>
         </div>
+        
+        {/* Actions Area */}
         <div className="flex gap-3 justify-end">
-          <button onClick={() => setIsExportOpen(true)} className="flex items-center gap-2 bg-white text-indigo-600 border border-indigo-100 px-4 py-2.5 rounded-full font-bold hover:bg-indigo-50 transition shadow-sm text-sm">
+          <button 
+            onClick={() => setIsExportOpen(true)}
+            className="flex items-center gap-2 bg-white text-indigo-600 border border-indigo-100 px-4 py-2.5 rounded-full font-bold hover:bg-indigo-50 transition shadow-sm text-sm"
+          >
             <FileText size={16} /> <span className="hidden sm:inline">Export Event</span>
           </button>
-          <button onClick={onAddTaskClick} className="flex items-center gap-2 bg-gray-900 text-white px-5 py-2.5 rounded-full font-bold hover:bg-black transition shadow-lg shadow-gray-200 text-sm transform hover:scale-105 active:scale-95">
+
+          <button 
+            onClick={onAddTaskClick} 
+            className="flex items-center gap-2 bg-gray-900 text-white px-5 py-2.5 rounded-full font-bold hover:bg-black transition shadow-lg shadow-gray-200 text-sm transform hover:scale-105 active:scale-95"
+          >
             <Plus size={16} /> New Task
           </button>
         </div>
       </header>
 
-      {/* --- DRAG DROP CONTEXT --- */}
+      {/* --- DRAG DROP CONTEXT WRAPPER --- */}
       <DragDropContext onDragEnd={onDragEnd}>
         <div className="flex-1 overflow-x-auto overflow-y-hidden px-6 pb-4 pt-6">
           <div className="flex gap-6 h-full min-w-full">
@@ -134,8 +193,12 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
         </div>
       </DragDropContext>
 
-      {isExportOpen && <ExportEventModal tasks={tasks} onClose={() => setIsExportOpen(false)} />}
-      
+      {/* Export Modal */}
+      {isExportOpen && (
+        <ExportEventModal tasks={tasks} onClose={() => setIsExportOpen(false)} />
+      )}
+
+      {/* Edit Task Modal */}
       {editingTask && (
         <EditTaskModal 
             task={editingTask}
@@ -168,7 +231,7 @@ const ExportEventModal = ({ tasks, onClose }) => {
   );
 };
 
-// --- FIX 1: REMOVED INNER WRAPPER DIV FROM BOARDCOLUMN ---
+// --- UPDATED BOARD COLUMN (With Droppable) ---
 const BoardColumn = ({ column, tasks, onTaskClick, onDeleteTask }) => {
   return (
     <div className="flex-1 min-w-[300px] flex flex-col h-full rounded-2xl bg-white/50 backdrop-blur-sm border border-white shadow-sm">
@@ -180,26 +243,26 @@ const BoardColumn = ({ column, tasks, onTaskClick, onDeleteTask }) => {
         <MoreHorizontal size={16} className="text-gray-300 hover:text-gray-600 cursor-pointer" />
       </div>
 
+      {/* DROPPABLE AREA */}
       <Droppable droppableId={column.id}>
         {(provided, snapshot) => (
             <div 
                 {...provided.droppableProps}
                 ref={provided.innerRef}
-                // Added flex-col and gap here directly
-                className={`flex-1 p-2 overflow-y-auto custom-scrollbar transition-colors rounded-b-2xl flex flex-col gap-3 min-h-[150px]
-                    ${snapshot.isDraggingOver ? 'bg-indigo-50/50' : ''}`}
+                className={`flex-1 p-2 overflow-y-auto custom-scrollbar transition-colors rounded-b-2xl ${snapshot.isDraggingOver ? 'bg-indigo-50/50' : ''}`}
             >
-                {/* Tasks are now direct children */}
-                {tasks.map((task, index) => (
-                    <TaskCard 
-                        key={task.id} 
-                        task={task} 
-                        index={index} 
-                        onClick={onTaskClick} 
-                        onDelete={onDeleteTask} 
-                    />
-                ))}
-                {provided.placeholder}
+                <div className="flex flex-col gap-3 pb-2 min-h-[100px]">
+                    {tasks.map((task, index) => (
+                        <TaskCard 
+                            key={task.id} 
+                            task={task} 
+                            index={index} 
+                            onClick={onTaskClick} 
+                            onDelete={onDeleteTask} 
+                        />
+                    ))}
+                    {provided.placeholder}
+                </div>
             </div>
         )}
       </Droppable>
@@ -207,7 +270,7 @@ const BoardColumn = ({ column, tasks, onTaskClick, onDeleteTask }) => {
   );
 };
 
-// --- FIX 2: REMOVED 'transition-all' FROM TASKCARD ---
+// --- UPDATED TASK CARD (With Draggable) ---
 const TaskCard = ({ task, index, onClick, onDelete }) => {
   const reqs = Array.isArray(task.requirements) ? task.requirements : [];
   const completedReqs = reqs.filter(r => r.isDone).length;
@@ -228,14 +291,9 @@ const TaskCard = ({ task, index, onClick, onDelete }) => {
                 ref={provided.innerRef}
                 {...provided.draggableProps}
                 {...provided.dragHandleProps}
-                // We handle transitions manually here to avoid "fly away" bug
-                style={{ 
-                    ...provided.draggableProps.style,
-                    transition: snapshot.isDragging ? 'none' : 'all 0.2s ease', 
-                }}
+                style={{ ...provided.draggableProps.style }}
                 onClick={() => onClick(task.id)} 
-                // Removed 'transition-all' from className
-                className={`bg-white p-4 rounded-xl border hover:border-indigo-300 group relative cursor-pointer
+                className={`bg-white p-4 rounded-xl border hover:border-indigo-300 transition-all group relative cursor-pointer
                     ${snapshot.isDragging ? 'shadow-2xl rotate-2 ring-2 ring-indigo-500 z-50' : 'shadow-sm border-gray-100 hover:shadow-md'}
                 `}
             >
@@ -277,6 +335,7 @@ const TaskCard = ({ task, index, onClick, onDelete }) => {
                         <Clock size={12} />
                         <span>{displayDate}</span>
                     </div>
+                    {/* (Optional) Avatar could go here */}
                 </div>
             </div>
         )}
