@@ -71,34 +71,37 @@ export const useTaskData = (currentUser) => {
     } catch (error) { console.error("❌ Email Error:", error); }
   };
 
-  // --- 3. LINE PUSH NOTIFICATION (SMART FILTERING) ---
+  // --- 3. LINE PUSH NOTIFICATION (MULTI-GROUP + FILTER) ---
   const sendLinePush = async (text, taskTag) => {
     const PROXY_URL = "https://corsproxy.io/?";
     const TARGET_URL = "https://api.line.me/v2/bot/message/push";
 
-    // --- CONFIGURATION ---
+    // --- CONFIGURATION (Reads from .env file) ---
+    // If you haven't set up .env yet, replace "import.meta.env..." with your actual string keys.
     const TARGETS = [
         {
             name: "Marketing Group (Main)",
             token: import.meta.env.VITE_LINE_TOKEN_BOT1, 
             groupId: import.meta.env.VITE_LINE_GROUP_ID_BOT1,
-            allowedTags: "ALL" // <--- Receives EVERYTHING
+            allowedTags: "ALL"
         },
         {
             name: "Second Group (Events Only)",
             token: import.meta.env.VITE_LINE_TOKEN_BOT2,
             groupId: import.meta.env.VITE_LINE_GROUP_ID_BOT2,
-            allowedTags: ["Event", "Guest Speaker"] // <--- 🟢 FILTERS: Only receives these tags
+            allowedTags: ["Event", "Guest Speaker"]
         }
     ];
 
     // Loop through targets
     TARGETS.forEach(async (target) => {
-        // --- 🟢 FILTER LOGIC ---
-        // If not "ALL", check if the current task tag is in the allowed list
+        // Safety check for missing keys
+        if (!target.token || !target.groupId) return;
+
+        // Filter Logic
         if (target.allowedTags !== "ALL") {
             if (!taskTag || !target.allowedTags.includes(taskTag)) {
-                return; // Skip this group/bot
+                return; // Skip this group
             }
         }
 
@@ -130,18 +133,15 @@ export const useTaskData = (currentUser) => {
 
   // --- 4. ALERT LOGIC ---
   const triggerAlert = async (task, prefix, userEmail, updateFlag) => {
-    // A. Check Memory Lock
     const alertId = `${task.id}-${Object.keys(updateFlag)[0]}`; 
     if (processedAlerts.current.has(alertId)) return;
     processedAlerts.current.add(alertId);
 
     console.log(`🔔 Alerting: ${task.title}`);
 
-    // B. Send LINE Push (Pass Tag for Filtering)
     const lineMsg = `${prefix} 🚨\n\n📌 Task: ${task.title}\n🏷️ Tag: ${task.tag}\n📅 Due: ${new Date(task.deadline).toLocaleDateString('en-GB')}`;
-    await sendLinePush(lineMsg, task.tag); // <--- Passed Tag
+    await sendLinePush(lineMsg, task.tag);
 
-    // C. Send Email
     await sendEmailNotification(`${prefix}: ${task.title}`, {
         "Target User": userEmail,
         "Task Title": task.title,
@@ -149,7 +149,6 @@ export const useTaskData = (currentUser) => {
         "Status": task.status
     });
 
-    // D. In-App Notification
     await addDoc(collection(db, "notifications"), {
         title: `${prefix}: ${task.title}`,
         taskId: task.id,
@@ -159,33 +158,25 @@ export const useTaskData = (currentUser) => {
         type: 'alert'
     });
 
-    // E. Update Database
     await updateDoc(doc(db, "tasks", task.id), updateFlag);
   };
 
   const checkDeadlines = (taskList, user) => {
     if (!user) return;
-    
     const now = new Date();
     
     taskList.forEach(async (task) => {
         if (task.status === 'completed' || !task.deadline) return;
 
-        // --- RESPONSIBILITY CHECK ---
         const assigneeName = task.assignee?.name;
         const currentUserName = user.name?.split(' ')[0]; 
         const ADMIN_EMAIL = "supakorn.i@ihavecpu.com"; 
 
         let isResponsible = false;
-
         if (assigneeName && assigneeName !== "Unassigned") {
-            if (currentUserName && assigneeName.includes(currentUserName)) {
-                isResponsible = true;
-            }
+            if (currentUserName && assigneeName.includes(currentUserName)) isResponsible = true;
         } else {
-            if (user.email === ADMIN_EMAIL) {
-                isResponsible = true;
-            }
+            if (user.email === ADMIN_EMAIL) isResponsible = true;
         }
 
         if (!isResponsible) return;
@@ -233,20 +224,31 @@ export const useTaskData = (currentUser) => {
     });
 
     return () => {
-      unsubTasks();
-      unsubUsers();
-      unsubBudget();
-      unsubLeaves();
-      unsubOT();
-      unsubNotifs();
+      unsubTasks(); unsubUsers(); unsubBudget(); unsubLeaves(); unsubOT(); unsubNotifs();
     };
   }, [currentUser]);
 
   // --- 6. ACTIONS ---
+
+  // *** MODIFIED: Update with Notification ***
   const updateTask = async (id, updates) => {
     try {
         const cleanedUpdates = cleanData(updates);
+        // Find original task to compare/get tags
+        const originalTask = tasks.find(t => t.id === id);
+
         await updateDoc(doc(db, "tasks", id), cleanedUpdates);
+        console.log("Task Updated Successfully");
+        
+        // Notify LINE
+        if (originalTask) {
+            const title = cleanedUpdates.title || originalTask.title;
+            const tag = cleanedUpdates.tag || originalTask.tag;
+            const editor = currentUser?.email?.split('@')[0] || 'Unknown';
+            
+            await sendLinePush(`📝 Task Edited:\n📌 ${title}\n👤 By: ${editor}\n🏷️ Tag: ${tag}`, tag);
+        }
+
     } catch (error) {
         console.error("FAILED to update task:", error);
         alert(`Failed to save: ${error.message}`);
@@ -263,11 +265,8 @@ export const useTaskData = (currentUser) => {
         });
 
         await addDoc(collection(db, "tasks"), cleanedTask);
-        
         await sendEmailNotification(`New Task: ${task.title}`, { "Title": task.title });
-        // Pass task.tag to filter
         await sendLinePush(`🆕 New Task Created:\n📌 ${task.title}\n🏷️ [${task.tag}]\n📅 Due: ${task.deadline || 'TBD'}`, task.tag);
-
     } catch (error) { console.error("Error adding task:", error); }
   };
   
@@ -275,15 +274,25 @@ export const useTaskData = (currentUser) => {
     try {
         await updateDoc(doc(db, "tasks", taskId), { status: newStatus });
         const task = tasks.find(t => t.id === taskId);
-        
         await sendEmailNotification("Task Status Updated", { "Task": task?.title, "New Status": newStatus });
-        // Pass task.tag to filter
         await sendLinePush(`🔄 Status Update:\n📌 ${task?.title}\n🏷️ [${task?.tag}]\n➡️ Now: ${newStatus}`, task?.tag);
-
     } catch (error) { console.error("Error moving task:", error); }
   };
 
-  const deleteTask = async (id) => { if(confirm("Delete task?")) await deleteDoc(doc(db, "tasks", id)); };
+  // *** MODIFIED: Delete with Notification ***
+  const deleteTask = async (id) => { 
+      if(!confirm("Delete task?")) return;
+      try { 
+          const taskToDelete = tasks.find(t => t.id === id);
+          await deleteDoc(doc(db, "tasks", id)); 
+          
+          if (taskToDelete) {
+             const editor = currentUser?.email?.split('@')[0] || 'Unknown';
+             await sendLinePush(`🗑️ Task Deleted:\n📌 ${taskToDelete.title}\n👤 By: ${editor}`, taskToDelete.tag);
+          }
+      } catch (error) { console.error(error); } 
+  };
+
   const markNotificationRead = async (id) => { try { await updateDoc(doc(db, "notifications", id), { isRead: true }); } catch(e) {} };
   const clearAllNotifications = async () => { notifications.forEach(async (n) => { try { await deleteDoc(doc(db, "notifications", n.id)); } catch(e) {} }); };
   const addTransaction = async (t) => { try { await addDoc(collection(db, "transactions"), cleanData({ ...t, createdAt: new Date().toISOString() })); } catch (e) { console.error(e); } };
