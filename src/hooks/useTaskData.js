@@ -80,14 +80,14 @@ export const useTaskData = (currentUser) => {
     const TARGETS = [
         {
             name: "Marketing Group (Main)",
-            token: "asI8bw3wLZAIlgAQbOvzD/OwRuontfeiEwsnV14iGyBCfuG95dlQaQHh4Q23VvUSObT9qqqu9RkJ6w0f0Z3bEtG9n2Ulg0vnnibU17BPM91hpcAuSfRerf/vtikl00eTh+RAyFQhNA25i6jdGf+8OAdB04t89/1O/w1cDnyilFU=",
-            groupId: "Cfb3a99b16a4599c8d386b0f6edf1100f",
+            token: import.meta.env.VITE_LINE_TOKEN_BOT1, 
+            groupId: import.meta.env.VITE_LINE_GROUP_ID_BOT1,
             allowedTags: "ALL" // <--- Receives EVERYTHING
         },
         {
             name: "Second Group (Events Only)",
-            token: "ts2+QUSgyRbvyZi7bM1f8UmWcvl2AwHiKq9NgP5vjEM2uu/e+qGYnceakgLPh8G7bxFRknLvGxaNLfriMWGyAIOMdOwPfugJqrudoz0VW943Lv6uG9r7+eCeRppPq87QVjxHogWf96jfvev/ZoBlXAdB04t89/1O/w1cDnyilFU=",
-            groupId: "Ca8e1bef2262db9fe6ffcc90f940aab6b",
+            token: import.meta.env.VITE_LINE_TOKEN_BOT2,
+            groupId: import.meta.env.VITE_LINE_GROUP_ID_BOT2,
             allowedTags: ["Event", "Guest Speaker"] // <--- 🟢 FILTERS: Only receives these tags
         }
     ];
