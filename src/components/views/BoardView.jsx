@@ -231,11 +231,12 @@ const ExportEventModal = ({ tasks, onClose }) => {
   );
 };
 
-// --- UPDATED BOARD COLUMN (With Droppable) ---
+// --- UPDATED BOARD COLUMN (Full Height Drop Zone) ---
 const BoardColumn = ({ column, tasks, onTaskClick, onDeleteTask }) => {
   return (
     <div className="flex-1 min-w-[300px] flex flex-col h-full rounded-2xl bg-white/50 backdrop-blur-sm border border-white shadow-sm">
-      <div className="flex items-center justify-between mb-4 p-4 border-b border-gray-100">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4 p-4 border-b border-gray-100 bg-white/50 rounded-t-2xl">
         <div className="flex items-center gap-2">
             <h3 className="text-gray-700 font-black text-sm uppercase tracking-wider">{column.title}</h3>
             <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${column.color.replace('text-', 'bg-').replace('50', '100')} ${column.color.split(' ')[1]}`}>{tasks.length}</span>
@@ -243,15 +244,19 @@ const BoardColumn = ({ column, tasks, onTaskClick, onDeleteTask }) => {
         <MoreHorizontal size={16} className="text-gray-300 hover:text-gray-600 cursor-pointer" />
       </div>
 
-      {/* DROPPABLE AREA */}
+      {/* DROPPABLE AREA - FORCE FULL HEIGHT */}
       <Droppable droppableId={column.id}>
         {(provided, snapshot) => (
             <div 
                 {...provided.droppableProps}
                 ref={provided.innerRef}
-                className={`flex-1 p-2 overflow-y-auto custom-scrollbar transition-colors rounded-b-2xl ${snapshot.isDraggingOver ? 'bg-indigo-50/50' : ''}`}
+                // 'flex-grow' and 'min-h-0' ensure it fills the space but allows scrolling
+                className={`flex-1 p-3 overflow-y-auto custom-scrollbar transition-colors rounded-b-2xl flex flex-col
+                    ${snapshot.isDraggingOver ? 'bg-indigo-50/80 ring-2 ring-inset ring-indigo-200' : ''}
+                `}
             >
-                <div className="flex flex-col gap-3 pb-2 min-h-[100px]">
+                {/* The list of tasks */}
+                <div className="flex flex-col gap-3 min-h-[150px] flex-grow">
                     {tasks.map((task, index) => (
                         <TaskCard 
                             key={task.id} 
@@ -270,7 +275,7 @@ const BoardColumn = ({ column, tasks, onTaskClick, onDeleteTask }) => {
   );
 };
 
-// --- UPDATED TASK CARD (Fixes Drag Position Issue) ---
+// --- UPDATED TASK CARD (Stable Version) ---
 const TaskCard = ({ task, index, onClick, onDelete }) => {
   const reqs = Array.isArray(task.requirements) ? task.requirements : [];
   const completedReqs = reqs.filter(r => r.isDone).length;
@@ -287,31 +292,30 @@ const TaskCard = ({ task, index, onClick, onDelete }) => {
   return (
     <Draggable draggableId={task.id} index={index}>
         {(provided, snapshot) => {
-            // --- 🟢 FIX START: MERGE STYLES CORRECTLY ---
-            const cardStyle = {
+            // SAFE STYLE: Merges library styles properly
+            const style = {
                 ...provided.draggableProps.style,
-                // 1. Disable CSS transitions while dragging to prevent "lag" or "flying away"
-                transition: snapshot.isDragging ? 'none' : 'all 0.2s ease',
-                // 2. Keep the rotation effect by merging it with the drag movement
-                transform: snapshot.isDragging 
-                    ? `${provided.draggableProps.style.transform} rotate(3deg) scale(1.05)` 
-                    : provided.draggableProps.style.transform,
-                // 3. Ensure it stays on top
-                zIndex: snapshot.isDragging ? 9999 : 'auto',
-                cursor: snapshot.isDragging ? 'grabbing' : 'pointer'
+                // Critical: Remove transition during drag so it doesn't "lag" behind mouse
+                transition: snapshot.isDragging ? 'none' : 'all 0.2s ease', 
+                cursor: snapshot.isDragging ? 'grabbing' : 'pointer',
+                // Z-index ensures it floats above everything else
+                zIndex: snapshot.isDragging ? 9999 : 'auto', 
+                // Slight opacity when dragging to see where you are dropping
+                opacity: snapshot.isDragging ? 0.9 : 1,
             };
-            // --- 🟢 FIX END ---
 
             return (
                 <div 
                     ref={provided.innerRef}
                     {...provided.draggableProps}
                     {...provided.dragHandleProps}
-                    style={cardStyle} // <--- Use our calculated style
+                    style={style}
                     onClick={() => onClick(task.id)} 
-                    // Remove 'transition-all' and 'rotate-2' from className, we handle them in style above
-                    className={`bg-white p-4 rounded-xl border hover:border-indigo-300 group relative
-                        ${snapshot.isDragging ? 'shadow-2xl ring-2 ring-indigo-500' : 'shadow-sm border-gray-100 hover:shadow-md'}
+                    className={`bg-white p-4 rounded-xl border group relative
+                        ${snapshot.isDragging 
+                            ? 'shadow-2xl border-indigo-400 ring-2 ring-indigo-200' 
+                            : 'shadow-sm border-gray-100 hover:shadow-md hover:border-indigo-200'
+                        }
                     `}
                 >
                     <div className="flex justify-between items-start mb-3">
@@ -322,12 +326,12 @@ const TaskCard = ({ task, index, onClick, onDelete }) => {
                     </div>
                     
                     {task.imageUrl && (
-                        <div className="mb-3 h-32 w-full overflow-hidden rounded-lg border border-gray-100">
+                        <div className="mb-3 h-32 w-full overflow-hidden rounded-lg border border-gray-100 pointer-events-none">
                             <img src={task.imageUrl} alt="Preview" className="h-full w-full object-cover" />
                         </div>
                     )}
                     
-                    <h4 className="text-gray-800 font-semibold text-sm mb-2 leading-relaxed line-clamp-2">{task.title}</h4>
+                    <h4 className="text-gray-800 font-semibold text-sm mb-2 leading-relaxed line-clamp-2 select-none">{task.title}</h4>
                     
                     {task.location && (
                         <div className="flex items-center gap-1.5 text-xs text-indigo-500 mb-3 bg-indigo-50 w-fit px-2 py-1 rounded">
