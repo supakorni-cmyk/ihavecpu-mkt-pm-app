@@ -80,14 +80,14 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
     return grouped;
   }, [filteredTasks]);
 
-  // --- UPDATED DRAG END HANDLER ---
+  // --- NEW: DRAG END HANDLER ---
   const onDragEnd = (result) => {
     const { destination, source, draggableId } = result;
 
-    // 1. Dropped outside?
+    // 1. Dropped outside the list?
     if (!destination) return;
 
-    // 2. Dropped in same place?
+    // 2. Dropped in the same place?
     if (
       destination.droppableId === source.droppableId &&
       destination.index === source.index
@@ -95,21 +95,9 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
       return;
     }
 
-    // 3. Convert Column ID to Status Name (Optional but Recommended)
-    // If your DB expects "In Progress" but the column ID is "in-progress"
-    const statusMap = {
-      'todo': 'To Do',
-      'in-progress': 'In Progress',
-      'review': 'Review',
-      'done': 'Completed', // Check if your column ID is 'done' or 'completed'
-      'completed': 'Completed'
-    };
-
-    // Use the map, or fallback to the column ID itself
-    const newStatus = statusMap[destination.droppableId] || destination.droppableId;
-
-    // 4. Move the task
-    onMoveTask(draggableId, newStatus);
+    // 3. Move the task
+    // Note: 'destination.droppableId' corresponds to our column IDs ('todo', 'in-progress', etc.)
+    onMoveTask(draggableId, destination.droppableId);
   };
 
   // Handler to open task for editing
@@ -243,12 +231,11 @@ const ExportEventModal = ({ tasks, onClose }) => {
   );
 };
 
-// --- UPDATED BOARD COLUMN (Fixed Drop Zone Structure) ---
+// --- UPDATED BOARD COLUMN (With Droppable) ---
 const BoardColumn = ({ column, tasks, onTaskClick, onDeleteTask }) => {
   return (
     <div className="flex-1 min-w-[300px] flex flex-col h-full rounded-2xl bg-white/50 backdrop-blur-sm border border-white shadow-sm">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4 p-4 border-b border-gray-100 bg-white/50 rounded-t-2xl">
+      <div className="flex items-center justify-between mb-4 p-4 border-b border-gray-100">
         <div className="flex items-center gap-2">
             <h3 className="text-gray-700 font-black text-sm uppercase tracking-wider">{column.title}</h3>
             <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${column.color.replace('text-', 'bg-').replace('50', '100')} ${column.color.split(' ')[1]}`}>{tasks.length}</span>
@@ -262,26 +249,20 @@ const BoardColumn = ({ column, tasks, onTaskClick, onDeleteTask }) => {
             <div 
                 {...provided.droppableProps}
                 ref={provided.innerRef}
-                // FIX: Combined all styles into this ONE div. No inner wrapper.
-                className={`
-                    flex-1 p-3 overflow-y-auto custom-scrollbar transition-colors rounded-b-2xl flex flex-col gap-3
-                    min-h-[150px] 
-                    ${snapshot.isDraggingOver ? 'bg-indigo-50/80 ring-2 ring-inset ring-indigo-200' : ''}
-                `}
+                className={`flex-1 p-2 overflow-y-auto custom-scrollbar transition-colors rounded-b-2xl ${snapshot.isDraggingOver ? 'bg-indigo-50/50' : ''}`}
             >
-                {/* Tasks are now DIRECT children of the ref container */}
-                {tasks.map((task, index) => (
-                    <TaskCard 
-                        key={task.id} 
-                        task={task} 
-                        index={index} 
-                        onClick={onTaskClick} 
-                        onDelete={onDeleteTask} 
-                    />
-                ))}
-                
-                {/* Placeholder must be a sibling to the tasks */}
-                {provided.placeholder}
+                <div className="flex flex-col gap-3 pb-2 min-h-[100px]">
+                    {tasks.map((task, index) => (
+                        <TaskCard 
+                            key={task.id} 
+                            task={task} 
+                            index={index} 
+                            onClick={onTaskClick} 
+                            onDelete={onDeleteTask} 
+                        />
+                    ))}
+                    {provided.placeholder}
+                </div>
             </div>
         )}
       </Droppable>
@@ -289,7 +270,7 @@ const BoardColumn = ({ column, tasks, onTaskClick, onDeleteTask }) => {
   );
 };
 
-// --- UPDATED TASK CARD (Stable Version) ---
+// --- UPDATED TASK CARD (With Draggable) ---
 const TaskCard = ({ task, index, onClick, onDelete }) => {
   const reqs = Array.isArray(task.requirements) ? task.requirements : [];
   const completedReqs = reqs.filter(r => r.isDone).length;
@@ -305,75 +286,59 @@ const TaskCard = ({ task, index, onClick, onDelete }) => {
 
   return (
     <Draggable draggableId={task.id} index={index}>
-        {(provided, snapshot) => {
-            // SAFE STYLE: Merges library styles properly
-            const style = {
-                ...provided.draggableProps.style,
-                // Critical: Remove transition during drag so it doesn't "lag" behind mouse
-                transition: snapshot.isDragging ? 'none' : 'all 0.2s ease', 
-                cursor: snapshot.isDragging ? 'grabbing' : 'pointer',
-                // Z-index ensures it floats above everything else
-                zIndex: snapshot.isDragging ? 9999 : 'auto', 
-                // Slight opacity when dragging to see where you are dropping
-                opacity: snapshot.isDragging ? 0.9 : 1,
-            };
-
-            return (
-                <div 
-                    ref={provided.innerRef}
-                    {...provided.draggableProps}
-                    {...provided.dragHandleProps}
-                    style={style}
-                    onClick={() => onClick(task.id)} 
-                    className={`bg-white p-4 rounded-xl border group relative
-                        ${snapshot.isDragging 
-                            ? 'shadow-2xl border-indigo-400 ring-2 ring-indigo-200' 
-                            : 'shadow-sm border-gray-100 hover:shadow-md hover:border-indigo-200'
-                        }
-                    `}
-                >
-                    <div className="flex justify-between items-start mb-3">
-                        <div className="flex flex-wrap gap-1">{renderTags()}</div>
-                        <button onClick={(e) => { e.stopPropagation(); onDelete(task.id); }} className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1">
-                            <Trash2 size={14} />
-                        </button>
-                    </div>
-                    
-                    {task.imageUrl && (
-                        <div className="mb-3 h-32 w-full overflow-hidden rounded-lg border border-gray-100 pointer-events-none">
-                            <img src={task.imageUrl} alt="Preview" className="h-full w-full object-cover" />
-                        </div>
-                    )}
-                    
-                    <h4 className="text-gray-800 font-semibold text-sm mb-2 leading-relaxed line-clamp-2 select-none">{task.title}</h4>
-                    
-                    {task.location && (
-                        <div className="flex items-center gap-1.5 text-xs text-indigo-500 mb-3 bg-indigo-50 w-fit px-2 py-1 rounded">
-                            <MapPin size={12}/> <span className="truncate max-w-[200px]">{task.location}</span>
-                        </div>
-                    )}
-                    
-                    {reqs.length > 0 && (
-                        <div className="mb-3">
-                            <div className="flex items-center gap-1.5 text-xs text-gray-500 font-medium mb-1">
-                                <CheckSquare size={12} className="text-green-600" />
-                                <span>Requirements ({completedReqs}/{reqs.length})</span>
-                            </div>
-                            <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
-                                <div className="bg-green-500 h-full transition-all duration-300" style={{ width: `${progress}%` }}></div>
-                            </div>
-                        </div>
-                    )}
-                    
-                    <div className="flex items-center justify-between pt-3 border-t border-gray-50">
-                        <div className="flex items-center gap-1.5 text-gray-400 text-xs font-medium">
-                            <Clock size={12} />
-                            <span>{displayDate}</span>
-                        </div>
-                    </div>
+        {(provided, snapshot) => (
+            <div 
+                ref={provided.innerRef}
+                {...provided.draggableProps}
+                {...provided.dragHandleProps}
+                style={{ ...provided.draggableProps.style }}
+                onClick={() => onClick(task.id)} 
+                className={`bg-white p-4 rounded-xl border hover:border-indigo-300 transition-all group relative cursor-pointer
+                    ${snapshot.isDragging ? 'shadow-2xl rotate-2 ring-2 ring-indigo-500 z-50' : 'shadow-sm border-gray-100 hover:shadow-md'}
+                `}
+            >
+                <div className="flex justify-between items-start mb-3">
+                    <div className="flex flex-wrap gap-1">{renderTags()}</div>
+                    <button onClick={(e) => { e.stopPropagation(); onDelete(task.id); }} className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1">
+                        <Trash2 size={14} />
+                    </button>
                 </div>
-            );
-        }}
+                
+                {task.imageUrl && (
+                    <div className="mb-3 h-32 w-full overflow-hidden rounded-lg border border-gray-100">
+                        <img src={task.imageUrl} alt="Preview" className="h-full w-full object-cover" />
+                    </div>
+                )}
+                
+                <h4 className="text-gray-800 font-semibold text-sm mb-2 leading-relaxed line-clamp-2">{task.title}</h4>
+                
+                {task.location && (
+                    <div className="flex items-center gap-1.5 text-xs text-indigo-500 mb-3 bg-indigo-50 w-fit px-2 py-1 rounded">
+                        <MapPin size={12}/> <span className="truncate max-w-[200px]">{task.location}</span>
+                    </div>
+                )}
+                
+                {reqs.length > 0 && (
+                    <div className="mb-3">
+                        <div className="flex items-center gap-1.5 text-xs text-gray-500 font-medium mb-1">
+                            <CheckSquare size={12} className="text-green-600" />
+                            <span>Requirements ({completedReqs}/{reqs.length})</span>
+                        </div>
+                        <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
+                            <div className="bg-green-500 h-full transition-all duration-300" style={{ width: `${progress}%` }}></div>
+                        </div>
+                    </div>
+                )}
+                
+                <div className="flex items-center justify-between pt-3 border-t border-gray-50">
+                    <div className="flex items-center gap-1.5 text-gray-400 text-xs font-medium">
+                        <Clock size={12} />
+                        <span>{displayDate}</span>
+                    </div>
+                    {/* (Optional) Avatar could go here */}
+                </div>
+            </div>
+        )}
     </Draggable>
   );
 };
