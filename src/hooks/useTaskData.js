@@ -22,8 +22,11 @@ export const useTaskData = (currentUser) => {
   const [photos, setPhotos] = useState([]);
   const [notifications, setNotifications] = useState([]); 
   
-  // --- MEMORY LOCK (Prevents local duplicates) ---
+  // --- MEMORY LOCK (Prevents duplicates) ---
   const processedAlerts = useRef(new Set()); 
+
+  // --- USERS LISTENER ---
+  const [allUsers, setAllUsers] = useState([]);
 
   // --- 1. DATA CLEANER ---
   const cleanData = (data) => {
@@ -68,49 +71,63 @@ export const useTaskData = (currentUser) => {
     } catch (error) { console.error("❌ Email Error:", error); }
   };
 
-  // --- 3. LINE PUSH NOTIFICATION (GROUP) ---
+  // --- 3. LINE PUSH NOTIFICATION (MULTI-GROUP) ---
   const sendLinePush = async (text) => {
-    const CHANNEL_ACCESS_TOKEN = "asI8bw3wLZAIlgAQbOvzD/OwRuontfeiEwsnV14iGyBCfuG95dlQaQHh4Q23VvUSObT9qqqu9RkJ6w0f0Z3bEtG9n2Ulg0vnnibU17BPM91hpcAuSfRerf/vtikl00eTh+RAyFQhNA25i6jdGf+8OAdB04t89/1O/w1cDnyilFU=";
-    const GROUP_ID = "Cfb3a99b16a4599c8d386b0f6edf1100f";
-    
     const PROXY_URL = "https://corsproxy.io/?";
     const TARGET_URL = "https://api.line.me/v2/bot/message/push";
 
-    if (!GROUP_ID || !CHANNEL_ACCESS_TOKEN) return;
-
-    try {
-        const payload = {
-            to: GROUP_ID,
-            messages: [{ type: "text", text: text }]
-        };
-
-        const response = await fetch(PROXY_URL + encodeURIComponent(TARGET_URL), {
-            method: "POST",
-            headers: { 
-                "Authorization": `Bearer ${CHANNEL_ACCESS_TOKEN}`,
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(payload)
-        });
-        
-        if (response.ok) {
-            console.log(`✅ LINE Group Message Sent`);
+    // --- CONFIGURATION FOR MULTIPLE BOTS ---
+    const TARGETS = [
+        {
+            name: "Marketing Group (Bot 1)",
+            token: "asI8bw3wLZAIlgAQbOvzD/OwRuontfeiEwsnV14iGyBCfuG95dlQaQHh4Q23VvUSObT9qqqu9RkJ6w0f0Z3bEtG9n2Ulg0vnnibU17BPM91hpcAuSfRerf/vtikl00eTh+RAyFQhNA25i6jdGf+8OAdB04t89/1O/w1cDnyilFU=",
+            groupId: "Cfb3a99b16a4599c8d386b0f6edf1100f"
+        },
+        {
+            name: "Second Group (Bot 2)", // <--- 🟢 YOUR NEW BOT ADDED HERE
+            token: "ts2+QUSgyRbvyZi7bM1f8UmWcvl2AwHiKq9NgP5vjEM2uu/e+qGYnceakgLPh8G7bxFRknLvGxaNLfriMWGyAIOMdOwPfugJqrudoz0VW943Lv6uG9r7+eCeRppPq87QVjxHogWf96jfvev/ZoBlXAdB04t89/1O/w1cDnyilFU=",
+            groupId: "Ca8e1bef2262db9fe6ffcc90f940aab6b" 
         }
-    } catch (error) {
-        console.error("❌ LINE Network Error:", error);
-    }
+    ];
+
+    // Loop through targets and send
+    TARGETS.forEach(async (target) => {
+        try {
+            const payload = {
+                to: target.groupId,
+                messages: [{ type: "text", text: text }]
+            };
+
+            const response = await fetch(PROXY_URL + encodeURIComponent(TARGET_URL), {
+                method: "POST",
+                headers: { 
+                    "Authorization": `Bearer ${target.token}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(payload)
+            });
+            
+            if (response.ok) {
+                console.log(`✅ LINE Sent to ${target.name}`);
+            } else {
+                console.error(`❌ Failed to send to ${target.name}`, await response.json());
+            }
+        } catch (error) {
+            console.error(`❌ Network Error (${target.name}):`, error);
+        }
+    });
   };
 
   // --- 4. ALERT LOGIC ---
   const triggerAlert = async (task, prefix, userEmail, updateFlag) => {
-    // A. Check Memory Lock (Prevents rapid-fire duplicates in same browser)
+    // A. Check Memory Lock
     const alertId = `${task.id}-${Object.keys(updateFlag)[0]}`; 
     if (processedAlerts.current.has(alertId)) return;
     processedAlerts.current.add(alertId);
 
     console.log(`🔔 Alerting: ${task.title}`);
 
-    // B. Send LINE Push (Priority)
+    // B. Send LINE Push (To Both Groups)
     const lineMsg = `${prefix} 🚨\n\n📌 Task: ${task.title}\n📅 Due: ${new Date(task.deadline).toLocaleDateString('en-GB')}`;
     await sendLinePush(lineMsg);
 
@@ -132,52 +149,44 @@ export const useTaskData = (currentUser) => {
         type: 'alert'
     });
 
-    // E. Update Database (Prevents future duplicates)
+    // E. Update Database
     await updateDoc(doc(db, "tasks", task.id), updateFlag);
   };
 
   const checkDeadlines = (taskList, user) => {
-    if (!user) return; // Safety check
+    if (!user) return;
     
     const now = new Date();
     
     taskList.forEach(async (task) => {
         if (task.status === 'completed' || !task.deadline) return;
 
-        // --- NEW: RESPONSIBILITY CHECK ---
-        // This prevents 5 people from sending the same alert at the same time.
-        
+        // --- RESPONSIBILITY CHECK ---
         const assigneeName = task.assignee?.name;
-        const currentUserName = user.name?.split(' ')[0]; // e.g. "Supakorn"
-        const ADMIN_EMAIL = "supakorn.i@ihavecpu.com"; // Only this email checks unassigned tasks
+        const currentUserName = user.name?.split(' ')[0]; 
+        const ADMIN_EMAIL = "supakorn.i@ihavecpu.com"; 
 
         let isResponsible = false;
 
         if (assigneeName && assigneeName !== "Unassigned") {
-            // 1. If task is assigned: Only the Assignee triggers the alert
             if (currentUserName && assigneeName.includes(currentUserName)) {
                 isResponsible = true;
             }
         } else {
-            // 2. If task is Unassigned: Only the ADMIN triggers the alert
             if (user.email === ADMIN_EMAIL) {
                 isResponsible = true;
             }
         }
 
-        // If I am not responsible for this task, I stop here.
         if (!isResponsible) return;
 
-        // --- DEADLINE MATH ---
         const deadline = new Date(task.deadline);
         const timeDiff = deadline - now;
         const daysLeft = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
 
-        // 7 Days Alert
         if (daysLeft <= 7 && daysLeft > 2 && !task.notified7Days) {
             await triggerAlert(task, "⚠️ Reminder: 7 Days Left", user.email, { notified7Days: true });
         }
-        // 2 Days Alert
         if (daysLeft <= 2 && daysLeft >= 0 && !task.notified2Days) {
             await triggerAlert(task, "🔥 URGENT: 2 Days Left", user.email, { notified2Days: true });
         }
@@ -198,9 +207,12 @@ export const useTaskData = (currentUser) => {
     const unsubTasks = onSnapshot(query(collection(db, "tasks"), orderBy("createdAt", "desc")), (snapshot) => {
         const loadedTasks = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
         setTasks(loadedTasks);
-        // Only run checkDeadlines if we have a valid user
         if (currentUser?.email) checkDeadlines(loadedTasks, currentUser);
     });
+
+    const unsubUsers = onSnapshot(collection(db, "users"), (snapshot) => {
+        setAllUsers(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })));
+    }, (error) => console.log("Users not found"));
 
     const unsubBudget = safeSnapshot("transactions", setTransactions);
     const unsubLeaves = safeSnapshot("leaves", setLeaves);
@@ -212,12 +224,13 @@ export const useTaskData = (currentUser) => {
 
     return () => {
       unsubTasks();
+      unsubUsers();
       unsubBudget();
       unsubLeaves();
       unsubOT();
       unsubNotifs();
     };
-  }, [currentUser]); // Dependency on currentUser ensures logic updates when user loads
+  }, [currentUser]);
 
   // --- 6. ACTIONS ---
   const updateTask = async (id, updates) => {
@@ -241,7 +254,6 @@ export const useTaskData = (currentUser) => {
 
         await addDoc(collection(db, "tasks"), cleanedTask);
         
-        // Notify
         await sendEmailNotification(`New Task: ${task.title}`, { "Title": task.title });
         await sendLinePush(`🆕 New Task Created:\n📌 ${task.title}\n🏷️ [${task.tag}]\n📅 Due: ${task.deadline || 'TBD'}`);
 
@@ -259,7 +271,6 @@ export const useTaskData = (currentUser) => {
     } catch (error) { console.error("Error moving task:", error); }
   };
 
-  // Boilerplate actions
   const deleteTask = async (id) => { if(confirm("Delete task?")) await deleteDoc(doc(db, "tasks", id)); };
   const markNotificationRead = async (id) => { try { await updateDoc(doc(db, "notifications", id), { isRead: true }); } catch(e) {} };
   const clearAllNotifications = async () => { notifications.forEach(async (n) => { try { await deleteDoc(doc(db, "notifications", n.id)); } catch(e) {} }); };
@@ -283,6 +294,7 @@ export const useTaskData = (currentUser) => {
     otRecords, addOTRecord, deleteOTRecord, updateOTStatus,
     albums, addAlbum, deleteAlbum,
     photos, addPhoto, deletePhoto,
-    notifications, markNotificationRead, clearAllNotifications
+    notifications, markNotificationRead, clearAllNotifications,
+    allUsers
   };
 };
