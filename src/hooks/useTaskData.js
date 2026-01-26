@@ -71,27 +71,37 @@ export const useTaskData = (currentUser) => {
     } catch (error) { console.error("❌ Email Error:", error); }
   };
 
-  // --- 3. LINE PUSH NOTIFICATION (MULTI-GROUP) ---
-  const sendLinePush = async (text) => {
+  // --- 3. LINE PUSH NOTIFICATION (SMART FILTERING) ---
+  const sendLinePush = async (text, taskTag) => {
     const PROXY_URL = "https://corsproxy.io/?";
     const TARGET_URL = "https://api.line.me/v2/bot/message/push";
 
-    // --- CONFIGURATION FOR MULTIPLE BOTS ---
+    // --- CONFIGURATION ---
     const TARGETS = [
         {
-            name: "Marketing Group (Bot 1)",
+            name: "Marketing Group (Main)",
             token: "asI8bw3wLZAIlgAQbOvzD/OwRuontfeiEwsnV14iGyBCfuG95dlQaQHh4Q23VvUSObT9qqqu9RkJ6w0f0Z3bEtG9n2Ulg0vnnibU17BPM91hpcAuSfRerf/vtikl00eTh+RAyFQhNA25i6jdGf+8OAdB04t89/1O/w1cDnyilFU=",
-            groupId: "Cfb3a99b16a4599c8d386b0f6edf1100f"
+            groupId: "Cfb3a99b16a4599c8d386b0f6edf1100f",
+            allowedTags: "ALL" // <--- Receives EVERYTHING
         },
         {
-            name: "Second Group (Bot 2)", // <--- 🟢 YOUR NEW BOT ADDED HERE
+            name: "Second Group (Events Only)",
             token: "ts2+QUSgyRbvyZi7bM1f8UmWcvl2AwHiKq9NgP5vjEM2uu/e+qGYnceakgLPh8G7bxFRknLvGxaNLfriMWGyAIOMdOwPfugJqrudoz0VW943Lv6uG9r7+eCeRppPq87QVjxHogWf96jfvev/ZoBlXAdB04t89/1O/w1cDnyilFU=",
-            groupId: "Ca8e1bef2262db9fe6ffcc90f940aab6b" 
+            groupId: "Ca8e1bef2262db9fe6ffcc90f940aab6b",
+            allowedTags: ["Event", "Guest Speaker"] // <--- 🟢 FILTERS: Only receives these tags
         }
     ];
 
-    // Loop through targets and send
+    // Loop through targets
     TARGETS.forEach(async (target) => {
+        // --- 🟢 FILTER LOGIC ---
+        // If not "ALL", check if the current task tag is in the allowed list
+        if (target.allowedTags !== "ALL") {
+            if (!taskTag || !target.allowedTags.includes(taskTag)) {
+                return; // Skip this group/bot
+            }
+        }
+
         try {
             const payload = {
                 to: target.groupId,
@@ -127,9 +137,9 @@ export const useTaskData = (currentUser) => {
 
     console.log(`🔔 Alerting: ${task.title}`);
 
-    // B. Send LINE Push (To Both Groups)
-    const lineMsg = `${prefix} 🚨\n\n📌 Task: ${task.title}\n📅 Due: ${new Date(task.deadline).toLocaleDateString('en-GB')}`;
-    await sendLinePush(lineMsg);
+    // B. Send LINE Push (Pass Tag for Filtering)
+    const lineMsg = `${prefix} 🚨\n\n📌 Task: ${task.title}\n🏷️ Tag: ${task.tag}\n📅 Due: ${new Date(task.deadline).toLocaleDateString('en-GB')}`;
+    await sendLinePush(lineMsg, task.tag); // <--- Passed Tag
 
     // C. Send Email
     await sendEmailNotification(`${prefix}: ${task.title}`, {
@@ -255,7 +265,8 @@ export const useTaskData = (currentUser) => {
         await addDoc(collection(db, "tasks"), cleanedTask);
         
         await sendEmailNotification(`New Task: ${task.title}`, { "Title": task.title });
-        await sendLinePush(`🆕 New Task Created:\n📌 ${task.title}\n🏷️ [${task.tag}]\n📅 Due: ${task.deadline || 'TBD'}`);
+        // Pass task.tag to filter
+        await sendLinePush(`🆕 New Task Created:\n📌 ${task.title}\n🏷️ [${task.tag}]\n📅 Due: ${task.deadline || 'TBD'}`, task.tag);
 
     } catch (error) { console.error("Error adding task:", error); }
   };
@@ -266,7 +277,8 @@ export const useTaskData = (currentUser) => {
         const task = tasks.find(t => t.id === taskId);
         
         await sendEmailNotification("Task Status Updated", { "Task": task?.title, "New Status": newStatus });
-        await sendLinePush(`🔄 Status Update:\n📌 ${task?.title}\n➡️ Now: ${newStatus}`);
+        // Pass task.tag to filter
+        await sendLinePush(`🔄 Status Update:\n📌 ${task?.title}\n🏷️ [${task?.tag}]\n➡️ Now: ${newStatus}`, task?.tag);
 
     } catch (error) { console.error("Error moving task:", error); }
   };
