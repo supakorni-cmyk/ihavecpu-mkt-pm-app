@@ -80,14 +80,14 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
     return grouped;
   }, [filteredTasks]);
 
-  // --- NEW: DRAG END HANDLER ---
+  // --- UPDATED DRAG END HANDLER ---
   const onDragEnd = (result) => {
     const { destination, source, draggableId } = result;
 
-    // 1. Dropped outside the list?
+    // 1. Dropped outside?
     if (!destination) return;
 
-    // 2. Dropped in the same place?
+    // 2. Dropped in same place?
     if (
       destination.droppableId === source.droppableId &&
       destination.index === source.index
@@ -95,9 +95,21 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
       return;
     }
 
-    // 3. Move the task
-    // Note: 'destination.droppableId' corresponds to our column IDs ('todo', 'in-progress', etc.)
-    onMoveTask(draggableId, destination.droppableId);
+    // 3. Convert Column ID to Status Name (Optional but Recommended)
+    // If your DB expects "In Progress" but the column ID is "in-progress"
+    const statusMap = {
+      'todo': 'To Do',
+      'in-progress': 'In Progress',
+      'review': 'Review',
+      'done': 'Completed', // Check if your column ID is 'done' or 'completed'
+      'completed': 'Completed'
+    };
+
+    // Use the map, or fallback to the column ID itself
+    const newStatus = statusMap[destination.droppableId] || destination.droppableId;
+
+    // 4. Move the task
+    onMoveTask(draggableId, newStatus);
   };
 
   // Handler to open task for editing
