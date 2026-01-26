@@ -1,5 +1,5 @@
 // src/hooks/useTaskData.js
-import { useState, useEffect, useRef } from 'react'; // Added useRef
+import { useState, useEffect, useRef } from 'react';
 import { db } from '../firebase'; 
 import { 
   collection, 
@@ -22,7 +22,7 @@ export const useTaskData = (currentUser) => {
   const [photos, setPhotos] = useState([]);
   const [notifications, setNotifications] = useState([]); 
   
-  // --- FIX: MEMORY TO PREVENT DUPLICATES ---
+  // --- MEMORY LOCK (Prevents local duplicates) ---
   const processedAlerts = useRef(new Set()); 
 
   // --- 1. DATA CLEANER ---
@@ -101,26 +101,20 @@ export const useTaskData = (currentUser) => {
     }
   };
 
-  // --- 4. ALERT LOGIC (UPDATED WITH DUPLICATE CHECK) ---
+  // --- 4. ALERT LOGIC ---
   const triggerAlert = async (task, prefix, userEmail, updateFlag) => {
-    // A. Check if already processing this specific alert for this task
-    const alertId = `${task.id}-${Object.keys(updateFlag)[0]}`; // e.g., "task123-notified7Days"
-    
-    if (processedAlerts.current.has(alertId)) {
-        console.log(`🚫 Duplicate alert blocked: ${alertId}`);
-        return; 
-    }
-    
-    // B. Mark as processing immediately (Synchronous)
+    // A. Check Memory Lock (Prevents rapid-fire duplicates in same browser)
+    const alertId = `${task.id}-${Object.keys(updateFlag)[0]}`; 
+    if (processedAlerts.current.has(alertId)) return;
     processedAlerts.current.add(alertId);
+
     console.log(`🔔 Alerting: ${task.title}`);
 
-    // C. Send LINE Push (Group)
-    // We send LINE first as it's the priority
+    // B. Send LINE Push (Priority)
     const lineMsg = `${prefix} 🚨\n\n📌 Task: ${task.title}\n📅 Due: ${new Date(task.deadline).toLocaleDateString('en-GB')}`;
     await sendLinePush(lineMsg);
 
-    // D. Send Email
+    // C. Send Email
     await sendEmailNotification(`${prefix}: ${task.title}`, {
         "Target User": userEmail,
         "Task Title": task.title,
@@ -128,7 +122,7 @@ export const useTaskData = (currentUser) => {
         "Status": task.status
     });
 
-    // E. Create In-App Notification
+    // D. In-App Notification
     await addDoc(collection(db, "notifications"), {
         title: `${prefix}: ${task.title}`,
         taskId: task.id,
@@ -138,18 +132,43 @@ export const useTaskData = (currentUser) => {
         type: 'alert'
     });
 
-    // F. Update Task (This makes it permanent in DB)
+    // E. Update Database (Prevents future duplicates)
     await updateDoc(doc(db, "tasks", task.id), updateFlag);
   };
 
   const checkDeadlines = (taskList, user) => {
+    if (!user) return; // Safety check
+    
     const now = new Date();
+    
     taskList.forEach(async (task) => {
         if (task.status === 'completed' || !task.deadline) return;
-        // Logic: Only the assigned user (or system admin) checks to avoid everyone triggering it at once
-        // But since we use processedAlerts ref, it handles local duplicates well.
-        if (task.assignee?.name && user.name && !task.assignee.name.includes(user.name.split(' ')[0])) return;
 
+        // --- NEW: RESPONSIBILITY CHECK ---
+        // This prevents 5 people from sending the same alert at the same time.
+        
+        const assigneeName = task.assignee?.name;
+        const currentUserName = user.name?.split(' ')[0]; // e.g. "Supakorn"
+        const ADMIN_EMAIL = "supakorn.i@ihavecpu.com"; // Only this email checks unassigned tasks
+
+        let isResponsible = false;
+
+        if (assigneeName && assigneeName !== "Unassigned") {
+            // 1. If task is assigned: Only the Assignee triggers the alert
+            if (currentUserName && assigneeName.includes(currentUserName)) {
+                isResponsible = true;
+            }
+        } else {
+            // 2. If task is Unassigned: Only the ADMIN triggers the alert
+            if (user.email === ADMIN_EMAIL) {
+                isResponsible = true;
+            }
+        }
+
+        // If I am not responsible for this task, I stop here.
+        if (!isResponsible) return;
+
+        // --- DEADLINE MATH ---
         const deadline = new Date(task.deadline);
         const timeDiff = deadline - now;
         const daysLeft = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
@@ -179,6 +198,7 @@ export const useTaskData = (currentUser) => {
     const unsubTasks = onSnapshot(query(collection(db, "tasks"), orderBy("createdAt", "desc")), (snapshot) => {
         const loadedTasks = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
         setTasks(loadedTasks);
+        // Only run checkDeadlines if we have a valid user
         if (currentUser?.email) checkDeadlines(loadedTasks, currentUser);
     });
 
@@ -197,16 +217,13 @@ export const useTaskData = (currentUser) => {
       unsubOT();
       unsubNotifs();
     };
-  }, [currentUser]);
+  }, [currentUser]); // Dependency on currentUser ensures logic updates when user loads
 
   // --- 6. ACTIONS ---
   const updateTask = async (id, updates) => {
     try {
         const cleanedUpdates = cleanData(updates);
-        const size = JSON.stringify(cleanedUpdates).length;
-        if (size > 800000) throw new Error("Data size too large!");
         await updateDoc(doc(db, "tasks", id), cleanedUpdates);
-        console.log("Task Updated Successfully");
     } catch (error) {
         console.error("FAILED to update task:", error);
         alert(`Failed to save: ${error.message}`);
@@ -224,6 +241,7 @@ export const useTaskData = (currentUser) => {
 
         await addDoc(collection(db, "tasks"), cleanedTask);
         
+        // Notify
         await sendEmailNotification(`New Task: ${task.title}`, { "Title": task.title });
         await sendLinePush(`🆕 New Task Created:\n📌 ${task.title}\n🏷️ [${task.tag}]\n📅 Due: ${task.deadline || 'TBD'}`);
 
@@ -241,6 +259,7 @@ export const useTaskData = (currentUser) => {
     } catch (error) { console.error("Error moving task:", error); }
   };
 
+  // Boilerplate actions
   const deleteTask = async (id) => { if(confirm("Delete task?")) await deleteDoc(doc(db, "tasks", id)); };
   const markNotificationRead = async (id) => { try { await updateDoc(doc(db, "notifications", id), { isRead: true }); } catch(e) {} };
   const clearAllNotifications = async () => { notifications.forEach(async (n) => { try { await deleteDoc(doc(db, "notifications", n.id)); } catch(e) {} }); };

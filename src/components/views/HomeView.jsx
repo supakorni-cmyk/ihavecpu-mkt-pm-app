@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { 
   Heart, Calendar, CheckCircle2, Clock, 
-  ArrowRight, User, Briefcase, Bell 
+  ArrowRight, User, Briefcase, Bell, Users 
 } from 'lucide-react';
 import { formatDate } from '../../utils/constants';
 
@@ -46,11 +46,12 @@ const INITIAL_TEAM = [
   },
 ];
 
-const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead, clearAllNotifications }) => {
+// Added 'users' prop to receive the list from useTaskData
+const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead, clearAllNotifications, users = [] }) => {
   const [team] = useState(INITIAL_TEAM);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
 
-  // 1. Stats
+  // 1. Stats Logic
   const pendingTasks = tasks.filter(t => t.status !== 'completed').length;
   const completedTasks = tasks.filter(t => t.status === 'completed').length;
 
@@ -67,12 +68,22 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
       return dateA - dateB;
   });
 
-  // 3. User Logic
-  const displayUser = team.find(member => member.email === currentUser?.email) || team[0];
-  const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+  // 3. User Identification Logic (Who is logged in?)
+  const coreMember = team.find(member => member.email === currentUser?.email);
+  // Use core avatar if available, otherwise use Google photo, otherwise default
+  const displayAvatar = coreMember?.avatar || currentUser?.photoURL || 'https://ui-avatars.com/api/?background=random&color=fff&name=' + (currentUser?.email || 'User');
+  const displayName = coreMember?.name || currentUser?.displayName || currentUser?.email?.split('@')[0] || 'Guest';
 
-  // 4. Notifications Logic
+  // 4. Group Separation Logic
+  const coreEmails = team.map(m => m.email.toLowerCase());
+  // Filter users who are NOT in the INITIAL_TEAM
+  const cutePeople = users.filter(u => 
+    u.email && !coreEmails.includes(u.email.toLowerCase())
+  );
+
+  // 5. Notifications Logic
   const unreadCount = notifications.filter(n => !n.isRead).length;
+  const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
 
   return (
     <div className="flex flex-col h-full overflow-y-auto bg-gray-50 p-8 font-sans relative">
@@ -82,15 +93,15 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
         <div className="flex items-center gap-5">
             <div className="relative">
                 <img 
-                    src={displayUser.avatar} 
+                    src={displayAvatar} 
                     alt="Profile" 
-                    className="w-16 h-16 rounded-full border-4 border-white shadow-md object-cover"
+                    className="w-16 h-16 rounded-full border-4 border-white shadow-md object-cover bg-white"
                 />
                 <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
             </div>
             <div>
                 <h1 className="text-3xl font-black text-gray-800 flex items-center gap-2">
-                Welcome Back, {displayUser.name.split(' ')[0]}! <span className="text-2xl animate-pulse">👋</span>
+                Welcome Back, {displayName.split(' ')[0]}! <span className="text-2xl animate-pulse">👋</span>
                 </h1>
                 <p className="text-gray-500 mt-1 font-medium">Wish you have a good {today}</p>
             </div>
@@ -147,10 +158,10 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
         </div>
       </div>
 
-      {/* --- TEAM SECTION --- */}
-      <div className="mb-12">
+      {/* --- SECTION 1: THE TEAM (Fixed List) --- */}
+      <div className="mb-8">
         <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-            <User className="text-blue-600" size={20}/> Team Members
+            <User className="text-blue-600" size={20}/> THE TEAM
         </h3>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
             {team.map(member => (
@@ -169,6 +180,39 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
             ))}
         </div>
       </div>
+
+      {/* --- SECTION 2: คนน่ารัก (Other Users) --- */}
+      {cutePeople.length > 0 && (
+          <div className="mb-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <Heart className="text-pink-500 fill-pink-500 animate-pulse" size={20}/> คนน่ารัก ({cutePeople.length})
+            </h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
+                {cutePeople.map((user, idx) => (
+                    <div key={user.id || idx} className={`bg-white p-6 rounded-2xl shadow-sm border ${user.email === currentUser?.email ? 'border-pink-500 ring-2 ring-pink-100' : 'border-pink-100'} flex flex-col items-center justify-center text-center hover:border-pink-300 hover:shadow-md transition group`}>
+                        <div className="w-20 h-20 rounded-full bg-pink-50 flex items-center justify-center mb-4 overflow-hidden border-2 border-white shadow-sm relative">
+                            {user.photoURL || user.avatar ? (
+                                <img 
+                                    src={user.photoURL || user.avatar} 
+                                    alt={user.name} 
+                                    className="w-full h-full object-cover transition transform group-hover:scale-110 duration-500" 
+                                />
+                            ) : (
+                                <span className="text-2xl font-bold text-pink-400">
+                                    {(user.name || user.email || '?').charAt(0).toUpperCase()}
+                                </span>
+                            )}
+                        </div>
+                        <h4 className="font-bold text-gray-800">{user.name || user.email?.split('@')[0]}</h4>
+                        <span className="text-xs text-pink-500 font-medium bg-pink-50 px-2 py-0.5 rounded-full mt-1 mb-1">
+                            {user.role || 'Guest'}
+                        </span>
+                        <span className="text-[10px] text-gray-400 truncate w-full px-2">{user.email}</span>
+                    </div>
+                ))}
+            </div>
+          </div>
+      )}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
