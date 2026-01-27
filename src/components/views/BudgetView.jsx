@@ -14,7 +14,8 @@ import {
   Upload,
   Paperclip,
   Eye,
-  PieChart as PieChartIcon
+  PieChart as PieChartIcon,
+  Filter // <--- Added Filter Icon
 } from 'lucide-react';
 
 import { BUDGET_CATEGORIES } from '../../utils/constants';
@@ -31,7 +32,6 @@ const formatAmount = (num) => {
 };
 
 // --- HELPER: COMPACT NUMBER FORMAT (For Charts) ---
-// e.g. 1,200,000 -> 1.2M
 const formatCompactNumber = (num) => {
     return new Intl.NumberFormat('en-US', {
         notation: "compact",
@@ -57,6 +57,9 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
 
     // --- PREVIEW STATE ---
     const [previewFile, setPreviewFile] = useState(null);
+
+    // --- NEW: FILTER STATE FOR INCOME TABLE ---
+    const [incomeCategoryFilter, setIncomeCategoryFilter] = useState('All');
 
     // --- DATA PROCESSING FOR CHARTS ---
     const getMonthlyData = (type) => {
@@ -103,6 +106,12 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
     const spendingCategories = getCategoryData('spending');
     const topIncome = getTopTransactions('income');
     const topSpending = getTopTransactions('spending');
+
+    // --- NEW: FILTERED INCOME TRANSACTIONS ---
+    const filteredIncomeTransactions = transactions
+        .filter(t => t.type === 'income')
+        .filter(t => incomeCategoryFilter === 'All' || t.category === incomeCategoryFilter)
+        .sort((a, b) => new Date(b.date) - new Date(a.date));
 
     // Combined Data for Comparison Chart
     const allMonths = Array.from(new Set([...incomeTrend.map(d => d.date), ...spendingTrend.map(d => d.date)]))
@@ -264,7 +273,8 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                         <div className="flex-1 min-h-[200px]"><SimplePieChart data={incomeCategories} /></div>
                                     </div>
                                 </div>
-                                {/* Income Table ... */}
+                                
+                                {/* Income Table */}
                                 <div className="mt-6 bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
                                     <div className="px-6 py-4 bg-green-50 border-b border-green-100"><h4 className="font-bold text-green-800 text-sm uppercase">Top 10 Income Sources</h4></div>
                                     <table className="w-full text-sm text-left">
@@ -284,6 +294,62 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                             {topIncome.length === 0 && <tr><td colSpan="5" className="px-6 py-4 text-center text-gray-400">No data available</td></tr>}
                                         </tbody>
                                     </table>
+                                </div>
+
+                                {/* --- NEW: CATEGORY FILTER TABLE --- */}
+                                <div className="mt-6 bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                                    <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                                        <h4 className="font-bold text-gray-800 text-sm uppercase flex items-center gap-2">
+                                            <Filter size={16} className="text-blue-500" /> Income by Category
+                                        </h4>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs font-bold text-gray-500">Filter:</span>
+                                            <select 
+                                                className="text-xs border border-gray-300 rounded-lg px-2 py-1.5 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-200 bg-white font-medium text-gray-700 cursor-pointer hover:border-gray-400 transition-colors"
+                                                value={incomeCategoryFilter}
+                                                onChange={(e) => setIncomeCategoryFilter(e.target.value)}
+                                            >
+                                                <option value="All">All Categories</option>
+                                                {BUDGET_CATEGORIES.map(cat => (
+                                                    <option key={cat} value={cat}>{cat}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div className="max-h-96 overflow-y-auto custom-scrollbar">
+                                        <table className="w-full text-sm text-left">
+                                            <thead className="text-xs text-gray-500 uppercase bg-white font-bold border-b border-gray-200 sticky top-0 shadow-sm z-10">
+                                                <tr>
+                                                    <th className="px-6 py-3 w-32">Date</th>
+                                                    <th className="px-6 py-3 w-48">Brand</th>
+                                                    <th className="px-6 py-3">Description</th>
+                                                    <th className="px-6 py-3 text-right w-40">Amount</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-100">
+                                                {filteredIncomeTransactions.length > 0 ? (
+                                                    filteredIncomeTransactions.map((t) => (
+                                                        <tr key={t.id} className="hover:bg-blue-50/10 transition-colors">
+                                                            <td className="px-6 py-3 text-gray-500 whitespace-nowrap">{new Date(t.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
+                                                            <td className="px-6 py-3 font-medium text-gray-700">{t.brand}</td>
+                                                            <td className="px-6 py-3 text-gray-500 truncate max-w-lg">{t.description}</td>
+                                                            <td className="px-6 py-3 text-right font-bold text-green-600 whitespace-nowrap">฿{formatAmount(t.amount)}</td>
+                                                        </tr>
+                                                    ))
+                                                ) : (
+                                                    <tr>
+                                                        <td colSpan="4" className="px-6 py-12 text-center text-gray-400">
+                                                            <p className="mb-1">No income records found for this category.</p>
+                                                            <p className="text-xs opacity-60">Try selecting a different filter.</p>
+                                                        </td>
+                                                    </tr>
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <div className="bg-gray-50 px-6 py-2 border-t border-gray-200 text-xs text-gray-400 text-right">
+                                        Showing {filteredIncomeTransactions.length} records
+                                    </div>
                                 </div>
                             </div>
 
