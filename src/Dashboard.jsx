@@ -31,6 +31,7 @@ export default function Dashboard() {
   const { currentUser, logout } = useAuth();
   const navigate = useNavigate();
   const data = useTaskData(currentUser); // Access all our data logic
+  const [playerMode, setPlayerMode] = useState('hidden'); // 'hidden' | 'mini' | 'full'
 
   // 2. Local UI State
   const [currentView, setCurrentView] = useState('home');
