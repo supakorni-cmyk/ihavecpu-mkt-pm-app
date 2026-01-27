@@ -229,17 +229,21 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
               requirement={activeRequirement.requirement}
               onClose={() => setActiveRequirement(null)}
               onUpdateTask={(updates) => {
+                  // 1. Update Database
                   onUpdateTask(activeRequirement.task.id, updates);
-                  // Update the local editingTask state so the parent modal refreshes if it's open (though it's behind this one)
-                  // But mainly to update the activeRequirement reference if needed
+
+                  // 2. Update the 'activeRequirement' state so the Table stays fresh while open
                   const updatedTask = { ...activeRequirement.task, ...updates };
-                  // Find the updated requirement
                   const updatedReq = updatedTask.requirements.find(r => r.id === activeRequirement.requirement.id);
                   setActiveRequirement({ task: updatedTask, requirement: updatedReq });
+
+                  // 3. --- CRITICAL FIX --- 
+                  // Update 'editingTask' (the Parent Modal) so it knows about the new data too!
+                  // This prevents the parent form from overwriting your saved table with old data.
+                  setEditingTask(prev => ({ ...prev, ...updates }));
               }}
           />
       )}
-
     </div>
   );
 };
