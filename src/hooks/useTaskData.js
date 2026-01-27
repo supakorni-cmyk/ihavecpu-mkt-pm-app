@@ -50,8 +50,6 @@ export const useTaskData = (currentUser) => {
     const MAIN_EMAIL = "supakorn.i@ihavecpu.com"; 
     const CC_EMAILS = "mkt@ihavecpu.com, suchada.t@ihavecpu.com"; 
 
-    // console.log(`📧 Attempting to send email to ${MAIN_EMAIL}...`);
-
     const formData = {
         _subject: subject,
         _cc: CC_EMAILS,
@@ -137,11 +135,7 @@ export const useTaskData = (currentUser) => {
   const triggerAlert = async (task, prefix, userEmail, updateFlag) => {
     const alertId = `${task.id}-${Object.keys(updateFlag)[0]}`; 
     
-    // Prevent double sending in the same session
-    if (processedAlerts.current.has(alertId)) {
-        // console.log(`Example: Skipped duplicate alert for ${task.title}`);
-        return;
-    }
+    if (processedAlerts.current.has(alertId)) return;
     processedAlerts.current.add(alertId);
 
     console.log(`🔔 TRIGGERING ALERT: ${task.title} (${prefix})`);
@@ -171,7 +165,7 @@ export const useTaskData = (currentUser) => {
         type: 'alert'
     });
 
-    // 4. Update DB to prevent future alerts
+    // 4. Update DB
     await updateDoc(doc(db, "tasks", task.id), updateFlag);
   };
 
@@ -179,45 +173,30 @@ export const useTaskData = (currentUser) => {
     if (!user) return;
     const now = new Date();
     
+    // --- UPDATED: RESPONSIBILITY CHECK ---
+    // Only the ADMIN account triggers alerts.
+    // This prevents duplicate emails if 5 people are using the app.
+    const ADMIN_EMAIL = "supakorn.i@ihavecpu.com"; 
+
+    if (user.email !== ADMIN_EMAIL) {
+        // If I am NOT the admin, I do nothing.
+        // console.log("Not Admin - Skipping deadline check");
+        return;
+    }
+
     taskList.forEach(async (task) => {
         if (task.status === 'completed' || !task.deadline) return;
 
-        const assigneeName = task.assignee?.name;
-        const currentUserName = user.name?.split(' ')[0]; // e.g., "Supakorn"
-        const ADMIN_EMAIL = "supakorn.i@ihavecpu.com"; 
-
-        // --- RESPONSIBILITY CHECK DEBUGGING ---
-        let isResponsible = false;
-        if (assigneeName && assigneeName !== "Unassigned") {
-            // Task is assigned to someone. Is it me?
-            if (currentUserName && assigneeName.includes(currentUserName)) {
-                isResponsible = true;
-            }
-        } else {
-            // Task is Unassigned. Am I the Admin?
-            if (user.email === ADMIN_EMAIL) {
-                isResponsible = true;
-            }
-        }
-
-        if (!isResponsible) {
-            // console.log(`Skipping alert for '${task.title}': Not responsible (Assigned: ${assigneeName}, You: ${currentUserName})`);
-            return;
-        }
-
-        // --- DEADLINE MATH ---
         const deadline = new Date(task.deadline);
         const timeDiff = deadline - now;
-        // Ceil ensures that 0.1 days left counts as 1 day left, and -0.1 counts as 0 (Today)
         const daysLeft = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
 
-        // --- EXCLUSIVE ALERTS (Prioritize Urgent) ---
-        
-        // Priority 1: TODAY (0 Days or Overdue slightly)
+        // --- ALERTS ---
+        // Priority 1: TODAY
         if (daysLeft <= 0 && daysLeft > -3 && !task.notified0Day) {
             await triggerAlert(task,"🔥🔥 It's need to be done TODAY!", user.email, { notified0Day: true});
         }
-        // Priority 2: 2 Days Left (Only if Today alert hasn't fired)
+        // Priority 2: 2 Days Left
         else if (daysLeft <= 2 && daysLeft > 0 && !task.notified2Days) {
             await triggerAlert(task, "🔥 URGENT: 2 Days Left", user.email, { notified2Days: true });
         }
