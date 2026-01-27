@@ -50,6 +50,8 @@ export const useTaskData = (currentUser) => {
     const MAIN_EMAIL = "supakorn.i@ihavecpu.com"; 
     const CC_EMAILS = "mkt@ihavecpu.com, suchada.t@ihavecpu.com"; 
 
+    // console.log(`📧 Attempting to send email to ${MAIN_EMAIL}...`);
+
     const formData = {
         _subject: subject,
         _cc: CC_EMAILS,
@@ -62,13 +64,18 @@ export const useTaskData = (currentUser) => {
     };
 
     try {
-        await fetch(`https://formsubmit.co/ajax/${MAIN_EMAIL}`, {
+        const response = await fetch(`https://formsubmit.co/ajax/${MAIN_EMAIL}`, {
             method: "POST",
             headers: { "Content-Type": "application/json", "Accept": "application/json" },
             body: JSON.stringify(formData)
         });
-        console.log(`✅ Email Sent: ${subject}`);
-    } catch (error) { console.error("❌ Email Error:", error); }
+        
+        if (response.ok) {
+            console.log(`✅ Email Sent Successfully: ${subject}`);
+        } else {
+            console.error(`❌ Email Failed: Server responded with ${response.status}`);
+        }
+    } catch (error) { console.error("❌ Email Network Error:", error); }
   };
 
   // --- 3. LINE PUSH NOTIFICATION ---
@@ -118,10 +125,10 @@ export const useTaskData = (currentUser) => {
             if (response.ok) {
                 console.log(`✅ LINE Sent to ${target.name}`);
             } else {
-                console.error(`❌ Failed to send to ${target.name}`, await response.json());
+                console.error(`❌ LINE Failed (${target.name})`, await response.json());
             }
         } catch (error) {
-            console.error(`❌ Network Error (${target.name}):`, error);
+            console.error(`❌ LINE Network Error (${target.name}):`, error);
         }
     });
   };
@@ -129,17 +136,23 @@ export const useTaskData = (currentUser) => {
   // --- 4. ALERT LOGIC ---
   const triggerAlert = async (task, prefix, userEmail, updateFlag) => {
     const alertId = `${task.id}-${Object.keys(updateFlag)[0]}`; 
-    if (processedAlerts.current.has(alertId)) return;
+    
+    // Prevent double sending in the same session
+    if (processedAlerts.current.has(alertId)) {
+        // console.log(`Example: Skipped duplicate alert for ${task.title}`);
+        return;
+    }
     processedAlerts.current.add(alertId);
 
-    console.log(`🔔 Alerting: ${task.title}`);
+    console.log(`🔔 TRIGGERING ALERT: ${task.title} (${prefix})`);
 
-    // Fix: Added safety check for description
     const desc = task.description || "No details provided";
 
+    // 1. Send LINE
     const lineMsg = `${prefix} 🚨\n\n📌 Task: ${task.title}\n📋 Details: ${desc}\n🏷️ Tag: ${task.tag}\n📅 Due: ${new Date(task.deadline).toLocaleDateString('en-GB')}`;
     await sendLinePush(lineMsg, task.tag);
 
+    // 2. Send Email
     await sendEmailNotification(`${prefix}: ${task.title}`, {
         "Target User": userEmail,
         "Task Title": task.title,
@@ -148,6 +161,7 @@ export const useTaskData = (currentUser) => {
         "Status": task.status
     });
 
+    // 3. In-App Notification
     await addDoc(collection(db, "notifications"), {
         title: `${prefix}: ${task.title}`,
         taskId: task.id,
@@ -157,6 +171,7 @@ export const useTaskData = (currentUser) => {
         type: 'alert'
     });
 
+    // 4. Update DB to prevent future alerts
     await updateDoc(doc(db, "tasks", task.id), updateFlag);
   };
 
@@ -168,31 +183,47 @@ export const useTaskData = (currentUser) => {
         if (task.status === 'completed' || !task.deadline) return;
 
         const assigneeName = task.assignee?.name;
-        const currentUserName = user.name?.split(' ')[0]; 
+        const currentUserName = user.name?.split(' ')[0]; // e.g., "Supakorn"
         const ADMIN_EMAIL = "supakorn.i@ihavecpu.com"; 
 
+        // --- RESPONSIBILITY CHECK DEBUGGING ---
         let isResponsible = false;
         if (assigneeName && assigneeName !== "Unassigned") {
-            if (currentUserName && assigneeName.includes(currentUserName)) isResponsible = true;
+            // Task is assigned to someone. Is it me?
+            if (currentUserName && assigneeName.includes(currentUserName)) {
+                isResponsible = true;
+            }
         } else {
-            if (user.email === ADMIN_EMAIL) isResponsible = true;
+            // Task is Unassigned. Am I the Admin?
+            if (user.email === ADMIN_EMAIL) {
+                isResponsible = true;
+            }
         }
 
-        if (!isResponsible) return;
+        if (!isResponsible) {
+            // console.log(`Skipping alert for '${task.title}': Not responsible (Assigned: ${assigneeName}, You: ${currentUserName})`);
+            return;
+        }
 
+        // --- DEADLINE MATH ---
         const deadline = new Date(task.deadline);
         const timeDiff = deadline - now;
+        // Ceil ensures that 0.1 days left counts as 1 day left, and -0.1 counts as 0 (Today)
         const daysLeft = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
 
-        if (daysLeft <= 7 && daysLeft > 2 && !task.notified7Days) {
-            await triggerAlert(task, "⚠️ Reminder: 7 Days Left", user.email, { notified7Days: true });
+        // --- EXCLUSIVE ALERTS (Prioritize Urgent) ---
+        
+        // Priority 1: TODAY (0 Days or Overdue slightly)
+        if (daysLeft <= 0 && daysLeft > -3 && !task.notified0Day) {
+            await triggerAlert(task,"🔥🔥 It's need to be done TODAY!", user.email, { notified0Day: true});
         }
-        if (daysLeft <= 2 && daysLeft >= 0 && !task.notified2Days) {
+        // Priority 2: 2 Days Left (Only if Today alert hasn't fired)
+        else if (daysLeft <= 2 && daysLeft > 0 && !task.notified2Days) {
             await triggerAlert(task, "🔥 URGENT: 2 Days Left", user.email, { notified2Days: true });
         }
-        // FIX: Changed '=' to '==='
-        if (daysLeft === 0 && !task.notified0Day) {
-            await triggerAlert(task,"🔥🔥 It's need to be done TODAY!", user.email, { notified0Day: true});
+        // Priority 3: 7 Days Left
+        else if (daysLeft <= 7 && daysLeft > 2 && !task.notified7Days) {
+            await triggerAlert(task, "⚠️ Reminder: 7 Days Left", user.email, { notified7Days: true });
         }
     });
   };
@@ -233,7 +264,6 @@ export const useTaskData = (currentUser) => {
 
   // --- 6. ACTIONS ---
 
-  // *** UPDATED: Fixes Variable Name & Adds Email ***
   const updateTask = async (id, updates) => {
     try {
         const cleanedUpdates = cleanData(updates);
@@ -244,7 +274,6 @@ export const useTaskData = (currentUser) => {
         
         if (originalTask) {
             const title = cleanedUpdates.title || originalTask.title;
-            // FIX: Renamed variable to 'description' so it matches usage below
             const description = cleanedUpdates.description || originalTask.description || "No details";
             const tag = cleanedUpdates.tag || originalTask.tag;
             const editor = currentUser?.email?.split('@')[0] || 'Unknown';
@@ -252,7 +281,7 @@ export const useTaskData = (currentUser) => {
             // 1. Send LINE
             await sendLinePush(`📝 Task Edited:\n📌 ${title}\n📋 ${description}\n👤 By: ${editor}\n🏷️ Tag: ${tag}`, tag);
 
-            // 2. Send Email (Added back)
+            // 2. Send Email
             await sendEmailNotification(`Task Edited: ${title}`, {
                 "Title": title,
                 "Details": description,
@@ -298,7 +327,6 @@ export const useTaskData = (currentUser) => {
     } catch (error) { console.error("Error moving task:", error); }
   };
 
-  // *** UPDATED: Adds Email ***
   const deleteTask = async (id) => { 
       if(!confirm("Delete task?")) return;
       try { 
@@ -308,10 +336,8 @@ export const useTaskData = (currentUser) => {
           if (taskToDelete) {
              const editor = currentUser?.email?.split('@')[0] || 'Unknown';
              
-             // 1. Send LINE
              await sendLinePush(`🗑️ Task Deleted:\n📌 ${taskToDelete.title}\n📋 Details: ${taskToDelete.description}\n👤 By: ${editor}`, taskToDelete.tag);
              
-             // 2. Send Email (Added back)
              await sendEmailNotification(`Task Deleted: ${taskToDelete.title}`, {
                 "Title": taskToDelete.title,
                 "Deleted By": editor
