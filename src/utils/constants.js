@@ -26,7 +26,8 @@ export const BUDGET_CATEGORIES = [
   'FB Photo Album', 
   'Guest Speaker', 
   'Project / MDF', 
-  'Sponsor'
+  'Sponsor',
+  'Branch Opening'
 ];
 
 export const formatDate = (dateString) => {
