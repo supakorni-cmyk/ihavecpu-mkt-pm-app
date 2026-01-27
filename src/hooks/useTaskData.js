@@ -253,37 +253,37 @@ export const useTaskData = (currentUser) => {
 
   // --- 6. ACTIONS ---
 
-//   const updateTask = async (id, updates) => {
-//     try {
-//         const cleanedUpdates = cleanData(updates);
-//         const originalTask = tasks.find(t => t.id === id);
+  const updateTask = async (id, updates) => {
+    try {
+        const cleanedUpdates = cleanData(updates);
+        const originalTask = tasks.find(t => t.id === id);
 
-//         await updateDoc(doc(db, "tasks", id), cleanedUpdates);
-//         console.log("Task Updated Successfully");
+        await updateDoc(doc(db, "tasks", id), cleanedUpdates);
+        console.log("Task Updated Successfully");
         
-//         if (originalTask) {
-//             const title = cleanedUpdates.title || originalTask.title;
-//             const description = cleanedUpdates.description || originalTask.description || "No details";
-//             const tag = cleanedUpdates.tag || originalTask.tag;
-//             const editor = currentUser?.email?.split('@')[0] || 'Unknown';
+        if (originalTask) {
+            const title = cleanedUpdates.title || originalTask.title;
+            const description = cleanedUpdates.description || originalTask.description || "No details";
+            const tag = cleanedUpdates.tag || originalTask.tag;
+            const editor = currentUser?.email?.split('@')[0] || 'Unknown';
             
-//             // 1. Send LINE
-//             await sendLinePush(`📝 Task Edited:\n📌 ${title}\n📋 ${description}\n👤 By: ${editor}\n🏷️ Tag: ${tag}`, tag);
+            // // 1. Send LINE
+            // await sendLinePush(`📝 Task Edited:\n📌 ${title}\n📋 ${description}\n👤 By: ${editor}\n🏷️ Tag: ${tag}`, tag);
 
-//             // 2. Send Email
-//             await sendEmailNotification(`Task Edited: ${title}`, {
-//                 "Title": title,
-//                 "Details": description,
-//                 "Edited By": editor,
-//                 "New Tag": tag
-//             });
-//         }
+            // 2. Send Email
+            await sendEmailNotification(`Task Edited: ${title}`, {
+                "Title": title,
+                "Details": description,
+                "Edited By": editor,
+                "New Tag": tag
+            });
+        }
 
-//     } catch (error) {
-//         console.error("FAILED to update task:", error);
-//         alert(`Failed to save: ${error.message}`);
-//     }
-//   };
+    } catch (error) {
+        console.error("FAILED to update task:", error);
+        alert(`Failed to save: ${error.message}`);
+    }
+  };
 
   const addTask = async (task) => {
     try {
