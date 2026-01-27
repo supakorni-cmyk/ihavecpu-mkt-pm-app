@@ -16,8 +16,8 @@ import CalendarView from './components/views/CalendarView';
 import PhotoAlbumView from './components/views/AlbumView';
 import BudgetRecorderView from './components/views/BudgetView';
 import LeaveView from './components/views/LeaveView';
-// import SelfHealView from './components/views/SelfHealView';
-import GlobalPlayer from './components/common/GlobalPlayer';
+import SelfHealView from './components/views/SelfHealView';
+// import GlobalPlayer from './components/common/GlobalPlayer';
 import ReportView from './components/views/ReportView';
 import OTView from './components/views/OtView';
 
