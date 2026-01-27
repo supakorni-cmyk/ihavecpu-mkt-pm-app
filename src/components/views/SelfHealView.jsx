@@ -8,21 +8,21 @@ const MOODS = [
     id: "relax",
     title: "Relax & Focus",
     youtubeId: "PL4QNnZJr8sRPmuz_d87ygGR6YAYEF-fmw", 
-    image: "https://images.unsplash.com/photo-1518609878373-06d740f60d8b?w=400&q=80",
+    image: "https://images.unsplash.com/photo-1601435119596-7cc938a5cbf4?q=80&w=1740&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
     color: "from-blue-400 to-indigo-500"
   },
   { 
     id: "rage",
     title: "Rage Out!",
     youtubeId: "PLe3UPCHpSqZkYD5f7jKblv0ZQ9XmkGjjZ", 
-    image: "https://images.unsplash.com/photo-1598387993441-a364f854c3e1?w=400&q=80",
+    image: "https://images.unsplash.com/photo-1738214997766-93b0c56bfce6?q=80&w=1740&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
     color: "from-red-500 to-orange-600"
   },
   { 
     id: "love",
     title: "In Love",
     youtubeId: "PLgzTt0k8mXzE6H9DDgiY7Pd8pKZteis48", 
-    image: "https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=400&q=80",
+    image: "https://images.unsplash.com/photo-1518104593124-ac2e82a5eb9d?q=80&w=1740&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
     color: "from-pink-400 to-rose-500"
   },
   { 
@@ -79,16 +79,13 @@ const SelfHealView = () => {
             
             {/* Player Container */}
             <div className="lg:col-span-2 bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden relative group">
-                <div className={`absolute top-0 left-0 w-full h-1 bg-gradient-to-r ${currentMood.color}`}></div>
+                <div className={`absolute top-0 left-0 w-full h-3 bg-gradient-to-r ${currentMood.color}`}></div>
                 
                 <div className="p-6 border-b border-gray-100 flex justify-between items-center">
                     <h3 className="font-bold text-gray-800 flex items-center gap-2">
                         <Music className="text-indigo-500" /> 
                         {currentMood.title}
                     </h3>
-                    <span className="text-xs font-bold bg-pink-100 text-pink-600 px-3 py-1 rounded-full uppercase tracking-wider">
-                        Auto-Play
-                    </span>
                 </div>
 
                 <div className="aspect-video w-full bg-black relative">
