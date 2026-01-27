@@ -50,7 +50,6 @@ export const useTaskData = (currentUser) => {
     const MAIN_EMAIL = "supakorn.i@ihavecpu.com"; 
     const CC_EMAILS = "mkt@ihavecpu.com,suchada.t@ihavecpu.com"; 
 
-    // Convert all data values to strings to prevent 500 Error
     const cleanDataPayload = {};
     Object.keys(data).forEach(key => {
         const value = data[key];
@@ -66,7 +65,7 @@ export const useTaskData = (currentUser) => {
         _cc: CC_EMAILS,
         _template: "table",
         _captcha: "false",
-        _honey: "", // Anti-spam
+        _honey: "",
         "Target Email": MAIN_EMAIL,
         "Triggered By": currentUser?.email || 'System',
         "Time": new Date().toLocaleString('en-GB'),
@@ -76,26 +75,19 @@ export const useTaskData = (currentUser) => {
     try {
         const response = await fetch(`https://formsubmit.co/ajax/${MAIN_EMAIL}`, {
             method: "POST",
-            headers: { 
-                "Content-Type": "application/json", 
-                "Accept": "application/json" 
-            },
+            headers: { "Content-Type": "application/json", "Accept": "application/json" },
             body: JSON.stringify(formData)
         });
-        
-        if (response.ok) {
-            console.log(`✅ Email Sent Successfully: ${subject}`);
-        } else {
-            console.error(`❌ Email Failed (Status ${response.status})`);
-        }
-    } catch (error) { console.error("❌ Email Network Error:", error); }
+        if (response.ok) console.log(`✅ Email Sent: ${subject}`);
+    } catch (error) { console.error("❌ Email Error:", error); }
   };
 
-  // --- 3. LINE PUSH NOTIFICATION ---
-  const sendLinePush = async (text, taskTag) => {
+  // --- 3. LINE FLEX MESSAGE (UPGRADED) ---
+  const sendLinePush = async (task, headerTitle, headerColor = "#1DB446") => {
     const PROXY_URL = "https://corsproxy.io/?";
     const TARGET_URL = "https://api.line.me/v2/bot/message/push";
 
+    // 1. Define Groups
     const TARGETS = [
         {
             name: "Marketing Group (Main)",
@@ -111,11 +103,96 @@ export const useTaskData = (currentUser) => {
         }
     ];
 
+    // 2. Build Flex Message Payload
+    const flexMessage = {
+        type: "flex",
+        altText: `${headerTitle}: ${task.title}`,
+        contents: {
+            type: "bubble",
+            size: "mega",
+            header: {
+                type: "box",
+                layout: "vertical",
+                contents: [
+                    {
+                        type: "text",
+                        text: headerTitle,
+                        color: "#ffffff",
+                        weight: "bold",
+                        size: "md"
+                    }
+                ],
+                backgroundColor: headerColor, // Dynamic Color
+                paddingAll: "15px"
+            },
+            body: {
+                type: "box",
+                layout: "vertical",
+                contents: [
+                    {
+                        type: "text",
+                        text: task.title,
+                        weight: "bold",
+                        size: "xl",
+                        margin: "md",
+                        wrap: true
+                    },
+                    {
+                        type: "text",
+                        text: task.description || "No details provided.",
+                        size: "sm",
+                        color: "#666666",
+                        margin: "sm",
+                        wrap: true,
+                        maxLines: 3 // Truncate long descriptions
+                    },
+                    {
+                        type: "separator",
+                        margin: "lg"
+                    },
+                    {
+                        type: "box",
+                        layout: "vertical",
+                        margin: "lg",
+                        spacing: "sm",
+                        contents: [
+                            {
+                                type: "box",
+                                layout: "baseline",
+                                contents: [
+                                    { type: "text", text: "Tag", color: "#aaaaaa", size: "xs", flex: 2 },
+                                    { type: "text", text: task.tag || "None", color: "#666666", size: "xs", flex: 5, wrap: true }
+                                ]
+                            },
+                            {
+                                type: "box",
+                                layout: "baseline",
+                                contents: [
+                                    { type: "text", text: "Date", color: "#aaaaaa", size: "xs", flex: 2 },
+                                    { type: "text", text: task.deadline ? new Date(task.deadline).toLocaleDateString('en-GB') : "TBD", color: "#666666", size: "xs", flex: 5 }
+                                ]
+                            },
+                            {
+                                type: "box",
+                                layout: "baseline",
+                                contents: [
+                                    { type: "text", text: "Status", color: "#aaaaaa", size: "xs", flex: 2 },
+                                    { type: "text", text: task.status || "Pending", color: "#666666", size: "xs", flex: 5 }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+        }
+    };
+
+    // 3. Send to Targets
     TARGETS.forEach(async (target) => {
         if (!target.token || !target.groupId) return;
 
         if (target.allowedTags !== "ALL") {
-            if (!taskTag || !target.allowedTags.includes(taskTag)) {
+            if (!task.tag || !target.allowedTags.includes(task.tag)) {
                 return; 
             }
         }
@@ -123,7 +200,7 @@ export const useTaskData = (currentUser) => {
         try {
             const payload = {
                 to: target.groupId,
-                messages: [{ type: "text", text: text }]
+                messages: [flexMessage] // Send the Flex Object
             };
 
             const response = await fetch(PROXY_URL + encodeURIComponent(TARGET_URL), {
@@ -136,36 +213,34 @@ export const useTaskData = (currentUser) => {
             });
             
             if (response.ok) {
-                console.log(`✅ LINE Sent to ${target.name}`);
+                console.log(`✅ LINE Flex Sent to ${target.name}`);
             } else {
                 console.error(`❌ LINE Failed (${target.name})`, await response.json());
             }
-        } catch (error) {
-            console.error(`❌ LINE Network Error (${target.name}):`, error);
-        }
+        } catch (error) { console.error(`❌ LINE Network Error (${target.name}):`, error); }
     });
   };
 
   // --- 4. ALERT LOGIC ---
   const triggerAlert = async (task, prefix, userEmail, updateFlag) => {
     const alertId = `${task.id}-${Object.keys(updateFlag)[0]}`; 
-    
     if (processedAlerts.current.has(alertId)) return;
     processedAlerts.current.add(alertId);
 
     console.log(`🔔 TRIGGERING ALERT: ${task.title} (${prefix})`);
 
-    const desc = task.description || "No details provided";
+    // Determine Color based on urgency
+    let color = "#F59E0B"; // Default Orange (Warning)
+    if (prefix.includes("TODAY") || prefix.includes("URGENT")) color = "#EF4444"; // Red
 
-    // 1. Send LINE
-    const lineMsg = `${prefix} 🚨\n\n📌 Task: ${task.title}\n📋 Details: ${desc}\n🏷️ Tag: ${task.tag}\n📅 Due: ${new Date(task.deadline).toLocaleDateString('en-GB')}`;
-    await sendLinePush(lineMsg, task.tag);
+    // 1. Send LINE Flex
+    await sendLinePush(task, prefix, color);
 
     // 2. Send Email
     await sendEmailNotification(`${prefix}: ${task.title}`, {
         "Target User": userEmail,
         "Task Title": task.title,
-        "Details": desc,
+        "Details": task.description || "No details",
         "Due Date": new Date(task.deadline).toLocaleString('en-GB'),
         "Status": task.status
     });
@@ -187,13 +262,10 @@ export const useTaskData = (currentUser) => {
   const checkDeadlines = (taskList, user) => {
     if (!user) return;
     const now = new Date();
-    
-    // ADMIN CHECK (Prevents duplicate sending from multiple users)
     const ADMIN_EMAIL = "supakorn.i@ihavecpu.com"; 
     if (user.email !== ADMIN_EMAIL) return;
 
     taskList.forEach(async (task) => {
-        // --- FIX: Check for "Completed", "Done", etc. (Case Insensitive) ---
         const status = task.status ? task.status.toLowerCase() : '';
         const isComplete = status === 'completed' || status === 'done';
 
@@ -203,9 +275,8 @@ export const useTaskData = (currentUser) => {
         const timeDiff = deadline - now;
         const daysLeft = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
 
-        // --- ALERTS ---
         if (daysLeft <= 0 && daysLeft > -3 && !task.notified0Day) {
-            await triggerAlert(task,"🔥🔥 It's need to be done TODAY!", user.email, { notified0Day: true});
+            await triggerAlert(task,"🔥🔥 DEADLINE TODAY", user.email, { notified0Day: true});
         }
         else if (daysLeft <= 2 && daysLeft > 0 && !task.notified2Days) {
             await triggerAlert(task, "🔥 URGENT: 2 Days Left", user.email, { notified2Days: true });
@@ -255,14 +326,9 @@ export const useTaskData = (currentUser) => {
   const updateTask = async (id, updates) => {
     try {
         const cleanedUpdates = cleanData(updates);
-        // const originalTask = tasks.find(t => t.id === id); // Unused if no notifs
-
         await updateDoc(doc(db, "tasks", id), cleanedUpdates);
-        console.log("Task Updated Successfully");
-        
-        // --- REMOVED ALL NOTIFICATIONS FOR UPDATE ---
-        // No LINE, No Email. Just save to DB.
-
+        console.log("Task Updated Successfully (Silent)");
+        // No Email, No Line (Per your request)
     } catch (error) {
         console.error("FAILED to update task:", error);
         alert(`Failed to save: ${error.message}`);
@@ -280,13 +346,12 @@ export const useTaskData = (currentUser) => {
         });
 
         await addDoc(collection(db, "tasks"), cleanedTask);
-        const desc = task.description || "No details";
-
-        await sendEmailNotification(`New Task: ${task.title}`, { 
-            "Title": task.title,
-            "Details": desc 
-        });
-        await sendLinePush(`🆕 New Task Created:\n📌 ${task.title}\n📋 Details: ${desc}\n🏷️ [${task.tag}]\n📅 Due: ${task.deadline || 'TBD'}`, task.tag);
+        
+        await sendEmailNotification(`New Task: ${task.title}`, { "Title": task.title, "Details": task.description || "" });
+        
+        // Green Header for New Task
+        await sendLinePush(task, "🆕 New Task Created", "#1DB446");
+        
     } catch (error) { console.error("Error adding task:", error); }
   };
   
@@ -295,8 +360,14 @@ export const useTaskData = (currentUser) => {
         await updateDoc(doc(db, "tasks", taskId), { status: newStatus });
         const task = tasks.find(t => t.id === taskId);
         
+        // Keep updated status in the object for the message
+        const updatedTask = { ...task, status: newStatus };
+
         await sendEmailNotification("Task Status Updated", { "Task": task?.title, "New Status": newStatus });
-        await sendLinePush(`🔄 Status Update:\n📌 ${task?.title}\n📋 Details: ${task.description || '-'}\n🏷️ [${task?.tag}]\n➡️ Now: ${newStatus}`, task?.tag);
+        
+        // Blue Header for Status Change
+        await sendLinePush(updatedTask, "🔄 Status Updated", "#3B82F6");
+
     } catch (error) { console.error("Error moving task:", error); }
   };
 
@@ -309,12 +380,10 @@ export const useTaskData = (currentUser) => {
           if (taskToDelete) {
              const editor = currentUser?.email?.split('@')[0] || 'Unknown';
              
-             await sendLinePush(`🗑️ Task Deleted:\n📌 ${taskToDelete.title}\n📋 Details: ${taskToDelete.description}\n👤 By: ${editor}`, taskToDelete.tag);
+             await sendEmailNotification(`Task Deleted: ${taskToDelete.title}`, { "Title": taskToDelete.title, "Deleted By": editor });
              
-             await sendEmailNotification(`Task Deleted: ${taskToDelete.title}`, {
-                "Title": taskToDelete.title,
-                "Deleted By": editor
-             });
+             // Grey Header for Deletion
+             await sendLinePush(taskToDelete, "🗑️ Task Deleted", "#374151");
           }
       } catch (error) { console.error(error); } 
   };
