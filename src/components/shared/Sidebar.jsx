@@ -15,7 +15,7 @@ export default function Sidebar({ currentView, setCurrentView, onLogout }) {
   return (
     <aside className="w-20 md:w-64 bg-white border-r border-gray-200 flex flex-col justify-between flex-shrink-0 z-20 print:hidden">
       <div className="p-6 flex items-center gap-3 mb-6">
-        <div className="p-2 rounded-lg text-white flex-shrink-0"><Cat size={24} /></div>
+        <div className="bg-red-600 p-2 rounded-lg text-white flex-shrink-0"><Cat size={24} /></div>
         <div className="flex flex-col justify-center overflow-hidden">
           <h1 className="text-lg font-bold text-gray-900 leading-none truncate">iHAVECPU</h1>
           <span className="text-xs text-red-600 font-bold tracking-wider truncate">MKT WORKSPACE</span>

@@ -37,7 +37,28 @@ const MOODS = [
     title: "ฉันฟังเพลงไทยจ้า",
     youtubeId: "PLrDUi3beimz7D4BdUUGhpUGlxKHg8CQup", 
     image: "https://plus.unsplash.com/premium_photo-1690958385472-b8e011570ceb?q=80&w=1740&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
-    color: "from-purple-500 to-violet-600"
+    color: "from-red-500 to-blue-600"
+  },
+  {
+    id: "edm",
+    title: "Let's Dance!",
+    youtubeId: "PL3oW2tjiIxvQ60uIjLdo7vrUe4ukSpbKl", 
+    image: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?q=80&w=1740&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+    color: "from-pink-500 to-violet-600"
+  },
+  {
+    id: "folk",
+    title: "ฉันฟังลูกทุ่ง",
+    youtubeId: "PLAOHQrWWN5WYuN2UX3sTi9U5RePGMDmj-", 
+    image: "https://images.unsplash.com/photo-1684716091108-70c2b19db377?q=80&w=1750&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+    color: "from-pink-500 to-orange-600"
+  },
+    {
+    id: "citypop",
+    title: "City Pop",
+    youtubeId: "PLgf-8GQFjABq2XqYIaYD4C_uIZ4jLL4x-", 
+    image: "https://plus.unsplash.com/premium_photo-1666700698920-d2d2bba589f8?q=80&w=2064&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+    color: "from-blue-500 to-pink-600"
   }
 ];
 
