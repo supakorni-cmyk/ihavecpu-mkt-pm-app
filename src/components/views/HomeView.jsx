@@ -46,14 +46,17 @@ const INITIAL_TEAM = [
   },
 ];
 
-// Added 'users' prop to receive the list from useTaskData
 const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead, clearAllNotifications, users = [] }) => {
   const [team] = useState(INITIAL_TEAM);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
 
-  // 1. Stats Logic
-  const pendingTasks = tasks.filter(t => t.status !== 'completed').length;
-  const completedTasks = tasks.filter(t => t.status === 'completed').length;
+  // --- FIX: IMPROVED STATS LOGIC (Case Insensitive) ---
+  const completedTasks = tasks.filter(t => {
+      const s = (t.status || '').toLowerCase();
+      return s === 'completed' || s === 'done';
+  }).length;
+
+  const pendingTasks = tasks.length - completedTasks;
 
   // 2. Event Filtering
   const upcomingEvents = tasks.filter(t => {
@@ -68,20 +71,18 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
       return dateA - dateB;
   });
 
-  // 3. User Identification Logic (Who is logged in?)
+  // 3. User Identification
   const coreMember = team.find(member => member.email === currentUser?.email);
-  // Use core avatar if available, otherwise use Google photo, otherwise default
   const displayAvatar = coreMember?.avatar || currentUser?.photoURL || 'https://ui-avatars.com/api/?background=random&color=fff&name=' + (currentUser?.email || 'User');
   const displayName = coreMember?.name || currentUser?.displayName || currentUser?.email?.split('@')[0] || 'Guest';
 
-  // 4. Group Separation Logic
+  // 4. Group Separation
   const coreEmails = team.map(m => m.email.toLowerCase());
-  // Filter users who are NOT in the INITIAL_TEAM
   const cutePeople = users.filter(u => 
     u.email && !coreEmails.includes(u.email.toLowerCase())
   );
 
-  // 5. Notifications Logic
+  // 5. Notifications
   const unreadCount = notifications.filter(n => !n.isRead).length;
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
 
@@ -89,7 +90,6 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
     <div className="flex flex-col h-full overflow-y-auto bg-gray-50 p-8 font-sans relative">
       {/* --- WELCOME HEADER --- */}
       <div className="mb-10 flex justify-between items-start">
-        {/* User Info */}
         <div className="flex items-center gap-5">
             <div className="relative">
                 <img 
@@ -107,7 +107,7 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
             </div>
         </div>
 
-        {/* --- NOTIFICATION BELL --- */}
+        {/* NOTIFICATION BELL */}
         <div className="relative">
             <button 
                 onClick={() => setIsNotifOpen(!isNotifOpen)}
@@ -121,7 +121,6 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
                 )}
             </button>
 
-            {/* Notification Dropdown */}
             {isNotifOpen && (
                 <div className="absolute right-0 top-14 w-80 bg-white rounded-xl shadow-2xl border border-gray-100 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2">
                     <div className="bg-gray-50 p-3 border-b border-gray-100 flex justify-between items-center">
@@ -158,7 +157,7 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
         </div>
       </div>
 
-      {/* --- SECTION 1: THE TEAM (Fixed List) --- */}
+      {/* --- SECTION 1: THE TEAM --- */}
       <div className="mb-8">
         <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
             <User className="text-blue-600" size={20}/> THE TEAM
@@ -167,11 +166,7 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
             {team.map(member => (
                 <div key={member.id} className={`bg-white p-6 rounded-2xl shadow-sm border ${member.email === currentUser?.email ? 'border-blue-500 ring-2 ring-blue-100' : 'border-gray-100'} flex flex-col items-center justify-center text-center hover:shadow-md transition group`}>
                     <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center mb-4 overflow-hidden border-2 border-white shadow-sm relative">
-                        <img 
-                            src={member.avatar} 
-                            alt={member.name} 
-                            className="w-full h-full object-cover transition transform group-hover:scale-110 duration-500" 
-                        />
+                        <img src={member.avatar} alt={member.name} className="w-full h-full object-cover transition transform group-hover:scale-110 duration-500" />
                     </div>
                     <h4 className="font-bold text-gray-800">{member.name}</h4>
                     <span className="text-xs text-gray-500 font-medium bg-gray-100 px-2 py-0.5 rounded-full mt-1 mb-1">{member.role}</span>
@@ -181,7 +176,7 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
         </div>
       </div>
 
-      {/* --- SECTION 2: คนน่ารัก (Other Users) --- */}
+      {/* --- SECTION 2: OTHER USERS --- */}
       {cutePeople.length > 0 && (
           <div className="mb-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
             <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
@@ -192,21 +187,13 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
                     <div key={user.id || idx} className={`bg-white p-6 rounded-2xl shadow-sm border ${user.email === currentUser?.email ? 'border-pink-500 ring-2 ring-pink-100' : 'border-pink-100'} flex flex-col items-center justify-center text-center hover:border-pink-300 hover:shadow-md transition group`}>
                         <div className="w-20 h-20 rounded-full bg-pink-50 flex items-center justify-center mb-4 overflow-hidden border-2 border-white shadow-sm relative">
                             {user.photoURL || user.avatar ? (
-                                <img 
-                                    src={user.photoURL || user.avatar} 
-                                    alt={user.name} 
-                                    className="w-full h-full object-cover transition transform group-hover:scale-110 duration-500" 
-                                />
+                                <img src={user.photoURL || user.avatar} alt={user.name} className="w-full h-full object-cover transition transform group-hover:scale-110 duration-500" />
                             ) : (
-                                <span className="text-2xl font-bold text-pink-400">
-                                    {(user.name || user.email || '?').charAt(0).toUpperCase()}
-                                </span>
+                                <span className="text-2xl font-bold text-pink-400">{(user.name || user.email || '?').charAt(0).toUpperCase()}</span>
                             )}
                         </div>
                         <h4 className="font-bold text-gray-800">{user.name || user.email?.split('@')[0]}</h4>
-                        <span className="text-xs text-pink-500 font-medium bg-pink-50 px-2 py-0.5 rounded-full mt-1 mb-1">
-                            {user.role || 'Guest'}
-                        </span>
+                        <span className="text-xs text-pink-500 font-medium bg-pink-50 px-2 py-0.5 rounded-full mt-1 mb-1">{user.role || 'Guest'}</span>
                         <span className="text-[10px] text-gray-400 truncate w-full px-2">{user.email}</span>
                     </div>
                 ))}
@@ -214,7 +201,7 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
           </div>
       )}
 
-      {/* Stats Grid */}
+      {/* --- STATS GRID --- */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
         <div className="bg-indigo-600 text-white p-6 rounded-2xl shadow-lg shadow-indigo-200">
             <div className="flex justify-between items-start mb-4">
@@ -243,7 +230,7 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
         </div>
       </div>
 
-      {/* Upcoming Events List */}
+      {/* --- UPCOMING EVENTS --- */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 flex-1">
         <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
             <Calendar className="text-orange-500" size={20}/> Upcoming Schedule
