@@ -45,13 +45,12 @@ export const useTaskData = (currentUser) => {
     return data;
   };
 
-  // --- 2. EMAIL NOTIFICATION (FIXED for 500 Error) ---
+  // --- 2. EMAIL NOTIFICATION ---
   const sendEmailNotification = async (subject, data) => {
     const MAIN_EMAIL = "supakorn.i@ihavecpu.com"; 
-    // FIX: No spaces in CC list
     const CC_EMAILS = "mkt@ihavecpu.com,suchada.t@ihavecpu.com"; 
 
-    // FIX: Convert all data values to strings to prevent 500 Error
+    // Convert all data values to strings to prevent 500 Error
     const cleanDataPayload = {};
     Object.keys(data).forEach(key => {
         const value = data[key];
@@ -256,28 +255,13 @@ export const useTaskData = (currentUser) => {
   const updateTask = async (id, updates) => {
     try {
         const cleanedUpdates = cleanData(updates);
-        const originalTask = tasks.find(t => t.id === id);
+        // const originalTask = tasks.find(t => t.id === id); // Unused if no notifs
 
         await updateDoc(doc(db, "tasks", id), cleanedUpdates);
         console.log("Task Updated Successfully");
         
-        if (originalTask) {
-            const title = cleanedUpdates.title || originalTask.title;
-            const description = cleanedUpdates.description || originalTask.description || "No details";
-            const tag = cleanedUpdates.tag || originalTask.tag;
-            const editor = currentUser?.email?.split('@')[0] || 'Unknown';
-            
-            // // 1. Send LINE
-            // await sendLinePush(`📝 Task Edited:\n📌 ${title}\n📋 ${description}\n👤 By: ${editor}\n🏷️ Tag: ${tag}`, tag);
-
-            // 2. Send Email
-            await sendEmailNotification(`Task Edited: ${title}`, {
-                "Title": title,
-                "Details": description,
-                "Edited By": editor,
-                "New Tag": tag
-            });
-        }
+        // --- REMOVED ALL NOTIFICATIONS FOR UPDATE ---
+        // No LINE, No Email. Just save to DB.
 
     } catch (error) {
         console.error("FAILED to update task:", error);
