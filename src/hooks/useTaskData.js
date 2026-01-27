@@ -108,7 +108,7 @@ export const useTaskData = (currentUser) => {
             name: "Second Group (Events Only)",
             token: import.meta.env.VITE_LINE_TOKEN_BOT2,
             groupId: import.meta.env.VITE_LINE_GROUP_ID_BOT2,
-            allowedTags: ["Event", "Guest Speaker"]
+            allowedTags: ["Event", "Guest Speaker", "Meeting"]
         }
     ];
 

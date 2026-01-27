@@ -21,7 +21,7 @@ import { COLUMNS, TAG_COLORS, formatDate } from '../../utils/constants';
 // --- IMPORT THE SEPARATED MODAL ---
 import EditTaskModal from '../modals/EditTaskModal';
 
-const FILTER_CATEGORIES = ['All', 'Planning', 'Project', 'Product Review', 'Event', 'Guest Speaker'];
+const FILTER_CATEGORIES = ['All', 'Planning', 'Project', 'Product Review', 'Event', 'Guest Speaker', 'Meeting'];
 
 // --- MAIN COMPONENT ---
 const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTask, onOpenRequirement }) => {
@@ -217,7 +217,7 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
 // --- SUB-COMPONENTS ---
 
 const ExportEventModal = ({ tasks, onClose }) => {
-  const events = tasks.filter(t => { if (t.tag === 'Event' || t.tag === 'Guest Speaker') return true; if (Array.isArray(t.tags) && (t.tags.includes('Event') || t.tags.includes('Guest Speaker'))) return true; return false; });
+  const events = tasks.filter(t => { if (t.tag === 'Event' || t.tag === 'Guest Speaker' || t.tag === 'Meeting') return true; if (Array.isArray(t.tags) && (t.tags.includes('Event') || t.tags.includes('Guest Speaker') || t.tags.includes('Meeting'))) return true; return false; });
   events.sort((a, b) => new Date( a.startDate || a.deadline || 0) - new Date( b.startDate || b.deadline || 0));
   const groupedData = events.reduce((acc, task) => { const d = new Date(task.startDate || task.deadline); const key = isNaN(d) ? 'No Date' : d.toLocaleString('default', { month: 'long', year: 'numeric' }); if (!acc[key]) acc[key] = []; acc[key].push(task); return acc; }, {});
   const generateExportText = () => { if (events.length === 0) return "No events found to export."; let text = "☀️🌈อัพเดทตารางงานพี่เปา⭐️⭐️\n\n"; Object.entries(groupedData).forEach(([month, monthTasks]) => { text += `━━━━━━━━━━━━━━━━━━━━━━\n🗓️ ${month.toUpperCase()}\n━━━━━━━━━━━━━━━━━━━━━━\n`; monthTasks.forEach(t => { const bestDate = t.startDate || t.deadline; let dateStr ='TBD'; if (bestDate) { dateStr = new Date(bestDate).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) } text += `\n📅 ${dateStr}\n📌 ${t.title}\n📝 ${t.description || 'No description provided.'}\n📍 ${t.location || 'Location TBD'}\n\n` }); text += "\n"; }); return text; };

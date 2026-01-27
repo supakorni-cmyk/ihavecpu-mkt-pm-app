@@ -75,6 +75,7 @@ const AddTaskModal = ({ onClose, onAdd }) => {
                             <option value="Product Review">Product Review</option>
                             <option value="Event">Event</option>
                             <option value="Guest Speaker">Guest Speaker</option>
+                            <option value="Guest Speaker">Meeting</option>
                         </select>
                     </div>
 
