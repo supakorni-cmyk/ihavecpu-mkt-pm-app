@@ -139,12 +139,13 @@ export const useTaskData = (currentUser) => {
 
     console.log(`🔔 Alerting: ${task.title}`);
 
-    const lineMsg = `${prefix} 🚨\n\n📌 Task: ${task.title}\n🏷️ Tag: ${task.tag}\n📅 Due: ${new Date(task.deadline).toLocaleDateString('en-GB')}`;
+    const lineMsg = `${prefix} 🚨\n\n📌 Task: ${task.title}\n📋 Details: ${task.description}\n🏷️ Tag: ${task.tag}\n📅 Due: ${new Date(task.deadline).toLocaleDateString('en-GB')}`;
     await sendLinePush(lineMsg, task.tag);
 
     await sendEmailNotification(`${prefix}: ${task.title}`, {
         "Target User": userEmail,
         "Task Title": task.title,
+        "Details": task.description,
         "Due Date": new Date(task.deadline).toLocaleString('en-GB'),
         "Status": task.status
     });
@@ -190,6 +191,9 @@ export const useTaskData = (currentUser) => {
         }
         if (daysLeft <= 2 && daysLeft >= 0 && !task.notified2Days) {
             await triggerAlert(task, "🔥 URGENT: 2 Days Left", user.email, { notified2Days: true });
+        }
+        if (daysLeft = 0 && ! task.notified0Day) {
+            await triggerAlert(task,"🔥🔥 It's need to be done TODAY!", user.email, { notified0Day: true});
         }
     });
   };
@@ -243,10 +247,11 @@ export const useTaskData = (currentUser) => {
         // Notify LINE
         if (originalTask) {
             const title = cleanedUpdates.title || originalTask.title;
+            const details = cleanedUpdates.description || originalTask.description;
             const tag = cleanedUpdates.tag || originalTask.tag;
             const editor = currentUser?.email?.split('@')[0] || 'Unknown';
             
-            await sendLinePush(`📝 Task Edited:\n📌 ${title}\n👤 By: ${editor}\n🏷️ Tag: ${tag}`, tag);
+            await sendLinePush(`📝 Task Edited:\n📌 ${title}\n📋 ${description}\n👤 By: ${editor}\n🏷️ Tag: ${tag}`, tag);
         }
 
     } catch (error) {
@@ -261,12 +266,13 @@ export const useTaskData = (currentUser) => {
             ...task, 
             createdAt: new Date().toISOString(),
             notified7Days: false,
-            notified2Days: false
+            notified2Days: false,
+            notified0Day: false
         });
 
         await addDoc(collection(db, "tasks"), cleanedTask);
         await sendEmailNotification(`New Task: ${task.title}`, { "Title": task.title });
-        await sendLinePush(`🆕 New Task Created:\n📌 ${task.title}\n🏷️ [${task.tag}]\n📅 Due: ${task.deadline || 'TBD'}`, task.tag);
+        await sendLinePush(`🆕 New Task Created:\n📌 ${task.title}\n📋 Details: ${task.description}\n🏷️ [${task.tag}]\n📅 Due: ${task.deadline || 'TBD'}`, task.tag);
     } catch (error) { console.error("Error adding task:", error); }
   };
   
@@ -275,7 +281,7 @@ export const useTaskData = (currentUser) => {
         await updateDoc(doc(db, "tasks", taskId), { status: newStatus });
         const task = tasks.find(t => t.id === taskId);
         await sendEmailNotification("Task Status Updated", { "Task": task?.title, "New Status": newStatus });
-        await sendLinePush(`🔄 Status Update:\n📌 ${task?.title}\n🏷️ [${task?.tag}]\n➡️ Now: ${newStatus}`, task?.tag);
+        await sendLinePush(`🔄 Status Update:\n📌 ${task?.title}\n📋 Details: ${task.description}\n🏷️ [${task?.tag}]\n➡️ Now: ${newStatus}`, task?.tag);
     } catch (error) { console.error("Error moving task:", error); }
   };
 
@@ -288,7 +294,7 @@ export const useTaskData = (currentUser) => {
           
           if (taskToDelete) {
              const editor = currentUser?.email?.split('@')[0] || 'Unknown';
-             await sendLinePush(`🗑️ Task Deleted:\n📌 ${taskToDelete.title}\n👤 By: ${editor}`, taskToDelete.tag);
+             await sendLinePush(`🗑️ Task Deleted:\n📌 ${taskToDelete.title}\n📋 Details: ${taskToDelete.description}\n👤 By: ${editor}`, taskToDelete.tag);
           }
       } catch (error) { console.error(error); } 
   };
