@@ -26,10 +26,10 @@ const MOODS = [
     color: "from-pink-400 to-rose-500"
   },
   { 
-    id: "boommix",
-    title: "Boom Mix",
-    youtubeId: "RDMMS9bCLPwzSC0", 
-    image: "https://images.unsplash.com/photo-1605722243979-fe0be81929d9?w=400&q=80",
+    id: "hiphop",
+    title: "Hip Hop Beats",
+    youtubeId: "PLwNv9Hhd8gZjeee8SBwokNf2JhqBvYqeB", 
+    image: "https://images.unsplash.com/photo-1713450605253-832df45f9032?q=80&w=1740&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
     color: "from-purple-500 to-violet-600"
   }
 ];
