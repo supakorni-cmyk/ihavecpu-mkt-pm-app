@@ -1,6 +1,6 @@
 // src/components/views/BoardView.jsx
 import React, { useState, useMemo } from 'react';
-import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'; // <--- NEW IMPORT
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { 
   MoreHorizontal, 
   Plus, 
@@ -18,16 +18,20 @@ import {
 } from 'lucide-react';
 import { COLUMNS, TAG_COLORS, formatDate } from '../../utils/constants';
 
-// --- IMPORT THE SEPARATED MODAL ---
+// --- IMPORT THE MODALS ---
 import EditTaskModal from '../modals/EditTaskModal';
+import RequirementSheetModal from '../modals/RequirementModal'; // <--- NEW IMPORT
 
 const FILTER_CATEGORIES = ['All', 'Planning', 'Project', 'Product Review', 'Event', 'Guest Speaker', 'Meeting'];
 
 // --- MAIN COMPONENT ---
-const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTask, onOpenRequirement }) => {
+const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTask }) => {
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   
+  // --- NEW: REQUIREMENT MODAL STATE ---
+  const [activeRequirement, setActiveRequirement] = useState(null); // { task: taskObj, reqId: string }
+
   // --- FILTER STATE ---
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
@@ -80,14 +84,12 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
     return grouped;
   }, [filteredTasks]);
 
-  // --- NEW: DRAG END HANDLER ---
+  // --- DRAG END HANDLER ---
   const onDragEnd = (result) => {
     const { destination, source, draggableId } = result;
 
-    // 1. Dropped outside the list?
     if (!destination) return;
 
-    // 2. Dropped in the same place?
     if (
       destination.droppableId === source.droppableId &&
       destination.index === source.index
@@ -95,8 +97,6 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
       return;
     }
 
-    // 3. Move the task
-    // Note: 'destination.droppableId' corresponds to our column IDs ('todo', 'in-progress', etc.)
     onMoveTask(draggableId, destination.droppableId);
   };
 
@@ -104,6 +104,17 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
   const handleTaskClick = (taskId) => {
     const task = tasks.find(t => t.id === taskId);
     if (task) setEditingTask(task);
+  };
+
+  // --- NEW: HANDLER TO OPEN REQUIREMENT TABLE ---
+  const handleOpenRequirement = (reqId) => {
+      if (editingTask) {
+           // Find the specific requirement object inside the task
+           const req = editingTask.requirements.find(r => r.id === reqId);
+           if (req) {
+               setActiveRequirement({ task: editingTask, requirement: req });
+           }
+      }
   };
 
   return (
@@ -120,7 +131,6 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
             
             {/* Search & Filter */}
             <div className="flex items-center gap-2 flex-1">
-                {/* Search Input */}
                 <div className="relative group">
                     <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-indigo-500 transition-colors"/>
                     <input 
@@ -132,7 +142,6 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
                     />
                 </div>
 
-                {/* Category Dropdown */}
                 <div className="relative">
                     <Filter size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"/>
                     <select 
@@ -146,7 +155,6 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
                     </select>
                 </div>
 
-                {/* Clear Filter Button */}
                 {isFiltered && (
                     <button 
                         onClick={clearFilters}
@@ -205,16 +213,38 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
             onClose={() => setEditingTask(null)}
             onUpdate={(updatedData) => {
                 onUpdateTask(editingTask.id, updatedData);
-                setEditingTask(null);
+                // Also update local state so changes reflect immediately if modal stays open
+                setEditingTask(prev => ({ ...prev, ...updatedData }));
+                setEditingTask(null); // Close after update
             }}
-            onOpenRequirement={onOpenRequirement || (() => {})}
+            // PASS THE HANDLER HERE
+            onOpenRequirement={handleOpenRequirement}
         />
       )}
+
+      {/* --- NEW: REQUIREMENT SHEET MODAL --- */}
+      {activeRequirement && (
+          <RequirementSheetModal 
+              task={activeRequirement.task}
+              requirement={activeRequirement.requirement}
+              onClose={() => setActiveRequirement(null)}
+              onUpdateTask={(updates) => {
+                  onUpdateTask(activeRequirement.task.id, updates);
+                  // Update the local editingTask state so the parent modal refreshes if it's open (though it's behind this one)
+                  // But mainly to update the activeRequirement reference if needed
+                  const updatedTask = { ...activeRequirement.task, ...updates };
+                  // Find the updated requirement
+                  const updatedReq = updatedTask.requirements.find(r => r.id === activeRequirement.requirement.id);
+                  setActiveRequirement({ task: updatedTask, requirement: updatedReq });
+              }}
+          />
+      )}
+
     </div>
   );
 };
 
-// --- SUB-COMPONENTS ---
+// --- SUB-COMPONENTS (Keep ExportEventModal, BoardColumn, TaskCard as they were) ---
 
 const ExportEventModal = ({ tasks, onClose }) => {
   const events = tasks.filter(t => { if (t.tag === 'Event' || t.tag === 'Guest Speaker' || t.tag === 'Meeting') return true; if (Array.isArray(t.tags) && (t.tags.includes('Event') || t.tags.includes('Guest Speaker') || t.tags.includes('Meeting'))) return true; return false; });
