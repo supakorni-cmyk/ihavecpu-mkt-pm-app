@@ -45,17 +45,16 @@ export const useTaskData = (currentUser) => {
     return data;
   };
 
-// --- 2. EMAIL NOTIFICATION (FIXED) ---
+  // --- 2. EMAIL NOTIFICATION (FIXED for 500 Error) ---
   const sendEmailNotification = async (subject, data) => {
     const MAIN_EMAIL = "supakorn.i@ihavecpu.com"; 
-    // FIX 1: Remove space after comma. FormSubmit can be strict about this.
+    // FIX: No spaces in CC list
     const CC_EMAILS = "mkt@ihavecpu.com,suchada.t@ihavecpu.com"; 
 
-    // FIX 2: Flatten data. Ensure no complex objects are sent.
+    // FIX: Convert all data values to strings to prevent 500 Error
     const cleanDataPayload = {};
     Object.keys(data).forEach(key => {
         const value = data[key];
-        // Convert dates/objects to string to prevent Server 500 Error
         if (typeof value === 'object' && value !== null) {
             cleanDataPayload[key] = JSON.stringify(value); 
         } else {
@@ -68,11 +67,11 @@ export const useTaskData = (currentUser) => {
         _cc: CC_EMAILS,
         _template: "table",
         _captcha: "false",
-        _honey: "", // Anti-spam field (keep empty)
+        _honey: "", // Anti-spam
         "Target Email": MAIN_EMAIL,
         "Triggered By": currentUser?.email || 'System',
         "Time": new Date().toLocaleString('en-GB'),
-        ...cleanDataPayload // Use the cleaned string-only data
+        ...cleanDataPayload
     };
 
     try {
@@ -88,13 +87,9 @@ export const useTaskData = (currentUser) => {
         if (response.ok) {
             console.log(`✅ Email Sent Successfully: ${subject}`);
         } else {
-            // Log the actual error text from the server if possible
-            const errorText = await response.text(); 
-            console.error(`❌ Email Failed (Status ${response.status}):`, errorText);
+            console.error(`❌ Email Failed (Status ${response.status})`);
         }
-    } catch (error) { 
-        console.error("❌ Email Network Error:", error); 
-    }
+    } catch (error) { console.error("❌ Email Network Error:", error); }
   };
 
   // --- 3. LINE PUSH NOTIFICATION ---
@@ -156,10 +151,7 @@ export const useTaskData = (currentUser) => {
   const triggerAlert = async (task, prefix, userEmail, updateFlag) => {
     const alertId = `${task.id}-${Object.keys(updateFlag)[0]}`; 
     
-    if (processedAlerts.current.has(alertId)) {
-        console.log(`🛑 Blocked duplicate email for: ${task.title}`);
-        return; // STOP HERE
-    }
+    if (processedAlerts.current.has(alertId)) return;
     processedAlerts.current.add(alertId);
 
     console.log(`🔔 TRIGGERING ALERT: ${task.title} (${prefix})`);
@@ -197,34 +189,28 @@ export const useTaskData = (currentUser) => {
     if (!user) return;
     const now = new Date();
     
-    // --- UPDATED: RESPONSIBILITY CHECK ---
-    // Only the ADMIN account triggers alerts.
-    // This prevents duplicate emails if 5 people are using the app.
+    // ADMIN CHECK (Prevents duplicate sending from multiple users)
     const ADMIN_EMAIL = "supakorn.i@ihavecpu.com"; 
-
-    if (user.email !== ADMIN_EMAIL) {
-        // If I am NOT the admin, I do nothing.
-        // console.log("Not Admin - Skipping deadline check");
-        return;
-    }
+    if (user.email !== ADMIN_EMAIL) return;
 
     taskList.forEach(async (task) => {
-        if (task.status === 'completed' || !task.deadline) return;
+        // --- FIX: Check for "Completed", "Done", etc. (Case Insensitive) ---
+        const status = task.status ? task.status.toLowerCase() : '';
+        const isComplete = status === 'completed' || status === 'done';
+
+        if (isComplete || !task.deadline) return;
 
         const deadline = new Date(task.deadline);
         const timeDiff = deadline - now;
         const daysLeft = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
 
         // --- ALERTS ---
-        // Priority 1: TODAY
         if (daysLeft <= 0 && daysLeft > -3 && !task.notified0Day) {
             await triggerAlert(task,"🔥🔥 It's need to be done TODAY!", user.email, { notified0Day: true});
         }
-        // Priority 2: 2 Days Left
         else if (daysLeft <= 2 && daysLeft > 0 && !task.notified2Days) {
             await triggerAlert(task, "🔥 URGENT: 2 Days Left", user.email, { notified2Days: true });
         }
-        // Priority 3: 7 Days Left
         else if (daysLeft <= 7 && daysLeft > 2 && !task.notified7Days) {
             await triggerAlert(task, "⚠️ Reminder: 7 Days Left", user.email, { notified7Days: true });
         }
