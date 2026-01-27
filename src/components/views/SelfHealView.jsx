@@ -31,6 +31,13 @@ const MOODS = [
     youtubeId: "PLwNv9Hhd8gZjeee8SBwokNf2JhqBvYqeB", 
     image: "https://images.unsplash.com/photo-1713450605253-832df45f9032?q=80&w=1740&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
     color: "from-purple-500 to-violet-600"
+  },
+  {
+    id: "thai",
+    title: "ฉันฟังเพลงไทยจ้า",
+    youtubeId: "PLrDUi3beimz7D4BdUUGhpUGlxKHg8CQup", 
+    image: "https://plus.unsplash.com/premium_photo-1690958385472-b8e011570ceb?q=80&w=1740&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+    color: "from-purple-500 to-violet-600"
   }
 ];
 
