@@ -7,28 +7,28 @@ const MOODS = [
   { 
     id: "relax",
     title: "Relax & Focus",
-    youtubeId: "PL0vfts4VzfNigohKr5sPrixYSl8Etq6OX", 
+    youtubeId: "PL4QNnZJr8sRPmuz_d87ygGR6YAYEF-fmw", 
     image: "https://images.unsplash.com/photo-1518609878373-06d740f60d8b?w=400&q=80",
     color: "from-blue-400 to-indigo-500"
   },
   { 
     id: "rage",
     title: "Rage Out!",
-    youtubeId: "PLhd1RvZtrYl8H4YqD2kDrO38aZ6Vj_q1H", 
+    youtubeId: "PLe3UPCHpSqZkYD5f7jKblv0ZQ9XmkGjjZ", 
     image: "https://images.unsplash.com/photo-1598387993441-a364f854c3e1?w=400&q=80",
     color: "from-red-500 to-orange-600"
   },
   { 
     id: "love",
     title: "In Love",
-    youtubeId: "PLC8F6C76918B22756", 
+    youtubeId: "PLgzTt0k8mXzE6H9DDgiY7Pd8pKZteis48", 
     image: "https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=400&q=80",
     color: "from-pink-400 to-rose-500"
   },
   { 
-    id: "hiphop",
-    title: "Hip Hop Beats",
-    youtubeId: "PLozxDs0W75a-L6gMa-t6ge_6-7F1Sft_", 
+    id: "boommix",
+    title: "Boom Mix",
+    youtubeId: "RDMMS9bCLPwzSC0", 
     image: "https://images.unsplash.com/photo-1605722243979-fe0be81929d9?w=400&q=80",
     color: "from-purple-500 to-violet-600"
   }
