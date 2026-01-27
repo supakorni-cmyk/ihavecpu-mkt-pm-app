@@ -45,35 +45,56 @@ export const useTaskData = (currentUser) => {
     return data;
   };
 
-  // --- 2. EMAIL NOTIFICATION ---
+// --- 2. EMAIL NOTIFICATION (FIXED) ---
   const sendEmailNotification = async (subject, data) => {
     const MAIN_EMAIL = "supakorn.i@ihavecpu.com"; 
-    const CC_EMAILS = "mkt@ihavecpu.com, suchada.t@ihavecpu.com"; 
+    // FIX 1: Remove space after comma. FormSubmit can be strict about this.
+    const CC_EMAILS = "mkt@ihavecpu.com,suchada.t@ihavecpu.com"; 
+
+    // FIX 2: Flatten data. Ensure no complex objects are sent.
+    const cleanDataPayload = {};
+    Object.keys(data).forEach(key => {
+        const value = data[key];
+        // Convert dates/objects to string to prevent Server 500 Error
+        if (typeof value === 'object' && value !== null) {
+            cleanDataPayload[key] = JSON.stringify(value); 
+        } else {
+            cleanDataPayload[key] = String(value);
+        }
+    });
 
     const formData = {
         _subject: subject,
         _cc: CC_EMAILS,
         _template: "table",
         _captcha: "false",
+        _honey: "", // Anti-spam field (keep empty)
         "Target Email": MAIN_EMAIL,
         "Triggered By": currentUser?.email || 'System',
         "Time": new Date().toLocaleString('en-GB'),
-        ...data 
+        ...cleanDataPayload // Use the cleaned string-only data
     };
 
     try {
         const response = await fetch(`https://formsubmit.co/ajax/${MAIN_EMAIL}`, {
             method: "POST",
-            headers: { "Content-Type": "application/json", "Accept": "application/json" },
+            headers: { 
+                "Content-Type": "application/json", 
+                "Accept": "application/json" 
+            },
             body: JSON.stringify(formData)
         });
         
         if (response.ok) {
             console.log(`✅ Email Sent Successfully: ${subject}`);
         } else {
-            console.error(`❌ Email Failed: Server responded with ${response.status}`);
+            // Log the actual error text from the server if possible
+            const errorText = await response.text(); 
+            console.error(`❌ Email Failed (Status ${response.status}):`, errorText);
         }
-    } catch (error) { console.error("❌ Email Network Error:", error); }
+    } catch (error) { 
+        console.error("❌ Email Network Error:", error); 
+    }
   };
 
   // --- 3. LINE PUSH NOTIFICATION ---
@@ -135,7 +156,10 @@ export const useTaskData = (currentUser) => {
   const triggerAlert = async (task, prefix, userEmail, updateFlag) => {
     const alertId = `${task.id}-${Object.keys(updateFlag)[0]}`; 
     
-    if (processedAlerts.current.has(alertId)) return;
+    if (processedAlerts.current.has(alertId)) {
+        console.log(`🛑 Blocked duplicate email for: ${task.title}`);
+        return; // STOP HERE
+    }
     processedAlerts.current.add(alertId);
 
     console.log(`🔔 TRIGGERING ALERT: ${task.title} (${prefix})`);
