@@ -168,7 +168,7 @@ export const useTaskData = (currentUser) => {
                                 type: "box",
                                 layout: "baseline",
                                 contents: [
-                                    { type: "text", text: "Date", color: "#aaaaaa", size: "xs", flex: 2 },
+                                    { type: "text", text: "Due Date", color: "#aaaaaa", size: "xs", flex: 2 },
                                     { type: "text", text: task.deadline ? new Date(task.deadline).toLocaleDateString('en-GB') : "TBD", color: "#666666", size: "xs", flex: 5 }
                                 ]
                             },
