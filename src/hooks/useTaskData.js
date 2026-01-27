@@ -267,8 +267,8 @@ export const useTaskData = (currentUser) => {
             const tag = cleanedUpdates.tag || originalTask.tag;
             const editor = currentUser?.email?.split('@')[0] || 'Unknown';
             
-            // // 1. Send LINE
-            // await sendLinePush(`📝 Task Edited:\n📌 ${title}\n📋 ${description}\n👤 By: ${editor}\n🏷️ Tag: ${tag}`, tag);
+            // 1. Send LINE
+            await sendLinePush(`📝 Task Edited:\n📌 ${title}\n📋 ${description}\n👤 By: ${editor}\n🏷️ Tag: ${tag}`, tag);
 
             // 2. Send Email
             await sendEmailNotification(`Task Edited: ${title}`, {
