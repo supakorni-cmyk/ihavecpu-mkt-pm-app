@@ -128,18 +128,18 @@ export default function Dashboard() {
           />
         )}
 
-        {/* {currentView === 'selfheal' && <SelfHealView />} */}
+        {currentView === 'selfheal' && <SelfHealView />}
         
         {currentView === 'report' && (
           <ReportView tasks={data.tasks} currentUser={currentUser} />
         )}
       </main>
-      {/* --- GLOBAL PLAYER (Sits on top) --- */}
+      {/* --- GLOBAL PLAYER (Sits on top) ---
       <GlobalPlayer 
           mode={playerMode} 
           setMode={setPlayerMode} 
           onClose={() => setPlayerMode('hidden')} 
-      />
+      /> */}
 
       {/* MODAL LAYER */}
       {isAddModalOpen && (
