@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
     Table, FileSpreadsheet, X, Plus, Save, ZoomIn, ZoomOut, Trash2, 
     AlignLeft, AlignCenter, AlignRight, Hash, DollarSign, Type, Calculator, ExternalLink,
-    Wand2
+    Wand2, Copy
 } from 'lucide-react';
 
 const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => {
