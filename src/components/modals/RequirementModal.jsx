@@ -1,6 +1,6 @@
 // src/components/modals/RequirementModal.jsx
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Table, FileSpreadsheet, X, Plus, Save, ZoomIn, ZoomOut, MoreHorizontal, MousePointerClick } from 'lucide-react';
+import { Table, FileSpreadsheet, X, Plus, Save, ZoomIn, ZoomOut, Trash2, MousePointerClick } from 'lucide-react';
 
 const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => {
     // --- State ---
@@ -13,7 +13,7 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
     // Editor State
     const [editingCell, setEditingCell] = useState({ rowId: null, colId: null });
     const [contextMenu, setContextMenu] = useState(null); // { type: 'row'|'col', id: string, x: number, y: number }
-    const editorRef = useRef(null); // Ref for the active input to insert cell refs
+    const editorRef = useRef(null); 
 
     // Initialize
     useEffect(() => {
@@ -30,12 +30,16 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
 
     // --- 🧮 FORMULA & CELL ENGINE ---
     const getColLetter = (index) => {
-        let letter = '';
-        while (index >= 0) {
-            letter = String.fromCharCode((index % 26) + 65) + letter;
-            index = Math.floor(index / 26) - 1;
-        }
-        return letter;
+        if (index === undefined || index === null || index < 0) return '?';
+        try {
+            let letter = '';
+            let tempIndex = index;
+            while (tempIndex >= 0) {
+                letter = String.fromCharCode((tempIndex % 26) + 65) + letter;
+                tempIndex = Math.floor(tempIndex / 26) - 1;
+            }
+            return letter;
+        } catch (e) { return '?'; }
     };
 
     const evaluateFormula = useCallback((expression, currentRowIdx) => {
@@ -76,28 +80,44 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
     // --- 🖱️ INTERACTION HANDLERS ---
 
     const handleCellClick = (rowId, colId, rowIndex, colIndex) => {
+        // SAFETY CHECK: Ensure we are not clicking the SAME cell we are editing
+        if (editingCell.rowId === rowId && editingCell.colId === colId) return;
+
         // FORMULA INJECTION MODE
-        // If we are currently editing a cell AND it starts with '=', insert the clicked cell reference
-        if (editingCell.rowId && editingCell.colId && (editingCell.rowId !== rowId || editingCell.colId !== colId)) {
+        if (editingCell.rowId && editingCell.colId) {
             const activeRow = tableData.find(r => r.id === editingCell.rowId);
+            
+            // SAFETY CHECK: If active row disappeared (rare), stop
+            if (!activeRow) {
+                setEditingCell({ rowId, colId });
+                return;
+            }
+
             const activeVal = activeRow[editingCell.colId] || '';
             
+            // Only inject if user started typing '='
             if (activeVal.toString().startsWith('=')) {
-                // We are in formula mode!
                 const cellRef = `${getColLetter(colIndex)}${rowIndex + 1}`;
                 const input = editorRef.current;
                 
+                // SAFETY CHECK: Ensure input ref exists
                 if (input) {
-                    const startPos = input.selectionStart;
-                    const endPos = input.selectionEnd;
+                    const startPos = input.selectionStart || activeVal.length;
+                    const endPos = input.selectionEnd || activeVal.length;
+                    
+                    // Insert reference at cursor position
                     const newVal = activeVal.substring(0, startPos) + cellRef + activeVal.substring(endPos);
                     
                     handleCellChange(editingCell.rowId, editingCell.colId, newVal);
                     
                     // Restore focus and cursor
                     setTimeout(() => {
-                        input.focus();
-                        input.setSelectionRange(startPos + cellRef.length, startPos + cellRef.length);
+                        if(editorRef.current) {
+                            editorRef.current.focus();
+                            // Move cursor after the inserted text
+                            const newCursorPos = startPos + cellRef.length;
+                            editorRef.current.setSelectionRange(newCursorPos, newCursorPos);
+                        }
                     }, 0);
                 }
                 return; // Stop here, don't change focus to the clicked cell
@@ -117,7 +137,7 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
 
     // --- 🛠️ STRUCTURE ACTIONS (Insert/Delete) ---
 
-    const insertRow = (index, position) => { // position: 'before' | 'after'
+    const insertRow = (index, position) => { 
         const newRow = { id: Date.now() };
         columns.forEach(col => newRow[col.id] = '');
         
@@ -143,9 +163,9 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
 
     const deleteStructure = (type, id) => {
         if (type === 'row') {
-            setTableData(tableData.filter(r => r.id !== id));
+            setTableData(prev => prev.filter(r => r.id !== id));
         } else {
-            setColumns(columns.filter(c => c.id !== id));
+            setColumns(prev => prev.filter(c => c.id !== id));
         }
         setHasUnsavedChanges(true);
         setContextMenu(null);
@@ -163,12 +183,10 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
     };
 
     const exportToGoogleSheets = () => {
-        // 1. Build TSV string (Tab Separated Values work best for copy-paste to Sheets)
         const headers = columns.map(c => c.name).join('\t');
         const rows = tableData.map((row, rIdx) => 
             columns.map(col => {
                 const val = row[col.id];
-                // Export calculated value
                 const calculated = evaluateFormula(val, rIdx); 
                 return calculated === undefined || calculated === null ? '' : calculated;
             }).join('\t')
@@ -176,9 +194,7 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
         
         const clipboardText = `${headers}\n${rows}`;
 
-        // 2. Copy to Clipboard
         navigator.clipboard.writeText(clipboardText).then(() => {
-            // 3. Open Sheets
             window.open('https://sheets.new', '_blank');
             alert("✅ Data copied! Press Ctrl+V in the new Google Sheet to paste.");
         }).catch(err => alert("Failed to copy data: " + err));
@@ -187,7 +203,18 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
     // --- 🖱️ CONTEXT MENU UI ---
     const handleContextMenu = (e, type, id, index) => {
         e.preventDefault();
-        setContextMenu({ type, id, index, x: e.clientX, y: e.clientY });
+        e.stopPropagation(); // Stop bubbling immediately
+        
+        // Adjust position if close to edge
+        let x = e.clientX;
+        let y = e.clientY;
+        const menuWidth = 180;
+        const menuHeight = 150;
+        
+        if (x + menuWidth > window.innerWidth) x = window.innerWidth - menuWidth - 10;
+        if (y + menuHeight > window.innerHeight) y = window.innerHeight - menuHeight - 10;
+
+        setContextMenu({ type, id, index, x, y });
     };
 
     // Close menus on click away
@@ -255,7 +282,7 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
                                     onContextMenu={(e) => handleContextMenu(e, 'col', col.id, idx)}
                                 >
                                     {/* Excel Letter Header */}
-                                    <div className="bg-gray-200 text-center text-[10px] text-gray-600 font-bold py-1 border-b border-gray-300">
+                                    <div className="bg-gray-200 text-center text-[10px] text-gray-600 font-bold py-1 border-b border-gray-300 select-none">
                                         {getColLetter(idx)}
                                     </div>
                                     {/* Editable Name */}
@@ -269,8 +296,8 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
                                             setHasUnsavedChanges(true);
                                         }}
                                     />
-                                    {/* Resize Handle (Simple implementation) */}
-                                    <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-400 z-10"
+                                    {/* Resize Handle */}
+                                    <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-400 z-10 opacity-0 group-hover:opacity-100"
                                          onMouseDown={(e) => {
                                              const startX = e.pageX;
                                              const startWidth = colWidths[col.id] || 200;
@@ -291,7 +318,8 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
                             {/* Add Col Btn */}
                             <button 
                                 onClick={() => insertCol(columns.length, 'after')}
-                                className="w-8 flex items-center justify-center hover:bg-gray-200 text-gray-400 border-r border-gray-300"
+                                className="w-8 flex items-center justify-center hover:bg-gray-200 text-gray-400 border-r border-gray-300 transition-colors"
+                                title="Add Column"
                             >
                                 <Plus size={16} />
                             </button>
@@ -302,7 +330,7 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
                             <div key={row.id} className="flex border-b border-gray-200 hover:bg-blue-50/10">
                                 {/* Row Number & Context Trigger */}
                                 <div 
-                                    className="w-10 border-r border-gray-300 bg-gray-50 text-gray-500 font-mono text-xs flex items-center justify-center cursor-context-menu hover:bg-gray-200 hover:text-gray-800 transition-colors"
+                                    className="w-10 border-r border-gray-300 bg-gray-50 text-gray-500 font-mono text-xs flex items-center justify-center cursor-context-menu hover:bg-gray-200 hover:text-gray-800 transition-colors select-none"
                                     onContextMenu={(e) => handleContextMenu(e, 'row', row.id, rIdx)}
                                 >
                                     {rIdx + 1}
@@ -311,7 +339,6 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
                                 {columns.map((col, cIdx) => {
                                     const isEditing = editingCell.rowId === row.id && editingCell.colId === col.id;
                                     const rawValue = row[col.id];
-                                    // If editing, show raw. If not, show evaluated formula OR raw value.
                                     const displayValue = isEditing ? (rawValue || '') : evaluateFormula(rawValue, rIdx);
                                     const isFormula = typeof rawValue === 'string' && rawValue.startsWith('=');
 
@@ -326,7 +353,7 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
                                                 <input
                                                     ref={editorRef}
                                                     autoFocus
-                                                    className="w-full h-full px-2 py-1.5 text-sm outline-none bg-white ring-2 ring-blue-500 z-10 absolute inset-0"
+                                                    className="w-full h-full px-2 py-1.5 text-sm outline-none bg-white ring-2 ring-blue-500 z-10 absolute inset-0 font-mono"
                                                     value={rawValue || ''}
                                                     onChange={(e) => handleCellChange(row.id, col.id, e.target.value)}
                                                     onBlur={() => setEditingCell({ rowId: null, colId: null })}
@@ -348,7 +375,7 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
                             <div className="w-10 bg-gray-100 border-r border-gray-300"></div>
                             <button 
                                 onClick={() => insertRow(tableData.length, 'after')}
-                                className="px-4 py-2 text-xs font-bold text-gray-500 hover:text-green-600 hover:bg-green-50 flex items-center gap-2 w-full"
+                                className="px-4 py-2 text-xs font-bold text-gray-500 hover:text-green-600 hover:bg-green-50 flex items-center gap-2 w-full transition-colors"
                             >
                                 <Plus size={14} /> Add Row Bottom
                             </button>
@@ -359,7 +386,7 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
                 {/* --- CONTEXT MENU --- */}
                 {contextMenu && (
                     <div 
-                        className="fixed bg-white shadow-2xl rounded-lg border border-gray-100 py-1 z-50 w-48 text-sm animate-in fade-in zoom-in-95 duration-100"
+                        className="fixed bg-white shadow-2xl rounded-lg border border-gray-100 py-1 z-[100] w-48 text-sm animate-in fade-in zoom-in-95 duration-100"
                         style={{ top: contextMenu.y, left: contextMenu.x }}
                         onClick={(e) => e.stopPropagation()}
                     >
@@ -368,16 +395,16 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
                         </div>
                         
                         <button onClick={() => contextMenu.type === 'row' ? insertRow(contextMenu.index, 'before') : insertCol(contextMenu.index, 'before')} className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2 text-gray-700">
-                            <Plus size={14} className="text-blue-500"/> Insert {contextMenu.type === 'row' ? 'Row' : 'Column'} Before
+                            <Plus size={14} className="text-blue-500"/> Insert Before
                         </button>
                         <button onClick={() => contextMenu.type === 'row' ? insertRow(contextMenu.index, 'after') : insertCol(contextMenu.index, 'after')} className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2 text-gray-700">
-                            <Plus size={14} className="text-blue-500"/> Insert {contextMenu.type === 'row' ? 'Row' : 'Column'} After
+                            <Plus size={14} className="text-blue-500"/> Insert After
                         </button>
                         
                         <div className="h-px bg-gray-100 my-1"></div>
                         
                         <button onClick={() => deleteStructure(contextMenu.type, contextMenu.id)} className="w-full text-left px-4 py-2 hover:bg-red-50 text-red-600 flex items-center gap-2">
-                            <Trash2 size={14} /> Delete {contextMenu.type === 'row' ? 'Row' : 'Column'}
+                            <Trash2 size={14} /> Delete
                         </button>
                     </div>
                 )}
