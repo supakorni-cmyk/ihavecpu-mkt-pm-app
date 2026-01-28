@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
     Table, FileSpreadsheet, X, Plus, Save, ZoomIn, ZoomOut, Trash2, 
-    AlignLeft, AlignCenter, AlignRight, Hash, DollarSign, Type 
+    AlignLeft, AlignCenter, AlignRight, Hash, DollarSign, Type, Calculator
 } from 'lucide-react';
 
 const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => {
@@ -15,7 +15,7 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
     
     // Editor State
     const [editingCell, setEditingCell] = useState({ rowId: null, colId: null });
-    const [contextMenu, setContextMenu] = useState(null); // { type: 'row'|'col', id: string, index: number, x: number, y: number }
+    const [contextMenu, setContextMenu] = useState(null); 
     const editorRef = useRef(null); 
 
     // Initialize
@@ -66,7 +66,7 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
 
                 let val = targetRow[targetCol.id];
                 if (!val) return 0;
-                val = val.toString().replace(/,/g, ''); // Remove commas for math
+                val = val.toString().replace(/,/g, ''); 
                 return isNaN(Number(val)) ? 0 : Number(val);
             });
 
@@ -80,18 +80,44 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
 
     const formatValue = (val, format) => {
         if (val === undefined || val === null || val === '') return '';
-        if (typeof val === 'string' && val.startsWith('#')) return val; // Errors
+        if (typeof val === 'string' && val.startsWith('#')) return val; 
         
-        const num = parseFloat(val);
-        if (isNaN(num)) return val; // Return raw text if not a number
+        // Remove commas if string for parsing
+        const rawNum = typeof val === 'string' ? parseFloat(val.replace(/,/g, '')) : val;
+        
+        if (isNaN(rawNum)) return val; 
 
         if (format === 'number') {
-            return num.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+            return rawNum.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
         }
         if (format === 'currency') {
-            return '฿' + num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            return '฿' + rawNum.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         }
         return val;
+    };
+
+    // --- 📊 SUMMARY CALCULATION ---
+    const calculateColumnTotal = (col) => {
+        // Only summarize numeric columns
+        if (col.format !== 'number' && col.format !== 'currency') return null;
+
+        const total = tableData.reduce((sum, row, rIdx) => {
+            const rawVal = row[col.id];
+            // Evaluate formula if present
+            const val = evaluateFormula(rawVal, rIdx);
+            
+            // Safe parse
+            let num = 0;
+            if (typeof val === 'number') {
+                num = val;
+            } else if (typeof val === 'string') {
+                num = parseFloat(val.replace(/,/g, ''));
+            }
+            
+            return sum + (isNaN(num) ? 0 : num);
+        }, 0);
+
+        return formatValue(total, col.format);
     };
 
     // --- 🖱️ INTERACTION HANDLERS ---
@@ -99,7 +125,6 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
     const handleCellClick = (rowId, colId, rowIndex, colIndex) => {
         if (editingCell.rowId === rowId && editingCell.colId === colId) return;
 
-        // FORMULA INJECTION MODE
         if (editingCell.rowId && editingCell.colId) {
             const activeRow = tableData.find(r => r.id === editingCell.rowId);
             if (!activeRow) { setEditingCell({ rowId, colId }); return; }
@@ -141,7 +166,6 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
     const updateColumnProperty = (colId, property, value) => {
         setColumns(cols => cols.map(c => c.id === colId ? { ...c, [property]: value } : c));
         setHasUnsavedChanges(true);
-        // Keep context menu open but update state
     };
 
     // --- 🛠️ STRUCTURE ACTIONS ---
@@ -216,7 +240,7 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
         
         let x = e.clientX;
         let y = e.clientY;
-        const menuWidth = 220; // Increased width for options
+        const menuWidth = 220; 
         const menuHeight = 300;
         
         if (x + menuWidth > window.innerWidth) x = window.innerWidth - menuWidth - 10;
@@ -271,7 +295,7 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
                         style={{ transform: `scale(${scale})` }}
                     >
                         {/* --- HEADER ROW --- */}
-                        <div className="flex border-b border-gray-300 bg-gray-50 sticky top-0 z-20">
+                        <div className="flex border-b border-gray-300 bg-gray-50 sticky top-0 z-20 shadow-sm">
                             <div className="w-10 p-2 border-r border-gray-300 bg-gray-100 flex items-center justify-center text-gray-400 font-mono text-xs">#</div>
                             {columns.map((col, idx) => (
                                 <div 
@@ -288,6 +312,12 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
                                         value={col.name}
                                         onChange={(e) => updateColumnProperty(col.id, 'name', e.target.value)}
                                     />
+                                    {/* Column Type Indicator */}
+                                    <div className="absolute top-1 left-1 opacity-20 group-hover:opacity-100">
+                                        {col.format === 'number' && <Hash size={10} className="text-blue-500"/>}
+                                        {col.format === 'currency' && <DollarSign size={10} className="text-green-500"/>}
+                                    </div>
+
                                     <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-400 z-10 opacity-0 group-hover:opacity-100"
                                          onMouseDown={(e) => {
                                              const startX = e.pageX;
@@ -323,8 +353,6 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
                                     const isEditing = editingCell.rowId === row.id && editingCell.colId === col.id;
                                     const rawValue = row[col.id];
                                     const evaluated = evaluateFormula(rawValue, rIdx);
-                                    
-                                    // Apply formatting only when NOT editing
                                     const displayValue = isEditing ? (rawValue || '') : formatValue(evaluated, col.format || 'text');
                                     const isFormula = typeof rawValue === 'string' && rawValue.startsWith('=');
                                     const alignClass = col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left';
@@ -356,9 +384,34 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
                                 <div className="w-8 bg-gray-50 border-r border-gray-200"></div>
                             </div>
                         ))}
+
+                        {/* --- SUMMARY ROW (STICKY FOOTER) --- */}
+                        <div className="flex border-b border-gray-300 bg-gray-100 font-bold sticky bottom-0 z-20 shadow-[-2px_-4px_10px_rgba(0,0,0,0.05)] border-t-2 border-t-gray-300">
+                            <div className="w-10 border-r border-gray-300 p-2 flex items-center justify-center text-xs text-gray-500 bg-gray-200">
+                                <Calculator size={14}/>
+                            </div>
+                            {columns.map((col, idx) => {
+                                const total = calculateColumnTotal(col);
+                                const alignClass = col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left';
+                                return (
+                                    <div 
+                                        key={col.id} 
+                                        className={`border-r border-gray-300 px-2 py-2 text-sm ${alignClass}`}
+                                        style={{ width: colWidths[col.id] || 200, minWidth: 60 }}
+                                    >
+                                        <span className="text-gray-800 tracking-tight">
+                                            {total}
+                                        </span>
+                                    </div>
+                                );
+                            })}
+                            <div className="w-8 bg-gray-100 border-r border-gray-300"></div>
+                        </div>
+
+                        {/* Add Row Button */}
                         <div className="flex border-b border-gray-300">
                             <div className="w-10 bg-gray-100 border-r border-gray-300"></div>
-                            <button onClick={() => insertRow(tableData.length, 'after')} className="px-4 py-2 text-xs font-bold text-gray-500 hover:text-green-600 hover:bg-green-50 flex items-center gap-2 w-full transition-colors"><Plus size={14} /> Add Row Bottom</button>
+                            <button onClick={() => insertRow(tableData.length, 'after')} className="px-4 py-2 text-xs font-bold text-gray-500 hover:text-green-600 hover:bg-green-50 flex items-center gap-2 w-full transition-colors"><Plus size={14} /> Add Row</button>
                         </div>
                     </div>
                 </div>
@@ -370,13 +423,11 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
                         style={{ top: contextMenu.y, left: contextMenu.x }}
                         onClick={(e) => e.stopPropagation()}
                     >
-                        {/* Menu Header with Close */}
                         <div className="px-3 pb-2 text-xs font-bold text-gray-400 uppercase tracking-wider border-b border-gray-50 mb-1 flex justify-between items-center">
                             {contextMenu.type === 'row' ? `Row ${contextMenu.index + 1}` : `Column ${getColLetter(contextMenu.index)}`}
                             <button onClick={() => setContextMenu(null)} className="hover:bg-red-50 hover:text-red-500 rounded p-0.5"><X size={12}/></button>
                         </div>
                         
-                        {/* Insert/Delete Options */}
                         <button onClick={() => contextMenu.type === 'row' ? insertRow(contextMenu.index, 'before') : insertCol(contextMenu.index, 'before')} className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2 text-gray-700">
                             <Plus size={14} className="text-blue-500"/> Insert Before
                         </button>
@@ -387,7 +438,6 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
                             <Trash2 size={14} /> Delete
                         </button>
 
-                        {/* Column Styling Options */}
                         {contextMenu.type === 'col' && (
                             <>
                                 <div className="h-px bg-gray-100 my-1"></div>
