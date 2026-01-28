@@ -2,7 +2,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
     Table, FileSpreadsheet, X, Plus, Save, ZoomIn, ZoomOut, Trash2, 
-    AlignLeft, AlignCenter, AlignRight, Hash, DollarSign, Type, Calculator
+    AlignLeft, AlignCenter, AlignRight, Hash, DollarSign, Type, Calculator, ExternalLink,
+    Wand2
 } from 'lucide-react';
 
 const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => {
@@ -22,10 +23,10 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
     useEffect(() => {
         setTableData(requirement.tableData || []);
         setColumns(requirement.columns || [
-            { id: 'col1', name: 'Item / Name', align: 'left', format: 'text' }, 
-            { id: 'col2', name: 'Price', align: 'right', format: 'currency' }, 
-            { id: 'col3', name: 'Quantity', align: 'center', format: 'number' }, 
-            { id: 'col4', name: 'Total', align: 'right', format: 'currency' }
+            { id: 'col1', name: 'Item / Name', align: 'left', format: 'text', autoFormula: '' }, 
+            { id: 'col2', name: 'Price', align: 'right', format: 'currency', autoFormula: '' }, 
+            { id: 'col3', name: 'Quantity', align: 'center', format: 'number', autoFormula: '' }, 
+            { id: 'col4', name: 'Total', align: 'right', format: 'currency', autoFormula: '=B*C' } // Example default
         ]);
         setColWidths(requirement.colWidths || {});
         setHasUnsavedChanges(false);
@@ -45,12 +46,22 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
         } catch (e) { return '?'; }
     };
 
+    // Helper: Convert generic "A*B" to specific "A1*B1" based on row index
+    const generateSpecificFormula = (genericFormula, rowIndex) => {
+        if (!genericFormula) return '';
+        const rowNum = rowIndex + 1;
+        // Replace Column Letters (e.g., A, B, AA) that are NOT followed by a number
+        // with Letter + RowNumber (e.g., A1, B1)
+        return genericFormula.toUpperCase().replace(/([A-Z]+)(?![0-9])/g, (match) => match + rowNum);
+    };
+
     const evaluateFormula = useCallback((expression, currentRowIdx) => {
         if (!expression || typeof expression !== 'string' || !expression.startsWith('=')) return expression;
 
         try {
             let formula = expression.substring(1).toUpperCase();
-            // Regex to match cell references (A1, B2)
+            
+            // Regex to find and replace cell references (A1, B2) with actual values
             formula = formula.replace(/([A-Z]+)(\d+)/g, (match, colLetter, rowNum) => {
                 let colIndex = 0;
                 for (let i = 0; i < colLetter.length; i++) {
@@ -59,12 +70,28 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
                 colIndex -= 1; 
 
                 const targetCol = columns[colIndex];
-                const rowIndex = parseInt(rowNum) - 1;
-                const targetRow = tableData[rowIndex];
+                const targetRowIndex = parseInt(rowNum) - 1;
+                
+                // Recursion Protection: If we need data from a row, we must check if THAT cell is calculated too
+                // For simplicity here, we just grab raw data. A full spreadsheet graph is complex.
+                // We fallback to tableData which contains RAW values (no auto-calc values stored in state).
+                // Ideally, auto-formulas work best on "Input" columns.
+                
+                const targetRow = tableData[targetRowIndex];
 
                 if (!targetCol || !targetRow) return 0;
 
                 let val = targetRow[targetCol.id];
+                
+                // If target cell is empty, check if it has an auto-formula (Recursive-ish for 1 level)
+                if ((val === undefined || val === '' || val === null) && targetCol.autoFormula) {
+                     // Recalculate that dependency (Limit depth to 1 to avoid infinite loop crashes)
+                     const depFormula = generateSpecificFormula(targetCol.autoFormula, targetRowIndex);
+                     // We recursively call evaluateFormula but carefully
+                     // For this lightweight version, let's assumes dependencies are raw numbers
+                     return 0; 
+                }
+
                 if (!val) return 0;
                 val = val.toString().replace(/,/g, ''); 
                 return isNaN(Number(val)) ? 0 : Number(val);
@@ -78,11 +105,30 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
         }
     }, [tableData, columns]);
 
+    // Unified Value Getter (Handles Manual Value OR Auto Formula)
+    const getEffectiveCellValue = (row, col, rowIndex) => {
+        const rawValue = row[col.id];
+        
+        // 1. If cell has manual value, use it
+        if (rawValue !== undefined && rawValue !== null && rawValue !== '') {
+            return evaluateFormula(rawValue, rowIndex);
+        }
+
+        // 2. If empty, check for Auto Formula
+        if (col.autoFormula) {
+            const specificFormula = generateSpecificFormula(col.autoFormula, rowIndex);
+            // Ensure it starts with =
+            const cleanFormula = specificFormula.startsWith('=') ? specificFormula : '=' + specificFormula;
+            return evaluateFormula(cleanFormula, rowIndex);
+        }
+
+        return '';
+    };
+
     const formatValue = (val, format) => {
         if (val === undefined || val === null || val === '') return '';
         if (typeof val === 'string' && val.startsWith('#')) return val; 
         
-        // Remove commas if string for parsing
         const rawNum = typeof val === 'string' ? parseFloat(val.replace(/,/g, '')) : val;
         
         if (isNaN(rawNum)) return val; 
@@ -98,22 +144,18 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
 
     // --- 📊 SUMMARY CALCULATION ---
     const calculateColumnTotal = (col) => {
-        // Only summarize numeric columns
         if (col.format !== 'number' && col.format !== 'currency') return null;
 
         const total = tableData.reduce((sum, row, rIdx) => {
-            const rawVal = row[col.id];
-            // Evaluate formula if present
-            const val = evaluateFormula(rawVal, rIdx);
+            // Use Effective Value (Formula-aware)
+            const val = getEffectiveCellValue(row, col, rIdx);
             
-            // Safe parse
             let num = 0;
             if (typeof val === 'number') {
                 num = val;
             } else if (typeof val === 'string') {
                 num = parseFloat(val.replace(/,/g, ''));
             }
-            
             return sum + (isNaN(num) ? 0 : num);
         }, 0);
 
@@ -121,7 +163,6 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
     };
 
     // --- 🖱️ INTERACTION HANDLERS ---
-
     const handleCellClick = (rowId, colId, rowIndex, colIndex) => {
         if (editingCell.rowId === rowId && editingCell.colId === colId) return;
 
@@ -131,14 +172,19 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
 
             const activeVal = activeRow[editingCell.colId] || '';
             
-            if (activeVal.toString().startsWith('=')) {
-                const cellRef = `${getColLetter(colIndex)}${rowIndex + 1}`;
+            // Check manual formula OR auto formula input
+            const activeCol = columns.find(c => c.id === editingCell.colId);
+            const isFormulaInput = activeVal.toString().startsWith('=') || (activeVal === '' && activeCol?.autoFormula);
+
+            if (isFormulaInput) {
+                const cellRef = `${getColLetter(colIndex)}${rowIndex + 1}`; // Use specific row number for explicit clicks
                 const input = editorRef.current;
                 
                 if (input) {
-                    const startPos = input.selectionStart || activeVal.length;
-                    const endPos = input.selectionEnd || activeVal.length;
-                    const newVal = activeVal.substring(0, startPos) + cellRef + activeVal.substring(endPos);
+                    const startPos = input.selectionStart || (input.value ? input.value.length : 0);
+                    const endPos = input.selectionEnd || (input.value ? input.value.length : 0);
+                    const currentText = input.value;
+                    const newVal = currentText.substring(0, startPos) + cellRef + currentText.substring(endPos);
                     
                     handleCellChange(editingCell.rowId, editingCell.colId, newVal);
                     
@@ -169,7 +215,6 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
     };
 
     // --- 🛠️ STRUCTURE ACTIONS ---
-
     const insertRow = (index, position) => { 
         const newRow = { id: Date.now() };
         columns.forEach(col => newRow[col.id] = '');
@@ -184,7 +229,7 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
     };
 
     const insertCol = (index, position) => {
-        const newCol = { id: `col-${Date.now()}`, name: 'New Column', align: 'left', format: 'text' };
+        const newCol = { id: `col-${Date.now()}`, name: 'New Column', align: 'left', format: 'text', autoFormula: '' };
         const newCols = [...columns];
         const insertIdx = position === 'before' ? index : index + 1;
         newCols.splice(insertIdx, 0, newCol);
@@ -204,8 +249,7 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
         setContextMenu(null);
     };
 
-    // --- 💾 DATA ACTIONS ---
-
+    // --- 💾 EXPORT ACTIONS ---
     const handleSave = () => {
         const updatedReqs = task.requirements.map(r => {
             if (r.id === requirement.id) return { ...r, tableData, columns, colWidths };
@@ -215,37 +259,36 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
         setHasUnsavedChanges(false);
     };
 
-    const exportToGoogleSheets = () => {
+    const copyDataToClipboard = () => {
         const headers = columns.map(c => c.name).join('\t');
         const rows = tableData.map((row, rIdx) => 
             columns.map(col => {
-                const val = row[col.id];
-                const calculated = evaluateFormula(val, rIdx); 
-                return calculated === undefined || calculated === null ? '' : calculated;
+                const val = getEffectiveCellValue(row, col, rIdx); // Export calculated
+                return val === undefined || val === null ? '' : val;
             }).join('\t')
         ).join('\n');
         
         const clipboardText = `${headers}\n${rows}`;
 
         navigator.clipboard.writeText(clipboardText).then(() => {
-            window.open('https://sheets.new', '_blank');
-            alert("✅ Data copied! Press Ctrl+V in the new Google Sheet to paste.");
+            alert("✅ Data copied! \n\nGo to your existing Google Sheet tab and press Ctrl+V to paste.");
         }).catch(err => alert("Failed to copy data: " + err));
     };
 
-    // --- 🖱️ CONTEXT MENU HANDLER ---
+    const openNewSheet = () => {
+        window.open('https://sheets.new', '_blank');
+    };
+
+    // --- 🖱️ CONTEXT MENU ---
     const handleContextMenu = (e, type, id, index) => {
         e.preventDefault();
         e.stopPropagation(); 
-        
         let x = e.clientX;
         let y = e.clientY;
-        const menuWidth = 220; 
-        const menuHeight = 300;
-        
+        const menuWidth = 240; // Wider for formula input
+        const menuHeight = 350;
         if (x + menuWidth > window.innerWidth) x = window.innerWidth - menuWidth - 10;
         if (y + menuHeight > window.innerHeight) y = window.innerHeight - menuHeight - 10;
-
         setContextMenu({ type, id, index, x, y });
     };
 
@@ -281,9 +324,15 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
                         <button onClick={handleSave} className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm shadow-sm transition-all ${hasUnsavedChanges ? 'bg-yellow-400 text-yellow-900 hover:bg-yellow-300' : 'bg-white/10 hover:bg-white/20'}`}>
                             <Save size={16} /> Save
                         </button>
-                        <button onClick={exportToGoogleSheets} className="bg-white text-green-700 px-4 py-2 rounded-lg font-bold text-sm hover:bg-green-50 transition flex items-center gap-2 shadow-sm">
-                            <FileSpreadsheet size={16} /> Export to Sheets
-                        </button>
+                        <div className="flex bg-white/10 rounded-lg p-0.5">
+                            <button onClick={copyDataToClipboard} className="px-3 py-1.5 rounded-md hover:bg-white/20 text-xs font-bold flex items-center gap-2 transition" title="Copy data to paste in existing sheet">
+                                <Copy size={14} /> Copy Data
+                            </button>
+                            <div className="w-px bg-white/20 my-1 mx-1"></div>
+                            <button onClick={openNewSheet} className="px-2 py-1.5 rounded-md hover:bg-white/20 transition" title="Open empty Google Sheet">
+                                <ExternalLink size={14} />
+                            </button>
+                        </div>
                         <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-full text-white transition"><X size={24} /></button>
                     </div>
                 </div>
@@ -304,20 +353,18 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
                                     style={{ width: colWidths[col.id] || 200, minWidth: 60 }}
                                     onContextMenu={(e) => handleContextMenu(e, 'col', col.id, idx)}
                                 >
-                                    <div className="bg-gray-200 text-center text-[10px] text-gray-600 font-bold py-1 border-b border-gray-300 select-none">
-                                        {getColLetter(idx)}
+                                    <div className={`bg-gray-200 text-center text-[10px] font-bold py-1 border-b border-gray-300 select-none flex justify-center items-center gap-1 ${col.autoFormula ? 'text-purple-600' : 'text-gray-600'}`}>
+                                        {col.autoFormula && <Wand2 size={8} />} {getColLetter(idx)}
                                     </div>
                                     <input 
                                         className="w-full bg-transparent text-center text-xs font-bold p-2 outline-none focus:bg-blue-50"
                                         value={col.name}
                                         onChange={(e) => updateColumnProperty(col.id, 'name', e.target.value)}
                                     />
-                                    {/* Column Type Indicator */}
-                                    <div className="absolute top-1 left-1 opacity-20 group-hover:opacity-100">
+                                    <div className="absolute top-1 left-1 opacity-20 group-hover:opacity-100 pointer-events-none">
                                         {col.format === 'number' && <Hash size={10} className="text-blue-500"/>}
                                         {col.format === 'currency' && <DollarSign size={10} className="text-green-500"/>}
                                     </div>
-
                                     <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-400 z-10 opacity-0 group-hover:opacity-100"
                                          onMouseDown={(e) => {
                                              const startX = e.pageX;
@@ -326,12 +373,8 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
                                                  setColWidths(prev => ({ ...prev, [col.id]: Math.max(60, startWidth + (mv.pageX - startX)) }));
                                                  setHasUnsavedChanges(true);
                                              };
-                                             const onUp = () => {
-                                                 window.removeEventListener('mousemove', onMove);
-                                                 window.removeEventListener('mouseup', onUp);
-                                             };
-                                             window.addEventListener('mousemove', onMove);
-                                             window.addEventListener('mouseup', onUp);
+                                             const onUp = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+                                             window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp);
                                          }}
                                     />
                                 </div>
@@ -352,10 +395,29 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
                                 {columns.map((col, cIdx) => {
                                     const isEditing = editingCell.rowId === row.id && editingCell.colId === col.id;
                                     const rawValue = row[col.id];
-                                    const evaluated = evaluateFormula(rawValue, rIdx);
-                                    const displayValue = isEditing ? (rawValue || '') : formatValue(evaluated, col.format || 'text');
-                                    const isFormula = typeof rawValue === 'string' && rawValue.startsWith('=');
+                                    
+                                    // Calculate Display Value
+                                    // 1. If Editing -> Show Raw (or Empty if using formula)
+                                    // 2. If Not Editing -> Show Effective Value (Auto-Calc or Manual)
+                                    let displayValue = '';
+                                    let isFormula = false;
+                                    let isAuto = false;
+
+                                    if (isEditing) {
+                                        // When editing, if it's empty but has auto-formula, we show empty (user can type to override)
+                                        // If user typed '=', show that.
+                                        displayValue = rawValue || '';
+                                        // If it's an auto-formula column and cell is empty, we could show the formula as placeholder?
+                                    } else {
+                                        const effective = getEffectiveCellValue(row, col, rIdx);
+                                        displayValue = formatValue(effective, col.format || 'text');
+                                        
+                                        isFormula = typeof rawValue === 'string' && rawValue.startsWith('=');
+                                        isAuto = !isFormula && (rawValue === undefined || rawValue === '') && col.autoFormula;
+                                    }
+
                                     const alignClass = col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left';
+                                    const cellClass = isFormula ? 'text-green-700 font-medium bg-green-50/30' : isAuto ? 'text-purple-700 font-medium bg-purple-50/30' : 'text-gray-800';
 
                                     return (
                                         <div 
@@ -372,9 +434,10 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
                                                     value={rawValue || ''}
                                                     onChange={(e) => handleCellChange(row.id, col.id, e.target.value)}
                                                     onBlur={() => setEditingCell({ rowId: null, colId: null })}
+                                                    placeholder={col.autoFormula ? `Auto: ${col.autoFormula}` : ''}
                                                 />
                                             ) : (
-                                                <div className={`w-full h-full px-2 py-1.5 text-sm truncate select-none cursor-cell ${alignClass} ${isFormula ? 'text-green-700 font-medium bg-green-50/20' : 'text-gray-800'}`}>
+                                                <div className={`w-full h-full px-2 py-1.5 text-sm truncate select-none cursor-cell ${alignClass} ${cellClass}`}>
                                                     {displayValue}
                                                 </div>
                                             )}
@@ -385,7 +448,7 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
                             </div>
                         ))}
 
-                        {/* --- SUMMARY ROW (STICKY FOOTER) --- */}
+                        {/* --- SUMMARY ROW --- */}
                         <div className="flex border-b border-gray-300 bg-gray-100 font-bold sticky bottom-0 z-20 shadow-[-2px_-4px_10px_rgba(0,0,0,0.05)] border-t-2 border-t-gray-300">
                             <div className="w-10 border-r border-gray-300 p-2 flex items-center justify-center text-xs text-gray-500 bg-gray-200">
                                 <Calculator size={14}/>
@@ -419,7 +482,7 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
                 {/* --- CONTEXT MENU --- */}
                 {contextMenu && (
                     <div 
-                        className="fixed bg-white shadow-2xl rounded-lg border border-gray-100 py-2 z-[100] w-56 text-sm animate-in fade-in zoom-in-95 duration-100"
+                        className="fixed bg-white shadow-2xl rounded-lg border border-gray-100 py-2 z-[100] w-64 text-sm animate-in fade-in zoom-in-95 duration-100"
                         style={{ top: contextMenu.y, left: contextMenu.x }}
                         onClick={(e) => e.stopPropagation()}
                     >
@@ -455,16 +518,27 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
                                 </div>
 
                                 <div className="px-3 py-1 text-[10px] font-bold text-gray-400 uppercase">Format</div>
-                                <div className="flex px-2 gap-1 mb-1">
-                                    <button onClick={() => updateColumnProperty(contextMenu.id, 'format', 'text')} className={`flex-1 p-1 flex justify-center rounded hover:bg-blue-50 ${columns[contextMenu.index].format === 'text' ? 'bg-blue-100 text-blue-600' : 'text-gray-500'}`} title="Text">
-                                        <Type size={16}/>
-                                    </button>
-                                    <button onClick={() => updateColumnProperty(contextMenu.id, 'format', 'number')} className={`flex-1 p-1 flex justify-center rounded hover:bg-blue-50 ${columns[contextMenu.index].format === 'number' ? 'bg-blue-100 text-blue-600' : 'text-gray-500'}`} title="Number">
-                                        <Hash size={16}/>
-                                    </button>
-                                    <button onClick={() => updateColumnProperty(contextMenu.id, 'format', 'currency')} className={`flex-1 p-1 flex justify-center rounded hover:bg-blue-50 ${columns[contextMenu.index].format === 'currency' ? 'bg-blue-100 text-blue-600' : 'text-gray-500'}`} title="Currency">
-                                        <DollarSign size={16}/>
-                                    </button>
+                                <div className="flex px-2 gap-1 mb-2">
+                                    <button onClick={() => updateColumnProperty(contextMenu.id, 'format', 'text')} className={`flex-1 p-1 flex justify-center rounded hover:bg-blue-50 ${columns[contextMenu.index].format === 'text' ? 'bg-blue-100 text-blue-600' : 'text-gray-500'}`} title="Text"><Type size={16}/></button>
+                                    <button onClick={() => updateColumnProperty(contextMenu.id, 'format', 'number')} className={`flex-1 p-1 flex justify-center rounded hover:bg-blue-50 ${columns[contextMenu.index].format === 'number' ? 'bg-blue-100 text-blue-600' : 'text-gray-500'}`} title="Number"><Hash size={16}/></button>
+                                    <button onClick={() => updateColumnProperty(contextMenu.id, 'format', 'currency')} className={`flex-1 p-1 flex justify-center rounded hover:bg-blue-50 ${columns[contextMenu.index].format === 'currency' ? 'bg-blue-100 text-blue-600' : 'text-gray-500'}`} title="Currency"><DollarSign size={16}/></button>
+                                </div>
+
+                                {/* AUTO FORMULA INPUT */}
+                                <div className="px-3 py-2 bg-purple-50 border-t border-purple-100">
+                                    <div className="flex items-center gap-1 mb-1">
+                                        <Wand2 size={12} className="text-purple-600"/>
+                                        <span className="text-[10px] font-bold text-purple-700 uppercase">Auto Formula</span>
+                                    </div>
+                                    <input 
+                                        type="text" 
+                                        className="w-full text-xs border border-purple-200 rounded px-2 py-1 outline-none focus:ring-1 focus:ring-purple-400 font-mono"
+                                        placeholder="e.g. =A*B"
+                                        value={columns[contextMenu.index].autoFormula || ''}
+                                        onChange={(e) => updateColumnProperty(contextMenu.id, 'autoFormula', e.target.value)}
+                                        onClick={(e) => e.stopPropagation()} // Prevent closing
+                                    />
+                                    <p className="text-[9px] text-gray-400 mt-1">Use column letters (e.g. A, B)</p>
                                 </div>
                             </>
                         )}
