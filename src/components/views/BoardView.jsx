@@ -215,9 +215,8 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
 
 // --- SUB-COMPONENTS ---
 
-// --- CHANGED: FILTER ONLY CHECKED 'isPao' TASKS ---
 const ExportEventModal = ({ tasks, onClose }) => {
-  // --- CHANGED: Filter by isPao AND exclude 'canceled' ---
+  // Filter by isPao AND exclude 'canceled'
   const events = tasks.filter(t => t.isPao === true && t.status !== 'canceled');
   
   events.sort((a, b) => new Date( a.startDate || a.deadline || 0) - new Date( b.startDate || b.deadline || 0));
@@ -230,18 +229,36 @@ const ExportEventModal = ({ tasks, onClose }) => {
       return acc; 
   }, {});
 
+  // --- UPDATED GENERATOR LOGIC ---
   const generateExportText = () => { 
       if (events.length === 0) return "No P.Pao events found."; 
       let text = "☀️🌈อัพเดทตารางงานพี่เปา⭐️⭐️\n\n"; 
+      
       Object.entries(groupedData).forEach(([month, monthTasks]) => { 
           text += `━━━━━━━━━━━━━━━━━━━━━━\n🗓️ ${month.toUpperCase()}\n━━━━━━━━━━━━━━━━━━━━━━\n`; 
+          
           monthTasks.forEach(t => { 
               const bestDate = t.startDate || t.deadline; 
               let dateStr ='TBD'; 
               if (bestDate) { 
                   dateStr = new Date(bestDate).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) 
               } 
-              text += `\n📅 ${dateStr}\n📌 ${t.title}\n📝 ${t.description || ''}\n📍 ${t.location || 'Location TBD'}\n📋 Script: ${t.reference || ''}\n` 
+              
+              // Base info
+              text += `\n📅 ${dateStr}\n📌 ${t.title}`;
+              
+              // Conditional Fields (Only show if exist)
+              if (t.description && t.description.trim()) {
+                  text += `\n📝 ${t.description.trim()}`;
+              }
+              if (t.location && t.location.trim()) {
+                  text += `\n📍 ${t.location.trim()}`;
+              }
+              if (t.reference && t.reference.trim()) {
+                  text += `\n📋 Script: ${t.reference.trim()}`;
+              }
+              
+              text += `\n\n`; // Spacing between tasks
           }); 
           text += "\n"; 
       }); 
