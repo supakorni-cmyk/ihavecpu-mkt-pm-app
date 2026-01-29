@@ -217,8 +217,8 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
 
 // --- CHANGED: FILTER ONLY CHECKED 'isPao' TASKS ---
 const ExportEventModal = ({ tasks, onClose }) => {
-  // Filter for P.Pao Export (Checkbox must be TRUE)
-  const events = tasks.filter(t => t.isPao === true);
+  // --- CHANGED: Filter by isPao AND exclude 'canceled' ---
+  const events = tasks.filter(t => t.isPao === true && t.status !== 'canceled');
   
   events.sort((a, b) => new Date( a.startDate || a.deadline || 0) - new Date( b.startDate || b.deadline || 0));
   

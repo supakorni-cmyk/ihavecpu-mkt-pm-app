@@ -10,10 +10,12 @@ export const TAG_COLORS = {
 };
 
 export const COLUMNS = [
-  { id: 'todo', title: 'To Do', color: 'bg-gray-100' },
-  { id: 'inprogress', title: 'In Progress', color: 'bg-blue-50' },
-  { id: 'review', title: 'Review', color: 'bg-purple-50' },
-  { id: 'done', title: 'Done', color: 'bg-green-50' }
+  { id: 'todo', title: 'To Do', color: 'text-gray-600 bg-gray-100' },
+  { id: 'in_progress', title: 'In Progress', color: 'text-blue-600 bg-blue-100' },
+  { id: 'review', title: 'Review', color: 'text-purple-600 bg-purple-100' },
+  { id: 'done', title: 'Done', color: 'text-green-600 bg-green-100' },
+  // --- NEW COLUMN ---
+  { id: 'canceled', title: 'Canceled', color: 'text-gray-400 bg-gray-200' } 
 ];
 
 // This is the array causing your error. Ensure it is exported like this:
