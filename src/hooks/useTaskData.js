@@ -82,10 +82,17 @@ export const useTaskData = (currentUser) => {
     } catch (error) { console.error("❌ Email Error:", error); }
   };
 
-  // --- 3. LINE FLEX MESSAGE (UPGRADED) ---
+  // --- 3. LINE FLEX MESSAGE (ROBUST PROXY) ---
   const sendLinePush = async (task, headerTitle, headerColor = "#1DB446") => {
-    const PROXY_URL = "https://corsproxy.io/?";
     const TARGET_URL = "https://api.line.me/v2/bot/message/push";
+    
+    // List of Proxies to try in order
+    // 1. CorsProxy.io (Fastest)
+    // 2. ThingProxy (Reliable Backup)
+    const PROXIES = [
+        "https://corsproxy.io/?", 
+        "https://thingproxy.freeboard.io/fetch/"
+    ];
 
     // 1. Define Groups
     const TARGETS = [
@@ -122,7 +129,7 @@ export const useTaskData = (currentUser) => {
                         size: "md"
                     }
                 ],
-                backgroundColor: headerColor, // Dynamic Color
+                backgroundColor: headerColor, 
                 paddingAll: "15px"
             },
             body: {
@@ -144,7 +151,7 @@ export const useTaskData = (currentUser) => {
                         color: "#666666",
                         margin: "sm",
                         wrap: true,
-                        maxLines: 3 // Truncate long descriptions
+                        maxLines: 3 
                     },
                     {
                         type: "separator",
@@ -168,7 +175,7 @@ export const useTaskData = (currentUser) => {
                                 type: "box",
                                 layout: "baseline",
                                 contents: [
-                                    { type: "text", text: "Due Date", color: "#aaaaaa", size: "xs", flex: 2 },
+                                    { type: "text", text: "Date", color: "#aaaaaa", size: "xs", flex: 2 },
                                     { type: "text", text: task.deadline ? new Date(task.deadline).toLocaleDateString('en-GB') : "TBD", color: "#666666", size: "xs", flex: 5 }
                                 ]
                             },
@@ -187,38 +194,64 @@ export const useTaskData = (currentUser) => {
         }
     };
 
-    // 3. Send to Targets
-    TARGETS.forEach(async (target) => {
-        if (!target.token || !target.groupId) return;
+    // 3. Send to Targets (With Fallback Logic)
+    for (const target of TARGETS) {
+        if (!target.token || !target.groupId) continue;
 
         if (target.allowedTags !== "ALL") {
             if (!task.tag || !target.allowedTags.includes(task.tag)) {
-                return; 
+                continue; 
             }
         }
 
-        try {
-            const payload = {
-                to: target.groupId,
-                messages: [flexMessage] // Send the Flex Object
-            };
+        const payload = {
+            to: target.groupId,
+            messages: [flexMessage]
+        };
 
-            const response = await fetch(PROXY_URL + encodeURIComponent(TARGET_URL), {
-                method: "POST",
-                headers: { 
-                    "Authorization": `Bearer ${target.token}`,
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify(payload)
-            });
-            
-            if (response.ok) {
-                console.log(`✅ LINE Flex Sent to ${target.name}`);
-            } else {
-                console.error(`❌ LINE Failed (${target.name})`, await response.json());
+        // Try Proxies sequentially
+        let success = false;
+        for (const proxyBase of PROXIES) {
+            if (success) break; // If already sent, skip next proxy
+
+            try {
+                // Determine full URL based on proxy type
+                // corsproxy.io usually wants full URL appended. 
+                // thingproxy wants it appended as is.
+                const fullUrl = proxyBase + encodeURIComponent(TARGET_URL);
+                
+                // Note: Some proxies don't need encodeURIComponent, but for these two, passing it safely is better.
+                // For corsproxy.io specifically, we can also try without encoding if encoded fails, 
+                // but let's stick to standard fetch first.
+
+                console.log(`📡 Sending LINE to ${target.name} via ${proxyBase}...`);
+
+                const response = await fetch(fullUrl, {
+                    method: "POST",
+                    headers: { 
+                        "Authorization": `Bearer ${target.token}`,
+                        "Content-Type": "application/json",
+                        "x-requested-with": "XMLHttpRequest" // Helps bypass some proxy checks
+                    },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (response.ok) {
+                    console.log(`✅ LINE Flex Sent to ${target.name}`);
+                    success = true;
+                } else {
+                    const errText = await response.text();
+                    console.warn(`⚠️ Proxy ${proxyBase} failed: ${response.status}`, errText);
+                }
+            } catch (error) { 
+                console.warn(`⚠️ Network Error with ${proxyBase}:`, error); 
             }
-        } catch (error) { console.error(`❌ LINE Network Error (${target.name}):`, error); }
-    });
+        }
+
+        if (!success) {
+            console.error(`❌ All proxies failed for ${target.name}. Check AdBlocker or Internet connection.`);
+        }
+    }
   };
 
   // --- 4. ALERT LOGIC ---
@@ -359,26 +392,13 @@ export const useTaskData = (currentUser) => {
     try {
         await updateDoc(doc(db, "tasks", taskId), { status: newStatus });
         const task = tasks.find(t => t.id === taskId);
-        
-        // Keep updated status in the object for the message
         const updatedTask = { ...task, status: newStatus };
 
         // --- NEW: CANCELED LOGIC ---
         if (newStatus === 'canceled') {
-            
-            // 1. Email Notification
-            await sendEmailNotification(`🚫 Task Canceled: ${task?.title}`, { 
-                "Task": task?.title, 
-                "Status": "CANCELED",
-                "Reason": "Marked as canceled in board"
-            });
-
-            // 2. Line Notification (Grey Header)
-            // Using the existing sendLinePush but with specific text
+            await sendEmailNotification(`🚫 Task Canceled: ${task?.title}`, { "Task": task?.title, "Status": "CANCELED" });
             await sendLinePush(updatedTask, "🚫 This task was canceled", "#9CA3AF");
-
         } else {
-            // Standard Notification for other moves
             await sendEmailNotification("Task Status Updated", { "Task": task?.title, "New Status": newStatus });
             await sendLinePush(updatedTask, "🔄 Status Updated", "#3B82F6");
         }
