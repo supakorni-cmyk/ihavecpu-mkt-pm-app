@@ -355,7 +355,7 @@ export const useTaskData = (currentUser) => {
     } catch (error) { console.error("Error adding task:", error); }
   };
   
-  const moveTask = async (taskId, newStatus) => {
+  cconst moveTask = async (taskId, newStatus) => {
     try {
         await updateDoc(doc(db, "tasks", taskId), { status: newStatus });
         const task = tasks.find(t => t.id === taskId);
@@ -363,14 +363,28 @@ export const useTaskData = (currentUser) => {
         // Keep updated status in the object for the message
         const updatedTask = { ...task, status: newStatus };
 
-        await sendEmailNotification("Task Status Updated", { "Task": task?.title, "New Status": newStatus });
-        
-        // Blue Header for Status Change
-        await sendLinePush(updatedTask, "🔄 Status Updated", "#3B82F6");
+        // --- NEW: CANCELED LOGIC ---
+        if (newStatus === 'canceled') {
+            
+            // 1. Email Notification
+            await sendEmailNotification(`🚫 Task Canceled: ${task?.title}`, { 
+                "Task": task?.title, 
+                "Status": "CANCELED",
+                "Reason": "Marked as canceled in board"
+            });
+
+            // 2. Line Notification (Grey Header)
+            // Using the existing sendLinePush but with specific text
+            await sendLinePush(updatedTask, "🚫 This task was canceled", "#9CA3AF");
+
+        } else {
+            // Standard Notification for other moves
+            await sendEmailNotification("Task Status Updated", { "Task": task?.title, "New Status": newStatus });
+            await sendLinePush(updatedTask, "🔄 Status Updated", "#3B82F6");
+        }
 
     } catch (error) { console.error("Error moving task:", error); }
   };
-
   const deleteTask = async (id) => { 
       if(!confirm("Delete task?")) return;
       try { 
