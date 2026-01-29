@@ -89,7 +89,6 @@ const GlobalPlayer = ({ mood, mode, setMode, onClose }) => {
         <iframe 
             ref={iframeRef}
             className="w-full h-full object-cover pointer-events-none" 
-            // ADDED: origin parameter to help with CORS/API connection
             src={`https://www.youtube.com/embed/videoseries?list=${mood.youtubeId}&autoplay=1&loop=1&enablejsapi=1&controls=0&modestbranding=1&origin=${window.location.origin}`}
             title="Music Player"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
@@ -118,14 +117,14 @@ const GlobalPlayer = ({ mood, mode, setMode, onClose }) => {
 
         {/* Title Info */}
         <div className="pr-6 mb-3 mt-1 overflow-hidden">
-            {/* 1. Main Playlist Name */}
-            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-0.5">
-                {mood.title}
+            {/* 1. Track Name (Small Subtitle) */}
+            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-0.5 truncate">
+                {videoTitle ? videoTitle : (isLoadingTitle ? "Loading..." : "Mix")}
             </p>
             
-            {/* 2. Specific Video Name (With AdBlock Fallback) */}
-            <h4 className="font-bold text-gray-800 text-sm truncate leading-tight" title={videoTitle || mood.title}>
-                {videoTitle ? videoTitle : (isLoadingTitle ? "Loading track..." : "Mix Playlist")}
+            {/* 2. Mood Name (Large Main Title) */}
+            <h4 className="font-bold text-gray-800 text-sm truncate leading-tight">
+                {mood.title}
             </h4>
 
             {/* 3. Status Indicator */}
