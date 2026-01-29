@@ -82,10 +82,16 @@ export const useTaskData = (currentUser) => {
     } catch (error) { console.error("❌ Email Error:", error); }
   };
 
-  // --- 3. LINE FLEX MESSAGE (UPGRADED) ---
+  // --- 3. LINE FLEX MESSAGE (MULTI-PROXY FAILOVER) ---
   const sendLinePush = async (task, headerTitle, headerColor = "#1DB446") => {
-    const PROXY_URL = "https://corsproxy.io/?";
     const TARGET_URL = "https://api.line.me/v2/bot/message/push";
+
+    // List of proxies to try (in order of reliability)
+    const PROXIES = [
+        "https://corsproxy.io/?", 
+        "https://thingproxy.freeboard.io/fetch/",
+        "https://api.codetabs.com/v1/proxy?quest=" 
+    ];
 
     // 1. Define Groups
     const TARGETS = [
@@ -122,7 +128,7 @@ export const useTaskData = (currentUser) => {
                         size: "md"
                     }
                 ],
-                backgroundColor: headerColor, // Dynamic Color
+                backgroundColor: headerColor, 
                 paddingAll: "15px"
             },
             body: {
@@ -144,7 +150,7 @@ export const useTaskData = (currentUser) => {
                         color: "#666666",
                         margin: "sm",
                         wrap: true,
-                        maxLines: 3 // Truncate long descriptions
+                        maxLines: 3 
                     },
                     {
                         type: "separator",
@@ -187,38 +193,57 @@ export const useTaskData = (currentUser) => {
         }
     };
 
-    // 3. Send to Targets
-    TARGETS.forEach(async (target) => {
-        if (!target.token || !target.groupId) return;
+    // 3. Send to Targets (Looping through Proxies)
+    for (const target of TARGETS) {
+        if (!target.token || !target.groupId) continue;
 
         if (target.allowedTags !== "ALL") {
-            if (!task.tag || !target.allowedTags.includes(task.tag)) {
-                return; 
+            if (!task.tag || !target.allowedTags.includes(task.tag)) continue;
+        }
+
+        const payload = {
+            to: target.groupId,
+            messages: [flexMessage]
+        };
+
+        let sent = false;
+
+        // Try every proxy in the list until one works
+        for (const proxyBase of PROXIES) {
+            if (sent) break; // If already sent successfully, stop trying other proxies
+
+            try {
+                // Construct the full URL
+                // Note: thingproxy and corsproxy usually just append the target URL
+                const fullUrl = proxyBase + encodeURIComponent(TARGET_URL);
+
+                console.log(`📡 Trying Proxy: ${proxyBase.substring(0, 25)}...`);
+
+                const response = await fetch(fullUrl, {
+                    method: "POST",
+                    headers: { 
+                        "Authorization": `Bearer ${target.token}`,
+                        "Content-Type": "application/json",
+                        "x-requested-with": "XMLHttpRequest" // Helps bypass some proxy checks
+                    },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (response.ok) {
+                    console.log(`✅ LINE Flex Sent to ${target.name} via ${proxyBase}`);
+                    sent = true;
+                } else {
+                    console.warn(`⚠️ Proxy failed (${response.status}): ${proxyBase}`);
+                }
+            } catch (error) { 
+                console.warn(`⚠️ Network Error with ${proxyBase}:`, error); 
             }
         }
 
-        try {
-            const payload = {
-                to: target.groupId,
-                messages: [flexMessage] // Send the Flex Object
-            };
-
-            const response = await fetch(PROXY_URL + encodeURIComponent(TARGET_URL), {
-                method: "POST",
-                headers: { 
-                    "Authorization": `Bearer ${target.token}`,
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify(payload)
-            });
-            
-            if (response.ok) {
-                console.log(`✅ LINE Flex Sent to ${target.name}`);
-            } else {
-                console.error(`❌ LINE Failed (${target.name})`, await response.json());
-            }
-        } catch (error) { console.error(`❌ LINE Network Error (${target.name}):`, error); }
-    });
+        if (!sent) {
+            console.error(`❌ All proxies failed for ${target.name}. Please check internet or AdBlocker.`);
+        }
+    }
   };
 
   // --- 4. ALERT LOGIC ---
