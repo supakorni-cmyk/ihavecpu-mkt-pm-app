@@ -73,7 +73,8 @@ export const useTaskData = (currentUser) => {
     };
 
     try {
-        const response = await fetch(`https://formsubmit.co/ajax/${MAIN_EMAIL}`, {
+        // CHANGED: Use local proxy instead of direct URL to avoid CORS
+        const response = await fetch(`/email-api/${MAIN_EMAIL}`, {
             method: "POST",
             headers: { "Content-Type": "application/json", "Accept": "application/json" },
             body: JSON.stringify(formData)
