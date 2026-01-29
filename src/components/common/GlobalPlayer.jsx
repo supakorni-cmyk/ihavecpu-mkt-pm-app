@@ -2,24 +2,49 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   X, Maximize2, Minimize2, 
-  Play, Pause, SkipBack, SkipForward 
+  Play, Pause, SkipBack, SkipForward, Music 
 } from 'lucide-react';
 
 const GlobalPlayer = ({ mood, mode, setMode, onClose }) => {
   const [isPlaying, setIsPlaying] = useState(true);
+  const [videoTitle, setVideoTitle] = useState(''); // Store the specific video name
   const iframeRef = useRef(null);
 
   // Reset state when mood changes
   useEffect(() => {
     setIsPlaying(true);
+    setVideoTitle(''); // Reset title on mood switch
   }, [mood]);
+
+  // --- LISTENER: Get Video Title from YouTube ---
+  useEffect(() => {
+    const handleMessage = (event) => {
+        // 1. Security Check: Only accept messages from YouTube
+        if (!event.origin.includes('youtube.com')) return;
+
+        try {
+            const data = JSON.parse(event.data);
+
+            // 2. Detect "infoDelivery" event (This contains metadata like title)
+            if (data.event === 'infoDelivery' && data.info && data.info.videoData) {
+                if (data.info.videoData.title) {
+                    setVideoTitle(data.info.videoData.title);
+                }
+            }
+        } catch (error) {
+            // Ignore non-JSON messages
+        }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
 
   if (!mood || mode === 'hidden') return null;
 
   const isMini = mode === 'mini';
 
   // --- COMMAND SENDER ---
-  // Sends signals to the YouTube Iframe API
   const sendCommand = (command) => {
     if (iframeRef.current) {
         iframeRef.current.contentWindow.postMessage(
@@ -51,7 +76,7 @@ const GlobalPlayer = ({ mood, mode, setMode, onClose }) => {
       <div className={`relative bg-black transition-all duration-300 group ${isMini ? 'w-32 h-full shrink-0' : 'w-full flex-1'}`}>
         <iframe 
             ref={iframeRef}
-            className="w-full h-full object-cover pointer-events-none" // Disable pointer events to force custom controls usage
+            className="w-full h-full object-cover pointer-events-none" 
             src={`https://www.youtube.com/embed/videoseries?list=${mood.youtubeId}&autoplay=1&loop=1&enablejsapi=1&controls=0&modestbranding=1`}
             title="Music Player"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
@@ -79,9 +104,19 @@ const GlobalPlayer = ({ mood, mode, setMode, onClose }) => {
         </div>
 
         {/* Title Info */}
-        <div className="pr-6 mb-3 mt-1">
-            <h4 className="font-bold text-gray-800 text-sm truncate">{mood.title}</h4>
-            <p className="text-[10px] text-gray-500 flex items-center gap-1.5 font-medium uppercase tracking-wide">
+        <div className="pr-6 mb-3 mt-1 overflow-hidden">
+            {/* 1. Main Playlist Name (e.g. "Relax & Focus") */}
+            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-0.5">
+                {mood.title}
+            </p>
+            
+            {/* 2. Specific Video Name (e.g. "Lofi Hip Hop Mix") */}
+            <h4 className="font-bold text-gray-800 text-sm truncate leading-tight" title={videoTitle || "Loading track..."}>
+                {videoTitle || "Loading track..."}
+            </h4>
+
+            {/* 3. Status Indicator */}
+            <p className="text-[10px] text-gray-500 flex items-center gap-1.5 font-medium mt-1">
                 {isPlaying ? (
                     <><span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span> Now Playing</>
                 ) : (
