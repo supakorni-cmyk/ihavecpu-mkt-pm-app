@@ -56,7 +56,6 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
       return s === 'completed' || s === 'done';
   }).length;
 
-  // FIX: Pending should NOT include canceled tasks
   const pendingTasks = tasks.filter(t => {
       const s = (t.status || '').toLowerCase();
       return s !== 'completed' && s !== 'done' && s !== 'canceled';
@@ -64,10 +63,12 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
 
   // --- 2. EVENT FILTERING ---
   const upcomingEvents = tasks.filter(t => {
-      // FIX: Don't show canceled tasks in schedule
-      if (t.status === 'canceled') return false;
+      const s = (t.status || '').toLowerCase();
 
-      // Check Tags
+      // FIX: Remove if Canceled OR Completed/Done
+      if (s === 'canceled' || s === 'completed' || s === 'done') return false;
+
+      // Check Tags (Only Events & Guest Speakers)
       if (t.tag === 'Event' || t.tag === 'Guest Speaker') return true;
       if (Array.isArray(t.tags) && (t.tags.includes('Event') || t.tags.includes('Guest Speaker'))) return true;
       
