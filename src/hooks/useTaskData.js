@@ -82,18 +82,9 @@ export const useTaskData = (currentUser) => {
     } catch (error) { console.error("❌ Email Error:", error); }
   };
 
-  // --- 3. LINE FLEX MESSAGE (ROBUST PROXY) ---
+  // --- 3. LINE FLEX MESSAGE (NETLIFY PROXY + FALLBACKS) ---
   const sendLinePush = async (task, headerTitle, headerColor = "#1DB446") => {
-    const TARGET_URL = "https://api.line.me/v2/bot/message/push";
     
-    // List of Proxies to try in order
-    // 1. CorsProxy.io (Fastest)
-    // 2. ThingProxy (Reliable Backup)
-    const PROXIES = [
-        "https://corsproxy.io/?", 
-        "https://thingproxy.freeboard.io/fetch/"
-    ];
-
     // 1. Define Groups
     const TARGETS = [
         {
@@ -194,14 +185,19 @@ export const useTaskData = (currentUser) => {
         }
     };
 
-    // 3. Send to Targets (With Fallback Logic)
+    // 3. Prepare Endpoints (Netlify Proxy vs Public Fallbacks)
+    const ENDPOINTS = [
+        "/line-api/v2/bot/message/push", // 1. Local Netlify Proxy (Fastest & Stable)
+        "https://thingproxy.freeboard.io/fetch/https://api.line.me/v2/bot/message/push", // 2. Fallback
+        "https://corsproxy.io/?https://api.line.me/v2/bot/message/push" // 3. Last Resort
+    ];
+
+    // 4. Send to Targets
     for (const target of TARGETS) {
         if (!target.token || !target.groupId) continue;
 
         if (target.allowedTags !== "ALL") {
-            if (!task.tag || !target.allowedTags.includes(task.tag)) {
-                continue; 
-            }
+            if (!task.tag || !target.allowedTags.includes(task.tag)) continue; 
         }
 
         const payload = {
@@ -209,29 +205,22 @@ export const useTaskData = (currentUser) => {
             messages: [flexMessage]
         };
 
-        // Try Proxies sequentially
         let success = false;
-        for (const proxyBase of PROXIES) {
-            if (success) break; // If already sent, skip next proxy
+        
+        // Try endpoints in order until one works
+        for (const url of ENDPOINTS) {
+            if (success) break;
 
             try {
-                // Determine full URL based on proxy type
-                // corsproxy.io usually wants full URL appended. 
-                // thingproxy wants it appended as is.
-                const fullUrl = proxyBase + encodeURIComponent(TARGET_URL);
-                
-                // Note: Some proxies don't need encodeURIComponent, but for these two, passing it safely is better.
-                // For corsproxy.io specifically, we can also try without encoding if encoded fails, 
-                // but let's stick to standard fetch first.
+                // If using local proxy, assume it works (no complex headers needed)
+                // If using public proxy, we rely on standard fetch
+                console.log(`📡 Sending LINE to ${target.name} via ${url.substring(0, 30)}...`);
 
-                console.log(`📡 Sending LINE to ${target.name} via ${proxyBase}...`);
-
-                const response = await fetch(fullUrl, {
+                const response = await fetch(url, {
                     method: "POST",
                     headers: { 
                         "Authorization": `Bearer ${target.token}`,
-                        "Content-Type": "application/json",
-                        "x-requested-with": "XMLHttpRequest" // Helps bypass some proxy checks
+                        "Content-Type": "application/json"
                     },
                     body: JSON.stringify(payload)
                 });
@@ -241,15 +230,15 @@ export const useTaskData = (currentUser) => {
                     success = true;
                 } else {
                     const errText = await response.text();
-                    console.warn(`⚠️ Proxy ${proxyBase} failed: ${response.status}`, errText);
+                    console.warn(`⚠️ Failed: ${response.status}`, errText);
                 }
             } catch (error) { 
-                console.warn(`⚠️ Network Error with ${proxyBase}:`, error); 
+                console.warn(`⚠️ Network Error with ${url}:`, error); 
             }
         }
 
         if (!success) {
-            console.error(`❌ All proxies failed for ${target.name}. Check AdBlocker or Internet connection.`);
+            console.error(`❌ All sending methods failed for ${target.name}. Check Internet or AdBlocker.`);
         }
     }
   };
