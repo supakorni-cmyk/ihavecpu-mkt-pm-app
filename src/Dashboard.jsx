@@ -1,6 +1,7 @@
+// src/Dashboard.jsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from './AuthContext'; // Assuming you have this
+import { useAuth } from './AuthContext';
 
 // Logic & Utilities
 import { useTaskData } from './hooks/useTaskData';
@@ -8,6 +9,7 @@ import { getSafeRequirements } from './utils/constants';
 
 // Shared Components
 import Sidebar from './components/shared/Sidebar';
+import GlobalPlayer from './components/common/GlobalPlayer'; // <--- NEW IMPORT
 
 // Views
 import HomeView from './components/views/HomeView';
@@ -17,29 +19,28 @@ import PhotoAlbumView from './components/views/AlbumView';
 import BudgetRecorderView from './components/views/BudgetView';
 import LeaveView from './components/views/LeaveView';
 import SelfHealView from './components/views/SelfHealView';
-// import GlobalPlayer from './components/common/GlobalPlayer';
 import ReportView from './components/views/ReportView';
 import OTView from './components/views/OtView';
 
 // Modals
 import AddTaskModal from './components/modals/AddTaskModal';
-import EditTaskModal from './components/modals/EditTaskModal'; // Extract the edit modal content here
+import EditTaskModal from './components/modals/EditTaskModal';
 import RequirementSheetModal from './components/modals/RequirementModal';
 
 export default function Dashboard() {
-  // 1. Setup Hooks
   const { currentUser, logout } = useAuth();
   const navigate = useNavigate();
-  const data = useTaskData(currentUser); // Access all our data logic
+  const data = useTaskData(currentUser);
+
+  // --- GLOBAL PLAYER STATE ---
+  const [playerMood, setPlayerMood] = useState(null);
   const [playerMode, setPlayerMode] = useState('hidden'); // 'hidden' | 'mini' | 'full'
 
-  // 2. Local UI State
   const [currentView, setCurrentView] = useState('home');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState(null);
   const [activeRequirementId, setActiveRequirementId] = useState(null);
 
-  // 3. Derived State
   const selectedTask = data.tasks.find(t => t.id === selectedTaskId);
   const activeRequirement = selectedTask 
     ? getSafeRequirements(selectedTask).find(r => r.id === activeRequirementId) 
@@ -47,26 +48,30 @@ export default function Dashboard() {
 
   const handleLogout = async () => { await logout(); navigate('/'); };
 
+  // --- PLAYER HANDLER ---
+  const handlePlayMood = (mood) => {
+      setPlayerMood(mood);
+      setPlayerMode('mini'); // Open in mini mode by default
+  };
+
   return (
     <div className="flex h-screen w-full bg-gray-50 font-sans overflow-hidden">
       
-      {/* SIDEBAR */}
       <Sidebar 
         currentView={currentView} 
         setCurrentView={setCurrentView} 
         onLogout={handleLogout} 
       />
 
-      {/* MAIN VIEW AREA */}
       <main className="flex-1 flex flex-col h-full w-full overflow-hidden bg-white relative">
         {currentView === 'home' && (
           <HomeView 
             tasks={data.tasks} 
             currentUser={currentUser}
-            // --- NEW: Pass Notification Props ---
             notifications={data.notifications} 
             markNotificationRead={data.markNotificationRead}
             clearAllNotifications={data.clearAllNotifications}
+            users={data.allUsers}
           />
         )}
         
@@ -82,10 +87,7 @@ export default function Dashboard() {
         )}
 
         {currentView === 'calendar' && (
-          <CalendarView 
-            tasks={data.tasks} 
-            setSelectedTaskId={setSelectedTaskId} 
-          />
+          <CalendarView tasks={data.tasks} setSelectedTaskId={setSelectedTaskId} />
         )}
 
         {currentView === 'album' && (
@@ -108,48 +110,46 @@ export default function Dashboard() {
           />
         )}
 
-        {/* ADD THIS BLOCK */}
         {currentView === 'leave' && (
-          <LeaveView 
-            leaves={data.leaves} 
-            onAdd={data.addLeave} 
-            onDelete={data.deleteLeave} 
-          />
+          <LeaveView leaves={data.leaves} onAdd={data.addLeave} onDelete={data.deleteLeave} />
         )}
 
-        {/* ADD OT VIEW BLOCK */}
         {currentView === 'ot' && (
           <OTView 
             records={data.otRecords} 
             onAdd={data.addOTRecord} 
             onDelete={data.deleteOTRecord}
             onUpdateStatus={data.updateOTStatus}
-            currentUser={currentUser} // Important for permission check
+            currentUser={currentUser}
           />
         )}
 
-        {currentView === 'selfheal' && <SelfHealView />}
+        {/* --- PASS PLAYER PROPS TO SELFHEAL --- */}
+        {currentView === 'selfheal' && (
+            <SelfHealView 
+                onPlay={handlePlayMood} 
+                currentMoodId={playerMood?.id} 
+            />
+        )}
         
         {currentView === 'report' && (
           <ReportView tasks={data.tasks} currentUser={currentUser} />
         )}
       </main>
-      {/* --- GLOBAL PLAYER (Sits on top) ---
+
+      {/* --- GLOBAL PLAYER (ALWAYS RENDERED) --- */}
       <GlobalPlayer 
+          mood={playerMood} 
           mode={playerMode} 
           setMode={setPlayerMode} 
-          onClose={() => setPlayerMode('hidden')} 
-      /> */}
+          onClose={() => { setPlayerMode('hidden'); setPlayerMood(null); }} 
+      />
 
-      {/* MODAL LAYER */}
+      {/* MODALS */}
       {isAddModalOpen && (
-        <AddTaskModal 
-          onClose={() => setIsAddModalOpen(false)} 
-          onAdd={data.addTask} 
-        />
+        <AddTaskModal onClose={() => setIsAddModalOpen(false)} onAdd={data.addTask} />
       )}
 
-      {/* Task Details / Edit Modal */}
       {selectedTask && !activeRequirement && (
         <EditTaskModal
           task={selectedTask}
@@ -159,7 +159,6 @@ export default function Dashboard() {
         />
       )}
 
-      {/* Requirement Sheet Modal */}
       {activeRequirement && selectedTask && (
         <RequirementSheetModal 
           task={selectedTask} 
