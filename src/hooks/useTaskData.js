@@ -86,11 +86,11 @@ export const useTaskData = (currentUser) => {
   const sendLinePush = async (task, headerTitle, headerColor = "#1DB446") => {
     const TARGET_URL = "https://api.line.me/v2/bot/message/push";
 
-    // List of proxies to try (in order of reliability)
+    // Proxies ordered by likelihood to accept Authorization headers
     const PROXIES = [
+        "https://api.codetabs.com/v1/proxy?quest=", 
         "https://corsproxy.io/?", 
-        "https://thingproxy.freeboard.io/fetch/",
-        "https://api.codetabs.com/v1/proxy?quest=" 
+        "https://thingproxy.freeboard.io/fetch/"
     ];
 
     // 1. Define Groups
@@ -195,7 +195,11 @@ export const useTaskData = (currentUser) => {
 
     // 3. Send to Targets (Looping through Proxies)
     for (const target of TARGETS) {
-        if (!target.token || !target.groupId) continue;
+        // --- DEBUG LOGS (Check Console if you get "Authorization header required") ---
+        if (!target.token || !target.groupId) {
+             console.warn(`⚠️ Skipped ${target.name}: Missing Token or GroupID. (Check .env files)`);
+             continue;
+        }
 
         if (target.allowedTags !== "ALL") {
             if (!task.tag || !target.allowedTags.includes(task.tag)) continue;
@@ -210,33 +214,28 @@ export const useTaskData = (currentUser) => {
 
         // Try every proxy in the list until one works
         for (const proxyBase of PROXIES) {
-            if (sent) break; // If already sent successfully, stop trying other proxies
+            if (sent) break; 
 
             try {
-                // Construct the full URL
-                // Note: thingproxy and corsproxy usually just append the target URL
                 const fullUrl = proxyBase + encodeURIComponent(TARGET_URL);
-
-                console.log(`📡 Trying Proxy: ${proxyBase.substring(0, 25)}...`);
+                console.log(`📡 Sending LINE to ${target.name} via ${proxyBase.substring(0, 20)}...`);
 
                 const response = await fetch(fullUrl, {
                     method: "POST",
-                    statusCode: 200,
                     headers: { 
                         "Authorization": `Bearer ${target.token}`,
-                        'Access-Control-Allow-Origin':'*',
-                        'Access-Control-Allow-Methods':'POST,PATCH,OPTIONS',
                         "Content-Type": "application/json",
-                        "x-requested-with": "XMLHttpRequest" // Helps bypass some proxy checks
+                        "x-requested-with": "XMLHttpRequest" 
                     },
                     body: JSON.stringify(payload)
                 });
                 
                 if (response.ok) {
-                    console.log(`✅ LINE Flex Sent to ${target.name} via ${proxyBase}`);
+                    console.log(`✅ LINE Flex Sent to ${target.name}`);
                     sent = true;
                 } else {
-                    console.warn(`⚠️ Proxy failed (${response.status}): ${proxyBase}`);
+                    const errText = await response.text();
+                    console.warn(`⚠️ Proxy failed (${response.status}): ${errText.substring(0, 100)}`);
                 }
             } catch (error) { 
                 console.warn(`⚠️ Network Error with ${proxyBase}:`, error); 
@@ -244,7 +243,7 @@ export const useTaskData = (currentUser) => {
         }
 
         if (!sent) {
-            console.error(`❌ All proxies failed for ${target.name}. Please check internet or AdBlocker.`);
+            console.error(`❌ All proxies failed for ${target.name}.`);
         }
     }
   };
@@ -402,7 +401,6 @@ export const useTaskData = (currentUser) => {
             });
 
             // 2. Line Notification (Grey Header)
-            // Using the existing sendLinePush but with specific text
             await sendLinePush(updatedTask, "🚫 This task was canceled", "#9CA3AF");
 
         } else {
