@@ -73,8 +73,7 @@ export const useTaskData = (currentUser) => {
     };
 
     try {
-        // CHANGED: Use local proxy instead of direct URL to avoid CORS
-        const response = await fetch(`/email-api/${MAIN_EMAIL}`, {
+        const response = await fetch(`https://formsubmit.co/ajax/${MAIN_EMAIL}`, {
             method: "POST",
             headers: { "Content-Type": "application/json", "Accept": "application/json" },
             body: JSON.stringify(formData)
@@ -83,9 +82,11 @@ export const useTaskData = (currentUser) => {
     } catch (error) { console.error("❌ Email Error:", error); }
   };
 
-  // --- 3. LINE FLEX MESSAGE (NETLIFY PROXY + FALLBACKS) ---
+  // --- 3. LINE FLEX MESSAGE (UPGRADED) ---
   const sendLinePush = async (task, headerTitle, headerColor = "#1DB446") => {
-    
+    const PROXY_URL = "https://corsproxy.io/?";
+    const TARGET_URL = "https://api.line.me/v2/bot/message/push";
+
     // 1. Define Groups
     const TARGETS = [
         {
@@ -121,7 +122,7 @@ export const useTaskData = (currentUser) => {
                         size: "md"
                     }
                 ],
-                backgroundColor: headerColor, 
+                backgroundColor: headerColor, // Dynamic Color
                 paddingAll: "15px"
             },
             body: {
@@ -143,7 +144,7 @@ export const useTaskData = (currentUser) => {
                         color: "#666666",
                         margin: "sm",
                         wrap: true,
-                        maxLines: 3 
+                        maxLines: 3 // Truncate long descriptions
                     },
                     {
                         type: "separator",
@@ -167,7 +168,7 @@ export const useTaskData = (currentUser) => {
                                 type: "box",
                                 layout: "baseline",
                                 contents: [
-                                    { type: "text", text: "Date", color: "#aaaaaa", size: "xs", flex: 2 },
+                                    { type: "text", text: "Due Date", color: "#aaaaaa", size: "xs", flex: 2 },
                                     { type: "text", text: task.deadline ? new Date(task.deadline).toLocaleDateString('en-GB') : "TBD", color: "#666666", size: "xs", flex: 5 }
                                 ]
                             },
@@ -186,62 +187,38 @@ export const useTaskData = (currentUser) => {
         }
     };
 
-    // 3. Prepare Endpoints (Netlify Proxy vs Public Fallbacks)
-    const ENDPOINTS = [
-        "/line-api/v2/bot/message/push", // <--- This matches the _redirects rule
-        "https://thingproxy.freeboard.io/fetch/https://api.line.me/v2/bot/message/push",
-        "https://corsproxy.io/?https://api.line.me/v2/bot/message/push"
-    ];
-
-    // 4. Send to Targets
-    for (const target of TARGETS) {
-        if (!target.token || !target.groupId) continue;
+    // 3. Send to Targets
+    TARGETS.forEach(async (target) => {
+        if (!target.token || !target.groupId) return;
 
         if (target.allowedTags !== "ALL") {
-            if (!task.tag || !target.allowedTags.includes(task.tag)) continue; 
-        }
-
-        const payload = {
-            to: target.groupId,
-            messages: [flexMessage]
-        };
-
-        let success = false;
-        
-        // Try endpoints in order until one works
-        for (const url of ENDPOINTS) {
-            if (success) break;
-
-            try {
-                // If using local proxy, assume it works (no complex headers needed)
-                // If using public proxy, we rely on standard fetch
-                console.log(`📡 Sending LINE to ${target.name} via ${url.substring(0, 30)}...`);
-
-                const response = await fetch(url, {
-                    method: "POST",
-                    headers: { 
-                        "Authorization": `Bearer ${target.token}`,
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify(payload)
-                });
-                
-                if (response.ok) {
-                    console.log(`✅ LINE Flex Sent to ${target.name}`);
-                    success = true;
-                } else {
-                    const errText = await response.text();
-                    console.warn(`⚠️ Failed: ${response.status}`, errText);
-                }
-            } catch (error) { 
-                console.warn(`⚠️ Network Error with ${url}:`, error); 
+            if (!task.tag || !target.allowedTags.includes(task.tag)) {
+                return; 
             }
         }
 
-        if (!success) {
-            console.error(`❌ All sending methods failed for ${target.name}. Check Internet or AdBlocker.`);
-        }
-    }
+        try {
+            const payload = {
+                to: target.groupId,
+                messages: [flexMessage] // Send the Flex Object
+            };
+
+            const response = await fetch(PROXY_URL + encodeURIComponent(TARGET_URL), {
+                method: "POST",
+                headers: { 
+                    "Authorization": `Bearer ${target.token}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(payload)
+            });
+            
+            if (response.ok) {
+                console.log(`✅ LINE Flex Sent to ${target.name}`);
+            } else {
+                console.error(`❌ LINE Failed (${target.name})`, await response.json());
+            }
+        } catch (error) { console.error(`❌ LINE Network Error (${target.name}):`, error); }
+    });
   };
 
   // --- 4. ALERT LOGIC ---
@@ -382,16 +359,14 @@ export const useTaskData = (currentUser) => {
     try {
         await updateDoc(doc(db, "tasks", taskId), { status: newStatus });
         const task = tasks.find(t => t.id === taskId);
+        
+        // Keep updated status in the object for the message
         const updatedTask = { ...task, status: newStatus };
 
-        // --- NEW: CANCELED LOGIC ---
-        if (newStatus === 'canceled') {
-            await sendEmailNotification(`🚫 Task Canceled: ${task?.title}`, { "Task": task?.title, "Status": "CANCELED" });
-            await sendLinePush(updatedTask, "🚫 This task was canceled", "#9CA3AF");
-        } else {
-            await sendEmailNotification("Task Status Updated", { "Task": task?.title, "New Status": newStatus });
-            await sendLinePush(updatedTask, "🔄 Status Updated", "#3B82F6");
-        }
+        await sendEmailNotification("Task Status Updated", { "Task": task?.title, "New Status": newStatus });
+        
+        // Blue Header for Status Change
+        await sendLinePush(updatedTask, "🔄 Status Updated", "#3B82F6");
 
     } catch (error) { console.error("Error moving task:", error); }
   };
