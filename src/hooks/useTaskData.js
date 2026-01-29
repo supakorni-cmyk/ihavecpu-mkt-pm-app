@@ -82,16 +82,12 @@ export const useTaskData = (currentUser) => {
     } catch (error) { console.error("❌ Email Error:", error); }
   };
 
-  // --- 3. LINE FLEX MESSAGE (MULTI-PROXY FAILOVER) ---
+  // --- 3. LINE FLEX MESSAGE (GOOGLE APPS SCRIPT RELAY) ---
   const sendLinePush = async (task, headerTitle, headerColor = "#1DB446") => {
-    const TARGET_URL = "https://api.line.me/v2/bot/message/push";
-
-    // Proxies ordered by likelihood to accept Authorization headers
-    const PROXIES = [
-        "https://api.codetabs.com/v1/proxy?quest=", 
-        "https://corsproxy.io/?", 
-        "https://thingproxy.freeboard.io/fetch/"
-    ];
+    
+    // 🔴 PASTE YOUR GOOGLE SCRIPT WEB APP URL HERE 🔴
+    const PROXY_URL = "https://script.google.com/macros/s/AKfycbzsjse3huz1XJfR9d8-2dL0RzShi-ncBgDimM-EdTVbchNaWtia9wglLv-68z4KIyko/exec"; 
+    // Example: "https://script.google.com/macros/s/AKfycbx.../exec"
 
     // 1. Define Groups
     const TARGETS = [
@@ -193,59 +189,59 @@ export const useTaskData = (currentUser) => {
         }
     };
 
-    // 3. Send to Targets (Looping through Proxies)
-    for (const target of TARGETS) {
-        // --- DEBUG LOGS (Check Console if you get "Authorization header required") ---
+    // 3. Send to Targets via Google Script
+    TARGETS.forEach(async (target) => {
+        // Validation
         if (!target.token || !target.groupId) {
-             console.warn(`⚠️ Skipped ${target.name}: Missing Token or GroupID. (Check .env files)`);
-             continue;
+             console.warn(`⚠️ Skipped ${target.name}: Config missing.`);
+             return;
         }
-
         if (target.allowedTags !== "ALL") {
-            if (!task.tag || !target.allowedTags.includes(task.tag)) continue;
+            if (!task.tag || !target.allowedTags.includes(task.tag)) return;
+        }
+        
+        // Validation: Did user paste the script URL?
+        if (PROXY_URL.includes("YOUR_GOOGLE_SCRIPT_URL_HERE")) {
+            console.error("❌ ERROR: You must paste your Google Script URL into useTaskData.js");
+            alert("❌ System Error: Google Script URL is missing in the code.");
+            return;
         }
 
-        const payload = {
-            to: target.groupId,
-            messages: [flexMessage]
-        };
-
-        let sent = false;
-
-        // Try every proxy in the list until one works
-        for (const proxyBase of PROXIES) {
-            if (sent) break; 
-
-            try {
-                const fullUrl = proxyBase + encodeURIComponent(TARGET_URL);
-                console.log(`📡 Sending LINE to ${target.name} via ${proxyBase.substring(0, 20)}...`);
-
-                const response = await fetch(fullUrl, {
-                    method: "POST",
-                    headers: { 
-                        "Authorization": `Bearer ${target.token}`,
-                        "Content-Type": "application/json",
-                        "x-requested-with": "XMLHttpRequest" 
-                    },
-                    body: JSON.stringify(payload)
-                });
-                
-                if (response.ok) {
-                    console.log(`✅ LINE Flex Sent to ${target.name}`);
-                    sent = true;
-                } else {
-                    const errText = await response.text();
-                    console.warn(`⚠️ Proxy failed (${response.status}): ${errText.substring(0, 100)}`);
+        try {
+            // We send the token + payload to Google, Google sends it to LINE
+            const relayData = {
+                token: target.token,
+                payload: {
+                    to: target.groupId,
+                    messages: [flexMessage]
                 }
-            } catch (error) { 
-                console.warn(`⚠️ Network Error with ${proxyBase}:`, error); 
-            }
-        }
+            };
 
-        if (!sent) {
-            console.error(`❌ All proxies failed for ${target.name}.`);
+            console.log(`📡 Sending to ${target.name} via Google Relay...`);
+
+            // Use 'no-cors' mode if simply firing and forgetting, 
+            // BUT to get response we use standard fetch. 
+            // Google Apps Script Web App handles CORS if deployed correctly.
+            const response = await fetch(PROXY_URL, {
+                method: "POST",
+                // 'text/plain' prevents browser preflight (OPTIONS) request issues with Google
+                headers: { "Content-Type": "text/plain;charset=utf-8" }, 
+                body: JSON.stringify(relayData)
+            });
+            
+            const result = await response.json();
+            
+            if (result && !result.message) { 
+                // LINE API returns empty object {} on success usually
+                console.log(`✅ LINE Flex Sent to ${target.name}`);
+            } else {
+                console.log(`ℹ️ LINE Response (${target.name}):`, result);
+            }
+
+        } catch (error) { 
+            console.error(`❌ Network Error (${target.name}):`, error); 
         }
-    }
+    });
   };
 
   // --- 4. ALERT LOGIC ---
@@ -256,14 +252,11 @@ export const useTaskData = (currentUser) => {
 
     console.log(`🔔 TRIGGERING ALERT: ${task.title} (${prefix})`);
 
-    // Determine Color based on urgency
-    let color = "#F59E0B"; // Default Orange (Warning)
-    if (prefix.includes("TODAY") || prefix.includes("URGENT")) color = "#EF4444"; // Red
+    let color = "#F59E0B"; 
+    if (prefix.includes("TODAY") || prefix.includes("URGENT")) color = "#EF4444"; 
 
-    // 1. Send LINE Flex
     await sendLinePush(task, prefix, color);
 
-    // 2. Send Email
     await sendEmailNotification(`${prefix}: ${task.title}`, {
         "Target User": userEmail,
         "Task Title": task.title,
@@ -272,7 +265,6 @@ export const useTaskData = (currentUser) => {
         "Status": task.status
     });
 
-    // 3. In-App Notification
     await addDoc(collection(db, "notifications"), {
         title: `${prefix}: ${task.title}`,
         taskId: task.id,
@@ -282,7 +274,6 @@ export const useTaskData = (currentUser) => {
         type: 'alert'
     });
 
-    // 4. Update DB
     await updateDoc(doc(db, "tasks", task.id), updateFlag);
   };
 
@@ -355,7 +346,6 @@ export const useTaskData = (currentUser) => {
         const cleanedUpdates = cleanData(updates);
         await updateDoc(doc(db, "tasks", id), cleanedUpdates);
         console.log("Task Updated Successfully (Silent)");
-        // No Email, No Line (Per your request)
     } catch (error) {
         console.error("FAILED to update task:", error);
         alert(`Failed to save: ${error.message}`);
@@ -375,8 +365,6 @@ export const useTaskData = (currentUser) => {
         await addDoc(collection(db, "tasks"), cleanedTask);
         
         await sendEmailNotification(`New Task: ${task.title}`, { "Title": task.title, "Details": task.description || "" });
-        
-        // Green Header for New Task
         await sendLinePush(task, "🆕 New Task Created", "#1DB446");
         
     } catch (error) { console.error("Error adding task:", error); }
@@ -386,25 +374,12 @@ export const useTaskData = (currentUser) => {
     try {
         await updateDoc(doc(db, "tasks", taskId), { status: newStatus });
         const task = tasks.find(t => t.id === taskId);
-        
-        // Keep updated status in the object for the message
         const updatedTask = { ...task, status: newStatus };
 
-        // --- NEW: CANCELED LOGIC ---
         if (newStatus === 'canceled') {
-            
-            // 1. Email Notification
-            await sendEmailNotification(`🚫 Task Canceled: ${task?.title}`, { 
-                "Task": task?.title, 
-                "Status": "CANCELED",
-                "Reason": "Marked as canceled in board"
-            });
-
-            // 2. Line Notification (Grey Header)
+            await sendEmailNotification(`🚫 Task Canceled: ${task?.title}`, { "Task": task?.title, "Status": "CANCELED" });
             await sendLinePush(updatedTask, "🚫 This task was canceled", "#9CA3AF");
-
         } else {
-            // Standard Notification for other moves
             await sendEmailNotification("Task Status Updated", { "Task": task?.title, "New Status": newStatus });
             await sendLinePush(updatedTask, "🔄 Status Updated", "#3B82F6");
         }
@@ -419,10 +394,7 @@ export const useTaskData = (currentUser) => {
           
           if (taskToDelete) {
              const editor = currentUser?.email?.split('@')[0] || 'Unknown';
-             
              await sendEmailNotification(`Task Deleted: ${taskToDelete.title}`, { "Title": taskToDelete.title, "Deleted By": editor });
-             
-             // Grey Header for Deletion
              await sendLinePush(taskToDelete, "🗑️ Task Deleted", "#374151");
           }
       } catch (error) { console.error(error); } 
