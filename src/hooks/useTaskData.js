@@ -188,9 +188,9 @@ export const useTaskData = (currentUser) => {
 
     // 3. Prepare Endpoints (Netlify Proxy vs Public Fallbacks)
     const ENDPOINTS = [
-        "/line-api/v2/bot/message/push", // 1. Local Netlify Proxy (Fastest & Stable)
-        "https://thingproxy.freeboard.io/fetch/https://api.line.me/v2/bot/message/push", // 2. Fallback
-        "https://corsproxy.io/?https://api.line.me/v2/bot/message/push" // 3. Last Resort
+        "/line-api/v2/bot/message/push", // <--- This matches the _redirects rule
+        "https://thingproxy.freeboard.io/fetch/https://api.line.me/v2/bot/message/push",
+        "https://corsproxy.io/?https://api.line.me/v2/bot/message/push"
     ];
 
     // 4. Send to Targets
