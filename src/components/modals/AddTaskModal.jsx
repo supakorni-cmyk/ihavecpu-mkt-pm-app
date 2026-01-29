@@ -1,13 +1,13 @@
 // src/components/modals/AddTaskModal.jsx
 import React, { useState } from 'react';
-import { X, Plus, ImageIcon } from 'lucide-react';
+import { X, Plus, ImageIcon, UserCheck } from 'lucide-react';
 
 const AddTaskModal = ({ onClose, onAdd }) => {
     // --- Local State ---
     const [newTask, setNewTask] = useState({
         title: '', 
         tag: 'Planning', 
-        startDate: new Date().toISOString().split('T')[0], // Defaults to today
+        startDate: new Date().toISOString().split('T')[0], 
         deadline: '', 
         description: '', 
         requirements: [], 
@@ -15,7 +15,8 @@ const AddTaskModal = ({ onClose, onAdd }) => {
         reference: '', 
         link: '', 
         imageUrl: '', 
-        fileUrl: ''
+        fileUrl: '',
+        isPao: false // <--- NEW FIELD
     });
 
     const [tempReqInput, setTempReqInput] = useState('');
@@ -67,6 +68,20 @@ const AddTaskModal = ({ onClose, onAdd }) => {
                 </div>
                 
                 <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+                    {/* --- NEW: P.PAO CHECKBOX --- */}
+                    <div className="flex items-center gap-2 bg-yellow-50 p-3 rounded-lg border border-yellow-100">
+                        <input 
+                            type="checkbox" 
+                            id="paoCheck"
+                            checked={newTask.isPao} 
+                            onChange={(e) => setNewTask({...newTask, isPao: e.target.checked})}
+                            className="w-5 h-5 text-orange-500 focus:ring-orange-400 rounded border-gray-300 cursor-pointer"
+                        />
+                        <label htmlFor="paoCheck" className="font-bold text-gray-700 flex items-center gap-2 cursor-pointer select-none">
+                            <UserCheck size={18} className="text-orange-500" /> Show in P.Pao Export
+                        </label>
+                    </div>
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <input autoFocus type="text" className="w-full border-gray-200 bg-gray-50 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 font-medium" placeholder="Task Title" value={newTask.title} onChange={e => setNewTask({...newTask, title: e.target.value})} />
                         <select className="w-full border-gray-200 bg-gray-50 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800" value={newTask.tag} onChange={e => setNewTask({...newTask, tag: e.target.value})}>
@@ -81,7 +96,6 @@ const AddTaskModal = ({ onClose, onAdd }) => {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            {/* CHANGED: Removed readOnly and bg-gray-100 to make it editable */}
                             <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Start Date</label>
                             <input 
                                 type="date" 

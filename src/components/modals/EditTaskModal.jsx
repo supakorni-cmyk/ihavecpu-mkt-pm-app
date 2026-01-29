@@ -3,7 +3,8 @@ import React, { useState } from 'react';
 import { 
     X, Edit2, Save, CheckSquare, AlignLeft, 
     Paperclip, Link as LinkIcon, FileText, 
-    ImageIcon, Trash2, Plus, Calendar, LocateIcon
+    ImageIcon, Trash2, Plus, Calendar, LocateIcon,
+    UserCheck 
 } from 'lucide-react';
 import { TAG_COLORS, getSafeRequirements, formatDate } from '../../utils/constants';
 
@@ -17,12 +18,12 @@ const EditTaskModal = ({ task, onClose, onUpdate, onOpenRequirement }) => {
         const safeReqs = getSafeRequirements(task);
         const startDate = task.startDate || new Date().toISOString().split('T')[0];
         
-        // --- FIX: Use 'task.location', NOT just 'location' ---
         setEditedTask({ 
             ...task, 
             requirements: safeReqs, 
             startDate, 
-            location: task.location || '' 
+            location: task.location || '',
+            isPao: task.isPao || false // <--- Load state
         });
         setIsEditing(true);
     };
@@ -87,11 +88,17 @@ const EditTaskModal = ({ task, onClose, onUpdate, onOpenRequirement }) => {
                                         <span className={`px-3 py-1 rounded-md text-xs font-bold tracking-wide uppercase ${TAG_COLORS[task.tag]}`}>
                                             {task.tag}
                                         </span>
-                                        {/* Show Date Range in View Mode */}
+                                        {/* Show Date Range */}
                                         <span className="text-xs text-gray-400 font-medium flex items-center gap-1">
                                             <Calendar size={12} />
                                             {formatDate(task.startDate)} - {formatDate(task.deadline)}
                                         </span>
+                                        {/* Show P.Pao Badge in View Mode */}
+                                        {task.isPao && (
+                                            <span className="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded text-[10px] font-bold border border-yellow-200 flex items-center gap-1">
+                                                <UserCheck size={10} /> P.Pao
+                                            </span>
+                                        )}
                                     </div>
                                     <h2 className="text-3xl font-bold text-gray-900">{task.title}</h2>
                                 </>
@@ -145,7 +152,7 @@ const EditTaskModal = ({ task, onClose, onUpdate, onOpenRequirement }) => {
                             <div>
                                 <h4 className="flex items-center gap-2 text-lg font-bold text-gray-800 mb-3"><LocateIcon size={20} className="text-gray-400" /> Location</h4>
                                 <div className="flex flex-col gap-2 ml-7">
-                                    {task.location && <a href={task.location} target="_blank" rel="noreferer" className="text-blue-600 hover:underline flex items-center gap-2"><LocateIcon size={14}/> Location Link</a>}
+                                    {task.location && <a href={task.location} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline flex items-center gap-2"><LocateIcon size={14}/> Location Link</a>}
                                 </div>
                             </div>
                             {(task.reference || task.fileUrl) && (
@@ -161,6 +168,21 @@ const EditTaskModal = ({ task, onClose, onUpdate, onOpenRequirement }) => {
                     ) : (
                         // --- EDIT MODE ---
                         <form onSubmit={handleUpdateTask} className="flex flex-col gap-6 mt-4">
+                            
+                            {/* --- NEW: P.PAO CHECKBOX (EDIT) --- */}
+                            <div className="flex items-center gap-2 bg-yellow-50 p-3 rounded-lg border border-yellow-100">
+                                <input 
+                                    type="checkbox" 
+                                    id="editPaoCheck"
+                                    checked={editedTask.isPao} 
+                                    onChange={(e) => setEditedTask({...editedTask, isPao: e.target.checked})}
+                                    className="w-5 h-5 text-orange-500 focus:ring-orange-400 rounded border-gray-300 cursor-pointer"
+                                />
+                                <label htmlFor="editPaoCheck" className="font-bold text-gray-700 flex items-center gap-2 cursor-pointer select-none">
+                                    <UserCheck size={18} className="text-orange-500" /> Show in P.Pao Export
+                                </label>
+                            </div>
+
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Tag</label>
@@ -169,7 +191,6 @@ const EditTaskModal = ({ task, onClose, onUpdate, onOpenRequirement }) => {
                                     </select>
                                 </div>
                                 <div className="grid grid-cols-2 gap-2">
-                                    {/* ADDED START DATE EDITING */}
                                     <div>
                                         <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Start Date</label>
                                         <input type="date" className="w-full border rounded p-2" value={editedTask.startDate} onChange={e => setEditedTask({...editedTask, startDate: e.target.value})} />

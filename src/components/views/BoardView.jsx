@@ -20,7 +20,7 @@ import { COLUMNS, TAG_COLORS, formatDate } from '../../utils/constants';
 
 // --- IMPORT THE MODALS ---
 import EditTaskModal from '../modals/EditTaskModal';
-import RequirementSheetModal from '../modals/RequirementModal'; // <--- NEW IMPORT
+import RequirementSheetModal from '../modals/RequirementModal'; 
 
 const FILTER_CATEGORIES = ['All', 'Planning', 'Project', 'Product Review', 'Event', 'Guest Speaker', 'Meeting'];
 
@@ -28,9 +28,7 @@ const FILTER_CATEGORIES = ['All', 'Planning', 'Project', 'Product Review', 'Even
 const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTask }) => {
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
-  
-  // --- NEW: REQUIREMENT MODAL STATE ---
-  const [activeRequirement, setActiveRequirement] = useState(null); // { task: taskObj, reqId: string }
+  const [activeRequirement, setActiveRequirement] = useState(null);
 
   // --- FILTER STATE ---
   const [searchQuery, setSearchQuery] = useState("");
@@ -39,22 +37,17 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
   // --- FILTERING LOGIC ---
   const filteredTasks = useMemo(() => {
     return tasks.filter(task => {
-        // 1. Search Filter (Title)
         const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase());
-        
-        // 2. Category Filter (Tags)
         let matchesCategory = true;
         if (selectedCategory !== 'All') {
             const hasSingleTag = task.tag === selectedCategory;
             const hasArrayTag = Array.isArray(task.tags) && task.tags.includes(selectedCategory);
             matchesCategory = hasSingleTag || hasArrayTag;
         }
-
         return matchesSearch && matchesCategory;
     });
   }, [tasks, searchQuery, selectedCategory]);
 
-  // --- HELPER: CLEAR FILTER ---
   const clearFilters = () => {
       setSearchQuery("");
       setSelectedCategory("All");
@@ -84,32 +77,20 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
     return grouped;
   }, [filteredTasks]);
 
-  // --- DRAG END HANDLER ---
   const onDragEnd = (result) => {
     const { destination, source, draggableId } = result;
-
     if (!destination) return;
-
-    if (
-      destination.droppableId === source.droppableId &&
-      destination.index === source.index
-    ) {
-      return;
-    }
-
+    if (destination.droppableId === source.droppableId && destination.index === source.index) return;
     onMoveTask(draggableId, destination.droppableId);
   };
 
-  // Handler to open task for editing
   const handleTaskClick = (taskId) => {
     const task = tasks.find(t => t.id === taskId);
     if (task) setEditingTask(task);
   };
 
-  // --- NEW: HANDLER TO OPEN REQUIREMENT TABLE ---
   const handleOpenRequirement = (reqId) => {
       if (editingTask) {
-           // Find the specific requirement object inside the task
            const req = editingTask.requirements.find(r => r.id === reqId);
            if (req) {
                setActiveRequirement({ task: editingTask, requirement: req });
@@ -122,14 +103,12 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
       {/* Header */}
       <header className="px-6 py-4 border-b border-gray-200 bg-white shadow-sm z-10 flex flex-col xl:flex-row justify-between xl:items-center gap-4">
         
-        {/* Title Area */}
         <div className="flex items-center gap-4">
             <h2 className="text-2xl font-black text-gray-800 flex items-center gap-2 whitespace-nowrap">
             WE LOVE OUR JOB <Heart size={24} className="text-red-600 fill-red-600 animate-pulse" />
             </h2>
             <div className="h-8 w-px bg-gray-200 hidden xl:block"></div>
             
-            {/* Search & Filter */}
             <div className="flex items-center gap-2 flex-1">
                 <div className="relative group">
                     <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-indigo-500 transition-colors"/>
@@ -166,13 +145,12 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
             </div>
         </div>
         
-        {/* Actions Area */}
         <div className="flex gap-3 justify-end">
           <button 
             onClick={() => setIsExportOpen(true)}
             className="flex items-center gap-2 bg-white text-indigo-600 border border-indigo-100 px-4 py-2.5 rounded-full font-bold hover:bg-indigo-50 transition shadow-sm text-sm"
           >
-            <FileText size={16} /> <span className="hidden sm:inline">Export Event</span>
+            <FileText size={16} /> <span className="hidden sm:inline">Export P.Pao</span>
           </button>
 
           <button 
@@ -184,7 +162,6 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
         </div>
       </header>
 
-      {/* --- DRAG DROP CONTEXT WRAPPER --- */}
       <DragDropContext onDragEnd={onDragEnd}>
         <div className="flex-1 overflow-x-auto overflow-y-hidden px-6 pb-4 pt-6">
           <div className="flex gap-6 h-full min-w-full">
@@ -201,45 +178,33 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
         </div>
       </DragDropContext>
 
-      {/* Export Modal */}
       {isExportOpen && (
         <ExportEventModal tasks={tasks} onClose={() => setIsExportOpen(false)} />
       )}
 
-      {/* Edit Task Modal */}
       {editingTask && (
         <EditTaskModal 
             task={editingTask}
             onClose={() => setEditingTask(null)}
             onUpdate={(updatedData) => {
                 onUpdateTask(editingTask.id, updatedData);
-                // Also update local state so changes reflect immediately if modal stays open
                 setEditingTask(prev => ({ ...prev, ...updatedData }));
-                setEditingTask(null); // Close after update
+                setEditingTask(null);
             }}
-            // PASS THE HANDLER HERE
             onOpenRequirement={handleOpenRequirement}
         />
       )}
 
-      {/* --- NEW: REQUIREMENT SHEET MODAL --- */}
       {activeRequirement && (
           <RequirementSheetModal 
               task={activeRequirement.task}
               requirement={activeRequirement.requirement}
               onClose={() => setActiveRequirement(null)}
               onUpdateTask={(updates) => {
-                  // 1. Update Database
                   onUpdateTask(activeRequirement.task.id, updates);
-
-                  // 2. Update the 'activeRequirement' state so the Table stays fresh while open
                   const updatedTask = { ...activeRequirement.task, ...updates };
                   const updatedReq = updatedTask.requirements.find(r => r.id === activeRequirement.requirement.id);
                   setActiveRequirement({ task: updatedTask, requirement: updatedReq });
-
-                  // 3. --- CRITICAL FIX --- 
-                  // Update 'editingTask' (the Parent Modal) so it knows about the new data too!
-                  // This prevents the parent form from overwriting your saved table with old data.
                   setEditingTask(prev => ({ ...prev, ...updates }));
               }}
           />
@@ -248,24 +213,51 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
   );
 };
 
-// --- SUB-COMPONENTS (Keep ExportEventModal, BoardColumn, TaskCard as they were) ---
+// --- SUB-COMPONENTS ---
 
+// --- CHANGED: FILTER ONLY CHECKED 'isPao' TASKS ---
 const ExportEventModal = ({ tasks, onClose }) => {
-  const events = tasks.filter(t => { if (t.tag === 'Event' || t.tag === 'Guest Speaker' || t.tag === 'Meeting') return true; if (Array.isArray(t.tags) && (t.tags.includes('Event') || t.tags.includes('Guest Speaker') || t.tags.includes('Meeting'))) return true; return false; });
+  // Filter for P.Pao Export (Checkbox must be TRUE)
+  const events = tasks.filter(t => t.isPao === true);
+  
   events.sort((a, b) => new Date( a.startDate || a.deadline || 0) - new Date( b.startDate || b.deadline || 0));
-  const groupedData = events.reduce((acc, task) => { const d = new Date(task.startDate || task.deadline); const key = isNaN(d) ? 'No Date' : d.toLocaleString('default', { month: 'long', year: 'numeric' }); if (!acc[key]) acc[key] = []; acc[key].push(task); return acc; }, {});
-  const generateExportText = () => { if (events.length === 0) return "No events found to export."; let text = "☀️🌈อัพเดทตารางงานพี่เปา⭐️⭐️\n\n"; Object.entries(groupedData).forEach(([month, monthTasks]) => { text += `━━━━━━━━━━━━━━━━━━━━━━\n🗓️ ${month.toUpperCase()}\n━━━━━━━━━━━━━━━━━━━━━━\n`; monthTasks.forEach(t => { const bestDate = t.startDate || t.deadline; let dateStr ='TBD'; if (bestDate) { dateStr = new Date(bestDate).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) } text += `\n📅 ${dateStr}\n📌 ${t.title}\n📝 ${t.description || 'No description provided.'}\n📍 ${t.location || 'Location TBD'}\n\n` }); text += "\n"; }); return text; };
+  
+  const groupedData = events.reduce((acc, task) => { 
+      const d = new Date(task.startDate || task.deadline); 
+      const key = isNaN(d) ? 'No Date' : d.toLocaleString('default', { month: 'long', year: 'numeric' }); 
+      if (!acc[key]) acc[key] = []; 
+      acc[key].push(task); 
+      return acc; 
+  }, {});
+
+  const generateExportText = () => { 
+      if (events.length === 0) return "No P.Pao events found."; 
+      let text = "☀️🌈อัพเดทตารางงานพี่เปา⭐️⭐️\n\n"; 
+      Object.entries(groupedData).forEach(([month, monthTasks]) => { 
+          text += `━━━━━━━━━━━━━━━━━━━━━━\n🗓️ ${month.toUpperCase()}\n━━━━━━━━━━━━━━━━━━━━━━\n`; 
+          monthTasks.forEach(t => { 
+              const bestDate = t.startDate || t.deadline; 
+              let dateStr ='TBD'; 
+              if (bestDate) { 
+                  dateStr = new Date(bestDate).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) 
+              } 
+              text += `\n📅 ${dateStr}\n📌 ${t.title}\n📝 ${t.description || 'No description provided.'}\n📍 ${t.location || 'Location TBD'}\n\n` 
+          }); 
+          text += "\n"; 
+      }); 
+      return text; 
+  };
+
   return (
     <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm" onClick={onClose}>
       <div className="bg-white rounded-2xl w-full max-w-5xl shadow-2xl flex flex-col h-[85vh] overflow-hidden" onClick={e => e.stopPropagation()}>
-        <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50"><div><h3 className="text-xl font-bold text-gray-800 flex items-center gap-2"><FileText className="text-indigo-600"/> Event Export</h3><p className="text-xs text-gray-500 mt-1">Found {events.length} items</p></div><button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition"><X size={20}/></button></div>
+        <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50"><div><h3 className="text-xl font-bold text-gray-800 flex items-center gap-2"><FileText className="text-indigo-600"/> Event Export (P.Pao)</h3><p className="text-xs text-gray-500 mt-1">Found {events.length} items</p></div><button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition"><X size={20}/></button></div>
         <div className="flex-1 bg-gray-50 relative"><textarea readOnly className="w-full h-full p-8 font-mono text-sm text-gray-700 bg-gray-50 outline-none resize-none leading-relaxed" value={generateExportText()}/><button onClick={() => { navigator.clipboard.writeText(generateExportText()); alert("Copied!"); }} className="absolute bottom-8 right-8 bg-black text-white px-6 py-3 rounded-lg font-bold shadow-lg flex items-center gap-2 hover:bg-gray-800 transition transform hover:scale-105"><Copy size={16}/> Copy Text</button></div>
       </div>
     </div>
   );
 };
 
-// --- UPDATED BOARD COLUMN (With Droppable) ---
 const BoardColumn = ({ column, tasks, onTaskClick, onDeleteTask }) => {
   return (
     <div className="flex-1 min-w-[300px] flex flex-col h-full rounded-2xl bg-white/50 backdrop-blur-sm border border-white shadow-sm">
@@ -277,7 +269,6 @@ const BoardColumn = ({ column, tasks, onTaskClick, onDeleteTask }) => {
         <MoreHorizontal size={16} className="text-gray-300 hover:text-gray-600 cursor-pointer" />
       </div>
 
-      {/* DROPPABLE AREA */}
       <Droppable droppableId={column.id}>
         {(provided, snapshot) => (
             <div 
@@ -304,7 +295,6 @@ const BoardColumn = ({ column, tasks, onTaskClick, onDeleteTask }) => {
   );
 };
 
-// --- UPDATED TASK CARD (With Draggable) ---
 const TaskCard = ({ task, index, onClick, onDelete }) => {
   const reqs = Array.isArray(task.requirements) ? task.requirements : [];
   const completedReqs = reqs.filter(r => r.isDone).length;
@@ -369,7 +359,6 @@ const TaskCard = ({ task, index, onClick, onDelete }) => {
                         <Clock size={12} />
                         <span>{displayDate}</span>
                     </div>
-                    {/* (Optional) Avatar could go here */}
                 </div>
             </div>
         )}
