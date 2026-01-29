@@ -50,18 +50,27 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
   const [team] = useState(INITIAL_TEAM);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
 
-  // --- FIX: IMPROVED STATS LOGIC (Case Insensitive) ---
+  // --- 1. STATS LOGIC ---
   const completedTasks = tasks.filter(t => {
       const s = (t.status || '').toLowerCase();
       return s === 'completed' || s === 'done';
   }).length;
 
-  const pendingTasks = tasks.length - completedTasks;
+  // FIX: Pending should NOT include canceled tasks
+  const pendingTasks = tasks.filter(t => {
+      const s = (t.status || '').toLowerCase();
+      return s !== 'completed' && s !== 'done' && s !== 'canceled';
+  }).length;
 
-  // 2. Event Filtering
+  // --- 2. EVENT FILTERING ---
   const upcomingEvents = tasks.filter(t => {
+      // FIX: Don't show canceled tasks in schedule
+      if (t.status === 'canceled') return false;
+
+      // Check Tags
       if (t.tag === 'Event' || t.tag === 'Guest Speaker') return true;
       if (Array.isArray(t.tags) && (t.tags.includes('Event') || t.tags.includes('Guest Speaker'))) return true;
+      
       return false;
   });
 
