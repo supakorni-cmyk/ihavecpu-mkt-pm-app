@@ -221,8 +221,11 @@ export const useTaskData = (currentUser) => {
 
                 const response = await fetch(fullUrl, {
                     method: "POST",
+                    statusCode: 200,
                     headers: { 
                         "Authorization": `Bearer ${target.token}`,
+                        'Access-Control-Allow-Origin':'*',
+                        'Access-Control-Allow-Methods':'POST,PATCH,OPTIONS',
                         "Content-Type": "application/json",
                         "x-requested-with": "XMLHttpRequest" // Helps bypass some proxy checks
                     },
