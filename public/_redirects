@@ -1,0 +1,6 @@
+# 1. API Proxies (Optional, keeps options open)
+/line-api/* https://api.line.me/:splat  200
+/email-api/* https://formsubmit.co/ajax/:splat  200
+
+# 2. SPA Fallback (FIXES THE 404 ERROR)
+/* /index.html  200
