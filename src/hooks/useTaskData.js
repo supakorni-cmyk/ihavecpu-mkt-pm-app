@@ -355,7 +355,7 @@ export const useTaskData = (currentUser) => {
     } catch (error) { console.error("Error adding task:", error); }
   };
   
-  cconst moveTask = async (taskId, newStatus) => {
+  const moveTask = async (taskId, newStatus) => {
     try {
         await updateDoc(doc(db, "tasks", taskId), { status: newStatus });
         const task = tasks.find(t => t.id === taskId);
