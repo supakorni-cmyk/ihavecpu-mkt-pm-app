@@ -2,37 +2,49 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   X, Maximize2, Minimize2, 
-  Play, Pause, SkipBack, SkipForward, Music 
+  Play, Pause, SkipBack, SkipForward 
 } from 'lucide-react';
 
 const GlobalPlayer = ({ mood, mode, setMode, onClose }) => {
   const [isPlaying, setIsPlaying] = useState(true);
-  const [videoTitle, setVideoTitle] = useState(''); // Store the specific video name
+  const [videoTitle, setVideoTitle] = useState(''); 
+  const [isLoadingTitle, setIsLoadingTitle] = useState(true);
   const iframeRef = useRef(null);
 
   // Reset state when mood changes
   useEffect(() => {
     setIsPlaying(true);
-    setVideoTitle(''); // Reset title on mood switch
+    setVideoTitle(''); 
+    setIsLoadingTitle(true);
+    
+    // If title doesn't load in 3 seconds (due to adblock), stop showing "Loading..."
+    const timer = setTimeout(() => setIsLoadingTitle(false), 3000);
+    return () => clearTimeout(timer);
   }, [mood]);
 
   // --- LISTENER: Get Video Title from YouTube ---
   useEffect(() => {
     const handleMessage = (event) => {
-        // 1. Security Check: Only accept messages from YouTube
         if (!event.origin.includes('youtube.com')) return;
 
         try {
             const data = JSON.parse(event.data);
 
-            // 2. Detect "infoDelivery" event (This contains metadata like title)
-            if (data.event === 'infoDelivery' && data.info && data.info.videoData) {
-                if (data.info.videoData.title) {
-                    setVideoTitle(data.info.videoData.title);
-                }
+            // Check for title in various event types
+            const info = data.info || {};
+            const title = info.videoData ? info.videoData.title : (info.title || null);
+
+            if (title) {
+                setVideoTitle(title);
+                setIsLoadingTitle(false);
             }
+            
+            // Sync Play/Pause state if external controls (keyboard) are used
+            if (info.playerState === 1) setIsPlaying(true);
+            if (info.playerState === 2) setIsPlaying(false);
+
         } catch (error) {
-            // Ignore non-JSON messages
+            // Ignore parsing errors
         }
     };
 
@@ -77,7 +89,8 @@ const GlobalPlayer = ({ mood, mode, setMode, onClose }) => {
         <iframe 
             ref={iframeRef}
             className="w-full h-full object-cover pointer-events-none" 
-            src={`https://www.youtube.com/embed/videoseries?list=${mood.youtubeId}&autoplay=1&loop=1&enablejsapi=1&controls=0&modestbranding=1`}
+            // ADDED: origin parameter to help with CORS/API connection
+            src={`https://www.youtube.com/embed/videoseries?list=${mood.youtubeId}&autoplay=1&loop=1&enablejsapi=1&controls=0&modestbranding=1&origin=${window.location.origin}`}
             title="Music Player"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
             allowFullScreen
@@ -105,14 +118,14 @@ const GlobalPlayer = ({ mood, mode, setMode, onClose }) => {
 
         {/* Title Info */}
         <div className="pr-6 mb-3 mt-1 overflow-hidden">
-            {/* 1. Main Playlist Name (e.g. "Relax & Focus") */}
+            {/* 1. Main Playlist Name */}
             <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-0.5">
                 {mood.title}
             </p>
             
-            {/* 2. Specific Video Name (e.g. "Lofi Hip Hop Mix") */}
-            <h4 className="font-bold text-gray-800 text-sm truncate leading-tight" title={videoTitle || "Loading track..."}>
-                {videoTitle || "Loading track..."}
+            {/* 2. Specific Video Name (With AdBlock Fallback) */}
+            <h4 className="font-bold text-gray-800 text-sm truncate leading-tight" title={videoTitle || mood.title}>
+                {videoTitle ? videoTitle : (isLoadingTitle ? "Loading track..." : "Mix Playlist")}
             </h4>
 
             {/* 3. Status Indicator */}
