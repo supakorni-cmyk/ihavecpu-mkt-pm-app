@@ -17,7 +17,7 @@ const GlobalPlayer = ({ mood, mode, setMode, onClose }) => {
     setVideoTitle(''); 
     setIsLoadingTitle(true);
     
-    // If title doesn't load in 3 seconds (due to adblock), stop showing "Loading..."
+    // Fallback: If title doesn't load in 3 seconds (blocked by browser), stop showing "Loading..."
     const timer = setTimeout(() => setIsLoadingTitle(false), 3000);
     return () => clearTimeout(timer);
   }, [mood]);
@@ -25,12 +25,13 @@ const GlobalPlayer = ({ mood, mode, setMode, onClose }) => {
   // --- LISTENER: Get Video Title from YouTube ---
   useEffect(() => {
     const handleMessage = (event) => {
+        // Only accept messages from YouTube
         if (!event.origin.includes('youtube.com')) return;
 
         try {
             const data = JSON.parse(event.data);
 
-            // Check for title in various event types
+            // Extract Title from API events
             const info = data.info || {};
             const title = info.videoData ? info.videoData.title : (info.title || null);
 
@@ -39,12 +40,12 @@ const GlobalPlayer = ({ mood, mode, setMode, onClose }) => {
                 setIsLoadingTitle(false);
             }
             
-            // Sync Play/Pause state if external controls (keyboard) are used
+            // Sync Play/Pause state
             if (info.playerState === 1) setIsPlaying(true);
             if (info.playerState === 2) setIsPlaying(false);
 
         } catch (error) {
-            // Ignore parsing errors
+            // Ignore non-JSON messages
         }
     };
 
@@ -89,12 +90,13 @@ const GlobalPlayer = ({ mood, mode, setMode, onClose }) => {
         <iframe 
             ref={iframeRef}
             className="w-full h-full object-cover pointer-events-none" 
-            src={`https://www.youtube.com/embed/videoseries?list=${mood.youtubeId}&autoplay=1&loop=1&enablejsapi=1&controls=0&modestbranding=1&origin=${window.location.origin}`}
+            // ADDED: origin & widget_referrer to help authenticate the embed and reduce CORS errors
+            src={`https://www.youtube.com/embed/videoseries?list=${mood.youtubeId}&autoplay=1&loop=1&enablejsapi=1&controls=0&modestbranding=1&origin=${window.location.origin}&widget_referrer=${window.location.href}`}
             title="Music Player"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
             allowFullScreen
         />
-        {/* Click video to expand/shrink */}
+        {/* Overlay: Click video to expand/shrink */}
         <div 
             className="absolute inset-0 bg-transparent cursor-pointer hover:bg-white/10 transition-colors" 
             onClick={() => setMode(isMini ? 'full' : 'mini')}
