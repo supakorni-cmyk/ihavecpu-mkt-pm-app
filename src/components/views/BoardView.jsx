@@ -241,7 +241,7 @@ const ExportEventModal = ({ tasks, onClose }) => {
               if (bestDate) { 
                   dateStr = new Date(bestDate).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) 
               } 
-              text += `\n📅 ${dateStr}\n📌 ${t.title}\n📝 ${t.description || 'No description provided.'}\n📍 ${t.location || 'Location TBD'}\n\n` 
+              text += `\n📅 ${dateStr}\n📌 ${t.title}\n📝 ${t.description || ''}\n📍 ${t.location || 'Location TBD'}\n📋 รายละเอียด ${t.reference || ''}\n` 
           }); 
           text += "\n"; 
       }); 
