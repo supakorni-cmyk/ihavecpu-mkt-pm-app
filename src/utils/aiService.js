@@ -78,3 +78,30 @@ export const suggestTaskDescription = async (taskTitle) => {
   `;
   return await generateAIContent(prompt);
 };
+
+export const refineTextTone = async (text, tone = "professional") => {
+  const prompt = `
+    Rewrite the following text to be more ${tone}, clear, and grammatically correct.
+    Keep the meaning exactly the same, but improve the style.
+    Text: "${text}"
+  `;
+  return await generateAIContent(prompt);
+};
+
+export const summarizeText = async (longText) => {
+  const prompt = `
+    Summarize the following text into 3 distinct bullet points.
+    Focus on the key decisions made and the current action items.
+    Text: "${longText}"
+  `;
+  return await generateAIContent(prompt);
+};
+
+export const translateText = async (text, targetLanguage) => {
+  const prompt = `
+    Translate the following text into ${targetLanguage}.
+    Ensure technical terms are translated accurately for a software/business context.
+    Text: "${text}"
+  `;
+  return await generateAIContent(prompt);
+};

@@ -7,7 +7,7 @@ import {
 import { COLUMNS, TAG_COLORS } from '../../utils/constants';
 
 // --- IMPORT AI SERVICE ---
-import { suggestTaskDescription } from '../../utils/aiService';
+import { suggestTaskDescription, refineTextTone } from '../../utils/aiService';
 
 export default function AddTaskModal({ onClose, onAdd }) {
   const TAGS = Object.keys(TAG_COLORS);
@@ -29,6 +29,15 @@ export default function AddTaskModal({ onClose, onAdd }) {
   
   const [isPao, setIsPao] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+
+  const handlePoliteRewrite = async () => {
+  if (!description) return;
+
+  setIsGenerating(true);
+  const refined = await refineTextTone(description, "professional");
+  if (refined) setDescription(refined);
+  setIsGenerating(false);
+};
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -118,6 +127,14 @@ export default function AddTaskModal({ onClose, onAdd }) {
                     >
                         <Sparkles size={12} className={isGenerating ? "animate-spin" : "fill-indigo-600"} />
                         {isGenerating ? "Generating..." : "AI Auto-Fill"}
+                    </button>
+                    <button 
+                        type="button"
+                        onClick={handlePoliteRewrite}
+                        disabled={isGenerating || !description}
+                        className="text-[10px] bg-blue-50 text-blue-600 px-2 py-1 rounded border border-blue-100 hover:bg-blue-100 transition"
+                    >
+                        👔 Make Professional
                     </button>
                 </div>
                 <div className="relative">
