@@ -18,9 +18,9 @@ import {
   Filter,
   Calendar,
   Tag,
-  Sparkles, // ✨ Import Sparkles
-  Send,     // ✨ Import Send
-  MessageSquare // ✨ Import MessageSquare
+  Sparkles,      // ✨ AI Icon
+  Send,          // ✨ AI Send Icon
+  MessageSquare  // ✨ AI Chat Icon
 } from 'lucide-react';
 
 import { BUDGET_CATEGORIES } from '../../utils/constants';
@@ -72,23 +72,20 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
     // --- PREVIEW STATE ---
     const [previewFile, setPreviewFile] = useState(null);
 
-    // --- FILTER STATE FOR INCOME TABLE ---
+    // --- FILTER STATE (INCOME) ---
     const [incomeCategoryFilter, setIncomeCategoryFilter] = useState('All');
     const [incomeMonthFilter, setIncomeMonthFilter] = useState('All');
     const [incomeBrandFilter, setIncomeBrandFilter] = useState('All');
 
-    // --- DATA PROCESSING FOR CHARTS ---
+    // --- DATA PROCESSING ---
     const getMonthlyData = (type) => {
         const data = {};
-        transactions
-            .filter(t => t.type === type)
-            .forEach(t => {
-                const date = new Date(t.date);
-                const key = `${date.toLocaleString('default', { month: 'short' })} ${date.getFullYear()}`; 
-                if (!data[key]) data[key] = { amount: 0, dateObj: date }; 
-                data[key].amount += parseFloat(t.amount) || 0;
-            });
-        
+        transactions.filter(t => t.type === type).forEach(t => {
+            const date = new Date(t.date);
+            const key = `${date.toLocaleString('default', { month: 'short' })} ${date.getFullYear()}`; 
+            if (!data[key]) data[key] = { amount: 0, dateObj: date }; 
+            data[key].amount += parseFloat(t.amount) || 0;
+        });
         return Object.entries(data)
             .map(([label, val]) => ({ date: label, value: val.amount, dateObj: val.dateObj }))
             .sort((a, b) => a.dateObj - b.dateObj);
@@ -96,13 +93,11 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
 
     const getCategoryData = (type) => {
         const data = {};
-        transactions
-            .filter(t => t.type === type)
-            .forEach(t => {
-                const cat = t.category || 'Uncategorized';
-                if (!data[cat]) data[cat] = 0;
-                data[cat] += parseFloat(t.amount) || 0;
-            });
+        transactions.filter(t => t.type === type).forEach(t => {
+            const cat = t.category || 'Uncategorized';
+            if (!data[cat]) data[cat] = 0;
+            data[cat] += parseFloat(t.amount) || 0;
+        });
         return Object.entries(data)
             .map(([name, value]) => ({ name, value }))
             .sort((a, b) => b.value - a.value);
@@ -123,7 +118,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
     const topIncome = getTopTransactions('income');
     const topSpending = getTopTransactions('spending');
 
-    // --- GENERATE UNIQUE LISTS FOR FILTERS ---
+    // --- FILTER LIST GENERATION ---
     const uniqueMonths = useMemo(() => {
         const months = new Set();
         transactions.filter(t => t.type === 'income').forEach(t => {
@@ -143,7 +138,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
         return Array.from(brands).sort();
     }, [transactions]);
 
-    // --- FILTERED INCOME TRANSACTIONS ---
+    // --- FILTER LOGIC ---
     const filteredIncomeTransactions = useMemo(() => {
         return transactions
             .filter(t => t.type === 'income')
@@ -160,7 +155,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
             .sort((a, b) => new Date(b.date) - new Date(a.date));
     }, [transactions, incomeCategoryFilter, incomeBrandFilter, incomeMonthFilter]);
 
-    // Combined Data for Comparison Chart
+    // Combined Data for Chart
     const allMonths = Array.from(new Set([...incomeTrend.map(d => d.date), ...spendingTrend.map(d => d.date)]))
         .sort((a, b) => new Date(a) - new Date(b));
     
@@ -182,9 +177,8 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
         if (!aiQuery.trim()) return;
 
         setIsAiLoading(true);
-        setAiResponse(''); // Clear previous response
+        setAiResponse('');
         try {
-            // Pass all transactions for analysis
             const result = await analyzeFinancials(aiQuery, transactions);
             setAiResponse(result || "Sorry, I couldn't analyze the data.");
         } catch (error) {
@@ -195,7 +189,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
         }
     };
 
-    // --- Handlers (Keep same as before) ---
+    // --- FILE HANDLERS ---
     const handleFileUpload = (e) => { const file = e.target.files[0]; if (file && file.size <= 1024 * 1024) { const reader = new FileReader(); reader.onloadend = () => setNewTransaction(prev => ({ ...prev, invoiceFile: reader.result })); reader.readAsDataURL(file); } else if(file) { alert("File too large (>1MB)"); } };
     const handleRemoveFile = () => { setNewTransaction(prev => ({ ...prev, invoiceFile: null })); const input = document.getElementById('addFile'); if(input) input.value = ''; };
     const handleQtUpload = (e) => { const file = e.target.files[0]; if (file && file.size <= 1024 * 1024) { const reader = new FileReader(); reader.onloadend = () => setNewTransaction(prev => ({ ...prev, qtFile: reader.result })); reader.readAsDataURL(file); } else if(file) { alert("File too large (>1MB)"); } };
@@ -203,6 +197,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
     const handleSlipUpload = (e) => { const file = e.target.files[0]; if (file && file.size <= 1024 * 1024) { const reader = new FileReader(); reader.onloadend = () => setNewTransaction(prev => ({ ...prev, slipFile: reader.result })); reader.readAsDataURL(file); } else if(file) { alert("File too large (>1MB)"); } };
     const handleRemoveSlip = () => { setNewTransaction(prev => ({ ...prev, slipFile: null })); const input = document.getElementById('addSlip'); if(input) input.value = ''; };
 
+    // --- EDIT FILE HANDLERS ---
     const handleEditFileUpload = (e) => { const file = e.target.files[0]; if (file && file.size <= 1024 * 1024) { const reader = new FileReader(); reader.onloadend = () => setEditFormData(prev => ({ ...prev, invoiceFile: reader.result })); reader.readAsDataURL(file); } else if(file) { alert("File too large (>1MB)"); } };
     const handleRemoveEditFile = () => { setEditFormData(prev => ({ ...prev, invoiceFile: null })); const input = document.getElementById('editFile'); if(input) input.value = ''; };
     const handleEditQt = (e) => { const file = e.target.files[0]; if (file && file.size <= 1024 * 1024) { const reader = new FileReader(); reader.onloadend = () => setEditFormData(prev => ({ ...prev, qtFile: reader.result })); reader.readAsDataURL(file); } else if(file) { alert("File too large (>1MB)"); } };
@@ -210,13 +205,14 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
     const handleEditSlip = (e) => { const file = e.target.files[0]; if (file && file.size <= 1024 * 1024) { const reader = new FileReader(); reader.onloadend = () => setEditFormData(prev => ({ ...prev, slipFile: reader.result })); reader.readAsDataURL(file); } else if(file) { alert("File too large (>1MB)"); } };
     const handleRemoveEditSlip = () => { setEditFormData(prev => ({ ...prev, slipFile: null })); const input = document.getElementById('slipQt'); if(input) input.value = ''; };
 
+    // --- CRUD HANDLERS ---
     const handleAddTransaction = (e) => { e.preventDefault(); onAdd({ ...newTransaction, type: activeTab === 'overview' ? 'income' : activeTab, createdAt: new Date(), id: Date.now().toString() }); setIsAddOpen(false); setNewTransaction({ type: 'income', date: new Date().toISOString().split('T')[0], brand: '', category: BUDGET_CATEGORIES[0], description: '', amount: '', company: '', emailSubject: '', invoice: '', invoiceFile: null, quotation: '', qtFile: null, paymentDate: '', status: 'Pending', slip: '', slipFile: null, remark: '' }); };
     const handleEditClick = (t) => { setEditFormData({ ...t }); setIsEditOpen(true); };
     const handleEditSubmit = (e) => { e.preventDefault(); onUpdate(editFormData.id, editFormData); setIsEditOpen(false); setEditFormData(null); };
 
     return (
         <div className="flex flex-col h-full bg-gray-50 font-sans relative">
-            {/* Header */}
+            {/* --- HEADER --- */}
             <header className="px-8 py-5 border-b border-gray-200 bg-white shadow-sm z-10 flex justify-between items-center">
                 <div className="flex items-center gap-3">
                     <div className={`p-2 rounded-lg ${activeTab === 'income' ? 'bg-green-100 text-green-600' : activeTab === 'spending' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>
@@ -243,7 +239,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                 </div>
             </header>
 
-            {/* --- AI ANALYST MODAL --- */}
+            {/* --- AI MODAL --- */}
             {isAiOpen && (
                 <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm" onClick={() => setIsAiOpen(false)}>
                     <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col h-[600px]" onClick={e => e.stopPropagation()}>
@@ -329,7 +325,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                 </div>
             )}
 
-            {/* Tabs */}
+            {/* --- TABS --- */}
             <div className="flex-1 overflow-hidden flex flex-col">
                 <div className="px-8 pt-6 pb-0 flex gap-1 border-b border-gray-200 bg-gray-50">
                     {['overview', 'income', 'spending'].map(tab => (
@@ -531,20 +527,308 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                 </div>
             </div>
 
-            {/* Modals remain mostly unchanged - Only ensure EditableCell is present */}
+            {/* --- ADD TRANSACTION MODAL --- */}
             {isAddOpen && (
                 <div className="fixed inset-0 bg-black/60 z-[80] flex items-center justify-center p-4 backdrop-blur-sm">
-                   {/* ... (Add modal logic same as above) ... */}
-                   {/* I've included the full modal logic in the previous blocks for brevity in this final output, assuming standard implementation */}
+                    <div className="bg-white rounded-2xl w-full max-w-4xl p-8 shadow-2xl overflow-y-auto max-h-[90vh]">
+                        <div className="flex justify-between items-center mb-8 border-b border-gray-100 pb-4">
+                            <div><h3 className="text-2xl font-bold text-gray-900">Add Record</h3><p className="text-sm text-gray-500 mt-1">Select type and fill details.</p></div>
+                            <button onClick={() => setIsAddOpen(false)} className="text-gray-400 hover:text-gray-900 p-2 hover:bg-gray-100 rounded-full transition"><X size={24}/></button>
+                        </div>
+                        <form onSubmit={handleAddTransaction} className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                           <div className="space-y-6">
+                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Type</label><select className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 bg-white" value={newTransaction.type} onChange={e => setNewTransaction({...newTransaction, type: e.target.value})}><option value="income">Income</option><option value="spending">Spending</option></select></div>
+                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Date</label><input required type="date" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={newTransaction.date} onChange={e => setNewTransaction({...newTransaction, date: e.target.value})} /></div>
+                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Brand</label><input required type="text" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={newTransaction.brand} onChange={e => setNewTransaction({...newTransaction, brand: e.target.value})} /></div>
+                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Category</label><select className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={newTransaction.category} onChange={e => setNewTransaction({...newTransaction, category: e.target.value})}>{BUDGET_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}</select></div>
+                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Amount</label><input required type="number" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 font-mono" value={newTransaction.amount} onChange={e => setNewTransaction({...newTransaction, amount: e.target.value})} /></div>
+                            </div>
+                            <div className="space-y-6">
+                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Description</label><textarea className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px]" value={newTransaction.description} onChange={e => setNewTransaction({...newTransaction, description: e.target.value})} /></div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Company</label><input type="text" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={newTransaction.company} onChange={e => setNewTransaction({...newTransaction, company: e.target.value})} /></div>
+                                    <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Email Subject</label><input type="text" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={newTransaction.emailSubject} onChange={e => setNewTransaction({...newTransaction, emailSubject: e.target.value})} /></div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Quotation No.</label><input type="text" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={newTransaction.quotation} onChange={e => setNewTransaction({...newTransaction, quotation: e.target.value})} /></div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Upload Quotation</label>
+                                        {newTransaction.qtFile ? (
+                                            <div className="flex items-center justify-between border border-green-200 bg-green-50 rounded-lg p-2.5">
+                                                <span className="flex items-center gap-2 text-xs text-green-700 font-bold"><Paperclip size={16}/> Attached</span>
+                                                <button type="button" onClick={handleRemoveQt} className="text-red-500 hover:text-red-700 p-1 hover:bg-red-100 rounded transition"><Trash2 size={16} /></button>
+                                            </div>
+                                        ) : (
+                                            <div className="border border-dashed border-gray-300 rounded-lg p-2.5 text-center cursor-pointer hover:bg-gray-50 transition">
+                                                <input type="file" accept=".pdf,.jpg,.png" onChange={handleQtUpload} className="hidden" id="addQt"/>
+                                                <label htmlFor="addQt" className="flex items-center justify-center gap-2 text-xs text-gray-500 cursor-pointer w-full h-full"><Upload size={16}/> Select File</label>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Invoice No.</label><input type="text" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={newTransaction.invoice} onChange={e => setNewTransaction({...newTransaction, invoice: e.target.value})} /></div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Upload</label>
+                                        {newTransaction.invoiceFile ? (
+                                            <div className="flex items-center justify-between border border-green-200 bg-green-50 rounded-lg p-2.5">
+                                                <span className="flex items-center gap-2 text-xs text-green-700 font-bold"><Paperclip size={16}/> Attached</span>
+                                                <button type="button" onClick={handleRemoveFile} className="text-red-500 hover:text-red-700 p-1 hover:bg-red-100 rounded transition"><Trash2 size={16} /></button>
+                                            </div>
+                                        ) : (
+                                            <div className="border border-dashed border-gray-300 rounded-lg p-2.5 text-center cursor-pointer hover:bg-gray-50 transition">
+                                                <input type="file" accept=".pdf,.jpg,.png" onChange={handleFileUpload} className="hidden" id="addFile"/>
+                                                <label htmlFor="addFile" className="flex items-center justify-center gap-2 text-xs text-gray-500 cursor-pointer w-full h-full"><Upload size={16}/> Select File</label>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Payment Date</label><input type="date" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={newTransaction.paymentDate} onChange={e => setNewTransaction({...newTransaction, paymentDate: e.target.value})} /></div>
+                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Status</label><select className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={newTransaction.status} onChange={e => setNewTransaction({...newTransaction, status: e.target.value})}>{BUDGET_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Slip</label><input type="text" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={newTransaction.slip} onChange={e => setNewTransaction({...newTransaction, slip: e.target.value})} /></div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Upload</label>
+                                        {newTransaction.slipFile ? (
+                                            <div className="flex items-center justify-between border border-green-200 bg-green-50 rounded-lg p-2.5">
+                                                <span className="flex items-center gap-2 text-xs text-green-700 font-bold"><Paperclip size={16}/> Attached</span>
+                                                <button type="button" onClick={handleRemoveSlip} className="text-red-500 hover:text-red-700 p-1 hover:bg-red-100 rounded transition"><Trash2 size={16} /></button>
+                                            </div>
+                                        ) : (
+                                            <div className="border border-dashed border-gray-300 rounded-lg p-2.5 text-center cursor-pointer hover:bg-gray-50 transition">
+                                                <input type="file" accept=".pdf,.jpg,.png" onChange={handleSlipUpload} className="hidden" id="addSlip"/>
+                                                <label htmlFor="addSlip" className="flex items-center justify-center gap-2 text-xs text-gray-500 cursor-pointer w-full h-full"><Upload size={16}/> Select File</label>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Remark</label><textarea className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px]" value={newTransaction.remark} onChange={e => setNewTransaction({...newTransaction, remark: e.target.value})} /></div>
+                            </div>
+                            <div className="md:col-span-2 pt-6 border-t flex justify-end gap-3"><button type="button" onClick={() => setIsAddOpen(false)} className="px-6 py-3 rounded-lg font-bold text-gray-500 hover:bg-gray-100">Cancel</button><button type="submit" className="px-8 py-3 rounded-lg font-bold text-white bg-blue-600 hover:bg-blue-700">Save Record</button></div>
+                        </form>
+                    </div>
                 </div>
             )}
             
-            {/* ... Other modals ... */}
+            {/* --- EDIT TRANSACTION MODAL --- */}
+            {isEditOpen && editFormData && (
+                <div className="fixed inset-0 bg-black/60 z-[80] flex items-center justify-center p-4 backdrop-blur-sm">
+                    <div className="bg-white rounded-2xl w-full max-w-4xl p-8 shadow-2xl overflow-y-auto max-h-[90vh]">
+                        <div className="flex justify-between items-center mb-8 border-b border-gray-100 pb-4">
+                            <div><h3 className="text-2xl font-bold text-gray-900">Edit Record</h3><p className="text-sm text-gray-500 mt-1">Modify transaction details.</p></div>
+                            <button onClick={() => setIsEditOpen(false)} className="text-gray-400 hover:text-gray-900 p-2 hover:bg-gray-100 rounded-full"><X size={24}/></button>
+                        </div>
+                        <form onSubmit={handleEditSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                             <div className="space-y-6">
+                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Type</label><select className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 bg-white" value={editFormData.type} onChange={e => setEditFormData({...editFormData, type: e.target.value})}><option value="income">Income</option><option value="spending">Spending</option></select></div>
+                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Date</label><input required type="date" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={editFormData.date} onChange={e => setEditFormData({...editFormData, date: e.target.value})} /></div>
+                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Brand</label><input required type="text" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={editFormData.brand} onChange={e => setEditFormData({...editFormData, brand: e.target.value})} /></div>
+                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Category</label><select className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={editFormData.category} onChange={e => setEditFormData({...editFormData, category: e.target.value})}>{BUDGET_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}</select></div>
+                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Amount</label><input required type="number" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 font-mono" value={editFormData.amount} onChange={e => setEditFormData({...editFormData, amount: e.target.value})} /></div>
+                            </div>
+                            <div className="space-y-6">
+                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Description</label><textarea className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px]" value={editFormData.description} onChange={e => setEditFormData({...editFormData, description: e.target.value})} /></div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Company</label><input type="text" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={editFormData.company} onChange={e => setEditFormData({...editFormData, company: e.target.value})} /></div>
+                                    <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Email Subject</label><input type="text" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={editFormData.emailSubject} onChange={e => setEditFormData({...editFormData, emailSubject: e.target.value})} /></div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Quotation No.</label><input type="text" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={editFormData.quotation} onChange={e => setEditFormData({...editFormData, quotation: e.target.value})} /></div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Update File</label>
+                                        {editFormData.qtFile ? (
+                                            <div className="flex items-center justify-between border border-green-200 bg-green-50 rounded-lg p-2.5">
+                                                <span className="flex items-center gap-2 text-xs text-green-700 font-bold truncate max-w-[150px]"><Paperclip size={16}/> File Attached</span>
+                                                <button type="button" onClick={handleRemoveEditQt} className="text-red-500 hover:text-red-700 p-1 hover:bg-red-100 rounded transition"><Trash2 size={16} /></button>
+                                            </div>
+                                        ) : (
+                                            <div className="border border-dashed border-gray-300 rounded-lg p-2.5 text-center cursor-pointer hover:bg-gray-50 transition">
+                                                <input type="file" accept=".pdf,.jpg,.png" onChange={handleEditQt} className="hidden" id="editQt"/>
+                                                <label htmlFor="editQt" className="flex items-center justify-center gap-2 text-xs text-gray-500 cursor-pointer w-full h-full"><Upload size={16}/> Select New</label>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Invoice No.</label><input type="text" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={editFormData.invoice} onChange={e => setEditFormData({...editFormData, invoice: e.target.value})} /></div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Update File</label>
+                                        {editFormData.invoiceFile ? (
+                                            <div className="flex items-center justify-between border border-green-200 bg-green-50 rounded-lg p-2.5">
+                                                <span className="flex items-center gap-2 text-xs text-green-700 font-bold truncate max-w-[150px]"><Paperclip size={16}/> File Attached</span>
+                                                <button type="button" onClick={handleRemoveEditFile} className="text-red-500 hover:text-red-700 p-1 hover:bg-red-100 rounded transition"><Trash2 size={16} /></button>
+                                            </div>
+                                        ) : (
+                                            <div className="border border-dashed border-gray-300 rounded-lg p-2.5 text-center cursor-pointer hover:bg-gray-50 transition">
+                                                <input type="file" accept=".pdf,.jpg,.png" onChange={handleEditFileUpload} className="hidden" id="editFile"/>
+                                                <label htmlFor="editFile" className="flex items-center justify-center gap-2 text-xs text-gray-500 cursor-pointer w-full h-full"><Upload size={16}/> Select New</label>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Payment Date</label><input type="date" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={editFormData.paymentDate} onChange={e => setEditFormData({...editFormData, paymentDate: e.target.value})} /></div>
+                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Status</label><select className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={editFormData.status} onChange={e => setEditFormData({...editFormData, status: e.target.value})}>{BUDGET_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Slip</label><input type="text" className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" value={editFormData.invoice} onChange={e => setEditFormData({...editFormData, invoice: e.target.value})} /></div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Update File</label>
+                                        {editFormData.invoiceFile ? (
+                                            <div className="flex items-center justify-between border border-green-200 bg-green-50 rounded-lg p-2.5">
+                                                <span className="flex items-center gap-2 text-xs text-green-700 font-bold truncate max-w-[150px]"><Paperclip size={16}/> File Attached</span>
+                                                <button type="button" onClick={handleRemoveEditSlip} className="text-red-500 hover:text-red-700 p-1 hover:bg-red-100 rounded transition"><Trash2 size={16} /></button>
+                                            </div>
+                                        ) : (
+                                            <div className="border border-dashed border-gray-300 rounded-lg p-2.5 text-center cursor-pointer hover:bg-gray-50 transition">
+                                                <input type="file" accept=".pdf,.jpg,.png" onChange={handleEditSlip} className="hidden" id="editSlip"/>
+                                                <label htmlFor="editSlip" className="flex items-center justify-center gap-2 text-xs text-gray-500 cursor-pointer w-full h-full"><Upload size={16}/> Select New</label>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2">Remark</label><textarea className="w-full border border-gray-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px]" value={editFormData.remark} onChange={e => setEditFormData({...editFormData, remark: e.target.value})} /></div>
+                            </div>
+                            <div className="md:col-span-2 pt-6 border-t flex justify-end gap-3"><button type="button" onClick={() => setIsEditOpen(false)} className="px-6 py-3 rounded-lg font-bold text-gray-500 hover:bg-gray-100">Cancel</button><button type="submit" className="px-8 py-3 rounded-lg font-bold text-white bg-blue-600 hover:bg-blue-700">Save Changes</button></div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* --- PREVIEW MODAL --- */}
+            {previewFile && (
+                <div className="fixed inset-0 z-[90] bg-black/80 flex items-center justify-center p-4 backdrop-blur-md" onClick={() => setPreviewFile(null)}>
+                    <div className="relative w-full h-full max-w-5xl max-h-[90vh] bg-white rounded-lg overflow-hidden flex flex-col shadow-2xl" onClick={e => e.stopPropagation()}>
+                        <div className="flex justify-between items-center p-4 border-b bg-gray-50">
+                            <h3 className="font-bold text-gray-700 flex items-center gap-2"><FileText size={20}/> Document Preview</h3>
+                            <button onClick={() => setPreviewFile(null)} className="p-2 bg-gray-200 hover:bg-red-100 hover:text-red-500 rounded-full transition"><X size={20}/></button>
+                        </div>
+                        <div className="flex-1 bg-gray-100 overflow-auto flex items-center justify-center p-4">
+                            {previewFile.startsWith('data:image') ? (
+                                <img src={previewFile} alt="Preview" className="max-w-full max-h-full object-contain shadow-lg" />
+                            ) : (
+                                <iframe src={previewFile} title="Document Preview" className="w-full h-full border-none shadow-lg bg-white rounded" />
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
 
 // --- CHART & CELL COMPONENTS ---
+
+const SimpleLineChart = ({ data, color = "#C81E23" }) => {
+    if (!data || data.length < 2) return <div className="h-full w-full flex items-center justify-center text-gray-400 text-sm">Not enough data</div>;
+    const height = 200; 
+    const width = 1000;
+    const paddingX = 40;
+    const paddingY = 40; 
+    const maxVal = Math.max(...data.map(d => d.value)) * 1.1 || 100;
+    const points = data.map((d, i) => {
+        const x = (i / (data.length - 1)) * (width - 2 * paddingX) + paddingX;
+        const y = height - paddingY - ((d.value / maxVal) * (height - 2 * paddingY));
+        return `${x},${y}`;
+    }).join(' ');
+    
+    return (
+        <div className="w-full h-full relative group">
+            <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-visible" preserveAspectRatio="none">
+                {[0.25, 0.5, 0.75].map(ratio => {
+                     const y = height - paddingY - (ratio * (height - 2 * paddingY));
+                     return <line key={ratio} x1={paddingX} y1={y} x2={width - paddingX} y2={y} stroke="#f3f4f6" strokeWidth="1" strokeDasharray="4 4"/>
+                })}
+                <polyline fill="none" stroke={color} strokeWidth="3" points={points} strokeLinecap="round" strokeLinejoin="round" />
+                {data.map((d, i) => {
+                    const x = (i / (data.length - 1)) * (width - 2 * paddingX) + paddingX;
+                    const y = height - paddingY - ((d.value / maxVal) * (height - 2 * paddingY));
+                    return (
+                        <g key={i} className="group-hover:opacity-100 opacity-0 transition-opacity">
+                            <circle cx={x} cy={y} r="5" fill={color} stroke="white" strokeWidth="2" />
+                            <text x={x} y={y - 12} textAnchor="middle" fontSize="12" fill="#333" fontWeight="bold">฿{formatCompactNumber(d.value)}</text>
+                            <text x={x} y={height - 10} textAnchor="middle" fontSize="11" fill="#9ca3af">{d.date.split(' ')[0]}</text>
+                        </g>
+                    );
+                })}
+            </svg>
+        </div>
+    );
+};
+
+const CombinedLineChart = ({ data }) => {
+    if (!data || data.length === 0) return <div className="h-full w-full flex items-center justify-center text-gray-400 text-sm">No data</div>;
+    const height = 240; 
+    const width = 1000;
+    const paddingX = 40;
+    const paddingY = 40;
+    const maxVal = Math.max(...data.map(d => Math.max(d.income, d.spending))) * 1.1 || 100;
+    const getPoints = (key) => data.map((d, i) => {
+        const x = (i / (data.length - 1 || 1)) * (width - 2 * paddingX) + paddingX;
+        const y = height - paddingY - ((d[key] / maxVal) * (height - 2 * paddingY));
+        return `${x},${y}`;
+    }).join(' ');
+
+    return (
+        <div className="w-full h-full relative">
+            <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-visible" preserveAspectRatio="none">
+                {[0, 0.25, 0.5, 0.75, 1].map(ratio => {
+                     const y = height - paddingY - (ratio * (height - 2 * paddingY));
+                     return <line key={ratio} x1={paddingX} y1={y} x2={width - paddingX} y2={y} stroke="#f3f4f6" strokeWidth="1"/>
+                })}
+                <polyline fill="none" stroke="#16a34a" strokeWidth="3" points={getPoints('income')} strokeLinecap="round" strokeLinejoin="round"/>
+                <polyline fill="none" stroke="#dc2626" strokeWidth="3" points={getPoints('spending')} strokeLinecap="round" strokeLinejoin="round"/>
+                {data.map((d, i) => {
+                    const x = (i / (data.length - 1 || 1)) * (width - 2 * paddingX) + paddingX;
+                    return (
+                        <g key={i}>
+                             <text x={x} y={height - 10} textAnchor="middle" fontSize="11" fill="#6b7280" fontWeight="500">{d.date.split(' ')[0]}</text>
+                             <circle cx={x} cy={height - paddingY - ((d.income / maxVal) * (height - 2 * paddingY))} r="3" fill="#16a34a" opacity="0.5"/>
+                             <circle cx={x} cy={height - paddingY - ((d.spending / maxVal) * (height - 2 * paddingY))} r="3" fill="#dc2626" opacity="0.5"/>
+                        </g>
+                    );
+                })}
+            </svg>
+            <div className="absolute top-0 right-0 flex gap-4 text-xs font-bold bg-white/80 p-1 rounded backdrop-blur-sm">
+                <span className="text-green-600 flex items-center gap-1"><span className="w-2.5 h-2.5 bg-green-600 rounded-full"></span> Income</span>
+                <span className="text-red-600 flex items-center gap-1"><span className="w-2.5 h-2.5 bg-red-600 rounded-full"></span> Spending</span>
+            </div>
+        </div>
+    );
+};
+
+const SimplePieChart = ({ data }) => {
+    if (!data || data.length === 0) return <div className="h-full w-full flex items-center justify-center text-gray-400 text-sm">No data</div>;
+    const total = data.reduce((acc, cur) => acc + cur.value, 0);
+    let currentAngle = 0;
+    const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#6366f1'];
+
+    return (
+        <div className="flex items-center gap-6 h-full">
+            <div className="w-32 h-32 relative shrink-0">
+                <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
+                    {data.map((d, i) => {
+                        const sliceAngle = (d.value / total) * 360;
+                        const x1 = 50 + 50 * Math.cos(Math.PI * currentAngle / 180);
+                        const y1 = 50 + 50 * Math.sin(Math.PI * currentAngle / 180);
+                        const x2 = 50 + 50 * Math.cos(Math.PI * (currentAngle + sliceAngle) / 180);
+                        const y2 = 50 + 50 * Math.sin(Math.PI * (currentAngle + sliceAngle) / 180);
+                        const largeArc = sliceAngle > 180 ? 1 : 0;
+                        const pathData = `M 50 50 L ${x1} ${y1} A 50 50 0 ${largeArc} 1 ${x2} ${y2} Z`;
+                        currentAngle += sliceAngle;
+                        return <path key={i} d={pathData} fill={colors[i % colors.length]} stroke="white" strokeWidth="1"/>;
+                    })}
+                </svg>
+            </div>
+            <div className="flex-1 space-y-1 overflow-y-auto max-h-40 text-xs custom-scrollbar">
+                {data.map((d, i) => (
+                    <div key={i} className="flex justify-between items-center">
+                        <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full" style={{backgroundColor: colors[i % colors.length]}}></span><span className="text-gray-600 truncate max-w-[100px]" title={d.name}>{d.name}</span></div>
+                        <span className="font-bold text-gray-800">{((d.value / total) * 100).toFixed(0)}%</span>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
 
 const EditableCell = ({ value, onSave, type = "text", options = null, className = "" }) => {
     const [isEditing, setIsEditing] = useState(false);
