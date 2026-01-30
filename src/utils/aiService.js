@@ -105,3 +105,21 @@ export const translateText = async (text, targetLanguage) => {
   `;
   return await generateAIContent(prompt);
 };
+
+export const summarizeSchedule = async (dateStr, tasks) => {
+  if (!tasks || tasks.length === 0) return "No tasks scheduled for this date.";
+
+  const taskList = tasks.map(t => `- ${t.title} (${t.startTime || "All Day"})`).join("\n");
+
+  const prompt = `
+    I am an executive assistant. 
+    Here is the schedule for ${dateStr}:
+    ${taskList}
+
+    Please write a 2-3 sentence "Morning Briefing" summarizing the day's focus. 
+    Highlight the most critical or time-sensitive item. 
+    Keep the tone professional and encouraging.
+  `;
+  
+  return await generateAIContent(prompt);
+};
