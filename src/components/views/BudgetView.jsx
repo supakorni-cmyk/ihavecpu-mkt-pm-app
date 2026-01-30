@@ -55,6 +55,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
     // --- AI STATE ---
     const [isAiOpen, setIsAiOpen] = useState(false);
     const [aiQuery, setAiQuery] = useState('');
+    const [lastQuestion, setLastQuestion] = useState(''); // 🟢 ADD THIS
     const [aiResponse, setAiResponse] = useState('');
     const [isAiLoading, setIsAiLoading] = useState(false);
     const aiInputRef = useRef(null);
@@ -179,10 +180,19 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
         e.preventDefault();
         if (!aiQuery.trim()) return;
 
+        setLastQuestion(aiQuery); // 🟢 1. Save the question to lock it in the chat
+        setAiQuery('');           // 🟢 2. Clear the input field for the next message
+        
         setIsAiLoading(true);
-        setAiResponse('');
+        setAiResponse(''); 
+        
         try {
-            const result = await analyzeFinancials(aiQuery, transactions);
+            // Note: Use 'aiQuery' here before it clears, or use the value directly
+            // Since setAiQuery is async-ish, it's safer to pass the value directly or use lastQuestion if sending later.
+            // BETTER WAY:
+            const questionToSend = aiQuery; 
+            
+            const result = await analyzeFinancials(questionToSend, transactions);
             setAiResponse(result || "Sorry, I couldn't analyze the data.");
         } catch (error) {
             console.error("AI Error:", error);
@@ -276,7 +286,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                  <div className="flex gap-3 flex-row-reverse">
                                     <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-bold text-xs">You</div>
                                     <div className="bg-indigo-600 text-white p-4 rounded-2xl rounded-tr-none shadow-md text-sm max-w-[85%]">
-                                        {aiQuery}
+                                        {lastQuestion}
                                     </div>
                                  </div>
                              )}
