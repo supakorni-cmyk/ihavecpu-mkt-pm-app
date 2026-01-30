@@ -82,14 +82,12 @@ export const useTaskData = (currentUser) => {
     } catch (error) { console.error("❌ Email Error:", error); }
   };
 
-  // --- 3. LINE FLEX MESSAGE (GOOGLE APPS SCRIPT RELAY) ---
+  // --- 3. LINE FLEX MESSAGE ---
   const sendLinePush = async (task, headerTitle, headerColor = "#1DB446") => {
-    
     // 🔴 PASTE YOUR GOOGLE SCRIPT WEB APP URL HERE 🔴
-    const PROXY_URL = "https://script.google.com/macros/s/AKfycbzsjse3huz1XJfR9d8-2dL0RzShi-ncBgDimM-EdTVbchNaWtia9wglLv-68z4KIyko/exec"; 
+    const PROXY_URL = "YOUR_GOOGLE_SCRIPT_URL_HERE"; 
     // Example: "https://script.google.com/macros/s/AKfycbx.../exec"
 
-    // 1. Define Groups
     const TARGETS = [
         {
             name: "Marketing Group (Main)",
@@ -105,7 +103,20 @@ export const useTaskData = (currentUser) => {
         }
     ];
 
-    // 2. Build Flex Message Payload
+    // Format Time for Line
+    const formatTime = (isoString) => {
+        if (!isoString) return null;
+        return new Date(isoString).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    };
+    
+    let timeDisplay = "TBD";
+    if (task.startTime) {
+        timeDisplay = formatTime(task.startTime);
+        if (task.endTime) timeDisplay += ` - ${formatTime(task.endTime)}`;
+    } else if (task.deadline) {
+        timeDisplay = `Due: ${formatTime(task.deadline)}`;
+    }
+
     const flexMessage = {
         type: "flex",
         altText: `${headerTitle}: ${task.title}`,
@@ -116,13 +127,7 @@ export const useTaskData = (currentUser) => {
                 type: "box",
                 layout: "vertical",
                 contents: [
-                    {
-                        type: "text",
-                        text: headerTitle,
-                        color: "#ffffff",
-                        weight: "bold",
-                        size: "md"
-                    }
+                    { type: "text", text: headerTitle, color: "#ffffff", weight: "bold", size: "md" }
                 ],
                 backgroundColor: headerColor, 
                 paddingAll: "15px"
@@ -131,27 +136,9 @@ export const useTaskData = (currentUser) => {
                 type: "box",
                 layout: "vertical",
                 contents: [
-                    {
-                        type: "text",
-                        text: task.title,
-                        weight: "bold",
-                        size: "xl",
-                        margin: "md",
-                        wrap: true
-                    },
-                    {
-                        type: "text",
-                        text: task.description || "No details provided.",
-                        size: "sm",
-                        color: "#666666",
-                        margin: "sm",
-                        wrap: true,
-                        maxLines: 3 
-                    },
-                    {
-                        type: "separator",
-                        margin: "lg"
-                    },
+                    { type: "text", text: task.title, weight: "bold", size: "xl", margin: "md", wrap: true },
+                    { type: "text", text: task.description || "No details provided.", size: "sm", color: "#666666", margin: "sm", wrap: true, maxLines: 3 },
+                    { type: "separator", margin: "lg" },
                     {
                         type: "box",
                         layout: "vertical",
@@ -170,16 +157,16 @@ export const useTaskData = (currentUser) => {
                                 type: "box",
                                 layout: "baseline",
                                 contents: [
-                                    { type: "text", text: "Due Date", color: "#aaaaaa", size: "xs", flex: 2 },
-                                    { type: "text", text: task.deadline ? new Date(task.deadline).toLocaleDateString('en-GB') : "TBD", color: "#666666", size: "xs", flex: 5 }
+                                    { type: "text", text: "Date", color: "#aaaaaa", size: "xs", flex: 2 },
+                                    { type: "text", text: task.startTime ? new Date(task.startTime).toLocaleDateString('en-GB') : (task.deadline ? new Date(task.deadline).toLocaleDateString('en-GB') : "TBD"), color: "#666666", size: "xs", flex: 5 }
                                 ]
                             },
                             {
                                 type: "box",
                                 layout: "baseline",
                                 contents: [
-                                    { type: "text", text: "Status", color: "#aaaaaa", size: "xs", flex: 2 },
-                                    { type: "text", text: task.status || "Pending", color: "#666666", size: "xs", flex: 5 }
+                                    { type: "text", text: "Time", color: "#aaaaaa", size: "xs", flex: 2 },
+                                    { type: "text", text: timeDisplay, color: "#666666", size: "xs", flex: 5 }
                                 ]
                             }
                         ]
@@ -189,58 +176,26 @@ export const useTaskData = (currentUser) => {
         }
     };
 
-    // 3. Send to Targets via Google Script
     TARGETS.forEach(async (target) => {
-        // Validation
-        if (!target.token || !target.groupId) {
-             console.warn(`⚠️ Skipped ${target.name}: Config missing.`);
-             return;
-        }
+        if (!target.token || !target.groupId) return;
         if (target.allowedTags !== "ALL") {
             if (!task.tag || !target.allowedTags.includes(task.tag)) return;
         }
         
-        // Validation: Did user paste the script URL?
         if (PROXY_URL.includes("YOUR_GOOGLE_SCRIPT_URL_HERE")) {
-            console.error("❌ ERROR: You must paste your Google Script URL into useTaskData.js");
-            alert("❌ System Error: Google Script URL is missing in the code.");
+            console.error("❌ ERROR: Google Script URL missing in useTaskData.js");
             return;
         }
 
         try {
-            // We send the token + payload to Google, Google sends it to LINE
-            const relayData = {
-                token: target.token,
-                payload: {
-                    to: target.groupId,
-                    messages: [flexMessage]
-                }
-            };
-
-            console.log(`📡 Sending to ${target.name} via Google Relay...`);
-
-            // Use 'no-cors' mode if simply firing and forgetting, 
-            // BUT to get response we use standard fetch. 
-            // Google Apps Script Web App handles CORS if deployed correctly.
-            const response = await fetch(PROXY_URL, {
+            const relayData = { token: target.token, payload: { to: target.groupId, messages: [flexMessage] } };
+            await fetch(PROXY_URL, {
                 method: "POST",
-                // 'text/plain' prevents browser preflight (OPTIONS) request issues with Google
                 headers: { "Content-Type": "text/plain;charset=utf-8" }, 
                 body: JSON.stringify(relayData)
             });
-            
-            const result = await response.json();
-            
-            if (result && !result.message) { 
-                // LINE API returns empty object {} on success usually
-                console.log(`✅ LINE Flex Sent to ${target.name}`);
-            } else {
-                console.log(`ℹ️ LINE Response (${target.name}):`, result);
-            }
-
-        } catch (error) { 
-            console.error(`❌ Network Error (${target.name}):`, error); 
-        }
+            console.log(`✅ LINE Sent to ${target.name}`);
+        } catch (error) { console.error(`❌ Network Error (${target.name}):`, error); }
     });
   };
 
@@ -250,20 +205,23 @@ export const useTaskData = (currentUser) => {
     if (processedAlerts.current.has(alertId)) return;
     processedAlerts.current.add(alertId);
 
-    console.log(`🔔 TRIGGERING ALERT: ${task.title} (${prefix})`);
-
     let color = "#F59E0B"; 
     if (prefix.includes("TODAY") || prefix.includes("URGENT")) color = "#EF4444"; 
 
     await sendLinePush(task, prefix, color);
 
-    await sendEmailNotification(`${prefix}: ${task.title}`, {
+    const emailData = {
         "Target User": userEmail,
         "Task Title": task.title,
         "Details": task.description || "No details",
-        "Due Date": new Date(task.deadline).toLocaleString('en-GB'),
+        "Date": task.startTime ? new Date(task.startTime).toLocaleDateString('en-GB') : new Date(task.deadline).toLocaleDateString('en-GB'),
         "Status": task.status
-    });
+    };
+
+    if (task.startTime) emailData["Start Time"] = new Date(task.startTime).toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+    if (task.endTime) emailData["End Time"] = new Date(task.endTime).toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+
+    await sendEmailNotification(`${prefix}: ${task.title}`, emailData);
 
     await addDoc(collection(db, "notifications"), {
         title: `${prefix}: ${task.title}`,
@@ -364,7 +322,12 @@ export const useTaskData = (currentUser) => {
 
         await addDoc(collection(db, "tasks"), cleanedTask);
         
-        await sendEmailNotification(`New Task: ${task.title}`, { "Title": task.title, "Details": task.description || "" });
+        // EMAIL PAYLOAD
+        const emailData = { "Title": task.title, "Details": task.description || "" };
+        if (task.startTime) emailData["Start Time"] = new Date(task.startTime).toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+        if (task.endTime) emailData["End Time"] = new Date(task.endTime).toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+        
+        await sendEmailNotification(`New Task: ${task.title}`, emailData);
         await sendLinePush(task, "🆕 New Task Created", "#1DB446");
         
     } catch (error) { console.error("Error adding task:", error); }

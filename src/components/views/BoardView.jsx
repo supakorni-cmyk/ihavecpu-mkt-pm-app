@@ -218,24 +218,34 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
 const ExportEventModal = ({ tasks, onClose }) => {
   // Filter Logic:
   // 1. Must be P.Pao (isPao === true)
-  // 2. Must NOT be 'canceled'
-  // 3. Must NOT be 'done' or 'completed'
+  // 2. Must NOT be 'canceled', 'done', or 'completed'
   const events = tasks.filter(t => {
       const s = (t.status || '').toLowerCase();
       return t.isPao === true && s !== 'canceled' && s !== 'done' && s !== 'completed';
   });
   
-  events.sort((a, b) => new Date( a.startDate || a.deadline || 0) - new Date( b.startDate || b.deadline || 0));
+  // Sort by Date (using startTime first, then deadline)
+  events.sort((a, b) => {
+      const dateA = new Date(a.startTime || a.deadline || 0);
+      const dateB = new Date(b.startTime || b.deadline || 0);
+      return dateA - dateB;
+  });
   
   const groupedData = events.reduce((acc, task) => { 
-      const d = new Date(task.startDate || task.deadline); 
+      const d = new Date(task.startTime || task.deadline); 
       const key = isNaN(d) ? 'No Date' : d.toLocaleString('default', { month: 'long', year: 'numeric' }); 
       if (!acc[key]) acc[key] = []; 
       acc[key].push(task); 
       return acc; 
   }, {});
 
-  // --- UPDATED GENERATOR LOGIC ---
+  // --- HELPER: Format Time ---
+  const formatTime = (isoString) => {
+      if (!isoString) return "";
+      return new Date(isoString).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  };
+
+  // --- GENERATOR LOGIC ---
   const generateExportText = () => { 
       if (events.length === 0) return "No pending P.Pao events found."; 
       let text = "☀️🌈อัพเดทตารางงานพี่เปา⭐️⭐️\n\n"; 
@@ -244,16 +254,28 @@ const ExportEventModal = ({ tasks, onClose }) => {
           text += `━━━━━━━━━━━━━━━━━━━━━━\n🗓️ ${month.toUpperCase()}\n━━━━━━━━━━━━━━━━━━━━━━\n`; 
           
           monthTasks.forEach(t => { 
-              const bestDate = t.startDate || t.deadline; 
-              let dateStr ='TBD'; 
+              // 1. Date Logic
+              const bestDate = t.startTime || t.deadline; 
+              let dateStr = 'TBD'; 
               if (bestDate) { 
-                  dateStr = new Date(bestDate).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) 
+                  dateStr = new Date(bestDate).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
               } 
               
-              // Base info
-              text += `\n📅 ${dateStr}\n📌 ${t.title}`;
+              // 2. Time Logic
+              let timeStr = "";
+              if (t.startTime) {
+                  timeStr = `⏰ ${formatTime(t.startTime)}`;
+                  if (t.endTime) timeStr += ` - ${formatTime(t.endTime)}`;
+              } else if (t.deadline) {
+                  timeStr = `⏰ Due: ${formatTime(t.deadline)}`;
+              }
+
+              // 3. Build Text
+              text += `\n📅 ${dateStr}`;
+              if (timeStr) text += `\n${timeStr}`;
+              text += `\n📌 ${t.title}`;
               
-              // Conditional Fields (Only show if exist)
+              // Conditional Fields
               if (t.description && t.description.trim()) {
                   text += `\n📝 ${t.description.trim()}`;
               }
@@ -263,8 +285,11 @@ const ExportEventModal = ({ tasks, onClose }) => {
               if (t.reference && t.reference.trim()) {
                   text += `\n📋 Script: ${t.reference.trim()}`;
               }
+              if (t.finalFile && t.finalFile.trim()) {
+                  text += `\n📂 Final File: ${t.finalFile.trim()}`;
+              }
               
-              text += `\n\n`; // Spacing between tasks
+              text += `\n\n`; // Spacing
           }); 
           text += "\n"; 
       }); 
@@ -322,7 +347,11 @@ const TaskCard = ({ task, index, onClick, onDelete }) => {
   const reqs = Array.isArray(task.requirements) ? task.requirements : [];
   const completedReqs = reqs.filter(r => r.isDone).length;
   const progress = reqs.length > 0 ? (completedReqs / reqs.length) * 100 : 0;
-  const displayDate = task.eventDate ? new Date(task.eventDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute:'2-digit' }) : formatDate(task.deadline);
+  
+  // Use startTime for display if available, else deadline
+  const displayDate = task.startTime 
+    ? new Date(task.startTime).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute:'2-digit' }) 
+    : formatDate(task.deadline);
   
   const renderTags = () => { 
       const tags = task.tags && task.tags.length > 0 ? task.tags : (task.tag ? [task.tag] : []); 
