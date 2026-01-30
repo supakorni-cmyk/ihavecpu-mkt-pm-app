@@ -2,63 +2,58 @@
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
-if (!API_KEY) {
-  console.error("❌ MISSING API KEY: Please add VITE_GEMINI_API_KEY to your .env file");
-}
-
 export const generateAIContent = async (prompt) => {
   if (!API_KEY) {
     alert("❌ AI Error: Missing API Key. Check your .env file.");
     return null;
   }
 
-  // We use the REST API directly to avoid SDK version mismatches
-  // Using 'gemini-1.5-flash' which is the current standard free model
-  const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
+  // List of models to try in order (Newest -> Oldest)
+  // We use the raw REST API to avoid SDK version issues
+  const MODELS_TO_TRY = [
+    "gemini-1.5-flash",
+    "gemini-1.5-flash-latest",
+    "gemini-pro"
+  ];
 
-  const payload = {
-    contents: [
-      {
-        parts: [
-          { text: prompt }
-        ]
+  for (const modelName of MODELS_TO_TRY) {
+    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${API_KEY}`;
+    
+    try {
+      console.log(`🤖 AI: Trying model ${modelName}...`);
+      
+      const response = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }]
+        })
+      });
+
+      const data = await response.json();
+
+      // If successful, return text immediately
+      if (response.ok && data.candidates?.[0]?.content?.parts?.[0]?.text) {
+         console.log(`✅ Success with ${modelName}`);
+         return data.candidates[0].content.parts[0].text;
       }
-    ]
-  };
 
-  try {
-    const response = await fetch(API_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(payload)
-    });
+      // If error is NOT a 404 (e.g., Safety or Quota), stop trying and fail
+      if (data.error && data.error.code !== 404) {
+         console.error(`⚠️ ${modelName} Error:`, data.error.message);
+         // Don't keep trying if it's a safety block or quota issue
+         if (data.error.message.includes("SAFETY")) throw new Error("Blocked by Safety Filters");
+         if (data.error.message.includes("quota")) throw new Error("Quota Exceeded");
+      }
 
-    const data = await response.json();
-
-    // Error Handling for the API response
-    if (!response.ok) {
-        console.error("❌ AI API Error:", data);
-        const errorMessage = data.error?.message || "Unknown API Error";
-        
-        if (errorMessage.includes("404")) {
-             alert("⚠️ Model Error: The 'gemini-1.5-flash' model is not available for your key. Please create a new free key at aistudio.google.com");
-        } else {
-             alert(`⚠️ AI Failed: ${errorMessage}`);
-        }
-        return null;
+    } catch (error) {
+       console.warn(`⚠️ Failed with ${modelName}:`, error);
     }
-
-    // Extracting the text from the response
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    return text || null;
-
-  } catch (error) {
-    console.error("❌ Network Error:", error);
-    alert("⚠️ Network Error: Check your internet connection.");
-    return null;
   }
+
+  // If loop finishes without returning
+  alert("❌ AI Failed: No available models found for your API Key. Please get a new key from aistudio.google.com");
+  return null;
 };
 
 export const suggestTaskDescription = async (taskTitle) => {
