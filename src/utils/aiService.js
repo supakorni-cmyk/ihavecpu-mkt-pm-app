@@ -125,30 +125,32 @@ export const summarizeSchedule = async (dateStr, tasks) => {
 };
 
 export const analyzeFinancials = async (query, transactions) => {
-  // 1. Prepare a lightweight summary of data to send to AI
-  // We limit fields to avoid token limits
+  if (!transactions || transactions.length === 0) return "No transaction data available to analyze.";
+
+  // 1. Summarize data to save token space (Date, Type, Category, Amount, Brand)
   const dataSummary = transactions.map(t => ({
-      date: t.date,
-      type: t.type,
-      category: t.category,
-      brand: t.brand || t.company || "Unknown",
-      amount: t.amount,
-      description: t.description ? t.description.substring(0, 50) : ""
+      d: t.date,
+      t: t.type,
+      c: t.category,
+      b: t.brand || t.company || "Unknown",
+      a: t.amount,
+      desc: t.description ? t.description.substring(0, 30) : ""
   }));
 
   const dataString = JSON.stringify(dataSummary);
 
   const prompt = `
-    You are a financial analyst. Here is a JSON dataset of transactions:
+    You are a financial analyst helper.
+    Here is the transaction data (JSON):
     ${dataString}
 
     User Question: "${query}"
 
-    Please answer the question based strictly on the data provided. 
-    - Be concise and professional.
-    - If calculating totals, double-check your math.
-    - Format currencies as '฿XX,XXX.XX'.
-    - Use bullet points for lists.
+    Instructions:
+    1. Analyze the JSON data to answer the question.
+    2. Format currency as '฿XX,XXX.XX'.
+    3. Be concise and helpful. 
+    4. If the user asks for "Top X", sort the data and list them.
   `;
 
   return await generateAIContent(prompt);
