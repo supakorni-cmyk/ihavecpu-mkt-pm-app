@@ -4,22 +4,25 @@ import {
   X, Calendar, Clock, MapPin, Tag, 
   FileText, Image as ImageIcon, Sparkles 
 } from 'lucide-react';
-import { COLUMNS, TAGS } from '../../utils/constants';
+import { COLUMNS, TAG_COLORS } from '../../utils/constants';
 
 // --- IMPORT AI SERVICE ---
 // Make sure this file exists in src/utils/aiService.js
 import { suggestTaskDescription } from '../../utils/aiService';
 
 export default function AddTaskModal({ onClose, onAdd }) {
+  // Derive list of tags from your TAG_COLORS object
+  const TAGS = Object.keys(TAG_COLORS);
+
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [tag, setTag] = useState(TAGS[0]);
+  const [tag, setTag] = useState(TAGS[0] || 'General'); // Fallback if empty
   const [status, setStatus] = useState(COLUMNS[0].id);
   const [deadline, setDeadline] = useState('');
   const [location, setLocation] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   
-  // --- NEW: Toggle for P.Pao & AI Loading State ---
+  // --- Toggle for P.Pao & AI Loading State ---
   const [isPao, setIsPao] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
 
@@ -35,8 +38,8 @@ export default function AddTaskModal({ onClose, onAdd }) {
       deadline: deadline || null,
       location,
       imageUrl,
-      isPao, // Include the checkbox state
-      requirements: [], // Initialize empty reqs
+      isPao, 
+      requirements: [],
       comments: []
     };
 
@@ -53,10 +56,8 @@ export default function AddTaskModal({ onClose, onAdd }) {
     
     setIsGenerating(true);
     try {
-        // Call the AI Service
         const suggestion = await suggestTaskDescription(title);
         if (suggestion) {
-            // Append to existing description or replace it
             setDescription(prev => (prev ? prev + "\n\n" + suggestion : suggestion));
         }
     } catch (error) {
@@ -208,8 +209,7 @@ export default function AddTaskModal({ onClose, onAdd }) {
             {/* P.Pao Toggle */}
             <div className="flex items-center gap-3 p-3 bg-indigo-50 rounded-xl border border-indigo-100 cursor-pointer hover:bg-indigo-100 transition" onClick={() => setIsPao(!isPao)}>
                 <div className={`w-5 h-5 rounded border flex items-center justify-center transition ${isPao ? 'bg-indigo-600 border-indigo-600' : 'bg-white border-gray-300'}`}>
-                    {isPao && <X size={14} className="text-white rotate-45" strokeWidth={4} />} {/* Using X rotated as checkmark style or just use Check */}
-                    {isPao && <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3 text-white hidden"><polyline points="20 6 9 17 4 12"></polyline></svg>}
+                    {isPao && <X size={14} className="text-white rotate-45" strokeWidth={4} />}
                 </div>
                 <span className="text-sm font-bold text-indigo-900 select-none">Add to P.Pao Schedule?</span>
             </div>
