@@ -26,11 +26,12 @@ import {
 import { BUDGET_CATEGORIES } from '../../utils/constants';
 // --- IMPORT AI SERVICE ---
 import { analyzeFinancials } from '../../utils/aiService';
+import aiAvatar from '../../assets/bot/avatar.png'
 
 const TOTAL_BUDGET_CONST = 33000000;
 const BUDGET_STATUSES = ['Pending', 'Follow-up', 'Complete'];
 
-const AI_AVATAR = "../../assets/bot/avatar.png";
+const AI_AVATAR = aiAvatar;
 
 // --- HELPER: NUMBER FORMATTING ---
 const formatAmount = (num) => {
@@ -258,7 +259,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                         <div className="flex-1 bg-gray-50 p-6 overflow-y-auto custom-scrollbar space-y-4">
                              {/* Intro Message */}
                              <div className="flex gap-3">
-                                <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-xs">AI</div>
+                                <img src={AI_AVATAR} alt="AI" className="w-8 h-8 rounded-full object-cover border border-indigo-100 bg-white"/>
                                 <div className="bg-white p-4 rounded-2xl rounded-tl-none shadow-sm border border-gray-100 text-sm text-gray-700 max-w-[85%]">
                                     <p>Hello! I have analyzed your {transactions.length} transaction records.</p>
                                     <p className="mt-2 font-medium text-gray-500 text-xs">Try asking:</p>
