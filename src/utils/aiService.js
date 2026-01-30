@@ -1,7 +1,7 @@
 // src/utils/aiService.js
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// 1. Check if Key Exists
+// 1. Get Key
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
 if (!API_KEY) {
@@ -17,8 +17,8 @@ export const generateAIContent = async (prompt) => {
   }
 
   try {
-    // Use 'gemini-pro' or 'gemini-1.5-flash' (Flash is faster/free-er)
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    // FIX: Changed from 'gemini-1.5-flash' to 'gemini-pro' (Stable Version)
+    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
     
     const result = await model.generateContent(prompt);
     const response = await result.response;
@@ -27,9 +27,10 @@ export const generateAIContent = async (prompt) => {
     return text;
   } catch (error) {
     console.error("❌ AI Request Failed:", error);
-    // Common error: Safety filters
-    if (error.message?.includes("SAFETY")) {
-        alert("⚠️ AI blocked this request due to safety filters. Try a different title.");
+    if (error.message?.includes("404")) {
+        alert("⚠️ Model Error: The AI model is currently unavailable. Try again later.");
+    } else if (error.message?.includes("SAFETY")) {
+        alert("⚠️ AI blocked this request due to safety filters.");
     } else {
         alert("⚠️ AI Error: Check console for details.");
     }
