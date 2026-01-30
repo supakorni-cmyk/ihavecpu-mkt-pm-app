@@ -180,18 +180,14 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
         e.preventDefault();
         if (!aiQuery.trim()) return;
 
-        setLastQuestion(aiQuery); // 🟢 1. Save the question to lock it in the chat
-        setAiQuery('');           // 🟢 2. Clear the input field for the next message
-        
+        const questionToSend = aiQuery; // Capture text
+        setLastQuestion(questionToSend); // 🟢 1. Lock message in chat
+        setAiQuery('');                  // 🟢 2. Clear input
+        setAiResponse('');               // Clear previous response
+
         setIsAiLoading(true);
-        setAiResponse(''); 
         
         try {
-            // Note: Use 'aiQuery' here before it clears, or use the value directly
-            // Since setAiQuery is async-ish, it's safer to pass the value directly or use lastQuestion if sending later.
-            // BETTER WAY:
-            const questionToSend = aiQuery; 
-            
             const result = await analyzeFinancials(questionToSend, transactions);
             setAiResponse(result || "Sorry, I couldn't analyze the data.");
         } catch (error) {
@@ -282,7 +278,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                              </div>
 
                              {/* User Query */}
-                             {aiResponse && (
+                             {lastQuestion && (
                                  <div className="flex gap-3 flex-row-reverse">
                                     <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-bold text-xs">You</div>
                                     <div className="bg-indigo-600 text-white p-4 rounded-2xl rounded-tr-none shadow-md text-sm max-w-[85%]">
