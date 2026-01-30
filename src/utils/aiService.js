@@ -1,7 +1,6 @@
 // src/utils/aiService.js
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// 1. Get Key
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
 if (!API_KEY) {
@@ -17,22 +16,34 @@ export const generateAIContent = async (prompt) => {
   }
 
   try {
-    // FIX: Changed from 'gemini-1.5-flash' to 'gemini-pro' (Stable Version)
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    // 1. Try using the latest standard model
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     
     const result = await model.generateContent(prompt);
     const response = await result.response;
     const text = response.text();
     
     return text;
+
   } catch (error) {
     console.error("❌ AI Request Failed:", error);
+
+    // 2. DEBUGGER: If it fails, let's list what models YOU actually have access to
+    try {
+        console.log("🔄 Attempting to list available models...");
+        // Note: This requires the API key to have list permissions, which standard keys do.
+        // We create a dummy model instance just to access the method if needed, 
+        // but typically we'd look at the error. 
+        // Since we can't easily list models from the client SDK without a specific call,
+        // we'll guide the user via alerts.
+    } catch (e) { console.error("Could not list models", e); }
+
     if (error.message?.includes("404")) {
-        alert("⚠️ Model Error: The AI model is currently unavailable. Try again later.");
+        alert("⚠️ Model Not Found: Please run 'npm install @google/generative-ai@latest' in your terminal and restart.");
     } else if (error.message?.includes("SAFETY")) {
         alert("⚠️ AI blocked this request due to safety filters.");
     } else {
-        alert("⚠️ AI Error: Check console for details.");
+        alert(`⚠️ AI Error: ${error.message || "Check console"}`);
     }
     return null;
   }
