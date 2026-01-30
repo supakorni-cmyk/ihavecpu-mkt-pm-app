@@ -30,6 +30,8 @@ import { analyzeFinancials } from '../../utils/aiService';
 const TOTAL_BUDGET_CONST = 33000000;
 const BUDGET_STATUSES = ['Pending', 'Follow-up', 'Complete'];
 
+const AI_AVATAR = "../../assets/bot/avatar.png";
+
 // --- HELPER: NUMBER FORMATTING ---
 const formatAmount = (num) => {
     return new Intl.NumberFormat('en-US', { 
@@ -247,7 +249,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                         <div className="bg-indigo-600 p-6 flex justify-between items-center text-white">
                             <div className="flex items-center gap-3">
                                 <div className="p-2 bg-white/20 rounded-lg backdrop-blur-md"><Sparkles size={24} className="animate-pulse"/></div>
-                                <div><h3 className="font-bold text-lg">Financial AI Analyst</h3><p className="text-indigo-200 text-xs">Ask questions about your budget data</p></div>
+                                <div><h3 className="font-bold text-lg">Cat AI Analyst</h3><p className="text-indigo-200 text-xs">Ask questions about your budget data</p></div>
                             </div>
                             <button onClick={() => setIsAiOpen(false)} className="p-2 hover:bg-white/20 rounded-full transition"><X size={20}/></button>
                         </div>
@@ -281,7 +283,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                              {/* Loading State */}
                              {isAiLoading && (
                                 <div className="flex gap-3">
-                                    <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-xs">AI</div>
+                                    <img src={AI_AVATAR} alt="AI" className="w-8 h-8 rounded-full object-cover border border-indigo-100 bg-white"/>
                                     <div className="bg-white p-4 rounded-2xl rounded-tl-none shadow-sm border border-gray-100 text-sm flex items-center gap-2">
                                         <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce"></div>
                                         <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce delay-75"></div>
@@ -293,7 +295,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                              {/* AI Response */}
                              {aiResponse && !isAiLoading && (
                                 <div className="flex gap-3 animate-in fade-in slide-in-from-left-2">
-                                    <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-xs">AI</div>
+                                    <img src={AI_AVATAR} alt="AI" className="w-8 h-8 rounded-full object-cover border border-indigo-100 bg-white"/>
                                     <div className="bg-white p-4 rounded-2xl rounded-tl-none shadow-sm border border-gray-100 text-sm text-gray-800 leading-relaxed whitespace-pre-wrap max-w-[90%]">
                                         {aiResponse}
                                     </div>
