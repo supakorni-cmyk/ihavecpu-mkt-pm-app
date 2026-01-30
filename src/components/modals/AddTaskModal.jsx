@@ -1,172 +1,241 @@
 // src/components/modals/AddTaskModal.jsx
 import React, { useState } from 'react';
-import { X, Plus, ImageIcon, UserCheck } from 'lucide-react';
+import { 
+  X, Calendar, Clock, MapPin, Tag, 
+  FileText, Image as ImageIcon, Sparkles 
+} from 'lucide-react';
+import { COLUMNS, TAGS } from '../../utils/constants';
 
-const AddTaskModal = ({ onClose, onAdd }) => {
-    // --- Local State ---
-    const [newTask, setNewTask] = useState({
-        title: '', 
-        tag: 'Planning', 
-        startDate: new Date().toISOString().split('T')[0], 
-        deadline: '', 
-        description: '', 
-        requirements: [], 
-        location: '',
-        reference: '', 
-        link: '', 
-        imageUrl: '', 
-        fileUrl: '',
-        isPao: false // <--- NEW FIELD
-    });
+// --- IMPORT AI SERVICE ---
+// Make sure this file exists in src/utils/aiService.js
+import { suggestTaskDescription } from '../../utils/aiService';
 
-    const [tempReqInput, setTempReqInput] = useState('');
+export default function AddTaskModal({ onClose, onAdd }) {
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [tag, setTag] = useState(TAGS[0]);
+  const [status, setStatus] = useState(COLUMNS[0].id);
+  const [deadline, setDeadline] = useState('');
+  const [location, setLocation] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
+  
+  // --- NEW: Toggle for P.Pao & AI Loading State ---
+  const [isPao, setIsPao] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
 
-    // --- Handlers ---
-    const handleImageUpload = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            if (file.size > 2 * 1024 * 1024) return alert("File too large (>2MB)");
-            const reader = new FileReader();
-            reader.onloadend = () => setNewTask({ ...newTask, imageUrl: reader.result });
-            reader.readAsDataURL(file);
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!title) return;
+
+    const newTask = {
+      title,
+      description,
+      tag,
+      status,
+      deadline: deadline || null,
+      location,
+      imageUrl,
+      isPao, // Include the checkbox state
+      requirements: [], // Initialize empty reqs
+      comments: []
+    };
+
+    onAdd(newTask);
+    onClose();
+  };
+
+  // --- AI HANDLER ---
+  const handleMagicFill = async () => {
+    if (!title.trim()) {
+        alert("Please type a Task Title first!");
+        return;
+    }
+    
+    setIsGenerating(true);
+    try {
+        // Call the AI Service
+        const suggestion = await suggestTaskDescription(title);
+        if (suggestion) {
+            // Append to existing description or replace it
+            setDescription(prev => (prev ? prev + "\n\n" + suggestion : suggestion));
         }
-    };
+    } catch (error) {
+        console.error("AI Error:", error);
+        alert("Failed to generate description. Check your API Key.");
+    } finally {
+        setIsGenerating(false);
+    }
+  };
 
-    const addRequirementLine = () => {
-        if (!tempReqInput.trim()) return;
-        setNewTask({ 
-            ...newTask, 
-            requirements: [
-                ...newTask.requirements, 
-                { id: Date.now().toString(), text: tempReqInput, isDone: false, tableData: [] }
-            ] 
-        });
-        setTempReqInput('');
-    };
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]" onClick={onClose}>
+      <div 
+        className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]" 
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+            <h3 className="text-xl font-bold text-gray-800">New Task</h3>
+            <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition text-gray-500">
+                <X size={20} />
+            </button>
+        </div>
 
-    const removeRequirementLine = (index) => {
-        const updated = [...newTask.requirements];
-        updated.splice(index, 1);
-        setNewTask({ ...newTask, requirements: updated });
-    };
+        {/* Scrollable Form Body */}
+        <div className="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-5">
+            
+            {/* Title Input */}
+            <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Task Title</label>
+                <input 
+                    type="text" 
+                    className="w-full text-lg font-semibold border-b-2 border-gray-200 focus:border-indigo-500 outline-none py-2 bg-transparent transition-colors placeholder:font-normal"
+                    placeholder="e.g. Shoot Video for TikTok..." 
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    autoFocus
+                />
+            </div>
 
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        if (!newTask.title) return;
-        onAdd(newTask);
-        onClose();
-    };
-
-    return (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 md:p-8" onClick={e => e.stopPropagation()}>
-                <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-2xl font-bold text-gray-800">Create New Task</h3>
-                    <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full text-gray-500">
-                        <X size={24} />
+            {/* Description Input + AI Button */}
+            <div>
+                <div className="flex justify-between items-center mb-1.5">
+                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Description</label>
+                    <button 
+                        type="button"
+                        onClick={handleMagicFill}
+                        disabled={isGenerating || !title}
+                        className={`
+                            flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full transition border
+                            ${isGenerating 
+                                ? 'bg-indigo-50 text-indigo-400 border-indigo-100 cursor-wait' 
+                                : 'bg-white text-indigo-600 border-indigo-100 hover:bg-indigo-50 hover:border-indigo-300 shadow-sm'
+                            }
+                        `}
+                        title="Auto-generate description using AI"
+                    >
+                        <Sparkles size={12} className={isGenerating ? "animate-spin" : "fill-indigo-600"} />
+                        {isGenerating ? "Generating..." : "AI Auto-Fill"}
                     </button>
                 </div>
-                
-                <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-                    {/* --- NEW: P.PAO CHECKBOX --- */}
-                    <div className="flex items-center gap-2 bg-yellow-50 p-3 rounded-lg border border-yellow-100">
-                        <input 
-                            type="checkbox" 
-                            id="paoCheck"
-                            checked={newTask.isPao} 
-                            onChange={(e) => setNewTask({...newTask, isPao: e.target.checked})}
-                            className="w-5 h-5 text-orange-500 focus:ring-orange-400 rounded border-gray-300 cursor-pointer"
-                        />
-                        <label htmlFor="paoCheck" className="font-bold text-gray-700 flex items-center gap-2 cursor-pointer select-none">
-                            <UserCheck size={18} className="text-orange-500" /> Show in P.Pao Export
-                        </label>
-                    </div>
+                <div className="relative">
+                    <FileText className="absolute top-3 left-3 text-gray-400" size={18} />
+                    <textarea 
+                        className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all min-h-[120px] text-sm leading-relaxed resize-none"
+                        placeholder="Add details, requirements, or scripts..."
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                    />
+                </div>
+            </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <input autoFocus type="text" className="w-full border-gray-200 bg-gray-50 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 font-medium" placeholder="Task Title" value={newTask.title} onChange={e => setNewTask({...newTask, title: e.target.value})} />
-                        <select className="w-full border-gray-200 bg-gray-50 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800" value={newTask.tag} onChange={e => setNewTask({...newTask, tag: e.target.value})}>
-                            <option value="Planning">Planning</option>
-                            <option value="Project">Project</option>
-                            <option value="Product Review">Product Review</option>
-                            <option value="Event">Event</option>
-                            <option value="Guest Speaker">Guest Speaker</option>
-                            <option value="Meeting">Meeting</option>
+            {/* Tags & Status Grid */}
+            <div className="grid grid-cols-2 gap-4">
+                <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Category</label>
+                    <div className="relative">
+                        <Tag className="absolute top-1/2 -translate-y-1/2 left-3 text-gray-400" size={16} />
+                        <select 
+                            value={tag} 
+                            onChange={(e) => setTag(e.target.value)}
+                            className="w-full pl-9 pr-8 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none text-sm appearance-none focus:border-indigo-500 transition cursor-pointer font-medium text-gray-700"
+                        >
+                            {TAGS.map(t => <option key={t} value={t}>{t}</option>)}
                         </select>
                     </div>
+                </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Start Date</label>
-                            <input 
-                                type="date" 
-                                className="w-full border-gray-200 bg-white border rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800" 
-                                value={newTask.startDate} 
-                                onChange={e => setNewTask({...newTask, startDate: e.target.value})}
-                            />
-                        </div>
-                        <div>
-                            <label className="text-xs font-bold text-blue-600 uppercase mb-1 block">Due Date</label>
-                            <input type="date" className="w-full border-2 border-blue-200 bg-blue-50 rounded-lg px-4 py-3 font-bold" value={newTask.deadline} onChange={e => setNewTask({...newTask, deadline: e.target.value})} />
-                        </div>
+                <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Initial Status</label>
+                    <div className="relative">
+                        <div className={`w-3 h-3 rounded-full absolute top-1/2 -translate-y-1/2 left-3 ${COLUMNS.find(c => c.id === status)?.color.replace('text-', 'bg-')}`}></div>
+                        <select 
+                            value={status} 
+                            onChange={(e) => setStatus(e.target.value)}
+                            className="w-full pl-9 pr-8 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none text-sm appearance-none focus:border-indigo-500 transition cursor-pointer font-medium text-gray-700"
+                        >
+                            {COLUMNS.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
+                        </select>
                     </div>
-
-                    <div>
-                        <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Details</label>
-                        <textarea className="w-full border-gray-200 bg-gray-50 rounded-lg px-4 py-3 min-h-[100px] focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800" placeholder="Task Details..." value={newTask.description} onChange={e => setNewTask({...newTask, description: e.target.value})} />
-                    </div>
-
-                    <div>
-                        <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 block">Requirements List</label>
-                        <div className="flex gap-2 mb-2">
-                            <input type="text" placeholder="Add requirement..." className="flex-1 border-gray-200 bg-gray-50 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" value={tempReqInput} onChange={e => setTempReqInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addRequirementLine())} />
-                            <button type="button" onClick={addRequirementLine} className="bg-gray-100 hover:bg-gray-200 text-gray-600 p-2 rounded-lg transition"><Plus size={20} /></button>
-                        </div>
-                        <div className="space-y-2 max-h-32 overflow-y-auto">
-                            {newTask.requirements.map((req, idx) => (
-                                <div key={idx} className="flex justify-between items-center bg-gray-50 p-2 rounded border border-gray-100">
-                                    <span className="text-sm text-gray-700">{req.text}</span>
-                                    <button type="button" onClick={() => removeRequirementLine(idx)} className="text-gray-400 hover:text-red-500"><X size={14} /></button>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Location</label>
-                            <input type="url" className="w-full border-gray-200 bg-gray-50 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800" placeholder="Google Maps Link" value={newTask.location} onChange={e => setNewTask({...newTask, location: e.target.value})} />
-                        </div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Reference Link</label>
-                            <input type="url" className="w-full border-gray-200 bg-gray-50 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800" placeholder="https://..." value={newTask.reference} onChange={e => setNewTask({...newTask, reference: e.target.value})} />
-                        </div>
-                        <div>
-                            <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Final File Link</label>
-                            <input type="url" className="w-full border-gray-200 bg-gray-50 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800" placeholder="https://..." value={newTask.fileUrl} onChange={e => setNewTask({...newTask, fileUrl: e.target.value})} />
-                        </div>
-                    </div>
-
-                    <div>
-                        <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Attachment Image</label>
-                        <div className="border-2 border-dashed border-gray-300 rounded-xl p-4 text-center relative group hover:bg-gray-50 transition">
-                            <input type="file" accept="image/*" onChange={handleImageUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-                            {newTask.imageUrl ? (
-                                <div className="flex items-center gap-3 justify-center">
-                                    <img src={newTask.imageUrl} className="h-12 w-12 object-cover rounded-lg border" alt="Preview" />
-                                    <span className="text-sm text-green-600 font-bold">Image Selected</span>
-                                </div>
-                            ) : (
-                                <div className="text-gray-400"><ImageIcon className="mx-auto mb-1" size={24}/><span className="text-xs">Click to upload image</span></div>
-                            )}
-                        </div>
-                    </div>
-
-                    <button type="submit" className="w-full py-3 rounded-xl font-bold bg-blue-600 text-white hover:bg-blue-700 shadow-lg transition">Create Task</button>
-                </form>
+                </div>
             </div>
-        </div>
-    );
-};
 
-export default AddTaskModal;
+            {/* Date & Location Grid */}
+            <div className="grid grid-cols-2 gap-4">
+                <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Deadline / Event Date</label>
+                    <div className="relative">
+                        <Calendar className="absolute top-1/2 -translate-y-1/2 left-3 text-gray-400" size={16} />
+                        <input 
+                            type="datetime-local" 
+                            className="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none text-sm focus:border-indigo-500 transition text-gray-600"
+                            value={deadline}
+                            onChange={(e) => setDeadline(e.target.value)}
+                        />
+                    </div>
+                </div>
+
+                <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Location</label>
+                    <div className="relative">
+                        <MapPin className="absolute top-1/2 -translate-y-1/2 left-3 text-gray-400" size={16} />
+                        <input 
+                            type="text" 
+                            placeholder="e.g. Studio 1"
+                            className="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none text-sm focus:border-indigo-500 transition"
+                            value={location}
+                            onChange={(e) => setLocation(e.target.value)}
+                        />
+                    </div>
+                </div>
+            </div>
+
+            {/* Image URL */}
+            <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Cover Image URL</label>
+                <div className="relative">
+                    <ImageIcon className="absolute top-1/2 -translate-y-1/2 left-3 text-gray-400" size={16} />
+                    <input 
+                        type="url" 
+                        placeholder="https://..."
+                        className="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none text-sm focus:border-indigo-500 transition"
+                        value={imageUrl}
+                        onChange={(e) => setImageUrl(e.target.value)}
+                    />
+                </div>
+            </div>
+
+            {/* P.Pao Toggle */}
+            <div className="flex items-center gap-3 p-3 bg-indigo-50 rounded-xl border border-indigo-100 cursor-pointer hover:bg-indigo-100 transition" onClick={() => setIsPao(!isPao)}>
+                <div className={`w-5 h-5 rounded border flex items-center justify-center transition ${isPao ? 'bg-indigo-600 border-indigo-600' : 'bg-white border-gray-300'}`}>
+                    {isPao && <X size={14} className="text-white rotate-45" strokeWidth={4} />} {/* Using X rotated as checkmark style or just use Check */}
+                    {isPao && <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3 text-white hidden"><polyline points="20 6 9 17 4 12"></polyline></svg>}
+                </div>
+                <span className="text-sm font-bold text-indigo-900 select-none">Add to P.Pao Schedule?</span>
+            </div>
+
+        </div>
+
+        {/* Footer Actions */}
+        <div className="p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3">
+            <button 
+                onClick={onClose}
+                className="px-6 py-2.5 rounded-xl font-bold text-gray-500 hover:bg-gray-200 transition text-sm"
+            >
+                Cancel
+            </button>
+            <button 
+                onClick={handleSubmit}
+                disabled={!title}
+                className={`px-8 py-2.5 rounded-xl font-bold text-white shadow-lg transition transform active:scale-95 text-sm flex items-center gap-2
+                    ${title ? 'bg-gray-900 hover:bg-black hover:shadow-xl' : 'bg-gray-300 cursor-not-allowed'}
+                `}
+            >
+                <Sparkles size={16} className={title ? "animate-pulse" : "hidden"} />
+                Create Task
+            </button>
+        </div>
+      </div>
+    </div>
+  );
+}
