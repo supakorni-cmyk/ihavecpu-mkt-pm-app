@@ -1,6 +1,6 @@
 // src/utils/constants.js
 
-export const TAG_COLORS = { 
+export const TAGS = { 
   'Planning': 'bg-pink-100 text-pink-600', 
   'Project': 'bg-purple-100 text-purple-600', 
   'Product Review': 'bg-blue-100 text-blue-600', 
