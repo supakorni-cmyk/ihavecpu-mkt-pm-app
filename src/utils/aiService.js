@@ -3,9 +3,10 @@
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
 export const generateAIContent = async (prompt) => {
+  console.log("🔑 CURRENT LOADED KEY:", API_KEY);
+
   if (!API_KEY) {
-    alert("❌ AI Error: Missing API Key. Check your .env file.");
-    return null;
+  console.error("❌ MISSING API KEY");
   }
 
   // List of models to try in order (Newest -> Oldest)
