@@ -216,8 +216,14 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
 // --- SUB-COMPONENTS ---
 
 const ExportEventModal = ({ tasks, onClose }) => {
-  // Filter by isPao AND exclude 'canceled'
-  const events = tasks.filter(t => t.isPao === true && t.status !== 'canceled');
+  // Filter Logic:
+  // 1. Must be P.Pao (isPao === true)
+  // 2. Must NOT be 'canceled'
+  // 3. Must NOT be 'done' or 'completed'
+  const events = tasks.filter(t => {
+      const s = (t.status || '').toLowerCase();
+      return t.isPao === true && s !== 'canceled' && s !== 'done' && s !== 'completed';
+  });
   
   events.sort((a, b) => new Date( a.startDate || a.deadline || 0) - new Date( b.startDate || b.deadline || 0));
   
@@ -231,7 +237,7 @@ const ExportEventModal = ({ tasks, onClose }) => {
 
   // --- UPDATED GENERATOR LOGIC ---
   const generateExportText = () => { 
-      if (events.length === 0) return "No P.Pao events found."; 
+      if (events.length === 0) return "No pending P.Pao events found."; 
       let text = "☀️🌈อัพเดทตารางงานพี่เปา⭐️⭐️\n\n"; 
       
       Object.entries(groupedData).forEach(([month, monthTasks]) => { 
@@ -268,7 +274,7 @@ const ExportEventModal = ({ tasks, onClose }) => {
   return (
     <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm" onClick={onClose}>
       <div className="bg-white rounded-2xl w-full max-w-5xl shadow-2xl flex flex-col h-[85vh] overflow-hidden" onClick={e => e.stopPropagation()}>
-        <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50"><div><h3 className="text-xl font-bold text-gray-800 flex items-center gap-2"><FileText className="text-indigo-600"/> Event Export (P.Pao)</h3><p className="text-xs text-gray-500 mt-1">Found {events.length} items</p></div><button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition"><X size={20}/></button></div>
+        <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50"><div><h3 className="text-xl font-bold text-gray-800 flex items-center gap-2"><FileText className="text-indigo-600"/> Event Export (P.Pao)</h3><p className="text-xs text-gray-500 mt-1">Found {events.length} active items</p></div><button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition"><X size={20}/></button></div>
         <div className="flex-1 bg-gray-50 relative"><textarea readOnly className="w-full h-full p-8 font-mono text-sm text-gray-700 bg-gray-50 outline-none resize-none leading-relaxed" value={generateExportText()}/><button onClick={() => { navigator.clipboard.writeText(generateExportText()); alert("Copied!"); }} className="absolute bottom-8 right-8 bg-black text-white px-6 py-3 rounded-lg font-bold shadow-lg flex items-center gap-2 hover:bg-gray-800 transition transform hover:scale-105"><Copy size={16}/> Copy Text</button></div>
       </div>
     </div>
