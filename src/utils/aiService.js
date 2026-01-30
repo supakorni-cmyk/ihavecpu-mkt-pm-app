@@ -4,7 +4,7 @@
 const API_KEY = "AIzaSyDkCJGkwp5weJZ1uPyv0dYm0yViLRbSpx8"; 
 
 export const generateAIContent = async (prompt) => {
-  if (!API_KEY || API_KEY.includes("AIzaSyDkCJGkwp5weJZ1uPyv0dYm0yViLRbSpx8")) {
+  if (!API_KEY || API_KEY.includes("PASTE_YOUR_KEY")) {
     alert("❌ Error: Please paste your API Key inside src/utils/aiService.js");
     return null;
   }
