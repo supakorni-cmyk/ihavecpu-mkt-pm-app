@@ -123,3 +123,33 @@ export const summarizeSchedule = async (dateStr, tasks) => {
   
   return await generateAIContent(prompt);
 };
+
+export const analyzeFinancials = async (query, transactions) => {
+  // 1. Prepare a lightweight summary of data to send to AI
+  // We limit fields to avoid token limits
+  const dataSummary = transactions.map(t => ({
+      date: t.date,
+      type: t.type,
+      category: t.category,
+      brand: t.brand || t.company || "Unknown",
+      amount: t.amount,
+      description: t.description ? t.description.substring(0, 50) : ""
+  }));
+
+  const dataString = JSON.stringify(dataSummary);
+
+  const prompt = `
+    You are a financial analyst. Here is a JSON dataset of transactions:
+    ${dataString}
+
+    User Question: "${query}"
+
+    Please answer the question based strictly on the data provided. 
+    - Be concise and professional.
+    - If calculating totals, double-check your math.
+    - Format currencies as '฿XX,XXX.XX'.
+    - Use bullet points for lists.
+  `;
+
+  return await generateAIContent(prompt);
+};
