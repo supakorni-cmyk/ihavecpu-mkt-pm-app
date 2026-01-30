@@ -1,21 +1,23 @@
 // src/utils/aiService.js
 
-// 🔴 1. PASTE YOUR NEW KEY HERE
-const API_KEY = "AIzaSyDkCJGkwp5weJZ1uPyv0dYm0yViLRbSpx8"; 
+// 1. Read from the secure environment file
+const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
 export const generateAIContent = async (prompt) => {
-  if (!API_KEY || API_KEY.includes("PASTE_YOUR_KEY")) {
-    alert("❌ Error: Please paste your API Key inside src/utils/aiService.js");
+  // Debug: Check if key loaded (prints only first 5 chars for safety)
+  console.log("🔑 Loaded Key:", API_KEY ? `${API_KEY.substring(0, 5)}...` : "MISSING");
+
+  if (!API_KEY) {
+    alert("❌ Error: API Key missing. Please add VITE_GEMINI_API_KEY to your .env file and RESTART the server.");
     return null;
   }
 
   try {
     // ---------------------------------------------------------
-    // STEP 1: Find a working model for your Key
+    // STEP 1: Dynamic Model Discovery (Fixes 404 Errors)
     // ---------------------------------------------------------
     let targetModel = "gemini-1.5-flash"; // Default preference
 
-    // We list models to see what is actually allowed
     const listResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${API_KEY}`);
     const listData = await listResponse.json();
 
@@ -26,23 +28,21 @@ export const generateAIContent = async (prompt) => {
     }
 
     if (listData.models) {
-        // Look for 'generateContent' supported models
+        // Filter for models that support generating content
         const availableModels = listData.models
             .filter(m => m.supportedGenerationMethods.includes("generateContent"))
             .map(m => m.name.replace("models/", ""));
-            
-        console.log("✅ Your Available Models:", availableModels);
 
-        // Pick the best one (prefer 1.5-flash, then pro, then anything else)
+        // Smart Selection: Prefer Flash -> Pro -> Any
         if (availableModels.includes("gemini-1.5-flash")) targetModel = "gemini-1.5-flash";
         else if (availableModels.includes("gemini-pro")) targetModel = "gemini-pro";
         else if (availableModels.length > 0) targetModel = availableModels[0];
+        
+        console.log(`🤖 Auto-selected Model: ${targetModel}`);
     }
 
-    console.log(`🤖 Using Model: ${targetModel}`);
-
     // ---------------------------------------------------------
-    // STEP 2: Send the Request
+    // STEP 2: Generate Content
     // ---------------------------------------------------------
     const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${API_KEY}`;
 
