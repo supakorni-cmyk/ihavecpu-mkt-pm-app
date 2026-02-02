@@ -56,7 +56,6 @@ export const useTaskData = (currentUser) => {
     const MAIN_EMAIL = "supakorn.i@ihavecpu.com"; 
     const CC_EMAILS = "mkt@ihavecpu.com,suchada.t@ihavecpu.com"; 
 
-    // Prepare clean payload
     const cleanDataPayload = {};
     Object.keys(data).forEach(key => {
         const value = data[key];
@@ -70,10 +69,10 @@ export const useTaskData = (currentUser) => {
     const formData = {
         _subject: subject,
         _cc: CC_EMAILS,
-        _template: "box", // 🟢 "box" gives the clean single-box look
+        _template: "box",
         _captcha: "false",
         _honey: "",
-        ...cleanDataPayload // Only the clean fields we manually added
+        ...cleanDataPayload
     };
 
     try {
@@ -211,18 +210,15 @@ export const useTaskData = (currentUser) => {
 
     await sendLinePush(task, prefix, color);
 
-    // 🟢 UPDATED: Email Payload Logic for Alerts
     const emailData = {
         "Status": "⚠️ " + prefix.replace("🔥🔥", "").replace("🔥", "").trim(),
         "Task": task.title,
     };
 
-    // Conditional Fields
     if (task.startTime) emailData["Start Date & Time"] = formatDateTime(task.startTime);
     if (task.endTime) emailData["End Date & Time"] = formatDateTime(task.endTime);
     if (task.deadline) emailData["Due Date & Time"] = formatDateTime(task.deadline);
 
-    // Details at bottom
     emailData["Details"] = task.description || "-";
 
     await sendEmailNotification(`${prefix}: ${task.title}`, emailData);
@@ -303,11 +299,47 @@ export const useTaskData = (currentUser) => {
 
   // --- 6. ACTIONS ---
 
+  // 🟢 UPDATED: updateTask NOW SENDS NOTIFICATIONS ON CHANGES
   const updateTask = async (id, updates) => {
     try {
+        // 1. Get Old Data
+        const oldTask = tasks.find(t => t.id === id);
+        if (!oldTask) return;
+
+        // 2. Perform Update
         const cleanedUpdates = cleanData(updates);
         await updateDoc(doc(db, "tasks", id), cleanedUpdates);
-        console.log("Task Updated Successfully (Silent)");
+        console.log("Task Updated Successfully");
+
+        // 3. Detect Changes
+        const changedFields = [];
+        if (updates.startTime && updates.startTime !== oldTask.startTime) changedFields.push("Start Time");
+        if (updates.endTime && updates.endTime !== oldTask.endTime) changedFields.push("End Time");
+        if (updates.deadline && updates.deadline !== oldTask.deadline) changedFields.push("Due Date");
+        if (updates.description && updates.description !== oldTask.description) changedFields.push("Details");
+        if (updates.location && updates.location !== oldTask.location) changedFields.push("Location");
+
+        // 4. Send Notification if changes occurred
+        if (changedFields.length > 0) {
+            const mergedTask = { ...oldTask, ...updates }; // Use new values
+            
+            const emailData = { "Task": mergedTask.title };
+            
+            // Add note about what changed
+            emailData["Update Info"] = `Changed: ${changedFields.join(', ')}`;
+
+            // Add the Date/Time fields (using new values)
+            if (mergedTask.startTime) emailData["Start Date & Time"] = formatDateTime(mergedTask.startTime);
+            if (mergedTask.endTime) emailData["End Date & Time"] = formatDateTime(mergedTask.endTime);
+            if (mergedTask.deadline) emailData["Due Date & Time"] = formatDateTime(mergedTask.deadline);
+            if (mergedTask.location) emailData["Location"] = mergedTask.location;
+            
+            emailData["Details"] = mergedTask.description || "-";
+
+            await sendEmailNotification(`Task Updated: ${mergedTask.title}`, emailData);
+            await sendLinePush(mergedTask, "✏️ Task Updated", "#3B82F6"); // Blue for Update
+        }
+
     } catch (error) {
         console.error("FAILED to update task:", error);
         alert(`Failed to save: ${error.message}`);
@@ -326,17 +358,12 @@ export const useTaskData = (currentUser) => {
 
         await addDoc(collection(db, "tasks"), cleanedTask);
         
-        // 🟢 UPDATED: Email Payload Logic for New Task
-        const emailData = { 
-            "Task": task.title, 
-        };
+        const emailData = { "Task": task.title };
         
-        // Conditional Logic: Show Date/Time only if data exists
         if (task.startTime) emailData["Start Date & Time"] = formatDateTime(task.startTime);
         if (task.endTime) emailData["End Date & Time"] = formatDateTime(task.endTime);
         if (task.deadline) emailData["Due Date & Time"] = formatDateTime(task.deadline);
         
-        // Details last
         emailData["Details"] = task.description || "No details provided";
         
         await sendEmailNotification(`New Task: ${task.title}`, emailData);
