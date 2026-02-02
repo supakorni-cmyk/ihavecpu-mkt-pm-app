@@ -9,7 +9,8 @@ import {
   updateDoc, 
   doc, 
   query, 
-  orderBy 
+  orderBy,
+  where // 🟢 Added 'where' for pet queries
 } from 'firebase/firestore';
 
 export const useTaskData = (currentUser) => {
@@ -21,6 +22,7 @@ export const useTaskData = (currentUser) => {
   const [albums, setAlbums] = useState([]); 
   const [photos, setPhotos] = useState([]);
   const [notifications, setNotifications] = useState([]); 
+  const [myPet, setMyPet] = useState(null); // 🟢 Pet State
   
   const processedAlerts = useRef(new Set()); 
   const [allUsers, setAllUsers] = useState([]);
@@ -263,6 +265,46 @@ export const useTaskData = (currentUser) => {
     });
   };
 
+  // --- 🟢 PET ACTIONS ---
+  const adoptPet = async (petData) => {
+      if (!currentUser) return;
+      try {
+          const newPet = {
+              ...petData,
+              ownerEmail: currentUser.email,
+              stats: { hunger: 100, happiness: 100, energy: 100 },
+              createdAt: new Date().toISOString(),
+              lastInteraction: new Date().toISOString()
+          };
+          await addDoc(collection(db, "pets"), newPet);
+          await sendEmailNotification(`New Pet Adopted: ${newPet.name}`, { "Owner": currentUser.email, "Pet": newPet.name, "Breed": newPet.breed });
+      } catch (error) { console.error("Adoption failed:", error); }
+  };
+
+  const interactWithPet = async (action) => {
+      if (!myPet) return;
+      const newStats = { ...myPet.stats };
+      if (action === 'feed') {
+          newStats.hunger = Math.min(100, newStats.hunger + 20);
+          newStats.energy = Math.min(100, newStats.energy + 5);
+      } else if (action === 'play') {
+          newStats.happiness = Math.min(100, newStats.happiness + 15);
+          newStats.energy = Math.max(0, newStats.energy - 20);
+          newStats.hunger = Math.max(0, newStats.hunger - 10);
+      } else if (action === 'pet') {
+          newStats.happiness = Math.min(100, newStats.happiness + 10);
+      } else if (action === 'sleep') {
+          newStats.energy = 100;
+          newStats.hunger = Math.max(0, newStats.hunger - 15);
+      }
+      try {
+          await updateDoc(doc(db, "pets", myPet.id), { 
+              stats: newStats,
+              lastInteraction: new Date().toISOString()
+          });
+      } catch (error) { console.error("Interaction failed:", error); }
+  };
+
   // --- 5. LISTENERS ---
   useEffect(() => {
     const safeSnapshot = (colName, setter) => {
@@ -284,6 +326,20 @@ export const useTaskData = (currentUser) => {
         setAllUsers(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })));
     }, (error) => console.log("Users not found"));
 
+    // 🟢 PET LISTENER
+    let unsubPet = () => {};
+    if (currentUser?.email) {
+        const qPet = query(collection(db, "pets"), where("ownerEmail", "==", currentUser.email));
+        unsubPet = onSnapshot(qPet, (snapshot) => {
+            if (!snapshot.empty) {
+                const docData = snapshot.docs[0];
+                setMyPet({ ...docData.data(), id: docData.id });
+            } else {
+                setMyPet(null);
+            }
+        });
+    }
+
     const unsubBudget = safeSnapshot("transactions", setTransactions);
     const unsubLeaves = safeSnapshot("leaves", setLeaves);
     const unsubOT = safeSnapshot("ot_records", setOtRecords);
@@ -293,25 +349,21 @@ export const useTaskData = (currentUser) => {
     });
 
     return () => {
-      unsubTasks(); unsubUsers(); unsubBudget(); unsubLeaves(); unsubOT(); unsubNotifs();
+      unsubTasks(); unsubUsers(); unsubBudget(); unsubLeaves(); unsubOT(); unsubNotifs(); unsubPet();
     };
   }, [currentUser]);
 
   // --- 6. ACTIONS ---
 
-  // 🟢 UPDATED: updateTask NOW SENDS NOTIFICATIONS ON CHANGES
   const updateTask = async (id, updates) => {
     try {
-        // 1. Get Old Data
         const oldTask = tasks.find(t => t.id === id);
         if (!oldTask) return;
 
-        // 2. Perform Update
         const cleanedUpdates = cleanData(updates);
         await updateDoc(doc(db, "tasks", id), cleanedUpdates);
         console.log("Task Updated Successfully");
 
-        // 3. Detect Changes
         const changedFields = [];
         if (updates.startTime && updates.startTime !== oldTask.startTime) changedFields.push("Start Time");
         if (updates.endTime && updates.endTime !== oldTask.endTime) changedFields.push("End Time");
@@ -319,16 +371,12 @@ export const useTaskData = (currentUser) => {
         if (updates.description && updates.description !== oldTask.description) changedFields.push("Details");
         if (updates.location && updates.location !== oldTask.location) changedFields.push("Location");
 
-        // 4. Send Notification if changes occurred
         if (changedFields.length > 0) {
-            const mergedTask = { ...oldTask, ...updates }; // Use new values
+            const mergedTask = { ...oldTask, ...updates }; 
             
             const emailData = { "Task": mergedTask.title };
-            
-            // Add note about what changed
             emailData["Update Info"] = `Changed: ${changedFields.join(', ')}`;
 
-            // Add the Date/Time fields (using new values)
             if (mergedTask.startTime) emailData["Start Date & Time"] = formatDateTime(mergedTask.startTime);
             if (mergedTask.endTime) emailData["End Date & Time"] = formatDateTime(mergedTask.endTime);
             if (mergedTask.deadline) emailData["Due Date & Time"] = formatDateTime(mergedTask.deadline);
@@ -337,9 +385,8 @@ export const useTaskData = (currentUser) => {
             emailData["Details"] = mergedTask.description || "-";
 
             await sendEmailNotification(`Task Updated: ${mergedTask.title}`, emailData);
-            await sendLinePush(mergedTask, "✏️ Task Updated", "#3B82F6"); // Blue for Update
+            await sendLinePush(mergedTask, "✏️ Task Updated", "#3B82F6"); 
         }
-
     } catch (error) {
         console.error("FAILED to update task:", error);
         alert(`Failed to save: ${error.message}`);
@@ -359,11 +406,9 @@ export const useTaskData = (currentUser) => {
         await addDoc(collection(db, "tasks"), cleanedTask);
         
         const emailData = { "Task": task.title };
-        
         if (task.startTime) emailData["Start Date & Time"] = formatDateTime(task.startTime);
         if (task.endTime) emailData["End Date & Time"] = formatDateTime(task.endTime);
         if (task.deadline) emailData["Due Date & Time"] = formatDateTime(task.deadline);
-        
         emailData["Details"] = task.description || "No details provided";
         
         await sendEmailNotification(`New Task: ${task.title}`, emailData);
@@ -438,6 +483,7 @@ export const useTaskData = (currentUser) => {
     photos, addPhoto, deletePhoto,
     notifications: activeNotifications,
     markNotificationRead, clearAllNotifications,
-    allUsers
+    allUsers,
+    myPet, adoptPet, interactWithPet // 🟢 Export Pet Stuff
   };
 };

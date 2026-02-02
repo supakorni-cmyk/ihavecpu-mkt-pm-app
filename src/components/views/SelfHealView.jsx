@@ -1,8 +1,10 @@
 // src/components/views/SelfHealView.jsx
 import React, { useState, useEffect } from 'react';
 import { Heart, Coffee, Music, BookOpen, RefreshCw, PlayCircle, Cat, PauseCircle } from 'lucide-react';
+import VirtualPet from './VirtualPet'; 
+import { useTaskData } from '../../hooks/useTaskData'; 
 
-// --- MOOD CONFIGURATION (Keep your existing array) ---
+// --- MOOD CONFIGURATION ---
 export const MOODS = [
   { 
     id: "relax",
@@ -18,7 +20,6 @@ export const MOODS = [
     image: "https://images.unsplash.com/photo-1738214997766-93b0c56bfce6?q=80&w=1740&auto=format&fit=crop",
     color: "from-red-500 to-orange-600"
   },
-  // ... (Keep all your other moods here) ...
   { 
     id: "love",
     title: "In Love",
@@ -54,7 +55,7 @@ export const MOODS = [
     image: "https://images.unsplash.com/photo-1684716091108-70c2b19db377?q=80&w=1750&auto=format&fit=crop",
     color: "from-pink-500 to-orange-600"
   },
-    {
+  {
     id: "citypop",
     title: "City Pop",
     youtubeId: "PLgf-8GQFjABq2XqYIaYD4C_uIZ4jLL4x-", 
@@ -66,15 +67,17 @@ export const MOODS = [
 const QUOTES = [
   { text: "Rest is not idleness, it's the key to better work.", author: "Anonymous" },
   { text: "Almost everything will work again if you unplug it for a few minutes, including you.", author: "Anne Lamott" },
-  // ... (Keep existing quotes)
+  { text: "You don’t have to see the whole staircase, just take the first step.", author: "Martin Luther King Jr." },
+  { text: "Self-care is not self-indulgence, it is self-preservation.", author: "Audre Lorde" },
 ];
 
-// --- UPDATED COMPONENT ---
-// Now accepts onPlay and currentMood from props
-const SelfHealView = ({ onPlay, currentMoodId }) => {
+const SelfHealView = ({ onPlay, currentMoodId, currentUser }) => {
   const [quote, setQuote] = useState(QUOTES[0]);
   const [isAnimating, setIsAnimating] = useState(false);
   const [cats, setCats] = useState([]);
+
+  // 🟢 Load Pet Data
+  const { myPet, adoptPet, interactWithPet } = useTaskData(currentUser);
 
   const randomizeQuote = () => {
     setIsAnimating(true);
@@ -111,9 +114,9 @@ const SelfHealView = ({ onPlay, currentMoodId }) => {
         </p>
       </header>
 
-      <div className="px-8 pb-12 max-w-7xl mx-auto w-full space-y-8">
+      <div className="px-8 pb-12 max-w-7xl mx-auto w-full space-y-12">
         
-        {/* --- QUOTE CARD ONLY (Player moved to Global) --- */}
+        {/* Quote Card */}
         <div className="w-full">
             <div className={`bg-gradient-to-br from-indigo-500 to-purple-600 rounded-3xl p-10 text-white shadow-xl flex flex-col justify-between relative overflow-hidden min-h-[250px]`}>
                 <Heart className="absolute -bottom-10 -right-10 text-white opacity-10" size={200} />
@@ -132,19 +135,18 @@ const SelfHealView = ({ onPlay, currentMoodId }) => {
             </div>
         </div>
 
-        {/* --- MOOD SELECTOR --- */}
+        {/* Mood Selector */}
         <div>
             <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
                 <PlayCircle size={20} className="text-gray-400" /> Select Your Mood
             </h3>
-            
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {MOODS.map((mood) => {
                     const isPlaying = currentMoodId === mood.id;
                     return (
                         <div 
                             key={mood.id}
-                            onClick={() => onPlay(mood)} // <--- Call Parent Function
+                            onClick={() => onPlay(mood)} 
                             className={`
                                 relative h-48 rounded-2xl overflow-hidden cursor-pointer group transition-all duration-300 shadow-md
                                 ${isPlaying ? 'ring-4 ring-green-500 ring-offset-2 scale-[1.02]' : 'hover:-translate-y-1 hover:shadow-xl'}
@@ -152,7 +154,6 @@ const SelfHealView = ({ onPlay, currentMoodId }) => {
                         >
                             <img src={mood.image} alt={mood.title} className="absolute inset-0 w-full h-full object-cover transition duration-700 group-hover:scale-110" />
                             <div className={`absolute inset-0 transition-colors ${isPlaying ? 'bg-green-900/40' : 'bg-black/40 group-hover:bg-black/20'}`}></div>
-                            
                             <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-4">
                                 {isPlaying ? (
                                     <PauseCircle size={40} className="text-white mb-2 animate-pulse" />
@@ -174,7 +175,7 @@ const SelfHealView = ({ onPlay, currentMoodId }) => {
             </div>
         </div>
 
-        {/* --- CATS --- */}
+        {/* Cats Section */}
         <div className="border-t border-gray-100 pt-8">
             <div className="flex justify-between items-center mb-6">
                  <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
@@ -196,6 +197,19 @@ const SelfHealView = ({ onPlay, currentMoodId }) => {
                 <div className="text-center py-10 bg-white rounded-2xl border border-dashed border-gray-200 text-gray-400">Loading cute cats...</div>
             )}
         </div>
+
+        {/* 🟢 VIRTUAL PET SECTION */}
+        <div className="border-t border-gray-100 pt-8">
+             <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2 mb-4">
+                <Heart size={24} className="text-red-500" /> Your Virtual Companion
+            </h3>
+            <VirtualPet 
+                pet={myPet} 
+                onAdopt={adoptPet} 
+                onInteract={interactWithPet} 
+            />
+        </div>
+
       </div>
     </div>
   );
