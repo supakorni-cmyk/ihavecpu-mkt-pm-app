@@ -22,8 +22,11 @@ export const useTaskData = (currentUser) => {
   const [albums, setAlbums] = useState([]); 
   const [photos, setPhotos] = useState([]);
   const [notifications, setNotifications] = useState([]); 
+  
+  // 🐶 PET STATE
   const [myPet, setMyPet] = useState(null); 
   
+  // --- MEMORY LOCK ---
   const processedAlerts = useRef(new Set()); 
   const [allUsers, setAllUsers] = useState([]);
 
@@ -71,7 +74,7 @@ export const useTaskData = (currentUser) => {
     const formData = {
         _subject: subject,
         _cc: CC_EMAILS,
-        _template: "box",
+        _template: "box", // Clean 'Card' style
         _captcha: "false",
         _honey: "",
         ...cleanDataPayload
@@ -89,6 +92,7 @@ export const useTaskData = (currentUser) => {
 
   // --- 3. LINE FLEX MESSAGE ---
   const sendLinePush = async (task, headerTitle, headerColor = "#1DB446") => {
+    // 🔒 SECURE URL LOADING
     const PROXY_URL = import.meta.env.VITE_GOOGLE_SCRIPT_URL; 
 
     if (!PROXY_URL) {
@@ -183,71 +187,89 @@ export const useTaskData = (currentUser) => {
         }
     };
 
-    // --- 4. ALERT LOGIC ---
-    const triggerAlert = async (task, prefix, userEmail, updateFlag) => {
-        const alertId = `${task.id}-${Object.keys(updateFlag)[0]}`; 
-        if (processedAlerts.current.has(alertId)) return;
-        processedAlerts.current.add(alertId);
+    TARGETS.forEach(async (target) => {
+        if (!target.token || !target.groupId) return;
+        if (target.allowedTags !== "ALL") {
+            if (!task.tag || !target.allowedTags.includes(task.tag)) return;
+        }
+        
+        try {
+            const relayData = { token: target.token, payload: { to: target.groupId, messages: [flexMessage] } };
+            await fetch(PROXY_URL, {
+                method: "POST",
+                headers: { "Content-Type": "text/plain;charset=utf-8" }, 
+                body: JSON.stringify(relayData)
+            });
+            console.log(`✅ LINE Sent to ${target.name}`);
+        } catch (error) { console.error(`❌ Network Error (${target.name}):`, error); }
+    });
+  };
 
-        let color = "#F59E0B"; 
-        if (prefix.includes("TODAY") || prefix.includes("URGENT")) color = "#EF4444"; 
+  // --- 4. ALERT LOGIC ---
+  const triggerAlert = async (task, prefix, userEmail, updateFlag) => {
+    const alertId = `${task.id}-${Object.keys(updateFlag)[0]}`; 
+    if (processedAlerts.current.has(alertId)) return;
+    processedAlerts.current.add(alertId);
 
-        await sendLinePush(task, prefix, color);
+    let color = "#F59E0B"; 
+    if (prefix.includes("TODAY") || prefix.includes("URGENT")) color = "#EF4444"; 
 
-        const emailData = {
-            "Status": "⚠️ " + prefix.replace("🔥🔥", "").replace("🔥", "").trim(),
-            "Task": task.title,
-        };
+    await sendLinePush(task, prefix, color);
 
-        if (task.startTime) emailData["Start Date & Time"] = formatDateTime(task.startTime);
-        if (task.endTime) emailData["End Date & Time"] = formatDateTime(task.endTime);
-        if (task.deadline) emailData["Due Date & Time"] = formatDateTime(task.deadline);
-
-        emailData["Details"] = task.description || "-";
-
-        await sendEmailNotification(`${prefix}: ${task.title}`, emailData);
-
-        await addDoc(collection(db, "notifications"), {
-            title: `${prefix}: ${task.title}`,
-            taskId: task.id,
-            userEmail: userEmail,
-            isRead: false,
-            createdAt: new Date().toISOString(),
-            type: 'alert'
-        });
-
-        await updateDoc(doc(db, "tasks", task.id), updateFlag);
+    const emailData = {
+        "Status": "⚠️ " + prefix.replace("🔥🔥", "").replace("🔥", "").trim(),
+        "Task": task.title,
     };
 
-    const checkDeadlines = (taskList, user) => {
-        if (!user) return;
-        const now = new Date();
-        const ADMIN_EMAIL = "supakorn.i@ihavecpu.com"; 
-        if (user.email !== ADMIN_EMAIL) return;
+    if (task.startTime) emailData["Start Date & Time"] = formatDateTime(task.startTime);
+    if (task.endTime) emailData["End Date & Time"] = formatDateTime(task.endTime);
+    if (task.deadline) emailData["Due Date & Time"] = formatDateTime(task.deadline);
 
-        taskList.forEach(async (task) => {
-            const status = task.status ? task.status.toLowerCase() : '';
-            const isComplete = status === 'completed' || status === 'done' || status === 'canceled';
+    emailData["Details"] = task.description || "-";
 
-            if (isComplete || !task.deadline) return;
+    await sendEmailNotification(`${prefix}: ${task.title}`, emailData);
 
-            const deadline = new Date(task.deadline);
-            const timeDiff = deadline - now;
-            const daysLeft = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
+    await addDoc(collection(db, "notifications"), {
+        title: `${prefix}: ${task.title}`,
+        taskId: task.id,
+        userEmail: userEmail,
+        isRead: false,
+        createdAt: new Date().toISOString(),
+        type: 'alert'
+    });
 
-            if (daysLeft <= 0 && daysLeft > -3 && !task.notified0Day) {
-                await triggerAlert(task,"🔥🔥 DEADLINE TODAY", user.email, { notified0Day: true});
-            }
-            else if (daysLeft <= 2 && daysLeft > 0 && !task.notified2Days) {
-                await triggerAlert(task, "🔥 URGENT: 2 Days Left", user.email, { notified2Days: true });
-            }
-            else if (daysLeft <= 7 && daysLeft > 2 && !task.notified7Days) {
-                await triggerAlert(task, "⚠️ Reminder: 7 Days Left", user.email, { notified7Days: true });
-            }
-        });
-    };
+    await updateDoc(doc(db, "tasks", task.id), updateFlag);
+  };
 
-  // --- 🟢 PET ACTIONS (NO NOTIFICATIONS) ---
+  const checkDeadlines = (taskList, user) => {
+    if (!user) return;
+    const now = new Date();
+    const ADMIN_EMAIL = "supakorn.i@ihavecpu.com"; 
+    if (user.email !== ADMIN_EMAIL) return;
+
+    taskList.forEach(async (task) => {
+        const status = task.status ? task.status.toLowerCase() : '';
+        const isComplete = status === 'completed' || status === 'done' || status === 'canceled';
+
+        if (isComplete || !task.deadline) return;
+
+        const deadline = new Date(task.deadline);
+        const timeDiff = deadline - now;
+        const daysLeft = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
+
+        if (daysLeft <= 0 && daysLeft > -3 && !task.notified0Day) {
+            await triggerAlert(task,"🔥🔥 DEADLINE TODAY", user.email, { notified0Day: true});
+        }
+        else if (daysLeft <= 2 && daysLeft > 0 && !task.notified2Days) {
+            await triggerAlert(task, "🔥 URGENT: 2 Days Left", user.email, { notified2Days: true });
+        }
+        else if (daysLeft <= 7 && daysLeft > 2 && !task.notified7Days) {
+            await triggerAlert(task, "⚠️ Reminder: 7 Days Left", user.email, { notified7Days: true });
+        }
+    });
+  };
+
+  // --- 🐶 5. PET ACTIONS (SILENT) ---
   const adoptPet = async (petData) => {
       if (!currentUser) return;
       try {
@@ -259,7 +281,7 @@ export const useTaskData = (currentUser) => {
               lastInteraction: new Date().toISOString()
           };
           await addDoc(collection(db, "pets"), newPet);
-          // 🚫 Notification removed
+          // 🔇 NO Notification sent here (as requested)
           console.log("Pet Adopted Successfully (Silent)");
       } catch (error) { console.error("Adoption failed:", error); }
   };
@@ -267,6 +289,7 @@ export const useTaskData = (currentUser) => {
   const interactWithPet = async (action) => {
       if (!myPet) return;
       const newStats = { ...myPet.stats };
+      
       if (action === 'feed') {
           newStats.hunger = Math.min(100, newStats.hunger + 20);
           newStats.energy = Math.min(100, newStats.energy + 5);
@@ -280,6 +303,7 @@ export const useTaskData = (currentUser) => {
           newStats.energy = 100;
           newStats.hunger = Math.max(0, newStats.hunger - 15);
       }
+      
       try {
           await updateDoc(doc(db, "pets", myPet.id), { 
               stats: newStats,
@@ -288,7 +312,7 @@ export const useTaskData = (currentUser) => {
       } catch (error) { console.error("Interaction failed:", error); }
   };
 
-  // --- 5. LISTENERS ---
+  // --- 6. LISTENERS ---
   useEffect(() => {
     const safeSnapshot = (colName, setter) => {
         try {
@@ -309,7 +333,7 @@ export const useTaskData = (currentUser) => {
         setAllUsers(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })));
     }, (error) => console.log("Users not found"));
 
-    // Pet Listener
+    // 🟢 Pet Listener
     let unsubPet = () => {};
     if (currentUser?.email) {
         const qPet = query(collection(db, "pets"), where("ownerEmail", "==", currentUser.email));
@@ -336,8 +360,9 @@ export const useTaskData = (currentUser) => {
     };
   }, [currentUser]);
 
-  // --- 6. ACTIONS ---
+  // --- 7. ACTIONS ---
 
+  // 🟢 SMART UPDATE: Triggers notification on important changes
   const updateTask = async (id, updates) => {
     try {
         const oldTask = tasks.find(t => t.id === id);
@@ -446,6 +471,7 @@ export const useTaskData = (currentUser) => {
   const addPhoto = (p) => setPhotos([...photos, { ...p, id: Date.now() }]);
   const deletePhoto = (id) => setPhotos(photos.filter(p => p.id !== id));
 
+  // 🟢 CLEAN NOTIFICATIONS: Remove canceled task alerts from UI
   const activeNotifications = useMemo(() => {
     return notifications.filter(n => {
         if (!n.taskId) return true;
@@ -467,7 +493,6 @@ export const useTaskData = (currentUser) => {
     notifications: activeNotifications,
     markNotificationRead, clearAllNotifications,
     allUsers,
-    myPet, adoptPet, interactWithPet 
+    myPet, adoptPet, interactWithPet // 🟢 Export Pet Actions
   };
 };
-}
