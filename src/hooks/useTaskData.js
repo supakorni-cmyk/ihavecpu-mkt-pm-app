@@ -42,7 +42,16 @@ export const useTaskData = (currentUser) => {
     return data;
   };
 
-  // --- 2. EMAIL NOTIFICATION (UPDATED FOR CARD STYLE) ---
+  // --- HELPER: Format Date & Time ---
+  const formatDateTime = (isoString) => {
+      if (!isoString) return "";
+      return new Date(isoString).toLocaleString('en-GB', { 
+          day: '2-digit', month: '2-digit', year: 'numeric', 
+          hour: '2-digit', minute: '2-digit', hour12: false 
+      });
+  };
+
+  // --- 2. EMAIL NOTIFICATION ---
   const sendEmailNotification = async (subject, data) => {
     const MAIN_EMAIL = "supakorn.i@ihavecpu.com"; 
     const CC_EMAILS = "mkt@ihavecpu.com,suchada.t@ihavecpu.com"; 
@@ -61,13 +70,10 @@ export const useTaskData = (currentUser) => {
     const formData = {
         _subject: subject,
         _cc: CC_EMAILS,
-        _template: "box", // 🟢 "box" creates the Task Card look
+        _template: "box", // 🟢 "box" gives the clean single-box look
         _captcha: "false",
         _honey: "",
-        // 🔴 Removed "Target Email"
-        // 🔴 Removed "Triggered By"
-        // 🔴 Removed "Time" (System timestamp)
-        ...cleanDataPayload // This contains only the Task details we prepared
+        ...cleanDataPayload // Only the clean fields we manually added
     };
 
     try {
@@ -205,22 +211,18 @@ export const useTaskData = (currentUser) => {
 
     await sendLinePush(task, prefix, color);
 
-    // 🟢 UPDATED: Clean Card Format
+    // 🟢 UPDATED: Email Payload Logic for Alerts
     const emailData = {
-        "Status": "⚠️ " + prefix.replace("🔥🔥", "").replace("🔥", "").trim(), // Show urgency at top
+        "Status": "⚠️ " + prefix.replace("🔥🔥", "").replace("🔥", "").trim(),
         "Task": task.title,
     };
-    
-    // Add Date/Time nicely
-    if (task.startTime) {
-        emailData["Date"] = new Date(task.startTime).toLocaleDateString('en-GB');
-        emailData["Time"] = `${new Date(task.startTime).toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'})} - ${task.endTime ? new Date(task.endTime).toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'}) : '...'}`;
-    } else if (task.deadline) {
-        emailData["Due Date"] = new Date(task.deadline).toLocaleDateString('en-GB');
-        emailData["Time"] = new Date(task.deadline).toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
-    }
-    
-    // Details at the bottom
+
+    // Conditional Fields
+    if (task.startTime) emailData["Start Date & Time"] = formatDateTime(task.startTime);
+    if (task.endTime) emailData["End Date & Time"] = formatDateTime(task.endTime);
+    if (task.deadline) emailData["Due Date & Time"] = formatDateTime(task.deadline);
+
+    // Details at bottom
     emailData["Details"] = task.description || "-";
 
     await sendEmailNotification(`${prefix}: ${task.title}`, emailData);
@@ -324,23 +326,17 @@ export const useTaskData = (currentUser) => {
 
         await addDoc(collection(db, "tasks"), cleanedTask);
         
-        // 🟢 UPDATED: Better Email Payload for New Tasks
-        // The order of keys here determines the order in the "Card"
+        // 🟢 UPDATED: Email Payload Logic for New Task
         const emailData = { 
             "Task": task.title, 
         };
         
-        if (task.startTime) {
-            emailData["Date"] = new Date(task.startTime).toLocaleDateString('en-GB');
-            const start = new Date(task.startTime).toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
-            const end = task.endTime ? new Date(task.endTime).toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'}) : '...';
-            emailData["Time"] = `${start} - ${end}`;
-        } else if (task.deadline) {
-            emailData["Due Date"] = new Date(task.deadline).toLocaleDateString('en-GB');
-            emailData["Time"] = new Date(task.deadline).toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
-        }
+        // Conditional Logic: Show Date/Time only if data exists
+        if (task.startTime) emailData["Start Date & Time"] = formatDateTime(task.startTime);
+        if (task.endTime) emailData["End Date & Time"] = formatDateTime(task.endTime);
+        if (task.deadline) emailData["Due Date & Time"] = formatDateTime(task.deadline);
         
-        // Add details last so it doesn't clutter the top
+        // Details last
         emailData["Details"] = task.description || "No details provided";
         
         await sendEmailNotification(`New Task: ${task.title}`, emailData);
