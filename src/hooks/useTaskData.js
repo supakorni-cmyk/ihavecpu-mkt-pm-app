@@ -1,5 +1,5 @@
 // src/hooks/useTaskData.js
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react'; // 🟢 Added useMemo
 import { db } from '../firebase'; 
 import { 
   collection, 
@@ -84,9 +84,13 @@ export const useTaskData = (currentUser) => {
 
   // --- 3. LINE FLEX MESSAGE ---
   const sendLinePush = async (task, headerTitle, headerColor = "#1DB446") => {
-    // 🔴 PASTE YOUR GOOGLE SCRIPT WEB APP URL HERE 🔴
-    const PROXY_URL = "YOUR_GOOGLE_SCRIPT_URL_HERE"; 
-    // Example: "https://script.google.com/macros/s/AKfycbx.../exec"
+    // 🟢 SECURE: Read URL from .env file instead of hardcoding
+    const PROXY_URL = import.meta.env.VITE_GOOGLE_SCRIPT_URL; 
+
+    if (!PROXY_URL) {
+        console.error("❌ ERROR: VITE_GOOGLE_SCRIPT_URL is missing in .env file");
+        return;
+    }
 
     const TARGETS = [
         {
@@ -182,11 +186,6 @@ export const useTaskData = (currentUser) => {
             if (!task.tag || !target.allowedTags.includes(task.tag)) return;
         }
         
-        if (PROXY_URL.includes("YOUR_GOOGLE_SCRIPT_URL_HERE")) {
-            console.error("❌ ERROR: Google Script URL missing in useTaskData.js");
-            return;
-        }
-
         try {
             const relayData = { token: target.token, payload: { to: target.groupId, messages: [flexMessage] } };
             await fetch(PROXY_URL, {
@@ -243,7 +242,8 @@ export const useTaskData = (currentUser) => {
 
     taskList.forEach(async (task) => {
         const status = task.status ? task.status.toLowerCase() : '';
-        const isComplete = status === 'completed' || status === 'done';
+        // 🟢 FIX 1: Prevent alerts for canceled tasks
+        const isComplete = status === 'completed' || status === 'done' || status === 'canceled';
 
         if (isComplete || !task.deadline) return;
 
@@ -378,6 +378,18 @@ export const useTaskData = (currentUser) => {
   const addPhoto = (p) => setPhotos([...photos, { ...p, id: Date.now() }]);
   const deletePhoto = (id) => setPhotos(photos.filter(p => p.id !== id));
 
+  // 🟢 FIX 2: Filter the exported notifications (Removes Canceled Tasks from UI)
+  const activeNotifications = useMemo(() => {
+    return notifications.filter(n => {
+        if (!n.taskId) return true;
+        const task = tasks.find(t => t.id === n.taskId);
+        if (task && (task.status === 'canceled' || task.status === 'Canceled')) {
+            return false;
+        }
+        return true;
+    });
+  }, [notifications, tasks]);
+
   return {
     tasks, addTask, updateTask, deleteTask, moveTask,
     transactions, addTransaction, deleteTransaction, updateTransaction,
@@ -385,7 +397,8 @@ export const useTaskData = (currentUser) => {
     otRecords, addOTRecord, deleteOTRecord, updateOTStatus,
     albums, addAlbum, deleteAlbum,
     photos, addPhoto, deletePhoto,
-    notifications, markNotificationRead, clearAllNotifications,
+    notifications: activeNotifications, // 🟢 Return the filtered list
+    markNotificationRead, clearAllNotifications,
     allUsers
   };
 };
