@@ -10,7 +10,7 @@ import {
   doc, 
   query, 
   orderBy,
-  where // 🟢 Added 'where' for pet queries
+  where 
 } from 'firebase/firestore';
 
 export const useTaskData = (currentUser) => {
@@ -22,7 +22,7 @@ export const useTaskData = (currentUser) => {
   const [albums, setAlbums] = useState([]); 
   const [photos, setPhotos] = useState([]);
   const [notifications, setNotifications] = useState([]); 
-  const [myPet, setMyPet] = useState(null); // 🟢 Pet State
+  const [myPet, setMyPet] = useState(null); 
   
   const processedAlerts = useRef(new Set()); 
   const [allUsers, setAllUsers] = useState([]);
@@ -105,7 +105,7 @@ export const useTaskData = (currentUser) => {
         },
         {
             name: "Second Group (Events Only)",
-            token: import.meta.env.VITE_LINE_TOKEN_BOT2,
+            token: import.meta.env.VITE_LINE_TOKEN_BOT2, 
             groupId: import.meta.env.VITE_LINE_GROUP_ID_BOT2,
             allowedTags: ["Event", "Guest Speaker", "Meeting"]
         }
@@ -183,89 +183,71 @@ export const useTaskData = (currentUser) => {
         }
     };
 
-    TARGETS.forEach(async (target) => {
-        if (!target.token || !target.groupId) return;
-        if (target.allowedTags !== "ALL") {
-            if (!task.tag || !target.allowedTags.includes(task.tag)) return;
-        }
-        
-        try {
-            const relayData = { token: target.token, payload: { to: target.groupId, messages: [flexMessage] } };
-            await fetch(PROXY_URL, {
-                method: "POST",
-                headers: { "Content-Type": "text/plain;charset=utf-8" }, 
-                body: JSON.stringify(relayData)
-            });
-            console.log(`✅ LINE Sent to ${target.name}`);
-        } catch (error) { console.error(`❌ Network Error (${target.name}):`, error); }
-    });
-  };
+    // --- 4. ALERT LOGIC ---
+    const triggerAlert = async (task, prefix, userEmail, updateFlag) => {
+        const alertId = `${task.id}-${Object.keys(updateFlag)[0]}`; 
+        if (processedAlerts.current.has(alertId)) return;
+        processedAlerts.current.add(alertId);
 
-  // --- 4. ALERT LOGIC ---
-  const triggerAlert = async (task, prefix, userEmail, updateFlag) => {
-    const alertId = `${task.id}-${Object.keys(updateFlag)[0]}`; 
-    if (processedAlerts.current.has(alertId)) return;
-    processedAlerts.current.add(alertId);
+        let color = "#F59E0B"; 
+        if (prefix.includes("TODAY") || prefix.includes("URGENT")) color = "#EF4444"; 
 
-    let color = "#F59E0B"; 
-    if (prefix.includes("TODAY") || prefix.includes("URGENT")) color = "#EF4444"; 
+        await sendLinePush(task, prefix, color);
 
-    await sendLinePush(task, prefix, color);
+        const emailData = {
+            "Status": "⚠️ " + prefix.replace("🔥🔥", "").replace("🔥", "").trim(),
+            "Task": task.title,
+        };
 
-    const emailData = {
-        "Status": "⚠️ " + prefix.replace("🔥🔥", "").replace("🔥", "").trim(),
-        "Task": task.title,
+        if (task.startTime) emailData["Start Date & Time"] = formatDateTime(task.startTime);
+        if (task.endTime) emailData["End Date & Time"] = formatDateTime(task.endTime);
+        if (task.deadline) emailData["Due Date & Time"] = formatDateTime(task.deadline);
+
+        emailData["Details"] = task.description || "-";
+
+        await sendEmailNotification(`${prefix}: ${task.title}`, emailData);
+
+        await addDoc(collection(db, "notifications"), {
+            title: `${prefix}: ${task.title}`,
+            taskId: task.id,
+            userEmail: userEmail,
+            isRead: false,
+            createdAt: new Date().toISOString(),
+            type: 'alert'
+        });
+
+        await updateDoc(doc(db, "tasks", task.id), updateFlag);
     };
 
-    if (task.startTime) emailData["Start Date & Time"] = formatDateTime(task.startTime);
-    if (task.endTime) emailData["End Date & Time"] = formatDateTime(task.endTime);
-    if (task.deadline) emailData["Due Date & Time"] = formatDateTime(task.deadline);
+    const checkDeadlines = (taskList, user) => {
+        if (!user) return;
+        const now = new Date();
+        const ADMIN_EMAIL = "supakorn.i@ihavecpu.com"; 
+        if (user.email !== ADMIN_EMAIL) return;
 
-    emailData["Details"] = task.description || "-";
+        taskList.forEach(async (task) => {
+            const status = task.status ? task.status.toLowerCase() : '';
+            const isComplete = status === 'completed' || status === 'done' || status === 'canceled';
 
-    await sendEmailNotification(`${prefix}: ${task.title}`, emailData);
+            if (isComplete || !task.deadline) return;
 
-    await addDoc(collection(db, "notifications"), {
-        title: `${prefix}: ${task.title}`,
-        taskId: task.id,
-        userEmail: userEmail,
-        isRead: false,
-        createdAt: new Date().toISOString(),
-        type: 'alert'
-    });
+            const deadline = new Date(task.deadline);
+            const timeDiff = deadline - now;
+            const daysLeft = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
 
-    await updateDoc(doc(db, "tasks", task.id), updateFlag);
-  };
+            if (daysLeft <= 0 && daysLeft > -3 && !task.notified0Day) {
+                await triggerAlert(task,"🔥🔥 DEADLINE TODAY", user.email, { notified0Day: true});
+            }
+            else if (daysLeft <= 2 && daysLeft > 0 && !task.notified2Days) {
+                await triggerAlert(task, "🔥 URGENT: 2 Days Left", user.email, { notified2Days: true });
+            }
+            else if (daysLeft <= 7 && daysLeft > 2 && !task.notified7Days) {
+                await triggerAlert(task, "⚠️ Reminder: 7 Days Left", user.email, { notified7Days: true });
+            }
+        });
+    };
 
-  const checkDeadlines = (taskList, user) => {
-    if (!user) return;
-    const now = new Date();
-    const ADMIN_EMAIL = "supakorn.i@ihavecpu.com"; 
-    if (user.email !== ADMIN_EMAIL) return;
-
-    taskList.forEach(async (task) => {
-        const status = task.status ? task.status.toLowerCase() : '';
-        const isComplete = status === 'completed' || status === 'done' || status === 'canceled';
-
-        if (isComplete || !task.deadline) return;
-
-        const deadline = new Date(task.deadline);
-        const timeDiff = deadline - now;
-        const daysLeft = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
-
-        if (daysLeft <= 0 && daysLeft > -3 && !task.notified0Day) {
-            await triggerAlert(task,"🔥🔥 DEADLINE TODAY", user.email, { notified0Day: true});
-        }
-        else if (daysLeft <= 2 && daysLeft > 0 && !task.notified2Days) {
-            await triggerAlert(task, "🔥 URGENT: 2 Days Left", user.email, { notified2Days: true });
-        }
-        else if (daysLeft <= 7 && daysLeft > 2 && !task.notified7Days) {
-            await triggerAlert(task, "⚠️ Reminder: 7 Days Left", user.email, { notified7Days: true });
-        }
-    });
-  };
-
-  // --- 🟢 PET ACTIONS ---
+  // --- 🟢 PET ACTIONS (NO NOTIFICATIONS) ---
   const adoptPet = async (petData) => {
       if (!currentUser) return;
       try {
@@ -277,7 +259,8 @@ export const useTaskData = (currentUser) => {
               lastInteraction: new Date().toISOString()
           };
           await addDoc(collection(db, "pets"), newPet);
-          await sendEmailNotification(`New Pet Adopted: ${newPet.name}`, { "Owner": currentUser.email, "Pet": newPet.name, "Breed": newPet.breed });
+          // 🚫 Notification removed
+          console.log("Pet Adopted Successfully (Silent)");
       } catch (error) { console.error("Adoption failed:", error); }
   };
 
@@ -326,7 +309,7 @@ export const useTaskData = (currentUser) => {
         setAllUsers(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })));
     }, (error) => console.log("Users not found"));
 
-    // 🟢 PET LISTENER
+    // Pet Listener
     let unsubPet = () => {};
     if (currentUser?.email) {
         const qPet = query(collection(db, "pets"), where("ownerEmail", "==", currentUser.email));
@@ -484,6 +467,6 @@ export const useTaskData = (currentUser) => {
     notifications: activeNotifications,
     markNotificationRead, clearAllNotifications,
     allUsers,
-    myPet, adoptPet, interactWithPet // 🟢 Export Pet Stuff
+    myPet, adoptPet, interactWithPet 
   };
 };
