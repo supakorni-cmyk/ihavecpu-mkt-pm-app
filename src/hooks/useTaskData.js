@@ -1,8 +1,5 @@
 // src/hooks/useTaskData.js
-
-console.log("🔍 DEBUG ENV:", import.meta.env);
-
-import { useState, useEffect, useRef, useMemo } from 'react'; // 🟢 Added useMemo
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { db } from '../firebase'; 
 import { 
   collection, 
@@ -25,10 +22,7 @@ export const useTaskData = (currentUser) => {
   const [photos, setPhotos] = useState([]);
   const [notifications, setNotifications] = useState([]); 
   
-  // --- MEMORY LOCK ---
   const processedAlerts = useRef(new Set()); 
-
-  // --- USERS LISTENER ---
   const [allUsers, setAllUsers] = useState([]);
 
   // --- 1. DATA CLEANER ---
@@ -48,11 +42,12 @@ export const useTaskData = (currentUser) => {
     return data;
   };
 
-  // --- 2. EMAIL NOTIFICATION ---
+  // --- 2. EMAIL NOTIFICATION (UPDATED FOR BEAUTY) ---
   const sendEmailNotification = async (subject, data) => {
     const MAIN_EMAIL = "supakorn.i@ihavecpu.com"; 
     const CC_EMAILS = "mkt@ihavecpu.com,suchada.t@ihavecpu.com"; 
 
+    // Prepare clean payload
     const cleanDataPayload = {};
     Object.keys(data).forEach(key => {
         const value = data[key];
@@ -66,12 +61,12 @@ export const useTaskData = (currentUser) => {
     const formData = {
         _subject: subject,
         _cc: CC_EMAILS,
-        _template: "table",
+        _template: "box", // 🟢 CHANGED: 'box' looks much better than 'table'
         _captcha: "false",
         _honey: "",
         "Target Email": MAIN_EMAIL,
         "Triggered By": currentUser?.email || 'System',
-        "Time": new Date().toLocaleString('en-GB'),
+        // 🔴 REMOVED: "Time": new Date()... (We don't want created date)
         ...cleanDataPayload
     };
 
@@ -87,7 +82,6 @@ export const useTaskData = (currentUser) => {
 
   // --- 3. LINE FLEX MESSAGE ---
   const sendLinePush = async (task, headerTitle, headerColor = "#1DB446") => {
-    // 🟢 SECURE: Read URL from .env file instead of hardcoding
     const PROXY_URL = import.meta.env.VITE_GOOGLE_SCRIPT_URL; 
 
     if (!PROXY_URL) {
@@ -110,7 +104,6 @@ export const useTaskData = (currentUser) => {
         }
     ];
 
-    // Format Time for Line
     const formatTime = (isoString) => {
         if (!isoString) return null;
         return new Date(isoString).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
@@ -212,16 +205,22 @@ export const useTaskData = (currentUser) => {
 
     await sendLinePush(task, prefix, color);
 
+    // 🟢 UPDATED: Better Email Format for Alerts
     const emailData = {
         "Target User": userEmail,
         "Task Title": task.title,
         "Details": task.description || "No details",
-        "Date": task.startTime ? new Date(task.startTime).toLocaleDateString('en-GB') : new Date(task.deadline).toLocaleDateString('en-GB'),
         "Status": task.status
     };
-
-    if (task.startTime) emailData["Start Time"] = new Date(task.startTime).toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
-    if (task.endTime) emailData["End Time"] = new Date(task.endTime).toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+    
+    // Add Date/Time nicely
+    if (task.startTime) {
+        emailData["Task Date"] = new Date(task.startTime).toLocaleDateString('en-GB');
+        emailData["Time"] = `${new Date(task.startTime).toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'})} - ${task.endTime ? new Date(task.endTime).toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'}) : '...'}`;
+    } else if (task.deadline) {
+        emailData["Due Date"] = new Date(task.deadline).toLocaleDateString('en-GB');
+        emailData["Due Time"] = new Date(task.deadline).toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+    }
 
     await sendEmailNotification(`${prefix}: ${task.title}`, emailData);
 
@@ -245,7 +244,6 @@ export const useTaskData = (currentUser) => {
 
     taskList.forEach(async (task) => {
         const status = task.status ? task.status.toLowerCase() : '';
-        // 🟢 FIX 1: Prevent alerts for canceled tasks
         const isComplete = status === 'completed' || status === 'done' || status === 'canceled';
 
         if (isComplete || !task.deadline) return;
@@ -325,10 +323,21 @@ export const useTaskData = (currentUser) => {
 
         await addDoc(collection(db, "tasks"), cleanedTask);
         
-        // EMAIL PAYLOAD
-        const emailData = { "Title": task.title, "Details": task.description || "" };
-        if (task.startTime) emailData["Start Time"] = new Date(task.startTime).toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
-        if (task.endTime) emailData["End Time"] = new Date(task.endTime).toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+        // 🟢 UPDATED: Better Email Payload for New Tasks
+        const emailData = { 
+            "Task": task.title, 
+            "Details": task.description || "No details provided"
+        };
+        
+        if (task.startTime) {
+            emailData["Date"] = new Date(task.startTime).toLocaleDateString('en-GB');
+            const start = new Date(task.startTime).toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+            const end = task.endTime ? new Date(task.endTime).toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'}) : '...';
+            emailData["Time"] = `${start} - ${end}`;
+        } else if (task.deadline) {
+            emailData["Due Date"] = new Date(task.deadline).toLocaleDateString('en-GB');
+            emailData["Time"] = new Date(task.deadline).toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+        }
         
         await sendEmailNotification(`New Task: ${task.title}`, emailData);
         await sendLinePush(task, "🆕 New Task Created", "#1DB446");
@@ -352,6 +361,8 @@ export const useTaskData = (currentUser) => {
 
     } catch (error) { console.error("Error moving task:", error); }
   };
+  
+  // ... (deleteTask, markNotificationRead, etc. remain unchanged)
   const deleteTask = async (id) => { 
       if(!confirm("Delete task?")) return;
       try { 
@@ -381,7 +392,6 @@ export const useTaskData = (currentUser) => {
   const addPhoto = (p) => setPhotos([...photos, { ...p, id: Date.now() }]);
   const deletePhoto = (id) => setPhotos(photos.filter(p => p.id !== id));
 
-  // 🟢 FIX 2: Filter the exported notifications (Removes Canceled Tasks from UI)
   const activeNotifications = useMemo(() => {
     return notifications.filter(n => {
         if (!n.taskId) return true;
@@ -400,7 +410,7 @@ export const useTaskData = (currentUser) => {
     otRecords, addOTRecord, deleteOTRecord, updateOTStatus,
     albums, addAlbum, deleteAlbum,
     photos, addPhoto, deletePhoto,
-    notifications: activeNotifications, // 🟢 Return the filtered list
+    notifications: activeNotifications,
     markNotificationRead, clearAllNotifications,
     allUsers
   };
