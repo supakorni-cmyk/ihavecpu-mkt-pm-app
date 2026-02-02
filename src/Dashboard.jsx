@@ -129,6 +129,7 @@ export default function Dashboard() {
             <SelfHealView 
                 onPlay={handlePlayMood} 
                 currentMoodId={playerMood?.id} 
+                currentUser={currentUser}
             />
         )}
         
