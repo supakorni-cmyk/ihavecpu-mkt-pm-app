@@ -1,4 +1,7 @@
 // src/hooks/useTaskData.js
+
+console.log("🔍 DEBUG ENV:", import.meta.env);
+
 import { useState, useEffect, useRef, useMemo } from 'react'; // 🟢 Added useMemo
 import { db } from '../firebase'; 
 import { 
