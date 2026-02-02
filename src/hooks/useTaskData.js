@@ -42,7 +42,7 @@ export const useTaskData = (currentUser) => {
     return data;
   };
 
-  // --- 2. EMAIL NOTIFICATION (UPDATED FOR BEAUTY) ---
+  // --- 2. EMAIL NOTIFICATION (UPDATED FOR CARD STYLE) ---
   const sendEmailNotification = async (subject, data) => {
     const MAIN_EMAIL = "supakorn.i@ihavecpu.com"; 
     const CC_EMAILS = "mkt@ihavecpu.com,suchada.t@ihavecpu.com"; 
@@ -61,13 +61,13 @@ export const useTaskData = (currentUser) => {
     const formData = {
         _subject: subject,
         _cc: CC_EMAILS,
-        _template: "box", // 🟢 CHANGED: 'box' looks much better than 'table'
+        _template: "box", // 🟢 "box" creates the Task Card look
         _captcha: "false",
         _honey: "",
-        "Target Email": MAIN_EMAIL,
-        "Triggered By": currentUser?.email || 'System',
-        // 🔴 REMOVED: "Time": new Date()... (We don't want created date)
-        ...cleanDataPayload
+        // 🔴 Removed "Target Email"
+        // 🔴 Removed "Triggered By"
+        // 🔴 Removed "Time" (System timestamp)
+        ...cleanDataPayload // This contains only the Task details we prepared
     };
 
     try {
@@ -205,22 +205,23 @@ export const useTaskData = (currentUser) => {
 
     await sendLinePush(task, prefix, color);
 
-    // 🟢 UPDATED: Better Email Format for Alerts
+    // 🟢 UPDATED: Clean Card Format
     const emailData = {
-        "Target User": userEmail,
-        "Task Title": task.title,
-        "Details": task.description || "No details",
-        "Status": task.status
+        "Status": "⚠️ " + prefix.replace("🔥🔥", "").replace("🔥", "").trim(), // Show urgency at top
+        "Task": task.title,
     };
     
     // Add Date/Time nicely
     if (task.startTime) {
-        emailData["Task Date"] = new Date(task.startTime).toLocaleDateString('en-GB');
+        emailData["Date"] = new Date(task.startTime).toLocaleDateString('en-GB');
         emailData["Time"] = `${new Date(task.startTime).toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'})} - ${task.endTime ? new Date(task.endTime).toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'}) : '...'}`;
     } else if (task.deadline) {
         emailData["Due Date"] = new Date(task.deadline).toLocaleDateString('en-GB');
-        emailData["Due Time"] = new Date(task.deadline).toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+        emailData["Time"] = new Date(task.deadline).toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
     }
+    
+    // Details at the bottom
+    emailData["Details"] = task.description || "-";
 
     await sendEmailNotification(`${prefix}: ${task.title}`, emailData);
 
@@ -324,9 +325,9 @@ export const useTaskData = (currentUser) => {
         await addDoc(collection(db, "tasks"), cleanedTask);
         
         // 🟢 UPDATED: Better Email Payload for New Tasks
+        // The order of keys here determines the order in the "Card"
         const emailData = { 
             "Task": task.title, 
-            "Details": task.description || "No details provided"
         };
         
         if (task.startTime) {
@@ -338,6 +339,9 @@ export const useTaskData = (currentUser) => {
             emailData["Due Date"] = new Date(task.deadline).toLocaleDateString('en-GB');
             emailData["Time"] = new Date(task.deadline).toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
         }
+        
+        // Add details last so it doesn't clutter the top
+        emailData["Details"] = task.description || "No details provided";
         
         await sendEmailNotification(`New Task: ${task.title}`, emailData);
         await sendLinePush(task, "🆕 New Task Created", "#1DB446");
@@ -362,7 +366,6 @@ export const useTaskData = (currentUser) => {
     } catch (error) { console.error("Error moving task:", error); }
   };
   
-  // ... (deleteTask, markNotificationRead, etc. remain unchanged)
   const deleteTask = async (id) => { 
       if(!confirm("Delete task?")) return;
       try { 
