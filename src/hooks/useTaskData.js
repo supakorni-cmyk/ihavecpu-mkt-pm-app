@@ -470,3 +470,4 @@ export const useTaskData = (currentUser) => {
     myPet, adoptPet, interactWithPet 
   };
 };
+}

@@ -1,23 +1,76 @@
 // src/components/views/VirtualPet.jsx
-import React, { useState } from 'react';
-import { Heart, Zap, Utensils, Smile, Moon, Sparkles } from 'lucide-react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect } from 'react';
+import { Heart, Zap, Utensils, Smile, Moon, Sparkles, Star } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const VirtualPet = ({ pet, onAdopt, onInteract }) => {
     // --- CREATION STATE ---
     const [newPetName, setNewPetName] = useState("");
     const [selectedBreed, setSelectedBreed] = useState("cat_orange");
     const [selectedColor, setSelectedColor] = useState("#FDBA74");
+    
+    // --- ANIMATION STATE ---
+    const [activity, setActivity] = useState('idle'); // idle, eating, playing, sleeping, petting
+    const [clickCount, setClickCount] = useState(0);
 
-    // Pet Types
+    // --- ASSETS & CONFIG ---
+    // You can replace these emojis with GIF links if you have them!
     const BREEDS = [
-        { id: 'cat_orange', name: 'Ginger Tabby', emoji: '🐱', color: '#FDBA74' },
-        { id: 'cat_black', name: 'Void Kitty', emoji: '🐈‍⬛', color: '#374151' },
-        { id: 'cat_siamese', name: 'Siamese', emoji: '🙀', color: '#E5E7EB' },
-        { id: 'cat_calico', name: 'Calico', emoji: '😺', color: '#D97706' },
+        { id: 'cat_orange', name: 'Ginger Tabby', emoji: '🐱', color: '#FDBA74', bg: 'bg-orange-50' },
+        { id: 'cat_black', name: 'Void Kitty', emoji: '🐈‍⬛', color: '#374151', bg: 'bg-gray-100' },
+        { id: 'cat_siamese', name: 'Siamese', emoji: '🙀', color: '#E5E7EB', bg: 'bg-stone-100' },
+        { id: 'cat_calico', name: 'Calico', emoji: '😺', color: '#D97706', bg: 'bg-amber-50' },
     ];
 
-    // --- RENDER: ADOPTION CENTER (If no pet) ---
+    // --- ANIMATION VARIANTS (The Magic 🪄) ---
+    const petVariants = {
+        idle: { 
+            y: [0, -5, 0], 
+            scale: 1,
+            rotate: 0,
+            transition: { repeat: Infinity, duration: 2, ease: "easeInOut" } 
+        },
+        eating: { 
+            scale: [1, 1.1, 1], 
+            rotate: [0, -3, 3, 0],
+            y: [0, 2, 0],
+            transition: { repeat: Infinity, duration: 0.4 } 
+        },
+        playing: { 
+            x: [-20, 20, -10, 10, 0], 
+            y: [0, -30, 0, -10, 0], 
+            rotate: [0, -10, 10, 0],
+            scale: [1, 1.2, 1],
+            transition: { duration: 0.8 } 
+        },
+        sleeping: { 
+            scale: [1, 0.98, 1], 
+            opacity: 0.8,
+            y: 5,
+            transition: { repeat: Infinity, duration: 3, ease: "easeInOut" } 
+        },
+        petting: { 
+            scale: 1.1, 
+            rotate: [0, 5, -5, 0],
+            filter: "brightness(1.1)",
+            transition: { duration: 0.3 } 
+        }
+    };
+
+    // --- HANDLERS ---
+    const handleAction = (actionType) => {
+        setActivity(actionType);
+        onInteract(actionType); // Call backend
+
+        // Reset to idle after animation finishes
+        const duration = actionType === 'sleeping' ? 5000 : 
+                         actionType === 'playing' ? 2000 : 
+                         1000;
+                         
+        setTimeout(() => setActivity('idle'), duration);
+    };
+
+    // --- RENDER: ADOPTION CENTER ---
     if (!pet) {
         return (
             <div className="bg-white rounded-3xl p-8 shadow-sm border border-indigo-100 text-center max-w-2xl mx-auto mt-8 relative overflow-hidden">
@@ -30,7 +83,6 @@ const VirtualPet = ({ pet, onAdopt, onInteract }) => {
                 <p className="text-gray-500 mb-8 text-sm">Adopt a virtual companion to keep you company while you work!</p>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-left">
-                    {/* Breed Selection */}
                     <div>
                         <label className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 block">1. Choose a Breed</label>
                         <div className="grid grid-cols-2 gap-3">
@@ -47,7 +99,6 @@ const VirtualPet = ({ pet, onAdopt, onInteract }) => {
                         </div>
                     </div>
 
-                    {/* Name & Confirm */}
                     <div className="flex flex-col justify-between">
                         <div>
                             <label className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 block">2. Name Your Friend</label>
@@ -73,56 +124,97 @@ const VirtualPet = ({ pet, onAdopt, onInteract }) => {
         );
     }
 
-    // --- RENDER: PET DASHBOARD (If pet exists) ---
+    // --- RENDER: PET DASHBOARD ---
     
-    // Determine mood based on stats
-    const getMoodEmoji = () => {
-        if (pet.stats.happiness < 30) return "😿"; // Sad
-        if (pet.stats.hunger < 30) return "😾";    // Hangry
-        if (pet.stats.energy < 30) return "😴";    // Sleepy
-        return BREEDS.find(b => b.id === pet.breed)?.emoji || "🐱"; // Normal
-    };
-
-    const getMoodText = () => {
-        if (pet.stats.happiness < 30) return "Feeling lonely...";
-        if (pet.stats.hunger < 30) return "So hungry!";
-        if (pet.stats.energy < 30) return "Need a nap...";
-        return "Feeling great!";
+    // Dynamic Avatar Logic
+    const getAvatar = () => {
+        // If you had GIF links, you would switch them here based on `activity`
+        // Example: if (activity === 'eating') return "https://...cat_eating.gif";
+        
+        // Default Emoji Logic
+        const breedData = BREEDS.find(b => b.id === pet.breed) || BREEDS[0];
+        
+        if (activity === 'sleeping') return "😴";
+        if (activity === 'eating') return "😋";
+        if (activity === 'playing') return "😺";
+        if (pet.stats.happiness < 30) return "😿"; 
+        if (pet.stats.hunger < 30) return "😾";    
+        return breedData.emoji;
     };
 
     return (
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-indigo-50 relative overflow-hidden mt-8">
-            {/* Background Decor */}
+            {/* Ambient Background */}
+            <div className={`absolute inset-0 opacity-30 transition-colors duration-1000 ${activity === 'sleeping' ? 'bg-indigo-900' : 'bg-white'}`}></div>
             <div className="absolute -top-10 -right-10 w-40 h-40 bg-gradient-to-br from-yellow-100 to-orange-100 rounded-full opacity-50 blur-2xl"></div>
-            <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-gradient-to-tr from-blue-100 to-indigo-100 rounded-full opacity-50 blur-2xl"></div>
             
             <div className="flex flex-col md:flex-row gap-8 items-center relative z-10">
                 
-                {/* 1. Pet Avatar Area */}
-                <div className="flex flex-col items-center min-w-[180px]">
-                    <motion.div 
-                        whileHover={{ scale: 1.05, rotate: 5 }}
-                        whileTap={{ scale: 0.9 }}
-                        className="w-40 h-40 rounded-full bg-white border-4 border-white shadow-2xl flex items-center justify-center text-8xl relative cursor-pointer group"
-                        onClick={() => onInteract('pet')}
-                    >
-                        {getMoodEmoji()}
+                {/* 🟢 1. ANIMATED AVATAR AREA */}
+                <div className="flex flex-col items-center min-w-[200px]">
+                    <div className="relative w-48 h-48 flex items-center justify-center">
                         
-                        {/* Status Bubbles */}
-                        {pet.stats.hunger < 30 && <div className="absolute top-0 right-0 text-2xl animate-bounce bg-white rounded-full p-1 shadow-md border border-gray-100">🍗</div>}
-                        {pet.stats.energy < 30 && <div className="absolute top-0 left-0 text-2xl animate-pulse bg-white rounded-full p-1 shadow-md border border-gray-100">💤</div>}
-                        
-                        {/* Hover hint */}
-                        <div className="absolute bottom-2 opacity-0 group-hover:opacity-100 transition-opacity text-xs font-bold text-gray-400 bg-white px-2 py-0.5 rounded-full shadow-sm border border-gray-100">Click me!</div>
-                    </motion.div>
+                        {/* Background Circle */}
+                        <motion.div 
+                            animate={{ scale: activity === 'playing' ? [1, 1.2, 1] : 1 }}
+                            className={`absolute inset-0 rounded-full opacity-20 ${activity === 'sleeping' ? 'bg-indigo-200' : 'bg-yellow-200'}`} 
+                        />
 
-                    <div className="text-center mt-4">
+                        {/* THE PET */}
+                        <motion.div 
+                            variants={petVariants}
+                            animate={activity}
+                            className="text-9xl cursor-pointer relative z-10 select-none filter drop-shadow-xl"
+                            onClick={() => {
+                                setClickCount(c => c + 1);
+                                handleAction('petting');
+                            }}
+                        >
+                            {getAvatar()}
+                        </motion.div>
+
+                        {/* Floating Particles */}
+                        <AnimatePresence>
+                            {activity === 'eating' && (
+                                <motion.div 
+                                    initial={{ opacity: 0, y: 0 }} 
+                                    animate={{ opacity: 1, y: -20 }} 
+                                    exit={{ opacity: 0 }}
+                                    className="absolute top-0 text-4xl"
+                                >
+                                    🐟
+                                </motion.div>
+                            )}
+                            {activity === 'sleeping' && (
+                                <motion.div 
+                                    initial={{ opacity: 0, x: 20, y: -10 }} 
+                                    animate={{ opacity: [0, 1, 0], x: 40, y: -40 }} 
+                                    transition={{ repeat: Infinity, duration: 2 }}
+                                    className="absolute top-0 right-0 text-3xl font-bold text-indigo-300"
+                                >
+                                    Zzz...
+                                </motion.div>
+                            )}
+                            {activity === 'petting' && (
+                                <motion.div 
+                                    key={clickCount}
+                                    initial={{ opacity: 1, scale: 0.5, y: 0 }}
+                                    animate={{ opacity: 0, scale: 1.5, y: -50 }}
+                                    className="absolute -top-4 text-pink-500"
+                                >
+                                    <Heart size={32} fill="currentColor" />
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </div>
+
+                    <div className="text-center mt-6">
                         <h3 className="text-2xl font-black text-gray-800 flex items-center gap-2 justify-center">
                             {pet.name} 
-                            <Sparkles size={16} className="text-yellow-400 fill-yellow-400" />
+                            {pet.stats.happiness > 80 && <Star size={20} className="text-yellow-400 fill-yellow-400 animate-spin-slow" />}
                         </h3>
-                        <p className="text-xs font-bold text-indigo-500 bg-indigo-50 px-3 py-1 rounded-full mt-1 inline-block">
-                            {getMoodText()}
+                        <p className={`text-xs font-bold px-3 py-1 rounded-full mt-1 inline-block transition-colors ${activity === 'sleeping' ? 'bg-indigo-100 text-indigo-600' : 'bg-gray-100 text-gray-500'}`}>
+                            {activity === 'idle' ? "Chilling..." : activity.toUpperCase() + "!"}
                         </p>
                     </div>
                 </div>
@@ -139,10 +231,34 @@ const VirtualPet = ({ pet, onAdopt, onInteract }) => {
 
                     {/* Action Buttons */}
                     <div className="grid grid-cols-4 gap-3">
-                        <ActionButton icon={<Utensils size={20}/>} label="Feed" onClick={() => onInteract('feed')} color="hover:bg-green-50 hover:text-green-600 hover:border-green-200" />
-                        <ActionButton icon={<Heart size={20}/>} label="Pet" onClick={() => onInteract('pet')} color="hover:bg-pink-50 hover:text-pink-600 hover:border-pink-200" />
-                        <ActionButton icon={<Zap size={20}/>} label="Play" onClick={() => onInteract('play')} color="hover:bg-yellow-50 hover:text-yellow-600 hover:border-yellow-200" />
-                        <ActionButton icon={<Moon size={20}/>} label="Sleep" onClick={() => onInteract('sleep')} color="hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200" />
+                        <ActionButton 
+                            icon={<Utensils size={20}/>} 
+                            label="Feed" 
+                            onClick={() => handleAction('eating')} 
+                            color="hover:bg-green-50 hover:text-green-600" 
+                            disabled={activity !== 'idle'}
+                        />
+                        <ActionButton 
+                            icon={<Heart size={20}/>} 
+                            label="Pet" 
+                            onClick={() => handleAction('petting')} 
+                            color="hover:bg-pink-50 hover:text-pink-600" 
+                            disabled={activity !== 'idle'}
+                        />
+                        <ActionButton 
+                            icon={<Zap size={20}/>} 
+                            label="Play" 
+                            onClick={() => handleAction('playing')} 
+                            color="hover:bg-yellow-50 hover:text-yellow-600" 
+                            disabled={activity !== 'idle'}
+                        />
+                        <ActionButton 
+                            icon={<Moon size={20}/>} 
+                            label="Sleep" 
+                            onClick={() => handleAction('sleeping')} 
+                            color="hover:bg-blue-50 hover:text-blue-600" 
+                            disabled={activity !== 'idle'}
+                        />
                     </div>
                 </div>
             </div>
@@ -151,7 +267,6 @@ const VirtualPet = ({ pet, onAdopt, onInteract }) => {
 };
 
 // --- SUB-COMPONENTS ---
-
 const StatBar = ({ icon, label, value, color, track }) => (
     <div className="flex items-center gap-3">
         <div className="w-24 flex items-center gap-2 text-xs font-bold text-gray-500 uppercase tracking-wide">
@@ -169,10 +284,11 @@ const StatBar = ({ icon, label, value, color, track }) => (
     </div>
 );
 
-const ActionButton = ({ icon, label, onClick, color }) => (
+const ActionButton = ({ icon, label, onClick, color, disabled }) => (
     <button 
         onClick={onClick}
-        className={`flex flex-col items-center justify-center gap-2 p-4 rounded-2xl border border-gray-100 shadow-sm transition-all active:scale-95 bg-white text-gray-400 ${color} group`}
+        disabled={disabled}
+        className={`flex flex-col items-center justify-center gap-2 p-4 rounded-2xl border border-gray-100 shadow-sm transition-all active:scale-95 bg-white text-gray-400 ${color} disabled:opacity-50 disabled:cursor-not-allowed group`}
     >
         <div className="p-2 rounded-full bg-gray-50 group-hover:bg-white group-hover:shadow-md transition-all">
             {icon}
