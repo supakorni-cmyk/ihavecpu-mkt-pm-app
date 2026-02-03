@@ -1,7 +1,60 @@
 // src/components/views/VirtualPet.jsx
 import React, { useState } from 'react';
-import { Heart, Zap, Utensils, Moon, Sparkles } from 'lucide-react';
+import { Heart, Zap, Utensils, Moon, ArrowRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+
+// --- 🐱 CUSTOM 8-BIT CAT COMPONENT ---
+const PixelCat = ({ color, secondaryColor, activity }) => {
+    // Basic 8-bit cat shape (16x16 grid)
+    // We use simple SVG rectangles to draw pixels
+    
+    const isSleeping = activity === 'sleeping';
+    const isEating = activity === 'eating';
+
+    return (
+        <svg viewBox="0 0 16 16" className="w-full h-full" shapeRendering="crispEdges">
+            {/* --- BODY --- */}
+            {isSleeping ? (
+                // SLEEPING POSE (Lying down)
+                <path d="M2 10h12v4H2z" fill={color} />
+            ) : (
+                // SITTING POSE
+                <>
+                    <path d="M4 6h8v9H4z" fill={color} /> {/* Torso */}
+                    <path d="M4 11h2v4H4z" fill={secondaryColor} opacity="0.5" /> {/* Left Leg */}
+                    <path d="M10 11h2v4H10z" fill={secondaryColor} opacity="0.5" /> {/* Right Leg */}
+                </>
+            )}
+
+            {/* --- HEAD --- */}
+            <g transform={isSleeping ? "translate(4, 2)" : "translate(0, 0)"}>
+                {/* Ears */}
+                <path d="M3 2h2v2H3z M11 2h2v2H11z" fill={color} />
+                {/* Face Base */}
+                <path d="M3 4h10v5H3z" fill={color} />
+                
+                {/* Eyes (Blinking Logic could go here, but static for now) */}
+                {isSleeping ? (
+                    <path d="M5 6h2v1H5z M9 6h2v1H9z" fill={secondaryColor} /> // Closed Eyes
+                ) : (
+                    <path d="M5 5h2v2H5z M9 5h2v2H9z" fill="#1a1a1a" /> // Open Eyes
+                )}
+
+                {/* Mouth */}
+                {isEating ? (
+                    <path d="M7 7h2v2H7z" fill="#ff9999" /> // Open Mouth (Om nom)
+                ) : (
+                    <path d="M7 7h2v1H7z" fill={secondaryColor} /> // Closed Mouth
+                )}
+            </g>
+
+            {/* --- TAIL --- */}
+            {!isSleeping && (
+                <path d="M12 10h2v-3h1v4h-3z" fill={secondaryColor} />
+            )}
+        </svg>
+    );
+};
 
 const VirtualPet = ({ pet, onAdopt, onInteract }) => {
     // --- STATE ---
@@ -10,40 +63,37 @@ const VirtualPet = ({ pet, onAdopt, onInteract }) => {
     const [activity, setActivity] = useState('idle');
     const [clickCount, setClickCount] = useState(0);
 
-    // --- PIXEL ASSETS ---
-    // We stick to emojis but filter them to look like LCD pixels
+    // --- 8-BIT BREEDS CONFIG ---
     const BREEDS = [
-        { id: 'cat_orange', name: 'Tabby', emoji: '🐱' },
-        { id: 'cat_black', name: 'Void', emoji: '🐈‍⬛' },
-        { id: 'cat_siamese', name: 'Siamese', emoji: '🙀' },
-        { id: 'cat_calico', name: 'Calico', emoji: '😺' },
+        { id: 'cat_orange', name: 'Tabby', color: '#e09f3e', secondary: '#9e6d24' }, // Orange
+        { id: 'cat_black', name: 'Void', color: '#2d3436', secondary: '#636e72' },   // Black/Grey
+        { id: 'cat_siamese', name: 'Siamese', color: '#dfe6e9', secondary: '#636e72' }, // White/Grey
+        { id: 'cat_calico', name: 'Calico', color: '#e17055', secondary: '#2d3436' },  // Rust/Black
     ];
 
     // --- ANIMATIONS ---
+    // Using "steps" easing creates that jerky 8-bit movement feel
     const petVariants = {
         idle: { 
-            y: [0, -4, 0], 
-            transition: { repeat: Infinity, duration: 1, ease: "steps(2)" } // "steps" gives jerky 8-bit feel
+            y: [0, -1, 0], 
+            transition: { repeat: Infinity, duration: 1.5, ease: "steps(2)" } 
         },
         eating: { 
-            scale: [1, 1.1, 1], 
-            y: [0, 2, 0],
-            transition: { repeat: Infinity, duration: 0.5, ease: "steps(2)" } 
+            y: [0, 1, 0],
+            transition: { repeat: Infinity, duration: 0.2, ease: "steps(2)" } 
         },
         playing: { 
-            x: [-10, 10, -10], 
-            rotate: [-5, 5, -5],
+            x: [-4, 4, -4], 
+            rotate: [-2, 2, -2],
             transition: { duration: 0.5, ease: "steps(4)" } 
         },
         sleeping: { 
-            scale: [1, 0.9, 1], 
-            opacity: 0.7,
-            transition: { repeat: Infinity, duration: 2, ease: "steps(2)" } 
+            scale: [1, 0.98, 1], 
+            transition: { repeat: Infinity, duration: 2, ease: "linear" } 
         },
         petting: { 
-            scale: [1, 1.2, 1], 
-            rotate: [0, 10, -10, 0],
-            transition: { duration: 0.3, ease: "steps(3)" } 
+            scale: [1, 1.1, 1], 
+            transition: { duration: 0.2, ease: "steps(2)" } 
         }
     };
 
@@ -54,7 +104,7 @@ const VirtualPet = ({ pet, onAdopt, onInteract }) => {
         setTimeout(() => setActivity('idle'), duration);
     };
 
-    // --- 1. ADOPTION SCREEN (RETRO STYLE) ---
+    // --- RENDER: ADOPTION SCREEN ---
     if (!pet) {
         return (
             <div className="flex flex-col items-center justify-center p-4">
@@ -65,11 +115,10 @@ const VirtualPet = ({ pet, onAdopt, onInteract }) => {
                     
                     {/* SCREEN */}
                     <div className="bg-[#9ea73e] p-6 rounded-xl border-4 border-gray-700 shadow-inner mb-8 relative overflow-hidden font-['Press_Start_2P']">
-                        {/* Scanlines */}
-                        <div className="absolute inset-0 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.1)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] z-10 pointer-events-none bg-[length:100%_4px,3px_100%]"></div>
+                        <div className="absolute inset-0 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.1)_50%)] z-10 pointer-events-none bg-[length:100%_4px]"></div>
                         
                         <div className="text-center space-y-6 relative z-20">
-                            <h2 className="text-xs text-gray-900 leading-relaxed">ADOPT A PET</h2>
+                            <h2 className="text-[10px] text-gray-900 leading-relaxed tracking-widest">ADOPT A PET</h2>
                             
                             {/* Breed Selection */}
                             <div className="flex justify-center gap-4">
@@ -77,28 +126,27 @@ const VirtualPet = ({ pet, onAdopt, onInteract }) => {
                                     <button 
                                         key={breed.id}
                                         onClick={() => setSelectedBreed(breed.id)}
-                                        className={`text-2xl transition-transform hover:scale-125 grayscale contrast-150 ${selectedBreed === breed.id ? 'scale-125 drop-shadow-md' : 'opacity-50'}`}
+                                        className={`w-12 h-12 border-2 p-1 rounded transition-all hover:scale-110 ${selectedBreed === breed.id ? 'border-gray-900 bg-[#8b9336]' : 'border-transparent opacity-60'}`}
                                     >
-                                        {breed.emoji}
+                                        <PixelCat color={breed.color} secondaryColor={breed.secondary} activity="idle" />
                                     </button>
                                 ))}
                             </div>
 
-                            {/* Input */}
                             <input 
                                 type="text" 
                                 value={newPetName}
                                 onChange={(e) => setNewPetName(e.target.value)}
                                 placeholder="NAME..."
-                                className="w-full bg-[#8b9336] border-2 border-gray-800 p-2 text-xs text-center outline-none placeholder-gray-700 text-gray-900 uppercase"
+                                className="w-full bg-[#8b9336] border-2 border-gray-800 p-2 text-[10px] text-center outline-none placeholder-gray-700 text-gray-900 uppercase"
                             />
 
                             <button 
                                 onClick={() => onAdopt({ name: newPetName, breed: selectedBreed })}
                                 disabled={!newPetName.trim()}
-                                className="text-[10px] bg-gray-800 text-[#9ea73e] px-4 py-2 rounded shadow-lg hover:bg-black w-full"
+                                className="text-[10px] bg-gray-800 text-[#9ea73e] px-4 py-3 rounded shadow-md hover:bg-black w-full flex items-center justify-center gap-2"
                             >
-                                START GAME
+                                START <ArrowRight size={10} />
                             </button>
                         </div>
                     </div>
@@ -107,32 +155,23 @@ const VirtualPet = ({ pet, onAdopt, onInteract }) => {
         );
     }
 
-    // --- 2. TAMAGOTCHI DASHBOARD ---
-    
-    // Convert current mood to Emoji
-    const getAvatar = () => {
-        const breedData = BREEDS.find(b => b.id === pet.breed) || BREEDS[0];
-        if (activity === 'sleeping') return "💤"; // Zzz logic
-        if (pet.stats.hunger < 30) return "💀"; // Hungry/Dead logic
-        return breedData.emoji;
-    };
+    // --- RENDER: TAMAGOTCHI GAME ---
+    const breedData = BREEDS.find(b => b.id === pet.breed) || BREEDS[0];
 
     return (
         <div className="flex flex-col items-center justify-center mt-8">
-            {/* Import Pixel Font */}
             <style>{`@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');`}</style>
 
             {/* --- DEVICE SHELL --- */}
             <div className="relative bg-pink-400 w-80 h-96 rounded-[50%_50%_45%_45%] p-6 shadow-[0_12px_0_rgb(190,24,93)] border-4 border-pink-700 flex flex-col items-center">
                 
-                {/* Brand Logo */}
-                <div className="absolute top-4 text-pink-800 font-black text-xs tracking-widest opacity-50">TAMAGOTCHI</div>
+                <div className="absolute top-4 text-pink-800 font-black text-[10px] tracking-widest opacity-50 font-sans">TAMAGOTCHI</div>
 
                 {/* --- LCD SCREEN --- */}
                 <div className="w-48 h-48 bg-[#9ea73e] border-4 border-gray-700 rounded-xl shadow-[inset_0_0_20px_rgba(0,0,0,0.2)] relative overflow-hidden flex flex-col items-center justify-center mt-4">
                     
-                    {/* Retro Scanlines Overlay */}
-                    <div className="absolute inset-0 pointer-events-none z-10 opacity-20" 
+                    {/* Scanlines */}
+                    <div className="absolute inset-0 pointer-events-none z-10 opacity-30" 
                          style={{ backgroundImage: 'linear-gradient(transparent 50%, rgba(0,0,0,0.5) 50%)', backgroundSize: '100% 4px' }}>
                     </div>
 
@@ -140,40 +179,57 @@ const VirtualPet = ({ pet, onAdopt, onInteract }) => {
                     <motion.div 
                         variants={petVariants}
                         animate={activity}
-                        className="text-6xl filter grayscale contrast-200 drop-shadow-md z-0 cursor-pointer select-none"
+                        className="w-24 h-24 z-0 cursor-pointer select-none filter drop-shadow-sm"
                         onClick={() => { setClickCount(c => c + 1); handleAction('petting'); }}
                     >
-                        {getAvatar()}
+                        {/* 🟢 Render the Custom 8-Bit Cat */}
+                        <PixelCat 
+                            color={breedData.color} 
+                            secondaryColor={breedData.secondary} 
+                            activity={activity} 
+                        />
                     </motion.div>
 
-                    {/* Animations/Bubbles */}
+                    {/* Action Effects (Pixels) */}
                     <AnimatePresence>
-                        {activity === 'eating' && <motion.div initial={{y:-20, opacity:0}} animate={{y:0, opacity:1}} exit={{opacity:0}} className="absolute top-4 text-2xl grayscale contrast-200">🍖</motion.div>}
-                        {activity === 'playing' && <motion.div initial={{scale:0}} animate={{scale:1}} exit={{scale:0}} className="absolute bottom-4 text-2xl grayscale contrast-200">⚽</motion.div>}
-                        {activity === 'petting' && <motion.div key={clickCount} initial={{y:0, opacity:1}} animate={{y:-30, opacity:0}} className="absolute top-2 text-xl text-black">♥</motion.div>}
+                        {activity === 'eating' && (
+                            <motion.div initial={{y:-20, opacity:0}} animate={{y:0, opacity:1}} exit={{opacity:0}} className="absolute top-4 right-8 text-xs font-['Press_Start_2P'] text-black">
+                                +20
+                            </motion.div>
+                        )}
+                        {activity === 'sleeping' && (
+                            <motion.div initial={{opacity:0}} animate={{opacity:1}} transition={{repeat:Infinity, duration:2}} className="absolute top-6 right-6 text-xs font-['Press_Start_2P'] text-black">
+                                Zzz
+                            </motion.div>
+                        )}
+                        {activity === 'petting' && (
+                            <motion.div key={clickCount} initial={{y:0, opacity:1}} animate={{y:-20, opacity:0}} className="absolute top-4 text-xs text-black">
+                                ♥
+                            </motion.div>
+                        )}
                     </AnimatePresence>
 
-                    {/* STATUS ICONS (Top of Screen) */}
-                    <div className="absolute top-2 w-full px-2 flex justify-between opacity-60">
-                        {pet.stats.hunger < 30 && <span className="animate-pulse">🍔</span>}
-                        {pet.stats.energy < 30 && <span className="animate-pulse">⚡</span>}
+                    {/* Status Icons */}
+                    <div className="absolute top-2 w-full px-2 flex justify-between opacity-70">
+                        {pet.stats.hunger < 30 && <span className="animate-pulse text-xs">⚠️</span>}
+                        {pet.stats.energy < 30 && <span className="animate-pulse text-xs">⚡</span>}
                     </div>
                 </div>
 
-                {/* --- PHYSICAL BUTTONS --- */}
+                {/* --- CONTROLS --- */}
                 <div className="flex justify-center gap-6 mt-8 w-full px-8">
-                    <GameButton label="A" onClick={() => handleAction('eating')} icon={<Utensils size={16}/>} />
-                    <GameButton label="B" onClick={() => handleAction('playing')} icon={<Zap size={16}/>} />
-                    <GameButton label="C" onClick={() => handleAction('sleeping')} icon={<Moon size={16}/>} />
+                    <GameButton label="A" onClick={() => handleAction('eating')} icon={<Utensils size={14}/>} />
+                    <GameButton label="B" onClick={() => handleAction('playing')} icon={<Zap size={14}/>} />
+                    <GameButton label="C" onClick={() => handleAction('sleeping')} icon={<Moon size={14}/>} />
                 </div>
 
-                {/* Name Label */}
-                <div className="font-['Press_Start_2P'] text-[10px] text-pink-900 mt-4 uppercase tracking-widest text-center">
+                {/* Name */}
+                <div className="font-['Press_Start_2P'] text-[10px] text-pink-900 mt-4 uppercase tracking-widest text-center truncate w-40">
                     {pet.name}
                 </div>
             </div>
 
-            {/* --- STATS READOUT (External) --- */}
+            {/* --- STATS READOUT --- */}
             <div className="mt-6 grid grid-cols-3 gap-4 w-full max-w-md font-['Press_Start_2P']">
                 <PixelStat label="HUN" value={pet.stats.hunger} />
                 <PixelStat label="HAP" value={pet.stats.happiness} />
@@ -189,7 +245,7 @@ const GameButton = ({ label, onClick, icon }) => (
     <div className="flex flex-col items-center gap-1">
         <button 
             onClick={onClick}
-            className="w-10 h-10 rounded-full bg-yellow-400 border-b-4 border-yellow-600 active:border-b-0 active:translate-y-1 transition-all shadow-md flex items-center justify-center text-yellow-800"
+            className="w-10 h-10 rounded-full bg-yellow-400 border-b-4 border-yellow-600 active:border-b-0 active:translate-y-1 transition-all shadow-md flex items-center justify-center text-yellow-900"
         >
             {icon}
         </button>
