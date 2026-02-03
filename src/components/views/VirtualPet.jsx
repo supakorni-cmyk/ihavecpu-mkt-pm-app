@@ -219,7 +219,7 @@ const VirtualPet = ({ pet, onAdopt, onInteract }) => {
                 </div>
 
                 {/* Name */}
-                <div className="font-['Press_Start_2P'] text-[10px] text-pink-900 mt-4 uppercase tracking-widest text-center truncate w-40">
+                <div className="font-['Press_Start_2P'] text-[14px] text-pink-900 mt-4 uppercase tracking-widest text-center truncate w-40">
                     {pet.name}
                 </div>
             </div>
