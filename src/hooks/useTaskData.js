@@ -295,7 +295,7 @@ export const useTaskData = (currentUser) => {
           newStats.hunger = Math.min(100, newStats.hunger + 20);
           newStats.energy = Math.min(100, newStats.energy + 5);
       } else if (action === 'play') {
-          // Play tires them out!
+          // Play tires them out and makes them hungry!
           newStats.happiness = Math.min(100, newStats.happiness + 15);
           newStats.energy = Math.max(0, newStats.energy - 20);
           newStats.hunger = Math.max(0, newStats.hunger - 10);
@@ -314,7 +314,7 @@ export const useTaskData = (currentUser) => {
       } catch (error) { console.error("Interaction failed:", error); }
   };
 
-  // 🟢 PASSIVE DECAY LOOP (Every 30s)
+  // 🟢 GAME LOOP: PASSIVE DECAY (Every 30 Seconds)
   useEffect(() => {
     if (!myPet) return;
 
@@ -525,6 +525,6 @@ export const useTaskData = (currentUser) => {
     notifications: activeNotifications,
     markNotificationRead, clearAllNotifications,
     allUsers,
-    myPet, adoptPet, interactWithPet // 🟢 Export Pet Actions
+    myPet, adoptPet, interactWithPet 
   };
 };
