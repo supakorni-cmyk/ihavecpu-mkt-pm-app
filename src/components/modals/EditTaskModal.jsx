@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   X, Calendar, Clock, MapPin, Tag, 
   FileText, Image as ImageIcon, Save, Trash2, 
-  CheckSquare, Link as LinkIcon, ExternalLink, Plus
+  CheckSquare, Link as LinkIcon, ExternalLink, Plus, Check
 } from 'lucide-react';
 import { COLUMNS, TAG_COLORS } from '../../utils/constants';
 
@@ -16,7 +16,6 @@ export default function EditTaskModal({ task, onClose, onUpdate, onOpenRequireme
   const [status, setStatus] = useState(task.status || 'todo');
   const [deadline, setDeadline] = useState(task.deadline || '');
   
-  // --- NEW FIELDS ---
   const [startTime, setStartTime] = useState(task.startTime || '');
   const [endTime, setEndTime] = useState(task.endTime || '');
   const [reference, setReference] = useState(task.reference || '');
@@ -30,7 +29,7 @@ export default function EditTaskModal({ task, onClose, onUpdate, onOpenRequireme
   const [reqs, setReqs] = useState(task.requirements || []);
   const [newReqTitle, setNewReqTitle] = useState('');
 
-  // Update internal state if prop changes
+  // Sync state if prop updates
   useEffect(() => {
     setReqs(task.requirements || []);
   }, [task.requirements]);
@@ -56,8 +55,7 @@ export default function EditTaskModal({ task, onClose, onUpdate, onOpenRequireme
     const updatedReqs = [...reqs, newReq];
     setReqs(updatedReqs);
     setNewReqTitle('');
-    
-    // Auto-save the addition so it persists immediately
+    // Auto-save the addition
     onUpdate({ requirements: updatedReqs });
   };
 
@@ -67,21 +65,21 @@ export default function EditTaskModal({ task, onClose, onUpdate, onOpenRequireme
       onUpdate({ requirements: updatedReqs });
   };
 
+  // 🟢 TOGGLE CHECKBOX LOGIC
+  const handleToggleRequirement = (id) => {
+      const updatedReqs = reqs.map(r => 
+          r.id === id ? { ...r, isDone: !r.isDone } : r
+      );
+      setReqs(updatedReqs);
+      onUpdate({ requirements: updatedReqs });
+  };
+
   const handleSave = () => {
     onUpdate({
-      title,
-      description,
-      tag,
-      status,
-      deadline,
-      startTime,
-      endTime,
-      reference,
-      finalFile,
-      location,
-      imageUrl,
-      isPao,
-      requirements: reqs // Ensure current reqs are saved
+      title, description, tag, status, deadline,
+      startTime, endTime, reference, finalFile,
+      location, imageUrl, isPao,
+      requirements: reqs 
     });
     onClose(); 
   };
@@ -96,14 +94,11 @@ export default function EditTaskModal({ task, onClose, onUpdate, onOpenRequireme
       >
         {/* --- LEFT SIDE: EDIT FORM --- */}
         <div className="flex-1 flex flex-col overflow-hidden border-r border-gray-100">
-            {/* Header */}
             <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
                 <h3 className="text-xl font-bold text-gray-800">Edit Task</h3>
             </div>
 
-            {/* Scrollable Form */}
             <div className="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-5">
-                
                 {/* Title */}
                 <div>
                     <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Task Title</label>
@@ -126,30 +121,20 @@ export default function EditTaskModal({ task, onClose, onUpdate, onOpenRequireme
                     />
                 </div>
 
-                {/* Time Grid (Start/End) */}
+                {/* Time Grid */}
                 <div className="grid grid-cols-2 gap-4">
                     <div>
                         <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Start Time</label>
                         <div className="relative">
                             <Clock className="absolute top-1/2 -translate-y-1/2 left-3 text-gray-400" size={16} />
-                            <input 
-                                type="datetime-local" 
-                                className="w-full pl-9 pr-2 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none text-xs focus:border-indigo-500 transition"
-                                value={startTime}
-                                onChange={(e) => setStartTime(e.target.value)}
-                            />
+                            <input type="datetime-local" className="w-full pl-9 pr-2 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none text-xs focus:border-indigo-500 transition" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
                         </div>
                     </div>
                     <div>
                         <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">End Time</label>
                         <div className="relative">
                             <Clock className="absolute top-1/2 -translate-y-1/2 left-3 text-gray-400" size={16} />
-                            <input 
-                                type="datetime-local" 
-                                className="w-full pl-9 pr-2 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none text-xs focus:border-indigo-500 transition"
-                                value={endTime}
-                                onChange={(e) => setEndTime(e.target.value)}
-                            />
+                            <input type="datetime-local" className="w-full pl-9 pr-2 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none text-xs focus:border-indigo-500 transition" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
                         </div>
                     </div>
                 </div>
@@ -160,54 +145,32 @@ export default function EditTaskModal({ task, onClose, onUpdate, onOpenRequireme
                         <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Deadline</label>
                         <div className="relative">
                             <Calendar className="absolute top-1/2 -translate-y-1/2 left-3 text-gray-400" size={16} />
-                            <input 
-                                type="datetime-local" 
-                                className="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none text-xs focus:border-indigo-500 transition"
-                                value={deadline}
-                                onChange={(e) => setDeadline(e.target.value)}
-                            />
+                            <input type="datetime-local" className="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none text-xs focus:border-indigo-500 transition" value={deadline} onChange={(e) => setDeadline(e.target.value)} />
                         </div>
                     </div>
                     <div>
                         <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Location</label>
                         <div className="relative">
                             <MapPin className="absolute top-1/2 -translate-y-1/2 left-3 text-gray-400" size={16} />
-                            <input 
-                                type="text" 
-                                className="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none text-sm focus:border-indigo-500 transition"
-                                value={location}
-                                onChange={(e) => setLocation(e.target.value)}
-                            />
+                            <input type="text" className="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none text-sm focus:border-indigo-500 transition" value={location} onChange={(e) => setLocation(e.target.value)} />
                         </div>
                     </div>
                 </div>
 
-                {/* Links (Ref & Final) */}
+                {/* Links */}
                 <div className="space-y-3">
                     <div>
                         <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Reference Link</label>
                         <div className="relative">
                             <LinkIcon className="absolute top-1/2 -translate-y-1/2 left-3 text-gray-400" size={16} />
-                            <input 
-                                type="url" 
-                                className="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none text-sm focus:border-indigo-500 transition text-blue-600"
-                                value={reference}
-                                onChange={(e) => setReference(e.target.value)}
-                                placeholder="https://..."
-                            />
+                            <input type="url" className="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none text-sm focus:border-indigo-500 transition text-blue-600" value={reference} onChange={(e) => setReference(e.target.value)} placeholder="https://..." />
                         </div>
                     </div>
                     <div>
                         <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Final Work Link</label>
                         <div className="relative">
                             <ExternalLink className="absolute top-1/2 -translate-y-1/2 left-3 text-gray-400" size={16} />
-                            <input 
-                                type="url" 
-                                className="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none text-sm focus:border-indigo-500 transition text-green-600"
-                                value={finalFile}
-                                onChange={(e) => setFinalFile(e.target.value)}
-                                placeholder="https://..."
-                            />
+                            <input type="url" className="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none text-sm focus:border-indigo-500 transition text-green-600" value={finalFile} onChange={(e) => setFinalFile(e.target.value)} placeholder="https://..." />
                         </div>
                     </div>
                 </div>
@@ -218,11 +181,7 @@ export default function EditTaskModal({ task, onClose, onUpdate, onOpenRequireme
                         <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Category</label>
                         <div className="relative">
                             <Tag className="absolute top-1/2 -translate-y-1/2 left-3 text-gray-400" size={16} />
-                            <select 
-                                value={tag} 
-                                onChange={(e) => setTag(e.target.value)}
-                                className="w-full pl-9 pr-8 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none text-sm appearance-none focus:border-indigo-500 transition cursor-pointer font-medium text-gray-700"
-                            >
+                            <select value={tag} onChange={(e) => setTag(e.target.value)} className="w-full pl-9 pr-8 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none text-sm appearance-none focus:border-indigo-500 transition cursor-pointer font-medium text-gray-700">
                                 {TAGS.map(t => <option key={t} value={t}>{t}</option>)}
                             </select>
                         </div>
@@ -231,11 +190,7 @@ export default function EditTaskModal({ task, onClose, onUpdate, onOpenRequireme
                         <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Status</label>
                         <div className="relative">
                             <div className={`w-3 h-3 rounded-full absolute top-1/2 -translate-y-1/2 left-3 ${COLUMNS.find(c => c.id === status)?.color.replace('text-', 'bg-')}`}></div>
-                            <select 
-                                value={status} 
-                                onChange={(e) => setStatus(e.target.value)}
-                                className="w-full pl-9 pr-8 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none text-sm appearance-none focus:border-indigo-500 transition cursor-pointer font-medium text-gray-700"
-                            >
+                            <select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full pl-9 pr-8 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none text-sm appearance-none focus:border-indigo-500 transition cursor-pointer font-medium text-gray-700">
                                 {COLUMNS.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
                             </select>
                         </div>
@@ -247,12 +202,7 @@ export default function EditTaskModal({ task, onClose, onUpdate, onOpenRequireme
                     <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Cover Image URL</label>
                     <div className="relative">
                         <ImageIcon className="absolute top-1/2 -translate-y-1/2 left-3 text-gray-400" size={16} />
-                        <input 
-                            type="url" 
-                            className="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none text-sm focus:border-indigo-500 transition"
-                            value={imageUrl}
-                            onChange={(e) => setImageUrl(e.target.value)}
-                        />
+                        <input type="url" className="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none text-sm focus:border-indigo-500 transition" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} />
                     </div>
                 </div>
 
@@ -268,10 +218,7 @@ export default function EditTaskModal({ task, onClose, onUpdate, onOpenRequireme
             {/* Footer */}
             <div className="p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3">
                 <button onClick={onClose} className="px-6 py-2.5 rounded-xl font-bold text-gray-500 hover:bg-gray-200 transition text-sm">Cancel</button>
-                <button 
-                    onClick={handleSave}
-                    className="px-8 py-2.5 rounded-xl font-bold text-white bg-gray-900 hover:bg-black shadow-lg transition transform active:scale-95 text-sm flex items-center gap-2"
-                >
+                <button onClick={handleSave} className="px-8 py-2.5 rounded-xl font-bold text-white bg-gray-900 hover:bg-black shadow-lg transition transform active:scale-95 text-sm flex items-center gap-2">
                     <Save size={16} /> Save Changes
                 </button>
             </div>
@@ -317,17 +264,27 @@ export default function EditTaskModal({ task, onClose, onUpdate, onOpenRequireme
                     reqs.map((req) => (
                         <div 
                             key={req.id} 
+                            // Open modal only if clicking the body
                             onClick={() => onOpenRequirement(req.id)}
                             className={`p-3 rounded-xl border transition cursor-pointer group relative overflow-hidden flex justify-between items-center
                                 ${req.isDone ? 'bg-green-50 border-green-200' : 'bg-white border-gray-200 hover:border-indigo-300 hover:shadow-sm'}
                             `}
                         >
                             <div className="flex items-start gap-3 relative z-10 flex-1 min-w-0">
-                                <div className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors
-                                    ${req.isDone ? 'bg-green-500 border-green-500' : 'border-gray-300'}
-                                `}>
-                                    {req.isDone && <X size={10} className="text-white rotate-45" strokeWidth={3} />}
+                                
+                                {/* 🟢 CLICKABLE CHECKBOX */}
+                                <div 
+                                    onClick={(e) => { 
+                                        e.stopPropagation(); 
+                                        handleToggleRequirement(req.id); 
+                                    }}
+                                    className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors cursor-pointer hover:ring-2 hover:ring-green-200
+                                        ${req.isDone ? 'bg-green-500 border-green-500' : 'bg-white border-gray-300 hover:border-green-400'}
+                                    `}
+                                >
+                                    {req.isDone && <Check size={10} className="text-white" strokeWidth={4} />}
                                 </div>
+
                                 <div className="truncate">
                                     <p className={`text-xs font-medium leading-relaxed truncate ${req.isDone ? 'text-gray-500 line-through' : 'text-gray-700'}`}>
                                         {req.title || req.text || "Untitled"} 
@@ -363,4 +320,4 @@ export default function EditTaskModal({ task, onClose, onUpdate, onOpenRequireme
       </div>
     </div>
   );
-}
+}   

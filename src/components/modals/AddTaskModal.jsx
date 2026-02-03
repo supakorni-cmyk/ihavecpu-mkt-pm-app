@@ -40,10 +40,10 @@ export default function AddTaskModal({ onClose, onAdd }) {
     if (!newReqTitle.trim()) return;
 
     const newReq = {
-        id: Date.now().toString(), // Ensure string ID
+        id: Date.now().toString(),
         title: newReqTitle,
         isDone: false,
-        // Initialize table structure for the Requirement Sheet
+        // Default Spreadsheet Structure
         tableData: [],
         columns: [
             { id: 'col1', name: 'Item / Name', align: 'left', format: 'text', autoFormula: '' }, 
@@ -87,7 +87,7 @@ export default function AddTaskModal({ onClose, onAdd }) {
       location,
       imageUrl,
       isPao, 
-      requirements: requirements, // Attach the requirements
+      requirements: requirements, // 🟢 Attach requirements
       comments: []
     };
 
@@ -146,7 +146,7 @@ export default function AddTaskModal({ onClose, onAdd }) {
                 />
             </div>
 
-            {/* REQUIREMENTS SECTION (NEW) */}
+            {/* 🟢 REQUIREMENTS INPUT */}
             <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Requirements / Checklist</label>
                 <div className="flex gap-2 mb-3">
@@ -176,6 +176,7 @@ export default function AddTaskModal({ onClose, onAdd }) {
                                 <span className="text-sm text-gray-700 font-medium">{req.title}</span>
                             </div>
                             <button 
+                                type="button"
                                 onClick={() => handleRemoveRequirement(req.id)}
                                 className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition"
                             >
@@ -198,6 +199,14 @@ export default function AddTaskModal({ onClose, onAdd }) {
                     >
                         <Sparkles size={12} className={isGenerating ? "animate-spin" : "fill-indigo-600"} />
                         {isGenerating ? "Generating..." : "AI Auto-Fill"}
+                    </button>
+                    <button 
+                        type="button"
+                        onClick={handlePoliteRewrite}
+                        disabled={isGenerating || !description}
+                        className="text-[10px] bg-blue-50 text-blue-600 px-2 py-1 rounded border border-blue-100 hover:bg-blue-100 transition"
+                    >
+                        Make Professional
                     </button>
                 </div>
                 <div className="relative">
@@ -268,10 +277,10 @@ export default function AddTaskModal({ onClose, onAdd }) {
                 </div>
             </div>
 
-            {/* Links Grid (Reference & Final File) */}
+            {/* Links Grid */}
             <div className="grid grid-cols-1 gap-4">
                  <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Reference Link (Script/Brief)</label>
+                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Reference Link</label>
                     <div className="relative">
                         <LinkIcon className="absolute top-1/2 -translate-y-1/2 left-3 text-gray-400" size={16} />
                         <input 
@@ -284,7 +293,7 @@ export default function AddTaskModal({ onClose, onAdd }) {
                     </div>
                 </div>
                  <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Final Work Link (Drive/Dropbox)</label>
+                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Final Work Link</label>
                     <div className="relative">
                         <ExternalLink className="absolute top-1/2 -translate-y-1/2 left-3 text-gray-400" size={16} />
                         <input 

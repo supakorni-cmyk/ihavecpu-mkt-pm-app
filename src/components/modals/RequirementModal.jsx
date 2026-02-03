@@ -1,9 +1,9 @@
 // src/components/modals/RequirementModal.jsx
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
-    Table, FileSpreadsheet, X, Plus, Save, ZoomIn, ZoomOut, Trash2, 
+    Table, X, Plus, Save, ZoomIn, ZoomOut, Trash2, 
     AlignLeft, AlignCenter, AlignRight, Hash, DollarSign, Type, Calculator, ExternalLink,
-    Wand2, Copy
+    Wand2, Copy, CheckCircle2
 } from 'lucide-react';
 
 const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => {
@@ -26,11 +26,20 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
             { id: 'col1', name: 'Item / Name', align: 'left', format: 'text', autoFormula: '' }, 
             { id: 'col2', name: 'Price', align: 'right', format: 'currency', autoFormula: '' }, 
             { id: 'col3', name: 'Quantity', align: 'center', format: 'number', autoFormula: '' }, 
-            { id: 'col4', name: 'Total', align: 'right', format: 'currency', autoFormula: '=B*C' } // Example default
+            { id: 'col4', name: 'Total', align: 'right', format: 'currency', autoFormula: '=B*C' } 
         ]);
         setColWidths(requirement.colWidths || {});
         setHasUnsavedChanges(false);
     }, [requirement]);
+
+    // 🟢 NEW: Toggle Status in Header
+    const toggleStatus = () => {
+        const updatedReqs = task.requirements.map(r => {
+            if (r.id === requirement.id) return { ...r, isDone: !r.isDone };
+            return r;
+        });
+        onUpdateTask({ requirements: updatedReqs });
+    };
 
     // --- 🧮 LOGIC ENGINE ---
     const getColLetter = (index) => {
@@ -46,12 +55,9 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
         } catch (e) { return '?'; }
     };
 
-    // Helper: Convert generic "A*B" to specific "A1*B1" based on row index
     const generateSpecificFormula = (genericFormula, rowIndex) => {
         if (!genericFormula) return '';
         const rowNum = rowIndex + 1;
-        // Replace Column Letters (e.g., A, B, AA) that are NOT followed by a number
-        // with Letter + RowNumber (e.g., A1, B1)
         return genericFormula.toUpperCase().replace(/([A-Z]+)(?![0-9])/g, (match) => match + rowNum);
     };
 
@@ -61,7 +67,6 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
         try {
             let formula = expression.substring(1).toUpperCase();
             
-            // Regex to find and replace cell references (A1, B2) with actual values
             formula = formula.replace(/([A-Z]+)(\d+)/g, (match, colLetter, rowNum) => {
                 let colIndex = 0;
                 for (let i = 0; i < colLetter.length; i++) {
@@ -71,24 +76,13 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
 
                 const targetCol = columns[colIndex];
                 const targetRowIndex = parseInt(rowNum) - 1;
-                
-                // Recursion Protection: If we need data from a row, we must check if THAT cell is calculated too
-                // For simplicity here, we just grab raw data. A full spreadsheet graph is complex.
-                // We fallback to tableData which contains RAW values (no auto-calc values stored in state).
-                // Ideally, auto-formulas work best on "Input" columns.
-                
                 const targetRow = tableData[targetRowIndex];
 
                 if (!targetCol || !targetRow) return 0;
 
                 let val = targetRow[targetCol.id];
                 
-                // If target cell is empty, check if it has an auto-formula (Recursive-ish for 1 level)
                 if ((val === undefined || val === '' || val === null) && targetCol.autoFormula) {
-                     // Recalculate that dependency (Limit depth to 1 to avoid infinite loop crashes)
-                     const depFormula = generateSpecificFormula(targetCol.autoFormula, targetRowIndex);
-                     // We recursively call evaluateFormula but carefully
-                     // For this lightweight version, let's assumes dependencies are raw numbers
                      return 0; 
                 }
 
@@ -105,19 +99,15 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
         }
     }, [tableData, columns]);
 
-    // Unified Value Getter (Handles Manual Value OR Auto Formula)
     const getEffectiveCellValue = (row, col, rowIndex) => {
         const rawValue = row[col.id];
         
-        // 1. If cell has manual value, use it
         if (rawValue !== undefined && rawValue !== null && rawValue !== '') {
             return evaluateFormula(rawValue, rowIndex);
         }
 
-        // 2. If empty, check for Auto Formula
         if (col.autoFormula) {
             const specificFormula = generateSpecificFormula(col.autoFormula, rowIndex);
-            // Ensure it starts with =
             const cleanFormula = specificFormula.startsWith('=') ? specificFormula : '=' + specificFormula;
             return evaluateFormula(cleanFormula, rowIndex);
         }
@@ -142,12 +132,10 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
         return val;
     };
 
-    // --- 📊 SUMMARY CALCULATION ---
     const calculateColumnTotal = (col) => {
         if (col.format !== 'number' && col.format !== 'currency') return null;
 
         const total = tableData.reduce((sum, row, rIdx) => {
-            // Use Effective Value (Formula-aware)
             const val = getEffectiveCellValue(row, col, rIdx);
             
             let num = 0;
@@ -171,13 +159,11 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
             if (!activeRow) { setEditingCell({ rowId, colId }); return; }
 
             const activeVal = activeRow[editingCell.colId] || '';
-            
-            // Check manual formula OR auto formula input
             const activeCol = columns.find(c => c.id === editingCell.colId);
             const isFormulaInput = activeVal.toString().startsWith('=') || (activeVal === '' && activeCol?.autoFormula);
 
             if (isFormulaInput) {
-                const cellRef = `${getColLetter(colIndex)}${rowIndex + 1}`; // Use specific row number for explicit clicks
+                const cellRef = `${getColLetter(colIndex)}${rowIndex + 1}`; 
                 const input = editorRef.current;
                 
                 if (input) {
@@ -214,7 +200,6 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
         setHasUnsavedChanges(true);
     };
 
-    // --- 🛠️ STRUCTURE ACTIONS ---
     const insertRow = (index, position) => { 
         const newRow = { id: Date.now() };
         columns.forEach(col => newRow[col.id] = '');
@@ -249,7 +234,6 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
         setContextMenu(null);
     };
 
-    // --- 💾 EXPORT ACTIONS ---
     const handleSave = () => {
         const updatedReqs = task.requirements.map(r => {
             if (r.id === requirement.id) return { ...r, tableData, columns, colWidths };
@@ -263,13 +247,12 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
         const headers = columns.map(c => c.name).join('\t');
         const rows = tableData.map((row, rIdx) => 
             columns.map(col => {
-                const val = getEffectiveCellValue(row, col, rIdx); // Export calculated
+                const val = getEffectiveCellValue(row, col, rIdx); 
                 return val === undefined || val === null ? '' : val;
             }).join('\t')
         ).join('\n');
         
         const clipboardText = `${headers}\n${rows}`;
-
         navigator.clipboard.writeText(clipboardText).then(() => {
             alert("✅ Data copied! \n\nGo to your existing Google Sheet tab and press Ctrl+V to paste.");
         }).catch(err => alert("Failed to copy data: " + err));
@@ -279,13 +262,12 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
         window.open('https://sheets.new', '_blank');
     };
 
-    // --- 🖱️ CONTEXT MENU ---
     const handleContextMenu = (e, type, id, index) => {
         e.preventDefault();
         e.stopPropagation(); 
         let x = e.clientX;
         let y = e.clientY;
-        const menuWidth = 240; // Wider for formula input
+        const menuWidth = 240; 
         const menuHeight = 350;
         if (x + menuWidth > window.innerWidth) x = window.innerWidth - menuWidth - 10;
         if (y + menuHeight > window.innerHeight) y = window.innerHeight - menuHeight - 10;
@@ -308,9 +290,17 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
                         <div className="bg-white/20 p-2 rounded"><Table size={20} /></div>
                         <div>
                             <h3 className="font-bold text-lg leading-tight flex items-center gap-2">
-                                {requirement.text} 
+                                {requirement.title} 
                                 {hasUnsavedChanges && <span className="text-[10px] bg-yellow-400 text-yellow-900 px-2 rounded-full">Unsaved</span>}
                             </h3>
+                            {/* 🟢 Status Toggle */}
+                            <div 
+                                onClick={toggleStatus}
+                                className={`text-[10px] flex items-center gap-1 cursor-pointer hover:underline opacity-90 transition-colors ${requirement.isDone ? 'text-green-200' : 'text-gray-200'}`}
+                            >
+                                <CheckCircle2 size={12} className={requirement.isDone ? "fill-white text-green-700" : ""} />
+                                {requirement.isDone ? "Completed" : "Mark as Complete"}
+                            </div>
                         </div>
                     </div>
                     
@@ -343,7 +333,7 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
                         className="bg-white border border-gray-300 shadow-xl inline-block origin-top-left transition-transform duration-200 ease-out"
                         style={{ transform: `scale(${scale})` }}
                     >
-                        {/* --- HEADER ROW --- */}
+                        {/* HEADER ROW */}
                         <div className="flex border-b border-gray-300 bg-gray-50 sticky top-0 z-20 shadow-sm">
                             <div className="w-10 p-2 border-r border-gray-300 bg-gray-100 flex items-center justify-center text-gray-400 font-mono text-xs">#</div>
                             {columns.map((col, idx) => (
@@ -382,7 +372,7 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
                             <button onClick={() => insertCol(columns.length, 'after')} className="w-8 flex items-center justify-center hover:bg-gray-200 text-gray-400 border-r border-gray-300 transition-colors"><Plus size={16} /></button>
                         </div>
 
-                        {/* --- DATA ROWS --- */}
+                        {/* DATA ROWS */}
                         {tableData.map((row, rIdx) => (
                             <div key={row.id} className="flex border-b border-gray-200 hover:bg-blue-50/10">
                                 <div 
@@ -396,18 +386,12 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
                                     const isEditing = editingCell.rowId === row.id && editingCell.colId === col.id;
                                     const rawValue = row[col.id];
                                     
-                                    // Calculate Display Value
-                                    // 1. If Editing -> Show Raw (or Empty if using formula)
-                                    // 2. If Not Editing -> Show Effective Value (Auto-Calc or Manual)
                                     let displayValue = '';
                                     let isFormula = false;
                                     let isAuto = false;
 
                                     if (isEditing) {
-                                        // When editing, if it's empty but has auto-formula, we show empty (user can type to override)
-                                        // If user typed '=', show that.
                                         displayValue = rawValue || '';
-                                        // If it's an auto-formula column and cell is empty, we could show the formula as placeholder?
                                     } else {
                                         const effective = getEffectiveCellValue(row, col, rIdx);
                                         displayValue = formatValue(effective, col.format || 'text');
@@ -448,7 +432,7 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
                             </div>
                         ))}
 
-                        {/* --- SUMMARY ROW --- */}
+                        {/* SUMMARY ROW */}
                         <div className="flex border-b border-gray-300 bg-gray-100 font-bold sticky bottom-0 z-20 shadow-[-2px_-4px_10px_rgba(0,0,0,0.05)] border-t-2 border-t-gray-300">
                             <div className="w-10 border-r border-gray-300 p-2 flex items-center justify-center text-xs text-gray-500 bg-gray-200">
                                 <Calculator size={14}/>
@@ -479,14 +463,15 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
                     </div>
                 </div>
 
-                {/* --- CONTEXT MENU --- */}
+                {/* CONTEXT MENU */}
                 {contextMenu && (
                     <div 
                         className="fixed bg-white shadow-2xl rounded-lg border border-gray-100 py-2 z-[100] w-64 text-sm animate-in fade-in zoom-in-95 duration-100"
                         style={{ top: contextMenu.y, left: contextMenu.x }}
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="px-3 pb-2 text-xs font-bold text-gray-400 uppercase tracking-wider border-b border-gray-50 mb-1 flex justify-between items-center">
+                        {/* Context Menu Content (Identical to previous versions) */}
+                         <div className="px-3 pb-2 text-xs font-bold text-gray-400 uppercase tracking-wider border-b border-gray-50 mb-1 flex justify-between items-center">
                             {contextMenu.type === 'row' ? `Row ${contextMenu.index + 1}` : `Column ${getColLetter(contextMenu.index)}`}
                             <button onClick={() => setContextMenu(null)} className="hover:bg-red-50 hover:text-red-500 rounded p-0.5"><X size={12}/></button>
                         </div>
@@ -544,7 +529,6 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
                         )}
                     </div>
                 )}
-
             </div>
         </div>
     );
