@@ -1,9 +1,9 @@
 // src/components/modals/EditTaskModal.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   X, Calendar, Clock, MapPin, Tag, 
   FileText, Image as ImageIcon, Save, Trash2, 
-  CheckSquare, Link as LinkIcon, ExternalLink
+  CheckSquare, Link as LinkIcon, ExternalLink, Plus
 } from 'lucide-react';
 import { COLUMNS, TAG_COLORS } from '../../utils/constants';
 
@@ -26,6 +26,47 @@ export default function EditTaskModal({ task, onClose, onUpdate, onOpenRequireme
   const [imageUrl, setImageUrl] = useState(task.imageUrl || '');
   const [isPao, setIsPao] = useState(task.isPao || false);
 
+  // --- REQUIREMENTS STATE ---
+  const [reqs, setReqs] = useState(task.requirements || []);
+  const [newReqTitle, setNewReqTitle] = useState('');
+
+  // Update internal state if prop changes
+  useEffect(() => {
+    setReqs(task.requirements || []);
+  }, [task.requirements]);
+
+  const handleAddRequirement = (e) => {
+    e.preventDefault();
+    if (!newReqTitle.trim()) return;
+
+    const newReq = {
+        id: Date.now().toString(),
+        title: newReqTitle,
+        isDone: false,
+        tableData: [],
+        columns: [
+            { id: 'col1', name: 'Item / Name', align: 'left', format: 'text', autoFormula: '' }, 
+            { id: 'col2', name: 'Price', align: 'right', format: 'currency', autoFormula: '' }, 
+            { id: 'col3', name: 'Quantity', align: 'center', format: 'number', autoFormula: '' }, 
+            { id: 'col4', name: 'Total', align: 'right', format: 'currency', autoFormula: '=B*C' }
+        ],
+        colWidths: {}
+    };
+
+    const updatedReqs = [...reqs, newReq];
+    setReqs(updatedReqs);
+    setNewReqTitle('');
+    
+    // Auto-save the addition so it persists immediately
+    onUpdate({ requirements: updatedReqs });
+  };
+
+  const handleDeleteRequirement = (id) => {
+      const updatedReqs = reqs.filter(r => r.id !== id);
+      setReqs(updatedReqs);
+      onUpdate({ requirements: updatedReqs });
+  };
+
   const handleSave = () => {
     onUpdate({
       title,
@@ -39,12 +80,12 @@ export default function EditTaskModal({ task, onClose, onUpdate, onOpenRequireme
       finalFile,
       location,
       imageUrl,
-      isPao
+      isPao,
+      requirements: reqs // Ensure current reqs are saved
     });
-    onClose(); // Auto close after save (optional)
+    onClose(); 
   };
 
-  const reqs = task.requirements || [];
   const completedReqs = reqs.filter(r => r.isDone).length;
 
   return (
@@ -248,6 +289,26 @@ export default function EditTaskModal({ task, onClose, onUpdate, onOpenRequireme
                 </span>
             </div>
 
+            {/* NEW REQUIREMENT INPUT */}
+            <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
+                <div className="flex gap-2">
+                    <input 
+                        type="text"
+                        placeholder="New item..."
+                        className="flex-1 px-2 py-1.5 text-xs border border-gray-300 rounded focus:border-indigo-500 outline-none"
+                        value={newReqTitle}
+                        onChange={(e) => setNewReqTitle(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleAddRequirement(e)}
+                    />
+                    <button 
+                        onClick={handleAddRequirement}
+                        className="bg-indigo-600 text-white p-1.5 rounded hover:bg-indigo-700 transition"
+                    >
+                        <Plus size={14} />
+                    </button>
+                </div>
+            </div>
+
             {/* Requirements List */}
             <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-2">
                 {reqs.length === 0 ? (
@@ -257,22 +318,30 @@ export default function EditTaskModal({ task, onClose, onUpdate, onOpenRequireme
                         <div 
                             key={req.id} 
                             onClick={() => onOpenRequirement(req.id)}
-                            className={`p-3 rounded-xl border transition cursor-pointer group relative overflow-hidden
+                            className={`p-3 rounded-xl border transition cursor-pointer group relative overflow-hidden flex justify-between items-center
                                 ${req.isDone ? 'bg-green-50 border-green-200' : 'bg-white border-gray-200 hover:border-indigo-300 hover:shadow-sm'}
                             `}
                         >
-                            <div className="flex items-start gap-3 relative z-10">
+                            <div className="flex items-start gap-3 relative z-10 flex-1 min-w-0">
                                 <div className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors
                                     ${req.isDone ? 'bg-green-500 border-green-500' : 'border-gray-300'}
                                 `}>
                                     {req.isDone && <X size={10} className="text-white rotate-45" strokeWidth={3} />}
                                 </div>
-                                <div>
-                                    <p className={`text-xs font-medium leading-relaxed ${req.isDone ? 'text-gray-500 line-through' : 'text-gray-700'}`}>
-                                        {req.title}
+                                <div className="truncate">
+                                    <p className={`text-xs font-medium leading-relaxed truncate ${req.isDone ? 'text-gray-500 line-through' : 'text-gray-700'}`}>
+                                        {req.title || req.text || "Untitled"} 
                                     </p>
                                 </div>
                             </div>
+                            
+                            {/* Delete Button */}
+                            <button 
+                                onClick={(e) => { e.stopPropagation(); handleDeleteRequirement(req.id); }}
+                                className="text-gray-400 hover:text-red-500 p-1 opacity-0 group-hover:opacity-100 transition"
+                            >
+                                <Trash2 size={12} />
+                            </button>
                         </div>
                     ))
                 )}

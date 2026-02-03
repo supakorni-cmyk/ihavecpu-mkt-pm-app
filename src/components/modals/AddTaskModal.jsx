@@ -2,7 +2,8 @@
 import React, { useState } from 'react';
 import { 
   X, Calendar, Clock, MapPin, Tag, 
-  FileText, Image as ImageIcon, Sparkles, Link as LinkIcon, ExternalLink
+  FileText, Image as ImageIcon, Sparkles, Link as LinkIcon, ExternalLink,
+  CheckSquare, Plus, Trash2
 } from 'lucide-react';
 import { COLUMNS, TAG_COLORS } from '../../utils/constants';
 
@@ -30,14 +31,44 @@ export default function AddTaskModal({ onClose, onAdd }) {
   const [isPao, setIsPao] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
 
-  const handlePoliteRewrite = async () => {
-  if (!description) return;
+  // --- REQUIREMENT STATE ---
+  const [requirements, setRequirements] = useState([]);
+  const [newReqTitle, setNewReqTitle] = useState('');
 
-  setIsGenerating(true);
-  const refined = await refineTextTone(description, "professional");
-  if (refined) setDescription(refined);
-  setIsGenerating(false);
-};
+  const handleAddRequirement = (e) => {
+    e.preventDefault();
+    if (!newReqTitle.trim()) return;
+
+    const newReq = {
+        id: Date.now().toString(), // Ensure string ID
+        title: newReqTitle,
+        isDone: false,
+        // Initialize table structure for the Requirement Sheet
+        tableData: [],
+        columns: [
+            { id: 'col1', name: 'Item / Name', align: 'left', format: 'text', autoFormula: '' }, 
+            { id: 'col2', name: 'Price', align: 'right', format: 'currency', autoFormula: '' }, 
+            { id: 'col3', name: 'Quantity', align: 'center', format: 'number', autoFormula: '' }, 
+            { id: 'col4', name: 'Total', align: 'right', format: 'currency', autoFormula: '=B*C' }
+        ],
+        colWidths: {}
+    };
+
+    setRequirements([...requirements, newReq]);
+    setNewReqTitle('');
+  };
+
+  const handleRemoveRequirement = (id) => {
+    setRequirements(requirements.filter(r => r.id !== id));
+  };
+
+  const handlePoliteRewrite = async () => {
+    if (!description) return;
+    setIsGenerating(true);
+    const refined = await refineTextTone(description, "professional");
+    if (refined) setDescription(refined);
+    setIsGenerating(false);
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -56,7 +87,7 @@ export default function AddTaskModal({ onClose, onAdd }) {
       location,
       imageUrl,
       isPao, 
-      requirements: [],
+      requirements: requirements, // Attach the requirements
       comments: []
     };
 
@@ -115,6 +146,46 @@ export default function AddTaskModal({ onClose, onAdd }) {
                 />
             </div>
 
+            {/* REQUIREMENTS SECTION (NEW) */}
+            <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Requirements / Checklist</label>
+                <div className="flex gap-2 mb-3">
+                    <input 
+                        type="text" 
+                        placeholder="Add requirement (e.g. 'Budget List')" 
+                        className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm outline-none focus:border-indigo-500"
+                        value={newReqTitle}
+                        onChange={(e) => setNewReqTitle(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleAddRequirement(e)}
+                    />
+                    <button 
+                        type="button"
+                        onClick={handleAddRequirement}
+                        className="bg-indigo-50 text-indigo-600 p-2 rounded-lg hover:bg-indigo-100 transition"
+                    >
+                        <Plus size={18} />
+                    </button>
+                </div>
+                
+                {/* Requirements List */}
+                <div className="space-y-2">
+                    {requirements.map((req) => (
+                        <div key={req.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg border border-gray-100 group">
+                            <div className="flex items-center gap-2">
+                                <CheckSquare size={14} className="text-gray-400" />
+                                <span className="text-sm text-gray-700 font-medium">{req.title}</span>
+                            </div>
+                            <button 
+                                onClick={() => handleRemoveRequirement(req.id)}
+                                className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition"
+                            >
+                                <Trash2 size={14} />
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
             {/* Description + AI */}
             <div>
                 <div className="flex justify-between items-center mb-1.5">
@@ -127,14 +198,6 @@ export default function AddTaskModal({ onClose, onAdd }) {
                     >
                         <Sparkles size={12} className={isGenerating ? "animate-spin" : "fill-indigo-600"} />
                         {isGenerating ? "Generating..." : "AI Auto-Fill"}
-                    </button>
-                    <button 
-                        type="button"
-                        onClick={handlePoliteRewrite}
-                        disabled={isGenerating || !description}
-                        className="text-[10px] bg-blue-50 text-blue-600 px-2 py-1 rounded border border-blue-100 hover:bg-blue-100 transition"
-                    >
-                        👔 Make Professional
                     </button>
                 </div>
                 <div className="relative">
