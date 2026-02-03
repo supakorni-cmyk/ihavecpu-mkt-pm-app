@@ -269,20 +269,21 @@ export const useTaskData = (currentUser) => {
     });
   };
 
-  // --- 🐶 5. PET ACTIONS (SILENT) ---
+  // --- 🐶 5. PET ACTIONS & GAME LOOP ---
+
   const adoptPet = async (petData) => {
       if (!currentUser) return;
       try {
           const newPet = {
               ...petData,
               ownerEmail: currentUser.email,
-              // Start slightly below 100 so feeding works immediately
-              stats: { hunger: 80, happiness: 80, energy: 80 }, 
+              // Start at 80 so users can feed them immediately
+              stats: { hunger: 80, happiness: 80, energy: 80 },
               createdAt: new Date().toISOString(),
               lastInteraction: new Date().toISOString()
           };
           await addDoc(collection(db, "pets"), newPet);
-          console.log("Pet Adopted Successfully");
+          console.log("Pet Adopted Successfully (Silent)");
       } catch (error) { console.error("Adoption failed:", error); }
   };
 
@@ -291,19 +292,16 @@ export const useTaskData = (currentUser) => {
       const newStats = { ...myPet.stats };
       
       if (action === 'feed') {
-          // Feed: +20 Hunger, +5 Energy
           newStats.hunger = Math.min(100, newStats.hunger + 20);
           newStats.energy = Math.min(100, newStats.energy + 5);
       } else if (action === 'play') {
-          // Play: +15 Happy, -20 Energy, -10 Hunger (Tires them out!)
+          // Play tires them out!
           newStats.happiness = Math.min(100, newStats.happiness + 15);
           newStats.energy = Math.max(0, newStats.energy - 20);
           newStats.hunger = Math.max(0, newStats.hunger - 10);
       } else if (action === 'pet') {
-          // Pet: +10 Happy
           newStats.happiness = Math.min(100, newStats.happiness + 10);
       } else if (action === 'sleep') {
-          // Sleep: Reset Energy to 100, but get Hungry (-20)
           newStats.energy = 100;
           newStats.hunger = Math.max(0, newStats.hunger - 20);
       }
@@ -316,38 +314,35 @@ export const useTaskData = (currentUser) => {
       } catch (error) { console.error("Interaction failed:", error); }
   };
 
+  // 🟢 PASSIVE DECAY LOOP (Every 30s)
   useEffect(() => {
     if (!myPet) return;
 
-    // Run every 30 seconds
     const intervalId = setInterval(async () => {
         const currentStats = myPet.stats;
         
-        // Decay rates
+        // Decay logic
         const newStats = {
-            hunger: Math.max(0, currentStats.hunger - 2),      // Gets hungry
-            happiness: Math.max(0, currentStats.happiness - 2), // Gets bored
-            energy: Math.max(0, currentStats.energy - 1)        // Gets tired
+            hunger: Math.max(0, currentStats.hunger - 2),
+            happiness: Math.max(0, currentStats.happiness - 2),
+            energy: Math.max(0, currentStats.energy - 1)
         };
 
-        // Only update DB if stats actually changed (to save writes)
+        // Only save if stats changed
         if (
             newStats.hunger !== currentStats.hunger || 
             newStats.happiness !== currentStats.happiness || 
             newStats.energy !== currentStats.energy
         ) {
             try {
-                // We don't update 'lastInteraction' here, so it only counts user clicks
                 await updateDoc(doc(db, "pets", myPet.id), { stats: newStats });
-                // No console log to avoid spam
-            } catch (err) {
-                console.error("Decay error:", err);
-            }
+            } catch (err) { console.error("Decay error:", err); }
         }
-    }, 30000); // 30000ms = 30 seconds
+    }, 30000); // 30 seconds
 
     return () => clearInterval(intervalId);
-  }, [myPet]); // Re-binds when pet data updates
+  }, [myPet]);
+
 
   // --- 6. LISTENERS ---
   useEffect(() => {
