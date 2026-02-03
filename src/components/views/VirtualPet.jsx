@@ -3,11 +3,8 @@ import React, { useState } from 'react';
 import { Heart, Zap, Utensils, Moon, ArrowRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// --- 🐱 CUSTOM 8-BIT CAT COMPONENT ---
+// --- 🐱 CUSTOM 8-BIT CAT COMPONENT (COLOR) ---
 const PixelCat = ({ color, secondaryColor, activity }) => {
-    // Basic 8-bit cat shape (16x16 grid)
-    // We use simple SVG rectangles to draw pixels
-    
     const isSleeping = activity === 'sleeping';
     const isEating = activity === 'eating';
 
@@ -15,14 +12,14 @@ const PixelCat = ({ color, secondaryColor, activity }) => {
         <svg viewBox="0 0 16 16" className="w-full h-full" shapeRendering="crispEdges">
             {/* --- BODY --- */}
             {isSleeping ? (
-                // SLEEPING POSE (Lying down)
+                // SLEEPING POSE
                 <path d="M2 10h12v4H2z" fill={color} />
             ) : (
                 // SITTING POSE
                 <>
                     <path d="M4 6h8v9H4z" fill={color} /> {/* Torso */}
-                    <path d="M4 11h2v4H4z" fill={secondaryColor} opacity="0.5" /> {/* Left Leg */}
-                    <path d="M10 11h2v4H10z" fill={secondaryColor} opacity="0.5" /> {/* Right Leg */}
+                    <path d="M4 11h2v4H4z" fill={secondaryColor} opacity="0.6" /> {/* Left Leg */}
+                    <path d="M10 11h2v4H10z" fill={secondaryColor} opacity="0.6" /> {/* Right Leg */}
                 </>
             )}
 
@@ -33,18 +30,18 @@ const PixelCat = ({ color, secondaryColor, activity }) => {
                 {/* Face Base */}
                 <path d="M3 4h10v5H3z" fill={color} />
                 
-                {/* Eyes (Blinking Logic could go here, but static for now) */}
+                {/* Eyes */}
                 {isSleeping ? (
-                    <path d="M5 6h2v1H5z M9 6h2v1H9z" fill={secondaryColor} /> // Closed Eyes
+                    <path d="M5 6h2v1H5z M9 6h2v1H9z" fill={secondaryColor} /> // Closed
                 ) : (
-                    <path d="M5 5h2v2H5z M9 5h2v2H9z" fill="#1a1a1a" /> // Open Eyes
+                    <path d="M5 5h2v2H5z M9 5h2v2H9z" fill="#1a1a1a" /> // Open (Dark Grey)
                 )}
 
                 {/* Mouth */}
                 {isEating ? (
-                    <path d="M7 7h2v2H7z" fill="#ff9999" /> // Open Mouth (Om nom)
+                    <path d="M7 7h2v2H7z" fill="#ff9999" /> // Open (Pink)
                 ) : (
-                    <path d="M7 7h2v1H7z" fill={secondaryColor} /> // Closed Mouth
+                    <path d="M7 7h2v1H7z" fill={secondaryColor} /> // Closed
                 )}
             </g>
 
@@ -63,16 +60,15 @@ const VirtualPet = ({ pet, onAdopt, onInteract }) => {
     const [activity, setActivity] = useState('idle');
     const [clickCount, setClickCount] = useState(0);
 
-    // --- 8-BIT BREEDS CONFIG ---
+    // --- 8-BIT COLOR BREEDS ---
     const BREEDS = [
-        { id: 'cat_orange', name: 'Tabby', color: '#e09f3e', secondary: '#9e6d24' }, // Orange
-        { id: 'cat_black', name: 'Void', color: '#2d3436', secondary: '#636e72' },   // Black/Grey
-        { id: 'cat_siamese', name: 'Siamese', color: '#dfe6e9', secondary: '#636e72' }, // White/Grey
-        { id: 'cat_calico', name: 'Calico', color: '#e17055', secondary: '#2d3436' },  // Rust/Black
+        { id: 'cat_orange', name: 'Tabby', color: '#e09f3e', secondary: '#9e6d24' }, // Orange / Brown
+        { id: 'cat_black', name: 'Void', color: '#2d3436', secondary: '#636e72' },   // Black / Dark Grey
+        { id: 'cat_siamese', name: 'Siamese', color: '#dfe6e9', secondary: '#2d3436' }, // White / Black points
+        { id: 'cat_calico', name: 'Calico', color: '#e17055', secondary: '#2d3436' },  // Rust / Black
     ];
 
     // --- ANIMATIONS ---
-    // Using "steps" easing creates that jerky 8-bit movement feel
     const petVariants = {
         idle: { 
             y: [0, -1, 0], 
@@ -182,7 +178,6 @@ const VirtualPet = ({ pet, onAdopt, onInteract }) => {
                         className="w-24 h-24 z-0 cursor-pointer select-none filter drop-shadow-sm"
                         onClick={() => { setClickCount(c => c + 1); handleAction('petting'); }}
                     >
-                        {/* 🟢 Render the Custom 8-Bit Cat */}
                         <PixelCat 
                             color={breedData.color} 
                             secondaryColor={breedData.secondary} 
