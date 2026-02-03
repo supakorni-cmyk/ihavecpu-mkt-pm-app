@@ -161,7 +161,7 @@ const VirtualPet = ({ pet, onAdopt, onInteract }) => {
             {/* --- DEVICE SHELL --- */}
             <div className="relative bg-pink-400 w-80 h-96 rounded-[50%_50%_45%_45%] p-6 shadow-[0_12px_0_rgb(190,24,93)] border-4 border-pink-700 flex flex-col items-center">
                 
-                <div className="absolute top-4 text-pink-800 font-black text-[24px] tracking-widest opacity-50 font-sans">{pet.name}</div>
+                <div className="absolute top-4 text-pink-800 font-black text-[10px] tracking-widest opacity-50 font-sans">TAMAGOTCHI</div>
 
                 {/* --- LCD SCREEN --- */}
                 <div className="w-48 h-48 bg-[#9ea73e] border-4 border-gray-700 rounded-xl shadow-[inset_0_0_20px_rgba(0,0,0,0.2)] relative overflow-hidden flex flex-col items-center justify-center mt-4">
