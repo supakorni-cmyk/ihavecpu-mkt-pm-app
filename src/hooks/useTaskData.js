@@ -74,7 +74,7 @@ export const useTaskData = (currentUser) => {
     const formData = {
         _subject: subject,
         _cc: CC_EMAILS,
-        _template: "box", // Clean 'Card' style
+        _template: "box", 
         _captcha: "false",
         _honey: "",
         ...cleanDataPayload
@@ -92,7 +92,6 @@ export const useTaskData = (currentUser) => {
 
   // --- 3. LINE FLEX MESSAGE ---
   const sendLinePush = async (task, headerTitle, headerColor = "#1DB446") => {
-    // 🔒 SECURE URL LOADING
     const PROXY_URL = import.meta.env.VITE_GOOGLE_SCRIPT_URL; 
 
     if (!PROXY_URL) {
@@ -277,58 +276,78 @@ export const useTaskData = (currentUser) => {
           const newPet = {
               ...petData,
               ownerEmail: currentUser.email,
-              // Start at 80 so users can feed them immediately
               stats: { hunger: 80, happiness: 80, energy: 80 },
               createdAt: new Date().toISOString(),
               lastInteraction: new Date().toISOString()
           };
           await addDoc(collection(db, "pets"), newPet);
-          console.log("Pet Adopted Successfully (Silent)");
       } catch (error) { console.error("Adoption failed:", error); }
   };
 
+  // 🟢 FIX: Matched action names ('eating', 'playing') with logic
   const interactWithPet = async (action) => {
       if (!myPet) return;
-      const newStats = { ...myPet.stats };
       
-      if (action === 'feed') {
-          newStats.hunger = Math.min(100, newStats.hunger + 20);
-          newStats.energy = Math.min(100, newStats.energy + 5);
-      } else if (action === 'play') {
-          // Play tires them out and makes them hungry!
-          newStats.happiness = Math.min(100, newStats.happiness + 15);
-          newStats.energy = Math.max(0, newStats.energy - 20);
-          newStats.hunger = Math.max(0, newStats.hunger - 10);
-      } else if (action === 'pet') {
-          newStats.happiness = Math.min(100, newStats.happiness + 10);
-      } else if (action === 'sleep') {
+      // Ensure values are numbers to avoid string errors
+      const currentStats = {
+          hunger: Number(myPet.stats?.hunger) || 0,
+          happiness: Number(myPet.stats?.happiness) || 0,
+          energy: Number(myPet.stats?.energy) || 0,
+      };
+
+      const newStats = { ...currentStats };
+      
+      // 1. FEED (Action: 'eating')
+      if (action === 'eating') {
+          newStats.hunger = Math.min(100, currentStats.hunger + 20);
+          newStats.energy = Math.min(100, currentStats.energy + 5);
+      } 
+      // 2. PLAY (Action: 'playing')
+      else if (action === 'playing') {
+          newStats.happiness = Math.min(100, currentStats.happiness + 15);
+          newStats.energy = Math.max(0, currentStats.energy - 20);
+          newStats.hunger = Math.max(0, currentStats.hunger - 10);
+      } 
+      // 3. PET (Action: 'petting')
+      else if (action === 'petting') {
+          newStats.happiness = Math.min(100, currentStats.happiness + 10);
+      } 
+      // 4. SLEEP (Action: 'sleeping')
+      else if (action === 'sleeping') {
           newStats.energy = 100;
-          newStats.hunger = Math.max(0, newStats.hunger - 20);
+          newStats.hunger = Math.max(0, currentStats.hunger - 20);
       }
       
+      console.log(`Action: ${action} | New Stats:`, newStats); // Debug Log
+
       try {
           await updateDoc(doc(db, "pets", myPet.id), { 
               stats: newStats,
               lastInteraction: new Date().toISOString()
           });
-      } catch (error) { console.error("Interaction failed:", error); }
+      } catch (error) { 
+          console.error("Interaction failed:", error); 
+          alert("Failed to save stats. Check console.");
+      }
   };
 
   // 🟢 GAME LOOP: PASSIVE DECAY (Every 30 Seconds)
   useEffect(() => {
-    if (!myPet) return;
+    if (!myPet || !myPet.stats) return;
 
     const intervalId = setInterval(async () => {
-        const currentStats = myPet.stats;
+        const currentStats = {
+            hunger: Number(myPet.stats.hunger) || 0,
+            happiness: Number(myPet.stats.happiness) || 0,
+            energy: Number(myPet.stats.energy) || 0,
+        };
         
-        // Decay logic
         const newStats = {
             hunger: Math.max(0, currentStats.hunger - 2),
             happiness: Math.max(0, currentStats.happiness - 2),
             energy: Math.max(0, currentStats.energy - 1)
         };
 
-        // Only save if stats changed
         if (
             newStats.hunger !== currentStats.hunger || 
             newStats.happiness !== currentStats.happiness || 
@@ -338,7 +357,7 @@ export const useTaskData = (currentUser) => {
                 await updateDoc(doc(db, "pets", myPet.id), { stats: newStats });
             } catch (err) { console.error("Decay error:", err); }
         }
-    }, 30000); // 30 seconds
+    }, 30000); 
 
     return () => clearInterval(intervalId);
   }, [myPet]);
@@ -365,7 +384,6 @@ export const useTaskData = (currentUser) => {
         setAllUsers(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })));
     }, (error) => console.log("Users not found"));
 
-    // 🟢 Pet Listener
     let unsubPet = () => {};
     if (currentUser?.email) {
         const qPet = query(collection(db, "pets"), where("ownerEmail", "==", currentUser.email));
@@ -392,9 +410,7 @@ export const useTaskData = (currentUser) => {
     };
   }, [currentUser]);
 
-  // --- 7. ACTIONS ---
-
-  // 🟢 SMART UPDATE: Triggers notification on important changes
+  // --- 7. ACTIONS (Existing) ---
   const updateTask = async (id, updates) => {
     try {
         const oldTask = tasks.find(t => t.id === id);
@@ -402,7 +418,6 @@ export const useTaskData = (currentUser) => {
 
         const cleanedUpdates = cleanData(updates);
         await updateDoc(doc(db, "tasks", id), cleanedUpdates);
-        console.log("Task Updated Successfully");
 
         const changedFields = [];
         if (updates.startTime && updates.startTime !== oldTask.startTime) changedFields.push("Start Time");
@@ -503,7 +518,6 @@ export const useTaskData = (currentUser) => {
   const addPhoto = (p) => setPhotos([...photos, { ...p, id: Date.now() }]);
   const deletePhoto = (id) => setPhotos(photos.filter(p => p.id !== id));
 
-  // 🟢 CLEAN NOTIFICATIONS: Remove canceled task alerts from UI
   const activeNotifications = useMemo(() => {
     return notifications.filter(n => {
         if (!n.taskId) return true;
