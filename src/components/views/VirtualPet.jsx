@@ -1,54 +1,74 @@
 // src/components/views/VirtualPet.jsx
 import React, { useState } from 'react';
-import { Heart, Zap, Utensils, Moon, Sparkles, Smile, Star } from 'lucide-react';
+import { Heart, Zap, Utensils, Moon, Sparkles, Star, Camera } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const VirtualPet = ({ pet, onAdopt, onInteract }) => {
     // --- STATE ---
     const [newPetName, setNewPetName] = useState("");
-    const [selectedBreed, setSelectedBreed] = useState("cat_orange");
+    const [selectedBreed, setSelectedBreed] = useState("real_orange");
     const [activity, setActivity] = useState('idle');
     const [clickCount, setClickCount] = useState(0);
 
-    // --- MODERN ASSETS (Emojis) ---
+    // --- 📸 REAL CAT ASSETS ---
+    // You can replace these URLs with your own photos!
     const BREEDS = [
-        { id: 'cat_orange', name: 'Ginger', emoji: '🐱', bg: 'bg-orange-100', text: 'text-orange-600' },
-        { id: 'cat_black', name: 'Void', emoji: '🐈‍⬛', bg: 'bg-gray-100', text: 'text-gray-600' },
-        { id: 'cat_siamese', name: 'Siamese', emoji: '🙀', bg: 'bg-blue-50', text: 'text-blue-600' },
-        { id: 'cat_calico', name: 'Calico', emoji: '😺', bg: 'bg-yellow-50', text: 'text-yellow-600' },
+        { 
+            id: 'real_orange', 
+            name: 'Ginger', 
+            image: 'https://images.unsplash.com/photo-1574158622682-e40e69881006?w=500&auto=format&fit=crop&q=60', // Orange Cat
+            color: 'bg-orange-100 text-orange-700'
+        },
+        { 
+            id: 'real_white', 
+            name: 'Snowball', 
+            image: 'https://images.unsplash.com/photo-1533738363-b7f9aef128ce?w=500&auto=format&fit=crop&q=60', // White Cat
+            color: 'bg-blue-50 text-blue-700'
+        },
+        { 
+            id: 'real_black', 
+            name: 'Midnight', 
+            image: 'https://images.unsplash.com/photo-1557246565-8a3d3ab5d7f6?w=500&auto=format&fit=crop&q=60', // Black Cat
+            color: 'bg-gray-100 text-gray-700'
+        },
+        { 
+            id: 'real_tabby', 
+            name: 'Tiger', 
+            image: 'https://images.unsplash.com/photo-1529778873920-4da4926a7071?w=500&auto=format&fit=crop&q=60', // Tabby
+            color: 'bg-emerald-50 text-emerald-700'
+        },
     ];
 
-    // --- MODERN ANIMATIONS (Smooth Physics) ---
+    // --- ANIMATIONS (Optimized for Photos) ---
     const petVariants = {
         idle: { 
-            y: [0, -8, 0], 
-            rotate: [0, 2, -2, 0],
-            scale: 1,
+            y: [0, -5, 0], 
+            scale: [1, 1.02, 1],
             transition: { repeat: Infinity, duration: 4, ease: "easeInOut" } 
         },
         eating: { 
-            scale: [1, 1.15, 1], 
             rotate: [0, -5, 5, 0],
-            transition: { repeat: Infinity, duration: 0.6 } 
+            scale: [1, 1.1, 1],
+            y: [0, 5, 0],
+            transition: { repeat: Infinity, duration: 0.5 } 
         },
         playing: { 
-            x: [-20, 20, -10, 10, 0], 
-            y: [0, -30, 0, -15, 0], 
-            rotate: [0, -15, 15, 0],
-            scale: [1, 1.1, 1],
+            x: [-15, 15, -10, 10, 0], 
+            y: [0, -20, 0, -10, 0], 
+            rotate: [0, -10, 10, 0],
             transition: { duration: 0.8, type: "spring" } 
         },
         sleeping: { 
             scale: [1, 0.95, 1], 
             opacity: 0.8,
-            y: 10,
+            filter: "brightness(0.7)", // Dim the lights for sleep
+            y: 5,
             transition: { repeat: Infinity, duration: 3, ease: "easeInOut" } 
         },
         petting: { 
-            scale: [1, 1.2, 1], 
-            rotate: [0, 5, -5, 0],
+            scale: 1.15, 
             filter: "brightness(1.1)",
-            transition: { duration: 0.4 } 
+            transition: { duration: 0.3 } 
         }
     };
 
@@ -61,24 +81,21 @@ const VirtualPet = ({ pet, onAdopt, onInteract }) => {
         setTimeout(() => setActivity('idle'), duration);
     };
 
-    // --- RENDER: MODERN ADOPTION CENTER ---
+    // --- 1. ADOPTION SCREEN ---
     if (!pet) {
         return (
             <div className="bg-white rounded-3xl p-8 shadow-xl border border-gray-100 text-center max-w-2xl mx-auto mt-8 relative overflow-hidden">
-                {/* Decorative Background */}
-                <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400"></div>
-                <div className="absolute -top-20 -right-20 w-64 h-64 bg-indigo-50 rounded-full blur-3xl opacity-50"></div>
+                <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400"></div>
                 
                 <div className="relative z-10">
-                    <div className="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-sm">
-                        <Sparkles size={28} />
+                    <div className="w-16 h-16 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-sm">
+                        <Camera size={28} />
                     </div>
                     
-                    <h2 className="text-2xl font-black text-gray-800 mb-2">Find Your Companion</h2>
-                    <p className="text-gray-500 mb-8 text-sm">Choose a virtual pet to keep you company while you work.</p>
+                    <h2 className="text-2xl font-black text-gray-800 mb-2">Adoption Center</h2>
+                    <p className="text-gray-500 mb-8 text-sm">Pick a companion to join your workspace.</p>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-left">
-                        {/* Breed Selector */}
                         <div>
                             <label className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 block">1. Choose Breed</label>
                             <div className="grid grid-cols-2 gap-3">
@@ -86,20 +103,21 @@ const VirtualPet = ({ pet, onAdopt, onInteract }) => {
                                     <button 
                                         key={breed.id}
                                         onClick={() => setSelectedBreed(breed.id)}
-                                        className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-2 
+                                        className={`relative group rounded-xl overflow-hidden aspect-square border-2 transition-all 
                                             ${selectedBreed === breed.id 
-                                                ? `border-indigo-500 bg-indigo-50 ring-2 ring-indigo-100 ring-offset-1` 
-                                                : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50'
+                                                ? `border-blue-500 ring-2 ring-blue-100 ring-offset-2` 
+                                                : 'border-transparent hover:border-gray-200'
                                             }`}
                                     >
-                                        <span className="text-3xl filter drop-shadow-sm">{breed.emoji}</span>
-                                        <span className="text-xs font-bold text-gray-600">{breed.name}</span>
+                                        <img src={breed.image} alt={breed.name} className="w-full h-full object-cover transition duration-500 group-hover:scale-110" />
+                                        <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[10px] font-bold py-1 text-center backdrop-blur-sm">
+                                            {breed.name}
+                                        </div>
                                     </button>
                                 ))}
                             </div>
                         </div>
 
-                        {/* Name Input */}
                         <div className="flex flex-col justify-between">
                             <div>
                                 <label className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 block">2. Name It</label>
@@ -107,17 +125,17 @@ const VirtualPet = ({ pet, onAdopt, onInteract }) => {
                                     type="text" 
                                     value={newPetName}
                                     onChange={(e) => setNewPetName(e.target.value)}
-                                    placeholder="e.g. Luna"
-                                    className="w-full p-4 bg-gray-50 rounded-xl border border-gray-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50/50 outline-none font-bold text-gray-700 placeholder-gray-300 transition-all"
+                                    placeholder="e.g. Garfield"
+                                    className="w-full p-4 bg-gray-50 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-50/50 outline-none font-bold text-gray-700 transition-all"
                                 />
                             </div>
 
                             <button 
                                 onClick={() => onAdopt({ name: newPetName, breed: selectedBreed })}
                                 disabled={!newPetName.trim()}
-                                className="w-full py-4 bg-gray-900 text-white rounded-xl font-bold hover:bg-black transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl hover:-translate-y-1 mt-4 flex items-center justify-center gap-2"
+                                className="w-full py-4 bg-gray-900 text-white rounded-xl font-bold hover:bg-black transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg mt-4 flex items-center justify-center gap-2"
                             >
-                                <Heart size={18} className="fill-white" /> Adopt Now
+                                <Heart size={18} className="fill-white" /> Adopt This Pet
                             </button>
                         </div>
                     </div>
@@ -126,30 +144,21 @@ const VirtualPet = ({ pet, onAdopt, onInteract }) => {
         );
     }
 
-    // --- RENDER: MODERN DASHBOARD ---
+    // --- 2. PET DASHBOARD ---
     const breedData = BREEDS.find(b => b.id === pet.breed) || BREEDS[0];
 
-    // Determine Avatar & Status
-    const getAvatar = () => {
-        if (activity === 'sleeping') return "💤";
-        if (activity === 'eating') return "😋";
-        if (activity === 'playing') return "😺";
-        if (pet.stats.hunger < 30) return "😫";
-        return breedData.emoji;
-    };
-
+    // Status Text
     const getStatusText = () => {
-        if (activity === 'sleeping') return "Sleeping...";
-        if (activity === 'eating') return "Yum yum!";
-        if (activity === 'playing') return "Zoomies!";
-        if (pet.stats.hunger < 30) return "Hungry!";
-        if (pet.stats.energy < 30) return "Sleepy...";
-        return "Feeling Good";
+        if (activity === 'sleeping') return "Shh... Sleeping 💤";
+        if (activity === 'eating') return "Eating... Yum! 🐟";
+        if (activity === 'playing') return "Having fun! 🧶";
+        if (pet.stats.hunger < 30) return "So hungry... 😿";
+        return "Feeling happy! 😺";
     };
 
     return (
-        <div className="bg-white rounded-3xl p-6 shadow-xl border border-indigo-50 relative overflow-hidden mt-8">
-            {/* Dynamic Background Gradient based on Activity */}
+        <div className="bg-white rounded-3xl p-6 shadow-xl border border-blue-50 relative overflow-hidden mt-8">
+            {/* Background Glow */}
             <div className={`absolute inset-0 opacity-20 transition-colors duration-1000 
                 ${activity === 'sleeping' ? 'bg-indigo-900' : 
                   activity === 'playing' ? 'bg-yellow-100' : 
@@ -158,49 +167,60 @@ const VirtualPet = ({ pet, onAdopt, onInteract }) => {
             
             <div className="flex flex-col md:flex-row gap-8 items-center relative z-10">
                 
-                {/* 1. Avatar Section */}
+                {/* 🟢 AVATAR AREA (PHOTO) */}
                 <div className="flex flex-col items-center justify-center min-w-[200px]">
                     <div className="relative w-48 h-48 flex items-center justify-center">
-                        {/* Glow Effect */}
-                        <div className={`absolute w-32 h-32 rounded-full blur-2xl opacity-40 transition-colors duration-500
-                            ${activity === 'playing' ? 'bg-yellow-400' : 'bg-indigo-300'}`} 
+                        
+                        {/* Circle Backdrop */}
+                        <div className={`absolute inset-2 rounded-full border-4 border-white shadow-inner opacity-50
+                            ${activity === 'playing' ? 'bg-yellow-100' : 'bg-gray-100'}`} 
                         />
 
-                        {/* THE PET */}
+                        {/* THE REAL PHOTO */}
                         <motion.div 
                             variants={petVariants}
                             animate={activity}
-                            className="text-9xl cursor-pointer relative z-10 select-none filter drop-shadow-2xl"
+                            className="relative w-40 h-40 rounded-full overflow-hidden border-4 border-white shadow-2xl cursor-pointer z-10"
                             onClick={() => { setClickCount(c => c + 1); handleAction('petting'); }}
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.9 }}
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
                         >
-                            {getAvatar()}
+                            <img 
+                                src={breedData.image} 
+                                alt="Pet" 
+                                className="w-full h-full object-cover"
+                            />
+                            
+                            {/* Overlay for Sleep */}
+                            {activity === 'sleeping' && (
+                                <div className="absolute inset-0 bg-indigo-900/40 backdrop-blur-[1px] flex items-center justify-center">
+                                    <span className="text-3xl">💤</span>
+                                </div>
+                            )}
                         </motion.div>
 
                         {/* Floating Emojis */}
                         <AnimatePresence>
                             {activity === 'eating' && (
-                                <motion.div initial={{opacity:0, y:10}} animate={{opacity:1, y:-40}} exit={{opacity:0}} className="absolute text-4xl">🐟</motion.div>
+                                <motion.div initial={{opacity:0, y:20}} animate={{opacity:1, y:-20}} exit={{opacity:0}} className="absolute -right-2 top-0 text-4xl drop-shadow-md">🍗</motion.div>
                             )}
                             {activity === 'playing' && (
-                                <motion.div initial={{opacity:0, scale:0}} animate={{opacity:1, scale:1.5}} exit={{opacity:0}} className="absolute top-0 right-0 text-4xl">🧶</motion.div>
+                                <motion.div initial={{opacity:0, scale:0}} animate={{opacity:1, scale:1.2}} exit={{opacity:0}} className="absolute -left-2 top-10 text-4xl drop-shadow-md">🎾</motion.div>
                             )}
                             {activity === 'petting' && (
-                                <motion.div key={clickCount} initial={{y:0, opacity:1, scale:0.5}} animate={{y:-50, opacity:0, scale:1.5}} className="absolute top-0 text-pink-500">
+                                <motion.div key={clickCount} initial={{y:0, opacity:1, scale:0.5}} animate={{y:-60, opacity:0, scale:1.5}} className="absolute top-0 text-pink-500 drop-shadow-sm">
                                     <Heart size={40} fill="currentColor" />
                                 </motion.div>
                             )}
                         </AnimatePresence>
                     </div>
 
-                    <div className="text-center mt-2">
+                    <div className="text-center mt-4">
                         <h3 className="text-2xl font-black text-gray-800 flex items-center gap-2 justify-center">
                             {pet.name} 
                             {pet.stats.happiness > 90 && <Star size={20} className="text-yellow-400 fill-yellow-400 animate-spin-slow" />}
                         </h3>
-                        <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold mt-1 shadow-sm transition-colors duration-300
-                            ${activity === 'idle' ? 'bg-white text-gray-500' : 'bg-gray-900 text-white'}`}>
+                        <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold mt-1 shadow-sm transition-colors duration-300 bg-white border border-gray-100 text-gray-500`}>
                             {getStatusText()}
                         </span>
                     </div>
@@ -209,7 +229,7 @@ const VirtualPet = ({ pet, onAdopt, onInteract }) => {
                 {/* 2. Controls & Stats */}
                 <div className="flex-1 w-full space-y-6">
                     
-                    {/* Modern Stats Bars */}
+                    {/* Stats Bars */}
                     <div className="space-y-4 bg-white/60 backdrop-blur-sm p-6 rounded-2xl border border-white shadow-sm">
                         <ModernStatBar icon={<Utensils size={16}/>} label="Hunger" value={pet.stats.hunger} color="bg-green-500" />
                         <ModernStatBar icon={<Smile size={16}/>} label="Happiness" value={pet.stats.happiness} color="bg-pink-500" />
@@ -222,28 +242,28 @@ const VirtualPet = ({ pet, onAdopt, onInteract }) => {
                             icon={<Utensils size={20}/>} 
                             label="Feed" 
                             onClick={() => handleAction('eating')} 
-                            color="text-green-600 bg-green-50 hover:bg-green-100 hover:ring-green-200" 
+                            color="text-green-600 bg-green-50 hover:bg-green-100 hover:ring-2 hover:ring-green-200" 
                             disabled={activity !== 'idle'}
                         />
                         <ModernActionButton 
                             icon={<Heart size={20}/>} 
                             label="Pet" 
                             onClick={() => handleAction('petting')} 
-                            color="text-pink-600 bg-pink-50 hover:bg-pink-100 hover:ring-pink-200" 
+                            color="text-pink-600 bg-pink-50 hover:bg-pink-100 hover:ring-2 hover:ring-pink-200" 
                             disabled={activity !== 'idle'}
                         />
                         <ModernActionButton 
                             icon={<Zap size={20}/>} 
                             label="Play" 
                             onClick={() => handleAction('playing')} 
-                            color="text-yellow-600 bg-yellow-50 hover:bg-yellow-100 hover:ring-yellow-200" 
+                            color="text-yellow-600 bg-yellow-50 hover:bg-yellow-100 hover:ring-2 hover:ring-yellow-200" 
                             disabled={activity !== 'idle'}
                         />
                         <ModernActionButton 
                             icon={<Moon size={20}/>} 
                             label="Sleep" 
                             onClick={() => handleAction('sleeping')} 
-                            color="text-indigo-600 bg-indigo-50 hover:bg-indigo-100 hover:ring-indigo-200" 
+                            color="text-indigo-600 bg-indigo-50 hover:bg-indigo-100 hover:ring-2 hover:ring-indigo-200" 
                             disabled={activity !== 'idle'}
                         />
                     </div>
