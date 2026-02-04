@@ -52,21 +52,18 @@ export const useTaskData = (currentUser) => {
       });
   };
 
-  // --- 🟢 HELPER: Smart URL Validation ---
+  // --- HELPER: Smart URL Validation ---
   const getValidUrl = (string) => {
       if (!string || typeof string !== 'string') return null;
       let urlToCheck = string.trim();
-      
-      // Auto-add https if missing (for button compatibility)
       if (!urlToCheck.startsWith('http://') && !urlToCheck.startsWith('https://')) {
           urlToCheck = `https://${urlToCheck}`;
       }
-
       try {
-          new URL(urlToCheck); // Will throw if invalid
+          new URL(urlToCheck); 
           return urlToCheck;
       } catch (_) {
-          return null; // Not a URL
+          return null;
       }
   };
 
@@ -100,7 +97,7 @@ export const useTaskData = (currentUser) => {
     } catch (error) { console.error("❌ Email Error:", error); }
   };
 
-  // --- 3. LINE FLEX MESSAGE (Updated) ---
+  // --- 3. LINE FLEX MESSAGE (Megaphone Fallback) ---
   const sendLinePush = async (task, headerTitle, headerColor = "#1DB446") => {
     const PROXY_URL = import.meta.env.VITE_GOOGLE_SCRIPT_URL; 
 
@@ -121,6 +118,7 @@ export const useTaskData = (currentUser) => {
         }
     ];
 
+    // --- TIME FORMAT ---
     const formatTime = (isoString) => {
         if (!isoString) return null;
         return new Date(isoString).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
@@ -128,126 +126,133 @@ export const useTaskData = (currentUser) => {
     
     let timeDisplay = "TBD";
     if (task.startTime) {
-        timeDisplay = formatTime(task.startTime);
+        timeDisplay = `${formatTime(task.startTime)}`;
         if (task.endTime) timeDisplay += ` - ${formatTime(task.endTime)}`;
     } else if (task.deadline) {
         timeDisplay = `Due: ${formatTime(task.deadline)}`;
     }
 
-    // 🟢 1. CHECK LINKS
+    // --- LINKS & IMAGE ---
     const refLink = getValidUrl(task.reference);
     const finalLink = getValidUrl(task.finalFile);
-    const locationLink = getValidUrl(task.location); // Check if location is a URL
+    const locationLink = getValidUrl(task.location);
+    
+    // 🟢 UPDATED FALLBACK IMAGE: Red Megaphone on Orange Background
+    const heroImageUrl = getValidUrl(task.imageUrl) || "https://images.unsplash.com/photo-1585676625395-9c8d30327776?q=80&w=1000&auto=format&fit=crop";
 
-    // 🟢 2. CREATE BUTTONS
-    const linkButtons = [];
+    // --- CREATE BUTTONS (White Outline Style) ---
+    const actions = [];
+    if (refLink) actions.push({ type: "uri", label: "📄 Reference", uri: refLink });
+    if (finalLink) actions.push({ type: "uri", label: "📂 Final File", uri: finalLink });
+    if (locationLink) actions.push({ type: "uri", label: "📍 Location", uri: locationLink });
 
-    if (refLink) {
-        linkButtons.push({
-            type: "button",
-            style: "secondary",
-            height: "sm",
-            color: "#3B82F6", // Blue
-            action: { type: "uri", label: "📄 Reference", uri: refLink },
-            margin: "sm"
-        });
-    }
+    const buttonComponents = actions.map(act => ({
+        type: "button",
+        style: "secondary",
+        color: "#ffffff", // White Text/Border
+        height: "sm",
+        action: act,
+        margin: "sm"
+    }));
 
-    if (finalLink) {
-        linkButtons.push({
-            type: "button",
-            style: "secondary",
-            height: "sm",
-            color: "#10B981", // Green
-            action: { type: "uri", label: "📂 Final File", uri: finalLink },
-            margin: "sm"
-        });
-    }
-
-    if (locationLink) {
-        linkButtons.push({
-            type: "button",
-            style: "secondary",
-            height: "sm",
-            color: "#F59E0B", // Orange
-            action: { type: "uri", label: "📍 Location Map", uri: locationLink },
-            margin: "sm"
-        });
-    }
-
-    // 🟢 3. CONSTRUCT FLEX MESSAGE
+    // --- FLEX MESSAGE DESIGN ---
     const flexMessage = {
         type: "flex",
         altText: `${headerTitle}: ${task.title}`,
         contents: {
             type: "bubble",
             size: "mega",
-            header: {
+            // HERO BLOCK
+            hero: {
                 type: "box",
                 layout: "vertical",
                 contents: [
-                    { type: "text", text: headerTitle, color: "#ffffff", weight: "bold", size: "md" }
+                    {
+                        type: "image",
+                        url: heroImageUrl,
+                        size: "full",
+                        aspectMode: "cover",
+                        aspectRatio: "20:13",
+                        gravity: "center"
+                    },
+                    // TAG OVERLAY
+                    {
+                        type: "box",
+                        layout: "horizontal",
+                        contents: [
+                            {
+                                type: "text",
+                                text: (task.tag || "Task").toUpperCase(),
+                                size: "xs",
+                                color: "#ffffff",
+                                align: "center",
+                                weight: "bold"
+                            }
+                        ],
+                        position: "absolute",
+                        backgroundColor: "#eb4d4b", // Red Tag
+                        cornerRadius: "md",
+                        paddingAll: "xs",
+                        offsetTop: "12px",
+                        offsetLeft: "12px",
+                        maxWidth: "120px"
+                    }
                 ],
-                backgroundColor: headerColor, 
-                paddingAll: "15px"
+                paddingAll: "0px"
             },
+            // BODY BLOCK
             body: {
                 type: "box",
                 layout: "vertical",
+                backgroundColor: "#202833", // Dark Navy
                 contents: [
-                    { type: "text", text: task.title, weight: "bold", size: "xl", margin: "md", wrap: true },
-                    { type: "text", text: task.description || "No details provided.", size: "sm", color: "#666666", margin: "sm", wrap: true, maxLines: 3 },
-                    { type: "separator", margin: "lg" },
                     {
-                        type: "box",
-                        layout: "vertical",
-                        margin: "lg",
-                        spacing: "sm",
-                        contents: [
-                            {
-                                type: "box",
-                                layout: "baseline",
-                                contents: [
-                                    { type: "text", text: "Tag", color: "#aaaaaa", size: "xs", flex: 2 },
-                                    { type: "text", text: task.tag || "None", color: "#666666", size: "xs", flex: 5, wrap: true }
-                                ]
-                            },
-                            {
-                                type: "box",
-                                layout: "baseline",
-                                contents: [
-                                    { type: "text", text: "Date", color: "#aaaaaa", size: "xs", flex: 2 },
-                                    { type: "text", text: task.startTime ? new Date(task.startTime).toLocaleDateString('en-GB') : (task.deadline ? new Date(task.deadline).toLocaleDateString('en-GB') : "TBD"), color: "#666666", size: "xs", flex: 5 }
-                                ]
-                            },
-                            {
-                                type: "box",
-                                layout: "baseline",
-                                contents: [
-                                    { type: "text", text: "Time", color: "#aaaaaa", size: "xs", flex: 2 },
-                                    { type: "text", text: timeDisplay, color: "#666666", size: "xs", flex: 5 }
-                                ]
-                            },
-                            // 🟢 Show Location TEXT only if it is NOT a Link (e.g. "Meeting Room 1")
-                            (task.location && !locationLink) ? {
-                                type: "box",
-                                layout: "baseline",
-                                contents: [
-                                    { type: "text", text: "Location", color: "#aaaaaa", size: "xs", flex: 2 },
-                                    { type: "text", text: task.location, color: "#666666", size: "xs", flex: 5, wrap: true }
-                                ]
-                            } : null
-                        ].filter(Boolean)
-                    }
-                ]
-            },
-            // 🟢 4. ADD FOOTER IF BUTTONS EXIST
-            footer: linkButtons.length > 0 ? {
-                type: "box",
-                layout: "vertical",
-                spacing: "sm",
-                contents: linkButtons
-            } : undefined
+                        type: "text",
+                        text: headerTitle,
+                        weight: "bold",
+                        size: "xxs",
+                        color: "#eb4d4b" 
+                    },
+                    {
+                        type: "text",
+                        text: task.title,
+                        weight: "bold",
+                        size: "xl",
+                        color: "#ffffff",
+                        wrap: true,
+                        margin: "sm"
+                    },
+                    {
+                        type: "text",
+                        text: timeDisplay,
+                        size: "sm",
+                        color: "#9ca3af",
+                        margin: "xs"
+                    },
+                    (task.location && !locationLink) ? {
+                        type: "text",
+                        text: `📍 ${task.location}`,
+                        size: "xs",
+                        color: "#6b7280",
+                        margin: "md",
+                        wrap: true
+                    } : null,
+                    ...(buttonComponents.length > 0 ? [
+                        {
+                            type: "separator",
+                            margin: "lg",
+                            color: "#374151"
+                        },
+                        {
+                            type: "box",
+                            layout: "vertical",
+                            margin: "lg",
+                            contents: buttonComponents
+                        }
+                    ] : [])
+                ].filter(Boolean),
+                paddingAll: "20px"
+            }
         }
     };
 
@@ -269,16 +274,13 @@ export const useTaskData = (currentUser) => {
     });
   };
 
-  // --- 4. ALERT LOGIC ---
+  // --- 4. ALERT LOGIC (unchanged) ---
   const triggerAlert = async (task, prefix, userEmail, updateFlag) => {
     const alertId = `${task.id}-${Object.keys(updateFlag)[0]}`; 
     if (processedAlerts.current.has(alertId)) return;
     processedAlerts.current.add(alertId);
 
-    let color = "#F59E0B"; 
-    if (prefix.includes("TODAY") || prefix.includes("URGENT")) color = "#EF4444"; 
-
-    await sendLinePush(task, prefix, color);
+    await sendLinePush(task, prefix, "#EF4444");
 
     const emailData = {
         "Status": "⚠️ " + prefix.replace("🔥🔥", "").replace("🔥", "").trim(),
