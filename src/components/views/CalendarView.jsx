@@ -5,24 +5,30 @@ import {
   ChevronLeft, 
   ChevronRight,
   Clock,
-  MapPin,
-  List,
-  Grid,
-  Maximize,
-  Sparkles, // Import Sparkles icon
-  X
+  Sparkles, 
+  X,
+  Plus
 } from 'lucide-react';
 import { TAG_COLORS } from '../../utils/constants';
-// 1. Import the AI Service
 import { summarizeSchedule } from '../../utils/aiService';
 
-const CalendarView = ({ tasks, setSelectedTaskId }) => {
+// 🟢 1. IMPORT MODALS
+import AddTaskModal from '../modals/AddTaskModal';
+import EditTaskModal from '../modals/EditTaskModal';
+
+// 🟢 2. ADD PROPS for Data Handling
+const CalendarView = ({ tasks, onAddTask, onUpdateTask, onDeleteTask }) => {
     const [currentDate, setCurrentDate] = useState(new Date());
     const [viewMode, setViewMode] = useState('month'); 
     
     // --- AI STATE ---
     const [aiSummary, setAiSummary] = useState(null);
     const [isGenerating, setIsGenerating] = useState(false);
+
+    // --- 🟢 MODAL STATE ---
+    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [editingTask, setEditingTask] = useState(null);
+    const [selectedDateForNewTask, setSelectedDateForNewTask] = useState(null);
 
     // --- DATA FILTERING ---
     const activeTasks = useMemo(() => {
@@ -54,6 +60,22 @@ const CalendarView = ({ tasks, setSelectedTaskId }) => {
         });
     };
 
+    // --- 🟢 INTERACTION HANDLERS ---
+    
+    // Click Empty Date -> Open Add Modal
+    const handleDateClick = (date) => {
+        // Format date to YYYY-MM-DDTHH:MM for the input field
+        const isoString = new Date(date.setHours(9, 0, 0, 0)).toISOString().slice(0, 16);
+        setSelectedDateForNewTask(isoString);
+        setIsAddModalOpen(true);
+    };
+
+    // Click Task -> Open Edit Modal
+    const handleTaskClick = (e, task) => {
+        e.stopPropagation(); // Prevent triggering the date click
+        setEditingTask(task);
+    };
+
     // --- NAVIGATION HANDLERS ---
     const navigate = (direction) => {
         const newDate = new Date(currentDate);
@@ -65,7 +87,7 @@ const CalendarView = ({ tasks, setSelectedTaskId }) => {
             newDate.setDate(currentDate.getDate() + (direction === 'next' ? 1 : -1));
         }
         setCurrentDate(newDate);
-        setAiSummary(null); // Clear summary when changing dates
+        setAiSummary(null); 
     };
 
     const goToToday = () => {
@@ -75,7 +97,6 @@ const CalendarView = ({ tasks, setSelectedTaskId }) => {
 
     // --- AI HANDLER ---
     const handleAiBriefing = async () => {
-        // 1. Determine context based on view mode
         let contextTasks = [];
         let dateLabel = "";
 
@@ -83,9 +104,6 @@ const CalendarView = ({ tasks, setSelectedTaskId }) => {
             contextTasks = getTasksForDate(currentDate);
             dateLabel = currentDate.toDateString();
         } else {
-            // For month/week, let's just summarize the currently selected "focused" day 
-            // OR finding the busiest day. For simplicity, let's summarize "Today's" tasks
-            // even if looking at a month view, or the first day of the view.
             const today = new Date();
             contextTasks = getTasksForDate(today);
             dateLabel = "Today (" + today.toDateString() + ")";
@@ -102,14 +120,11 @@ const CalendarView = ({ tasks, setSelectedTaskId }) => {
         setIsGenerating(false);
     };
 
-    // --- RENDER HELPERS (Keep existing code for renderMonthView, renderWeekView...) ---
-    // [ ... PASTE YOUR EXISTING renderMonthView, renderWeekView HERE ... ]
-    // For brevity, I am reusing your exact logic for these functions.
-    
-    // (I will assume renderMonthView, renderWeekView, renderDayView are unchanged from your file)
+    // --- RENDER VIEWS ---
+
     const renderMonthView = () => {
         const daysInMonth = new Date(year, month + 1, 0).getDate();
-        const firstDayIndex = new Date(year, month, 1).getDay(); // 0 = Sun
+        const firstDayIndex = new Date(year, month, 1).getDay(); 
         
         return (
             <div className="flex-1 flex flex-col h-full bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
@@ -129,7 +144,11 @@ const CalendarView = ({ tasks, setSelectedTaskId }) => {
                         const todayClass = isToday(currentDayDate) ? 'bg-blue-50/50' : '';
 
                         return (
-                            <div key={dayNum} className={`p-2 min-h-[100px] hover:bg-gray-50 transition-colors group flex flex-col ${todayClass}`}>
+                            <div 
+                                key={dayNum} 
+                                onClick={() => handleDateClick(currentDayDate)} // 🟢 CLICK DATE
+                                className={`p-2 min-h-[100px] hover:bg-gray-50 transition-colors group flex flex-col cursor-pointer ${todayClass}`}
+                            >
                                 <div className="flex justify-between items-start mb-1">
                                     <span className={`w-7 h-7 flex items-center justify-center rounded-full text-sm font-bold ${isToday(currentDayDate) ? 'bg-blue-600 text-white shadow-md' : 'text-gray-700'}`}>
                                         {dayNum}
@@ -137,7 +156,13 @@ const CalendarView = ({ tasks, setSelectedTaskId }) => {
                                 </div>
                                 <div className="flex-1 flex flex-col gap-1 overflow-hidden">
                                     {dayTasks.map(task => (
-                                        <button key={task.id} onClick={(e) => {e.stopPropagation(); setSelectedTaskId(task.id)}} className={`text-left w-full px-2 py-1 rounded text-[10px] font-bold truncate transition-all border-l-2 shadow-sm hover:shadow-md hover:scale-[1.01] bg-white ${(TAG_COLORS[task.tag] || 'bg-gray-100').split(' ')[0].replace('bg-', 'border-').replace('100', '500')} text-gray-700`}>{task.title}</button>
+                                        <button 
+                                            key={task.id} 
+                                            onClick={(e) => handleTaskClick(e, task)} // 🟢 CLICK TASK
+                                            className={`text-left w-full px-2 py-1 rounded text-[10px] font-bold truncate transition-all border-l-2 shadow-sm hover:shadow-md hover:scale-[1.01] bg-white ${(TAG_COLORS[task.tag] || 'bg-gray-100').split(' ')[0].replace('bg-', 'border-').replace('100', '500')} text-gray-700`}
+                                        >
+                                            {task.title}
+                                        </button>
                                     ))}
                                 </div>
                             </div>
@@ -149,8 +174,6 @@ const CalendarView = ({ tasks, setSelectedTaskId }) => {
     };
 
     const renderWeekView = () => {
-         // ... (Your existing code for Week View) ...
-         // Placeholder to save space in this answer, paste your original code here
          const startOfWeek = new Date(currentDate);
          const day = startOfWeek.getDay();
          const diff = startOfWeek.getDate() - day; 
@@ -167,13 +190,25 @@ const CalendarView = ({ tasks, setSelectedTaskId }) => {
                         const dayTasks = getTasksForDate(dateObj);
                         const isCurrent = isToday(dateObj);
                         return (
-                            <div key={i} className={`flex flex-col h-full ${isCurrent ? 'bg-blue-50/30' : 'bg-white'}`}>
+                            <div 
+                                key={i} 
+                                onClick={() => handleDateClick(dateObj)} // 🟢 CLICK DATE
+                                className={`flex flex-col h-full cursor-pointer hover:bg-gray-50 transition-colors ${isCurrent ? 'bg-blue-50/30' : 'bg-white'}`}
+                            >
                                 <div className={`p-3 text-center border-b border-gray-100 ${isCurrent ? 'bg-blue-50' : 'bg-gray-50'}`}>
                                     <p className={`text-xs font-bold uppercase mb-1 ${i === 0 || i === 6 ? 'text-red-400' : 'text-gray-500'}`}>{dayNames[dateObj.getDay()]}</p>
                                     <div className={`mx-auto w-8 h-8 flex items-center justify-center rounded-full text-lg font-black ${isCurrent ? 'bg-blue-600 text-white shadow' : 'text-gray-800'}`}>{dateObj.getDate()}</div>
                                 </div>
                                 <div className="flex-1 p-2 overflow-y-auto space-y-2 custom-scrollbar">
-                                    {dayTasks.map(task => <div key={task.id} onClick={(e)=>{e.stopPropagation(); setSelectedTaskId(task.id)}} className="bg-white border border-gray-200 rounded-lg p-2.5 shadow-sm hover:shadow-md hover:border-blue-300 transition-all cursor-pointer group"><h4 className="font-bold text-xs text-gray-800 leading-tight mb-2 line-clamp-2 group-hover:text-blue-600">{task.title}</h4></div>)}
+                                    {dayTasks.map(task => (
+                                        <div 
+                                            key={task.id} 
+                                            onClick={(e) => handleTaskClick(e, task)} // 🟢 CLICK TASK
+                                            className="bg-white border border-gray-200 rounded-lg p-2.5 shadow-sm hover:shadow-md hover:border-blue-300 transition-all cursor-pointer group"
+                                        >
+                                            <h4 className="font-bold text-xs text-gray-800 leading-tight mb-2 line-clamp-2 group-hover:text-blue-600">{task.title}</h4>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         );
@@ -184,10 +219,9 @@ const CalendarView = ({ tasks, setSelectedTaskId }) => {
     };
 
     const renderDayView = () => {
-        // ... (Your existing code for Day View) ...
         const dayTasks = getTasksForDate(currentDate);
         return (
-            <div className="flex-1 bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden flex flex-col max-w-4xl mx-auto w-full">
+            <div className="flex-1 bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden flex flex-col max-w-4xl mx-auto w-full relative">
                 <div className="p-6 border-b border-gray-100 bg-gray-50 flex items-center gap-4">
                     <div className="w-16 h-16 bg-blue-600 rounded-2xl flex flex-col items-center justify-center text-white shadow-lg">
                         <span className="text-xs font-bold uppercase">{dayNames[currentDate.getDay()]}</span>
@@ -197,11 +231,23 @@ const CalendarView = ({ tasks, setSelectedTaskId }) => {
                 </div>
                 <div className="flex-1 overflow-y-auto p-6 space-y-3 bg-gray-50/50">
                     {dayTasks.map(task => (
-                        <div key={task.id} onClick={() => setSelectedTaskId(task.id)} className="flex items-center bg-white p-4 rounded-xl border border-gray-200 shadow-sm hover:shadow-md hover:border-blue-300 transition-all cursor-pointer group">
+                        <div 
+                            key={task.id} 
+                            onClick={(e) => handleTaskClick(e, task)} // 🟢 CLICK TASK
+                            className="flex items-center bg-white p-4 rounded-xl border border-gray-200 shadow-sm hover:shadow-md hover:border-blue-300 transition-all cursor-pointer group"
+                        >
                            <div className="w-16 flex flex-col items-center justify-center text-gray-400 border-r border-gray-100 pr-4 mr-4"><Clock size={20} className="mb-1 text-blue-500" /><span className="text-xs font-medium">All Day</span></div>
                            <div className="flex-1"><h4 className="text-lg font-bold text-gray-800 group-hover:text-blue-600 transition-colors">{task.title}</h4></div>
                         </div>
                     ))}
+                    
+                    {/* 🟢 ADD TASK BUTTON IN DAY VIEW */}
+                    <button 
+                        onClick={() => handleDateClick(currentDate)}
+                        className="w-full py-4 border-2 border-dashed border-gray-300 rounded-xl text-gray-400 font-bold hover:border-blue-400 hover:text-blue-500 hover:bg-blue-50 transition flex items-center justify-center gap-2"
+                    >
+                        <Plus size={20} /> Add Task for Today
+                    </button>
                 </div>
             </div>
         );
@@ -236,7 +282,7 @@ const CalendarView = ({ tasks, setSelectedTaskId }) => {
                 </div>
 
                 <div className="flex items-center gap-3">
-                     {/* ✨ NEW AI BUTTON ✨ */}
+                     {/* AI BUTTON */}
                     <button 
                         onClick={handleAiBriefing}
                         disabled={isGenerating}
@@ -300,6 +346,32 @@ const CalendarView = ({ tasks, setSelectedTaskId }) => {
                 {viewMode === 'week' && renderWeekView()}
                 {viewMode === 'day' && renderDayView()}
             </div>
+
+            {/* 🟢 RENDER MODALS */}
+            {isAddModalOpen && (
+                <AddTaskModal 
+                    onClose={() => setIsAddModalOpen(false)}
+                    onAdd={onAddTask}
+                    // Pass the clicked date as a starting point if your AddTaskModal supports it
+                    // If not, you might need to update AddTaskModal to accept 'initialDate'
+                    initialDate={selectedDateForNewTask} 
+                />
+            )}
+
+            {editingTask && (
+                <EditTaskModal 
+                    task={editingTask}
+                    onClose={() => setEditingTask(null)}
+                    onUpdate={(updates) => {
+                        onUpdateTask(editingTask.id, updates);
+                        setEditingTask(null);
+                    }}
+                    // If you have a Delete handler in EditTaskModal or need to pass it explicitly:
+                    onDelete={() => onDeleteTask(editingTask.id)} 
+                    // Add Requirement Handler (if used in Calendar)
+                    onOpenRequirement={() => {}} 
+                />
+            )}
         </div>
     );
 };
