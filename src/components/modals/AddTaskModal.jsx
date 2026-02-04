@@ -6,38 +6,44 @@ import {
   CheckSquare, Plus, Trash2
 } from 'lucide-react';
 import { COLUMNS, TAG_COLORS } from '../../utils/constants';
-
-// --- IMPORT AI SERVICE ---
 import { suggestTaskDescription, refineTextTone } from '../../utils/aiService';
 
-export default function AddTaskModal({ onClose, onAdd, initialDate }) {
+export default function AddTaskModal({ onClose, onAdd, initialDate }) { // 🟢 initialDate prop
   const TAGS = Object.keys(TAG_COLORS);
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [tag, setTag] = useState(TAGS[0] || 'General');
   const [status, setStatus] = useState(COLUMNS[0].id);
-  const [deadline, setDeadline] = useState('');
   
-  // --- NEW FIELDS ---
-  const [startTime, setStartTime] = useState(initialDate || '');
+  // 🟢 Initialize Date States
+  const [deadline, setDeadline] = useState(''); 
+  const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
+  
   const [reference, setReference] = useState('');
   const [finalFile, setFinalFile] = useState('');
-
   const [location, setLocation] = useState('');
   const [imageUrl, setImageUrl] = useState('');
-  
   const [isPao, setIsPao] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-
-  // --- REQUIREMENT STATE ---
   const [requirements, setRequirements] = useState([]);
   const [newReqTitle, setNewReqTitle] = useState('');
 
+  // 🟢 EFFECT: Auto-fill Deadline & Start Time from Calendar Click
   useEffect(() => {
       if (initialDate) {
+          // Set Start Time
           setStartTime(initialDate);
+          
+          // Set Due Date (Same as click)
+          setDeadline(initialDate); 
+          
+          // Optional: Set End Time to 1 hour later automatically
+          // const dateObj = new Date(initialDate);
+          // dateObj.setHours(dateObj.getHours() + 1);
+          // const endTimeString = dateObj.toISOString().slice(0, 16);
+          // setEndTime(endTimeString);
       }
   }, [initialDate]);
 
@@ -49,7 +55,6 @@ export default function AddTaskModal({ onClose, onAdd, initialDate }) {
         id: Date.now().toString(),
         title: newReqTitle,
         isDone: false,
-        // Default Spreadsheet Structure
         tableData: [],
         columns: [
             { id: 'col1', name: 'Item / Name', align: 'left', format: 'text', autoFormula: '' }, 
@@ -85,6 +90,7 @@ export default function AddTaskModal({ onClose, onAdd, initialDate }) {
       description,
       tag,
       status,
+      // 🟢 Send the populated deadline
       deadline: deadline || null,
       startTime: startTime || null,
       endTime: endTime || null,
@@ -93,7 +99,7 @@ export default function AddTaskModal({ onClose, onAdd, initialDate }) {
       location,
       imageUrl,
       isPao, 
-      requirements: requirements, // 🟢 Attach requirements
+      requirements: requirements,
       comments: []
     };
 
@@ -101,7 +107,6 @@ export default function AddTaskModal({ onClose, onAdd, initialDate }) {
     onClose();
   };
 
-  // --- AI HANDLER ---
   const handleMagicFill = async () => {
     if (!title.trim()) {
         alert("Please type a Task Title first!");
@@ -152,7 +157,7 @@ export default function AddTaskModal({ onClose, onAdd, initialDate }) {
                 />
             </div>
 
-            {/* 🟢 REQUIREMENTS INPUT */}
+            {/* REQUIREMENTS SECTION */}
             <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Requirements / Checklist</label>
                 <div className="flex gap-2 mb-3">
@@ -172,8 +177,6 @@ export default function AddTaskModal({ onClose, onAdd, initialDate }) {
                         <Plus size={18} />
                     </button>
                 </div>
-                
-                {/* Requirements List */}
                 <div className="space-y-2">
                     {requirements.map((req) => (
                         <div key={req.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg border border-gray-100 group">
@@ -182,7 +185,6 @@ export default function AddTaskModal({ onClose, onAdd, initialDate }) {
                                 <span className="text-sm text-gray-700 font-medium">{req.title}</span>
                             </div>
                             <button 
-                                type="button"
                                 onClick={() => handleRemoveRequirement(req.id)}
                                 className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition"
                             >
@@ -206,14 +208,6 @@ export default function AddTaskModal({ onClose, onAdd, initialDate }) {
                         <Sparkles size={12} className={isGenerating ? "animate-spin" : "fill-indigo-600"} />
                         {isGenerating ? "Generating..." : "AI Auto-Fill"}
                     </button>
-                    <button 
-                        type="button"
-                        onClick={handlePoliteRewrite}
-                        disabled={isGenerating || !description}
-                        className="text-[10px] bg-blue-50 text-blue-600 px-2 py-1 rounded border border-blue-100 hover:bg-blue-100 transition"
-                    >
-                        Make Professional
-                    </button>
                 </div>
                 <div className="relative">
                     <FileText className="absolute top-3 left-3 text-gray-400" size={18} />
@@ -226,7 +220,7 @@ export default function AddTaskModal({ onClose, onAdd, initialDate }) {
                 </div>
             </div>
 
-            {/* Time Grid */}
+            {/* 🟢 Time Grid: Pre-filled from props */}
             <div className="grid grid-cols-2 gap-4">
                 <div>
                     <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Start Time</label>
@@ -254,7 +248,7 @@ export default function AddTaskModal({ onClose, onAdd, initialDate }) {
                 </div>
             </div>
 
-            {/* Deadline & Location */}
+            {/* 🟢 Deadline (Auto-Filled) & Location */}
             <div className="grid grid-cols-2 gap-4">
                 <div>
                     <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Deadline (Due)</label>
@@ -286,7 +280,7 @@ export default function AddTaskModal({ onClose, onAdd, initialDate }) {
             {/* Links Grid */}
             <div className="grid grid-cols-1 gap-4">
                  <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Reference Link</label>
+                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Reference Link (Script/Brief)</label>
                     <div className="relative">
                         <LinkIcon className="absolute top-1/2 -translate-y-1/2 left-3 text-gray-400" size={16} />
                         <input 
@@ -299,7 +293,7 @@ export default function AddTaskModal({ onClose, onAdd, initialDate }) {
                     </div>
                 </div>
                  <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Final Work Link</label>
+                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Final Work Link (Drive/Dropbox)</label>
                     <div className="relative">
                         <ExternalLink className="absolute top-1/2 -translate-y-1/2 left-3 text-gray-400" size={16} />
                         <input 
