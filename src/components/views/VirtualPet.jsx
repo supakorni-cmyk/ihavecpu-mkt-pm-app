@@ -1,6 +1,6 @@
 // src/components/views/VirtualPet.jsx
 import React, { useState } from 'react';
-import { Heart, Zap, Utensils, Moon, Sparkles, Star, Camera } from 'lucide-react';
+import { Heart, Zap, Utensils, Moon, Sparkles, Star, Camera, Smile } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const VirtualPet = ({ pet, onAdopt, onInteract }) => {
