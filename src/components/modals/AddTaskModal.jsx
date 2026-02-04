@@ -1,5 +1,5 @@
 // src/components/modals/AddTaskModal.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   X, Calendar, Clock, MapPin, Tag, 
   FileText, Image as ImageIcon, Sparkles, Link as LinkIcon, ExternalLink,
@@ -10,7 +10,7 @@ import { COLUMNS, TAG_COLORS } from '../../utils/constants';
 // --- IMPORT AI SERVICE ---
 import { suggestTaskDescription, refineTextTone } from '../../utils/aiService';
 
-export default function AddTaskModal({ onClose, onAdd }) {
+export default function AddTaskModal({ onClose, onAdd, initialDate }) {
   const TAGS = Object.keys(TAG_COLORS);
 
   const [title, setTitle] = useState('');
@@ -20,7 +20,7 @@ export default function AddTaskModal({ onClose, onAdd }) {
   const [deadline, setDeadline] = useState('');
   
   // --- NEW FIELDS ---
-  const [startTime, setStartTime] = useState('');
+  const [startTime, setStartTime] = useState(initialDate || '');
   const [endTime, setEndTime] = useState('');
   const [reference, setReference] = useState('');
   const [finalFile, setFinalFile] = useState('');
@@ -34,6 +34,12 @@ export default function AddTaskModal({ onClose, onAdd }) {
   // --- REQUIREMENT STATE ---
   const [requirements, setRequirements] = useState([]);
   const [newReqTitle, setNewReqTitle] = useState('');
+
+  useEffect(() => {
+      if (initialDate) {
+          setStartTime(initialDate);
+      }
+  }, [initialDate]);
 
   const handleAddRequirement = (e) => {
     e.preventDefault();

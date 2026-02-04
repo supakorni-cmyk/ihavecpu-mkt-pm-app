@@ -32,6 +32,13 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const data = useTaskData(currentUser);
 
+  const {
+    tasks,
+    addTask,
+    updateTask,
+    deleteTask,
+  } = useTaskData(currentUser);
+
   // --- GLOBAL PLAYER STATE ---
   const [playerMood, setPlayerMood] = useState(null);
   const [playerMode, setPlayerMode] = useState('hidden'); // 'hidden' | 'mini' | 'full'
@@ -87,7 +94,13 @@ export default function Dashboard() {
         )}
 
         {currentView === 'calendar' && (
-          <CalendarView tasks={data.tasks} setSelectedTaskId={setSelectedTaskId} />
+          <CalendarView 
+          tasks={data.tasks} 
+          setSelectedTaskId={setSelectedTaskId} 
+          onAddTask={addTask}
+          onUpdateTask={updateTask}
+          onDeleteTask={deleteTask}
+          />
         )}
 
         {currentView === 'album' && (
