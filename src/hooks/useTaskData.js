@@ -97,11 +97,14 @@ export const useTaskData = (currentUser) => {
     } catch (error) { console.error("❌ Email Error:", error); }
   };
 
-  // --- 3. LINE FLEX MESSAGE (Megaphone Fallback) ---
+  // --- 3. LINE FLEX MESSAGE (Red Megaphone Edition) ---
   const sendLinePush = async (task, headerTitle, headerColor = "#1DB446") => {
     const PROXY_URL = import.meta.env.VITE_GOOGLE_SCRIPT_URL; 
 
     if (!PROXY_URL) return;
+
+    // Debugging Log to confirm new code is running
+    console.log("✅ Generating Flex Message for:", task.title);
 
     const TARGETS = [
         {
@@ -137,8 +140,11 @@ export const useTaskData = (currentUser) => {
     const finalLink = getValidUrl(task.finalFile);
     const locationLink = getValidUrl(task.location);
     
-    // 🟢 UPDATED FALLBACK IMAGE: Red Megaphone on Orange Background
-    const heroImageUrl = getValidUrl(task.imageUrl) || "https://images.unsplash.com/photo-1585676625395-9c8d30327776?q=80&w=1000&auto=format&fit=crop";
+    // 🟢 UPDATED FALLBACK IMAGE: Red Megaphone (Direct Link)
+    // Using a reliable source URL for Unsplash ID: YAzZfXt-mRQ
+    const MEGAPHONE_IMAGE = "https://images.unsplash.com/photo-1585676625395-9c8d30327776?ixlib=rb-4.0.3&q=80&fm=jpg&crop=entropy&cs=tinysrgb&w=1080&fit=max";
+    
+    const heroImageUrl = getValidUrl(task.imageUrl) || MEGAPHONE_IMAGE;
 
     // --- CREATE BUTTONS (White Outline Style) ---
     const actions = [];
@@ -155,14 +161,14 @@ export const useTaskData = (currentUser) => {
         margin: "sm"
     }));
 
-    // --- FLEX MESSAGE DESIGN ---
+    // --- 🎨 NEW FLEX MESSAGE DESIGN (DARK THEME + OVERLAY) ---
     const flexMessage = {
         type: "flex",
         altText: `${headerTitle}: ${task.title}`,
         contents: {
             type: "bubble",
             size: "mega",
-            // HERO BLOCK
+            // 🟢 HERO BLOCK: Image + Tag Overlay
             hero: {
                 type: "box",
                 layout: "vertical",
@@ -175,7 +181,7 @@ export const useTaskData = (currentUser) => {
                         aspectRatio: "20:13",
                         gravity: "center"
                     },
-                    // TAG OVERLAY
+                    // 🔴 THE TAG OVERLAY (Top-Left)
                     {
                         type: "box",
                         layout: "horizontal",
@@ -190,7 +196,7 @@ export const useTaskData = (currentUser) => {
                             }
                         ],
                         position: "absolute",
-                        backgroundColor: "#eb4d4b", // Red Tag
+                        backgroundColor: "#eb4d4b", // Red Tag Background
                         cornerRadius: "md",
                         paddingAll: "xs",
                         offsetTop: "12px",
@@ -200,35 +206,39 @@ export const useTaskData = (currentUser) => {
                 ],
                 paddingAll: "0px"
             },
-            // BODY BLOCK
+            // ⚫ BODY BLOCK: Dark Theme
             body: {
                 type: "box",
                 layout: "vertical",
-                backgroundColor: "#202833", // Dark Navy
+                backgroundColor: "#202833", // Dark Navy/Black Background
                 contents: [
+                    // Header Title (e.g. New Task)
                     {
                         type: "text",
                         text: headerTitle,
                         weight: "bold",
                         size: "xxs",
-                        color: "#eb4d4b" 
+                        color: "#eb4d4b" // Red accent text
                     },
+                    // Main Title
                     {
                         type: "text",
                         text: task.title,
                         weight: "bold",
                         size: "xl",
-                        color: "#ffffff",
+                        color: "#ffffff", // White Text
                         wrap: true,
                         margin: "sm"
                     },
+                    // Time / Date
                     {
                         type: "text",
                         text: timeDisplay,
                         size: "sm",
-                        color: "#9ca3af",
+                        color: "#9ca3af", // Light Grey
                         margin: "xs"
                     },
+                    // Location Text (if not a link)
                     (task.location && !locationLink) ? {
                         type: "text",
                         text: `📍 ${task.location}`,
@@ -237,11 +247,12 @@ export const useTaskData = (currentUser) => {
                         margin: "md",
                         wrap: true
                     } : null,
+                    // Divider if buttons exist
                     ...(buttonComponents.length > 0 ? [
                         {
                             type: "separator",
                             margin: "lg",
-                            color: "#374151"
+                            color: "#374151" // Dark Grey Line
                         },
                         {
                             type: "box",
