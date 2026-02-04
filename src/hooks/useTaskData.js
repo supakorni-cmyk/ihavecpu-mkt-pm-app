@@ -56,6 +56,17 @@ export const useTaskData = (currentUser) => {
       });
   };
 
+  // --- HELPER: Check URL Validity ---
+  const isValidUrl = (string) => {
+      if (!string) return false;
+      try {
+          new URL(string);
+          return true;
+      } catch (_) {
+          return false;
+      }
+  };
+
   // --- 2. EMAIL NOTIFICATION ---
   const sendEmailNotification = async (subject, data) => {
     const MAIN_EMAIL = "supakorn.i@ihavecpu.com"; 
@@ -74,7 +85,7 @@ export const useTaskData = (currentUser) => {
     const formData = {
         _subject: subject,
         _cc: CC_EMAILS,
-        _template: "box", 
+        _template: "box", // Clean 'Card' style
         _captcha: "false",
         _honey: "",
         ...cleanDataPayload
@@ -92,6 +103,7 @@ export const useTaskData = (currentUser) => {
 
   // --- 3. LINE FLEX MESSAGE ---
   const sendLinePush = async (task, headerTitle, headerColor = "#1DB446") => {
+    // 🔒 SECURE URL LOADING
     const PROXY_URL = import.meta.env.VITE_GOOGLE_SCRIPT_URL; 
 
     if (!PROXY_URL) {
@@ -125,6 +137,57 @@ export const useTaskData = (currentUser) => {
         if (task.endTime) timeDisplay += ` - ${formatTime(task.endTime)}`;
     } else if (task.deadline) {
         timeDisplay = `Due: ${formatTime(task.deadline)}`;
+    }
+
+    // 🟢 CREATE BUTTONS FOR LINKS
+    const linkButtons = [];
+
+    // 1. Reference Link
+    if (task.reference && isValidUrl(task.reference)) {
+        linkButtons.push({
+            type: "button",
+            style: "secondary",
+            height: "sm",
+            color: "#3B82F6", // Blue
+            action: {
+                type: "uri",
+                label: "📄 Reference",
+                uri: task.reference
+            },
+            margin: "sm"
+        });
+    }
+
+    // 2. Final File Link
+    if (task.finalFile && isValidUrl(task.finalFile)) {
+        linkButtons.push({
+            type: "button",
+            style: "secondary",
+            height: "sm",
+            color: "#10B981", // Green
+            action: {
+                type: "uri",
+                label: "📂 Final File",
+                uri: task.finalFile
+            },
+            margin: "sm"
+        });
+    }
+
+    // 3. Location Link (e.g. Google Maps)
+    if (task.location && isValidUrl(task.location)) {
+        linkButtons.push({
+            type: "button",
+            style: "secondary",
+            height: "sm",
+            color: "#F59E0B", // Orange/Yellow
+            action: {
+                type: "uri",
+                label: "📍 Location",
+                uri: task.location
+            },
+            margin: "sm"
+        });
     }
 
     const flexMessage = {
@@ -178,11 +241,27 @@ export const useTaskData = (currentUser) => {
                                     { type: "text", text: "Time", color: "#aaaaaa", size: "xs", flex: 2 },
                                     { type: "text", text: timeDisplay, color: "#666666", size: "xs", flex: 5 }
                                 ]
-                            }
-                        ]
+                            },
+                            // Show Location as text if NOT a URL
+                            (task.location && !isValidUrl(task.location)) ? {
+                                type: "box",
+                                layout: "baseline",
+                                contents: [
+                                    { type: "text", text: "Location", color: "#aaaaaa", size: "xs", flex: 2 },
+                                    { type: "text", text: task.location, color: "#666666", size: "xs", flex: 5, wrap: true }
+                                ]
+                            } : null
+                        ].filter(Boolean) // Filter out null items
                     }
                 ]
-            }
+            },
+            // 🟢 FOOTER (Only if buttons exist)
+            footer: linkButtons.length > 0 ? {
+                type: "box",
+                layout: "vertical",
+                spacing: "sm",
+                contents: linkButtons
+            } : undefined
         }
     };
 
@@ -281,6 +360,7 @@ export const useTaskData = (currentUser) => {
               lastInteraction: new Date().toISOString()
           };
           await addDoc(collection(db, "pets"), newPet);
+          console.log("Pet Adopted Successfully (Silent)");
       } catch (error) { console.error("Adoption failed:", error); }
   };
 
@@ -288,7 +368,6 @@ export const useTaskData = (currentUser) => {
   const interactWithPet = async (action) => {
       if (!myPet) return;
       
-      // Ensure values are numbers to avoid string errors
       const currentStats = {
           hunger: Number(myPet.stats?.hunger) || 0,
           happiness: Number(myPet.stats?.happiness) || 0,
@@ -318,8 +397,6 @@ export const useTaskData = (currentUser) => {
           newStats.hunger = Math.max(0, currentStats.hunger - 20);
       }
       
-      console.log(`Action: ${action} | New Stats:`, newStats); // Debug Log
-
       try {
           await updateDoc(doc(db, "pets", myPet.id), { 
               stats: newStats,
@@ -327,7 +404,6 @@ export const useTaskData = (currentUser) => {
           });
       } catch (error) { 
           console.error("Interaction failed:", error); 
-          alert("Failed to save stats. Check console.");
       }
   };
 
