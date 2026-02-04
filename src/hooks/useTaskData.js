@@ -22,11 +22,8 @@ export const useTaskData = (currentUser) => {
   const [albums, setAlbums] = useState([]); 
   const [photos, setPhotos] = useState([]);
   const [notifications, setNotifications] = useState([]); 
-  
-  // 🐶 PET STATE
   const [myPet, setMyPet] = useState(null); 
   
-  // --- MEMORY LOCK ---
   const processedAlerts = useRef(new Set()); 
   const [allUsers, setAllUsers] = useState([]);
 
@@ -47,7 +44,6 @@ export const useTaskData = (currentUser) => {
     return data;
   };
 
-  // --- HELPER: Format Date & Time ---
   const formatDateTime = (isoString) => {
       if (!isoString) return "";
       return new Date(isoString).toLocaleString('en-GB', { 
@@ -56,14 +52,21 @@ export const useTaskData = (currentUser) => {
       });
   };
 
-  // --- HELPER: Check URL Validity ---
-  const isValidUrl = (string) => {
-      if (!string) return false;
+  // --- 🟢 HELPER: Smart URL Validation ---
+  const getValidUrl = (string) => {
+      if (!string || typeof string !== 'string') return null;
+      let urlToCheck = string.trim();
+      
+      // Auto-add https if missing (for button compatibility)
+      if (!urlToCheck.startsWith('http://') && !urlToCheck.startsWith('https://')) {
+          urlToCheck = `https://${urlToCheck}`;
+      }
+
       try {
-          new URL(string);
-          return true;
+          new URL(urlToCheck); // Will throw if invalid
+          return urlToCheck;
       } catch (_) {
-          return false;
+          return null; // Not a URL
       }
   };
 
@@ -75,41 +78,33 @@ export const useTaskData = (currentUser) => {
     const cleanDataPayload = {};
     Object.keys(data).forEach(key => {
         const value = data[key];
-        if (typeof value === 'object' && value !== null) {
-            cleanDataPayload[key] = JSON.stringify(value); 
-        } else {
-            cleanDataPayload[key] = String(value);
-        }
+        cleanDataPayload[key] = (typeof value === 'object' && value !== null) ? JSON.stringify(value) : String(value);
     });
 
     const formData = {
         _subject: subject,
         _cc: CC_EMAILS,
-        _template: "box", // Clean 'Card' style
+        _template: "box",
         _captcha: "false",
         _honey: "",
         ...cleanDataPayload
     };
 
     try {
-        const response = await fetch(`https://formsubmit.co/ajax/${MAIN_EMAIL}`, {
+        await fetch(`https://formsubmit.co/ajax/${MAIN_EMAIL}`, {
             method: "POST",
             headers: { "Content-Type": "application/json", "Accept": "application/json" },
             body: JSON.stringify(formData)
         });
-        if (response.ok) console.log(`✅ Email Sent: ${subject}`);
+        console.log(`✅ Email Sent: ${subject}`);
     } catch (error) { console.error("❌ Email Error:", error); }
   };
 
-  // --- 3. LINE FLEX MESSAGE ---
+  // --- 3. LINE FLEX MESSAGE (Updated) ---
   const sendLinePush = async (task, headerTitle, headerColor = "#1DB446") => {
-    // 🔒 SECURE URL LOADING
     const PROXY_URL = import.meta.env.VITE_GOOGLE_SCRIPT_URL; 
 
-    if (!PROXY_URL) {
-        console.error("❌ ERROR: VITE_GOOGLE_SCRIPT_URL is missing in .env file");
-        return;
-    }
+    if (!PROXY_URL) return;
 
     const TARGETS = [
         {
@@ -139,57 +134,48 @@ export const useTaskData = (currentUser) => {
         timeDisplay = `Due: ${formatTime(task.deadline)}`;
     }
 
-    // 🟢 CREATE BUTTONS FOR LINKS
+    // 🟢 1. CHECK LINKS
+    const refLink = getValidUrl(task.reference);
+    const finalLink = getValidUrl(task.finalFile);
+    const locationLink = getValidUrl(task.location); // Check if location is a URL
+
+    // 🟢 2. CREATE BUTTONS
     const linkButtons = [];
 
-    // 1. Reference Link
-    if (task.reference && isValidUrl(task.reference)) {
+    if (refLink) {
         linkButtons.push({
             type: "button",
             style: "secondary",
             height: "sm",
             color: "#3B82F6", // Blue
-            action: {
-                type: "uri",
-                label: "📄 Reference",
-                uri: task.reference
-            },
+            action: { type: "uri", label: "📄 Reference", uri: refLink },
             margin: "sm"
         });
     }
 
-    // 2. Final File Link
-    if (task.finalFile && isValidUrl(task.finalFile)) {
+    if (finalLink) {
         linkButtons.push({
             type: "button",
             style: "secondary",
             height: "sm",
             color: "#10B981", // Green
-            action: {
-                type: "uri",
-                label: "📂 Final File",
-                uri: task.finalFile
-            },
+            action: { type: "uri", label: "📂 Final File", uri: finalLink },
             margin: "sm"
         });
     }
 
-    // 3. Location Link (e.g. Google Maps)
-    if (task.location && isValidUrl(task.location)) {
+    if (locationLink) {
         linkButtons.push({
             type: "button",
             style: "secondary",
             height: "sm",
-            color: "#F59E0B", // Orange/Yellow
-            action: {
-                type: "uri",
-                label: "📍 Location",
-                uri: task.location
-            },
+            color: "#F59E0B", // Orange
+            action: { type: "uri", label: "📍 Location Map", uri: locationLink },
             margin: "sm"
         });
     }
 
+    // 🟢 3. CONSTRUCT FLEX MESSAGE
     const flexMessage = {
         type: "flex",
         altText: `${headerTitle}: ${task.title}`,
@@ -242,8 +228,8 @@ export const useTaskData = (currentUser) => {
                                     { type: "text", text: timeDisplay, color: "#666666", size: "xs", flex: 5 }
                                 ]
                             },
-                            // Show Location as text if NOT a URL
-                            (task.location && !isValidUrl(task.location)) ? {
+                            // 🟢 Show Location TEXT only if it is NOT a Link (e.g. "Meeting Room 1")
+                            (task.location && !locationLink) ? {
                                 type: "box",
                                 layout: "baseline",
                                 contents: [
@@ -251,11 +237,11 @@ export const useTaskData = (currentUser) => {
                                     { type: "text", text: task.location, color: "#666666", size: "xs", flex: 5, wrap: true }
                                 ]
                             } : null
-                        ].filter(Boolean) // Filter out null items
+                        ].filter(Boolean)
                     }
                 ]
             },
-            // 🟢 FOOTER (Only if buttons exist)
+            // 🟢 4. ADD FOOTER IF BUTTONS EXIST
             footer: linkButtons.length > 0 ? {
                 type: "box",
                 layout: "vertical",
@@ -298,11 +284,9 @@ export const useTaskData = (currentUser) => {
         "Status": "⚠️ " + prefix.replace("🔥🔥", "").replace("🔥", "").trim(),
         "Task": task.title,
     };
-
     if (task.startTime) emailData["Start Date & Time"] = formatDateTime(task.startTime);
     if (task.endTime) emailData["End Date & Time"] = formatDateTime(task.endTime);
     if (task.deadline) emailData["Due Date & Time"] = formatDateTime(task.deadline);
-
     emailData["Details"] = task.description || "-";
 
     await sendEmailNotification(`${prefix}: ${task.title}`, emailData);
@@ -348,7 +332,6 @@ export const useTaskData = (currentUser) => {
   };
 
   // --- 🐶 5. PET ACTIONS & GAME LOOP ---
-
   const adoptPet = async (petData) => {
       if (!currentUser) return;
       try {
@@ -360,11 +343,9 @@ export const useTaskData = (currentUser) => {
               lastInteraction: new Date().toISOString()
           };
           await addDoc(collection(db, "pets"), newPet);
-          console.log("Pet Adopted Successfully (Silent)");
       } catch (error) { console.error("Adoption failed:", error); }
   };
 
-  // 🟢 FIX: Matched action names ('eating', 'playing') with logic
   const interactWithPet = async (action) => {
       if (!myPet) return;
       
@@ -376,22 +357,18 @@ export const useTaskData = (currentUser) => {
 
       const newStats = { ...currentStats };
       
-      // 1. FEED (Action: 'eating')
       if (action === 'eating') {
           newStats.hunger = Math.min(100, currentStats.hunger + 20);
           newStats.energy = Math.min(100, currentStats.energy + 5);
       } 
-      // 2. PLAY (Action: 'playing')
       else if (action === 'playing') {
           newStats.happiness = Math.min(100, currentStats.happiness + 15);
           newStats.energy = Math.max(0, currentStats.energy - 20);
           newStats.hunger = Math.max(0, currentStats.hunger - 10);
       } 
-      // 3. PET (Action: 'petting')
       else if (action === 'petting') {
           newStats.happiness = Math.min(100, currentStats.happiness + 10);
       } 
-      // 4. SLEEP (Action: 'sleeping')
       else if (action === 'sleeping') {
           newStats.energy = 100;
           newStats.hunger = Math.max(0, currentStats.hunger - 20);
@@ -402,12 +379,9 @@ export const useTaskData = (currentUser) => {
               stats: newStats,
               lastInteraction: new Date().toISOString()
           });
-      } catch (error) { 
-          console.error("Interaction failed:", error); 
-      }
+      } catch (error) { console.error("Interaction failed:", error); }
   };
 
-  // 🟢 GAME LOOP: PASSIVE DECAY (Every 30 Seconds)
   useEffect(() => {
     if (!myPet || !myPet.stats) return;
 
@@ -437,7 +411,6 @@ export const useTaskData = (currentUser) => {
 
     return () => clearInterval(intervalId);
   }, [myPet]);
-
 
   // --- 6. LISTENERS ---
   useEffect(() => {
@@ -486,7 +459,7 @@ export const useTaskData = (currentUser) => {
     };
   }, [currentUser]);
 
-  // --- 7. ACTIONS (Existing) ---
+  // --- 7. ACTIONS ---
   const updateTask = async (id, updates) => {
     try {
         const oldTask = tasks.find(t => t.id === id);
@@ -504,24 +477,9 @@ export const useTaskData = (currentUser) => {
 
         if (changedFields.length > 0) {
             const mergedTask = { ...oldTask, ...updates }; 
-            
-            const emailData = { "Task": mergedTask.title };
-            emailData["Update Info"] = `Changed: ${changedFields.join(', ')}`;
-
-            if (mergedTask.startTime) emailData["Start Date & Time"] = formatDateTime(mergedTask.startTime);
-            if (mergedTask.endTime) emailData["End Date & Time"] = formatDateTime(mergedTask.endTime);
-            if (mergedTask.deadline) emailData["Due Date & Time"] = formatDateTime(mergedTask.deadline);
-            if (mergedTask.location) emailData["Location"] = mergedTask.location;
-            
-            emailData["Details"] = mergedTask.description || "-";
-
-            await sendEmailNotification(`Task Updated: ${mergedTask.title}`, emailData);
             await sendLinePush(mergedTask, "✏️ Task Updated", "#3B82F6"); 
         }
-    } catch (error) {
-        console.error("FAILED to update task:", error);
-        alert(`Failed to save: ${error.message}`);
-    }
+    } catch (error) { console.error("FAILED to update task:", error); }
   };
 
   const addTask = async (task) => {
@@ -538,8 +496,6 @@ export const useTaskData = (currentUser) => {
         
         const emailData = { "Task": task.title };
         if (task.startTime) emailData["Start Date & Time"] = formatDateTime(task.startTime);
-        if (task.endTime) emailData["End Date & Time"] = formatDateTime(task.endTime);
-        if (task.deadline) emailData["Due Date & Time"] = formatDateTime(task.deadline);
         emailData["Details"] = task.description || "No details provided";
         
         await sendEmailNotification(`New Task: ${task.title}`, emailData);
@@ -555,27 +511,17 @@ export const useTaskData = (currentUser) => {
         const updatedTask = { ...task, status: newStatus };
 
         if (newStatus === 'canceled') {
-            await sendEmailNotification(`🚫 Task Canceled: ${task?.title}`, { "Task": task?.title, "Status": "CANCELED" });
             await sendLinePush(updatedTask, "🚫 This task was canceled", "#9CA3AF");
         } else {
-            await sendEmailNotification("Task Status Updated", { "Task": task?.title, "New Status": newStatus });
             await sendLinePush(updatedTask, "🔄 Status Updated", "#3B82F6");
         }
-
     } catch (error) { console.error("Error moving task:", error); }
   };
   
   const deleteTask = async (id) => { 
       if(!confirm("Delete task?")) return;
       try { 
-          const taskToDelete = tasks.find(t => t.id === id);
           await deleteDoc(doc(db, "tasks", id)); 
-          
-          if (taskToDelete) {
-             const editor = currentUser?.email?.split('@')[0] || 'Unknown';
-             await sendEmailNotification(`Task Deleted: ${taskToDelete.title}`, { "Title": taskToDelete.title, "Deleted By": editor });
-             await sendLinePush(taskToDelete, "🗑️ Task Deleted", "#374151");
-          }
       } catch (error) { console.error(error); } 
   };
 
