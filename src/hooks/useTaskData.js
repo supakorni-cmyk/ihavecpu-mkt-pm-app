@@ -96,14 +96,11 @@ export const useTaskData = (currentUser) => {
     } catch (error) { console.error("❌ Email Error:", error); }
   };
 
-  // --- 3. LINE FLEX MESSAGE (FIXED & DEBUG MODE) ---
+  // --- 3. LINE FLEX MESSAGE (FIXED OFFSET) ---
   const sendLinePush = async (task, headerTitle, headerColor = "#1DB446") => {
     const PROXY_URL = import.meta.env.VITE_GOOGLE_SCRIPT_URL; 
 
-    if (!PROXY_URL) {
-        console.error("❌ LINE Error: No Proxy URL found in .env");
-        return;
-    }
+    if (!PROXY_URL) return;
 
     const TARGETS = [
         {
@@ -154,7 +151,7 @@ export const useTaskData = (currentUser) => {
         margin: "sm"
     }));
 
-    // 🟢 FIXED FLEX MESSAGE STRUCTURE
+    // 🟢 FIXED FLEX STRUCTURE (offsetStart)
     const flexMessage = {
         type: "flex",
         altText: `${headerTitle}: ${task.title || "Task"}`,
@@ -191,11 +188,12 @@ export const useTaskData = (currentUser) => {
                         cornerRadius: "md",
                         paddingAll: "xs",
                         offsetTop: "12px",
-                        offsetLeft: "12px",
+                        // 🟢 FIXED: offsetLeft -> offsetStart
+                        offsetStart: "12px", 
                         maxWidth: "120px"
                     }
                 ],
-                paddingAll: "none" // 🟢 FIXED: Was "0px" which can cause errors
+                paddingAll: "0px" 
             },
             body: {
                 type: "box",
@@ -243,38 +241,29 @@ export const useTaskData = (currentUser) => {
         }
     };
 
-    // 🟢 DEBUG LOG: Check this in Chrome Console if message fails!
-    // Copy the object logged here and paste into https://developers.line.biz/flex-simulator/
     console.log("🚀 SENDING LINE JSON:", JSON.stringify(flexMessage, null, 2));
 
     TARGETS.forEach(async (target) => {
-        if (!target.token || !target.groupId) {
-             console.warn(`⚠️ Skipping ${target.name}: Missing Token or Group ID`);
-             return;
-        }
+        if (!target.token || !target.groupId) return;
         if (target.allowedTags !== "ALL") {
             if (!task.tag || !target.allowedTags.includes(task.tag)) return;
         }
         
         try {
             const relayData = { token: target.token, payload: { to: target.groupId, messages: [flexMessage] } };
-            
-            // Sending to Proxy
             const response = await fetch(PROXY_URL, {
                 method: "POST",
                 headers: { "Content-Type": "text/plain;charset=utf-8" }, 
                 body: JSON.stringify(relayData)
             });
-
-            // 🟢 Check response from Proxy if possible
             const result = await response.text(); 
-            console.log(`✅ LINE Sent to ${target.name} | Server Response:`, result);
+            console.log(`✅ LINE Sent to ${target.name} | Result: ${result}`);
 
         } catch (error) { console.error(`❌ Network Error (${target.name}):`, error); }
     });
   };
 
-  // --- 4. ALERT LOGIC (unchanged) ---
+  // --- 4. ALERT LOGIC ---
   const triggerAlert = async (task, prefix, userEmail, updateFlag) => {
     const alertId = `${task.id}-${Object.keys(updateFlag)[0]}`; 
     if (processedAlerts.current.has(alertId)) return;
