@@ -134,7 +134,7 @@ export const useTaskData = (currentUser) => {
     const finalLink = getValidUrl(task.finalFile);
     const locationLink = getValidUrl(task.location);
     
-    const MEGAPHONE_IMAGE = "https://images.unsplash.com/photo-1585676625395-9c8d30327776?ixlib=rb-4.0.3&q=80&fm=jpg&crop=entropy&cs=tinysrgb&w=1080&fit=max";
+    const MEGAPHONE_IMAGE = "https://plus.unsplash.com/premium_photo-1678193923226-bc247f475175?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MXx8YW5ub3VuY2VtZW50fGVufDB8fDB8fHww";
     const heroImageUrl = getValidUrl(task.imageUrl) || MEGAPHONE_IMAGE;
 
     const actions = [];
