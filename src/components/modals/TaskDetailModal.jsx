@@ -10,6 +10,7 @@ import { TAG_COLORS, formatDate } from '../../utils/constants';
 export default function TaskDetailModal({ task, onClose, onEdit, onDelete }) {
   if (!task) return null;
 
+  // Helper to open links safely
   const openLink = (url) => {
     if (!url) return;
     let safeUrl = url.trim();
@@ -19,6 +20,14 @@ export default function TaskDetailModal({ task, onClose, onEdit, onDelete }) {
 
   const reqs = task.requirements || [];
   const completedReqs = reqs.filter(r => r.isDone).length;
+
+  // 🟢 Helper to check if location is a URL
+  const isLocationUrl = task.location && (
+    task.location.startsWith('http') || 
+    task.location.startsWith('www') || 
+    task.location.includes('.com') || 
+    task.location.includes('maps.app')
+  );
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]" onClick={onClose}>
@@ -69,10 +78,22 @@ export default function TaskDetailModal({ task, onClose, onEdit, onDelete }) {
                             {task.endTime && ` - ${new Date(task.endTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`}
                         </div>
                     )}
+                    
+                    {/* 🟢 LOCATION (Clickable Check) */}
                     {task.location && (
                         <div className="flex items-center gap-1.5">
                             <MapPin size={16} className="text-red-500"/>
-                            {task.location}
+                            {isLocationUrl ? (
+                                <button 
+                                    onClick={() => openLink(task.location)}
+                                    className="text-blue-600 hover:text-blue-800 hover:underline transition truncate max-w-[200px] text-left"
+                                    title={task.location}
+                                >
+                                    {task.location}
+                                </button>
+                            ) : (
+                                <span>{task.location}</span>
+                            )}
                         </div>
                     )}
                 </div>
@@ -140,7 +161,7 @@ export default function TaskDetailModal({ task, onClose, onEdit, onDelete }) {
             )}
         </div>
 
-        {/* 🟢 FOOTER ACTIONS */}
+        {/* FOOTER ACTIONS */}
         <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-3">
             <button 
                 onClick={() => {
