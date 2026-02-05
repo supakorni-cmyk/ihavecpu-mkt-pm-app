@@ -6,6 +6,9 @@ import {
 } from 'lucide-react';
 import { formatDate } from '../../utils/constants';
 
+// 🟢 1. IMPORT MODAL
+import EditTaskModal from '../modals/EditTaskModal';
+
 // --- SYSTEM DEFAULT AVATARS ---
 const SYSTEM_AVATARS = {
   jittikorn: '/avatars/pae.jpg', 
@@ -46,9 +49,13 @@ const INITIAL_TEAM = [
   },
 ];
 
-const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead, clearAllNotifications, users = [] }) => {
+// 🟢 2. ADD PROPS: onUpdateTask, onDeleteTask
+const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead, clearAllNotifications, users = [], onUpdateTask, onDeleteTask }) => {
   const [team] = useState(INITIAL_TEAM);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
+  
+  // 🟢 3. MODAL STATE
+  const [editingTask, setEditingTask] = useState(null);
 
   // --- 1. STATS LOGIC ---
   const completedTasks = tasks.filter(t => {
@@ -65,7 +72,6 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
   const upcomingEvents = tasks.filter(t => {
       const s = (t.status || '').toLowerCase();
 
-      // FIX: Remove if Canceled OR Completed/Done
       if (s === 'canceled' || s === 'completed' || s === 'done') return false;
 
       // Check Tags (Only Events & Guest Speakers)
@@ -248,7 +254,11 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
         
         <div className="space-y-4">
             {upcomingEvents.length > 0 ? upcomingEvents.slice(0, 5).map(task => (
-                <div key={task.id} className="flex items-center p-4 hover:bg-gray-50 rounded-xl transition border border-gray-50 hover:border-gray-200 group cursor-pointer">
+                <div 
+                    key={task.id} 
+                    onClick={() => setEditingTask(task)} // 🟢 CLICK TO OPEN MODAL
+                    className="flex items-center p-4 hover:bg-gray-50 rounded-xl transition border border-gray-50 hover:border-gray-200 group cursor-pointer"
+                >
                     <div className="w-14 h-14 bg-blue-50 rounded-xl flex flex-col items-center justify-center text-blue-600 font-bold shrink-0 mr-4">
                         <span className="text-xs uppercase">{new Date(task.startDate || task.deadline).toLocaleString('default', { month: 'short' })}</span>
                         <span className="text-xl leading-none">{new Date(task.startDate || task.deadline).getDate()}</span>
@@ -272,6 +282,23 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
             )}
         </div>
       </div>
+
+      {/* 🟢 4. RENDER MODAL */}
+      {editingTask && (
+        <EditTaskModal 
+            task={editingTask}
+            onClose={() => setEditingTask(null)}
+            onUpdate={(updatedData) => {
+                onUpdateTask(editingTask.id, updatedData);
+                setEditingTask(null);
+            }}
+            onDelete={() => {
+                if (onDeleteTask) onDeleteTask(editingTask.id);
+                setEditingTask(null);
+            }}
+            onOpenRequirement={() => {}} // Placeholder or handler if needed
+        />
+      )}
     </div>
   );
 };

@@ -79,6 +79,8 @@ export default function Dashboard() {
             markNotificationRead={data.markNotificationRead}
             clearAllNotifications={data.clearAllNotifications}
             users={data.allUsers}
+            onUpdateTask={updateTask} // 🟢 Pass this
+            onDeleteTask={deleteTask} // 🟢 Pass this
           />
         )}
         
