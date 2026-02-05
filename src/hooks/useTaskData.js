@@ -52,7 +52,6 @@ export const useTaskData = (currentUser) => {
       });
   };
 
-  // --- HELPER: Smart URL Validation ---
   const getValidUrl = (string) => {
       if (!string || typeof string !== 'string') return null;
       let urlToCheck = string.trim();
@@ -97,14 +96,14 @@ export const useTaskData = (currentUser) => {
     } catch (error) { console.error("❌ Email Error:", error); }
   };
 
-  // --- 3. LINE FLEX MESSAGE (Red Megaphone Edition) ---
+  // --- 3. LINE FLEX MESSAGE (FIXED & DEBUG MODE) ---
   const sendLinePush = async (task, headerTitle, headerColor = "#1DB446") => {
     const PROXY_URL = import.meta.env.VITE_GOOGLE_SCRIPT_URL; 
 
-    if (!PROXY_URL) return;
-
-    // Debugging Log to confirm new code is running
-    console.log("✅ Generating Flex Message for:", task.title);
+    if (!PROXY_URL) {
+        console.error("❌ LINE Error: No Proxy URL found in .env");
+        return;
+    }
 
     const TARGETS = [
         {
@@ -121,7 +120,6 @@ export const useTaskData = (currentUser) => {
         }
     ];
 
-    // --- TIME FORMAT ---
     const formatTime = (isoString) => {
         if (!isoString) return null;
         return new Date(isoString).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
@@ -135,18 +133,13 @@ export const useTaskData = (currentUser) => {
         timeDisplay = `Due: ${formatTime(task.deadline)}`;
     }
 
-    // --- LINKS & IMAGE ---
     const refLink = getValidUrl(task.reference);
     const finalLink = getValidUrl(task.finalFile);
     const locationLink = getValidUrl(task.location);
     
-    // 🟢 UPDATED FALLBACK IMAGE: Red Megaphone (Direct Link)
-    // Using a reliable source URL for Unsplash ID: YAzZfXt-mRQ
     const MEGAPHONE_IMAGE = "https://images.unsplash.com/photo-1585676625395-9c8d30327776?ixlib=rb-4.0.3&q=80&fm=jpg&crop=entropy&cs=tinysrgb&w=1080&fit=max";
-    
     const heroImageUrl = getValidUrl(task.imageUrl) || MEGAPHONE_IMAGE;
 
-    // --- CREATE BUTTONS (White Outline Style) ---
     const actions = [];
     if (refLink) actions.push({ type: "uri", label: "📄 Reference", uri: refLink });
     if (finalLink) actions.push({ type: "uri", label: "📂 Final File", uri: finalLink });
@@ -155,20 +148,19 @@ export const useTaskData = (currentUser) => {
     const buttonComponents = actions.map(act => ({
         type: "button",
         style: "secondary",
-        color: "#ffffff", // White Text/Border
+        color: "#ffffff",
         height: "sm",
         action: act,
         margin: "sm"
     }));
 
-    // --- 🎨 NEW FLEX MESSAGE DESIGN (DARK THEME + OVERLAY) ---
+    // 🟢 FIXED FLEX MESSAGE STRUCTURE
     const flexMessage = {
         type: "flex",
-        altText: `${headerTitle}: ${task.title}`,
+        altText: `${headerTitle}: ${task.title || "Task"}`,
         contents: {
             type: "bubble",
             size: "mega",
-            // 🟢 HERO BLOCK: Image + Tag Overlay
             hero: {
                 type: "box",
                 layout: "vertical",
@@ -181,14 +173,13 @@ export const useTaskData = (currentUser) => {
                         aspectRatio: "20:13",
                         gravity: "center"
                     },
-                    // 🔴 THE TAG OVERLAY (Top-Left)
                     {
                         type: "box",
                         layout: "horizontal",
                         contents: [
                             {
                                 type: "text",
-                                text: (task.tag || "Task").toUpperCase(),
+                                text: (task.tag || "TASK").toUpperCase(),
                                 size: "xs",
                                 color: "#ffffff",
                                 align: "center",
@@ -196,7 +187,7 @@ export const useTaskData = (currentUser) => {
                             }
                         ],
                         position: "absolute",
-                        backgroundColor: "#eb4d4b", // Red Tag Background
+                        backgroundColor: "#eb4d4b",
                         cornerRadius: "md",
                         paddingAll: "xs",
                         offsetTop: "12px",
@@ -204,41 +195,36 @@ export const useTaskData = (currentUser) => {
                         maxWidth: "120px"
                     }
                 ],
-                paddingAll: "0px"
+                paddingAll: "none" // 🟢 FIXED: Was "0px" which can cause errors
             },
-            // ⚫ BODY BLOCK: Dark Theme
             body: {
                 type: "box",
                 layout: "vertical",
-                backgroundColor: "#202833", // Dark Navy/Black Background
+                backgroundColor: "#202833",
                 contents: [
-                    // Header Title (e.g. New Task)
                     {
                         type: "text",
                         text: headerTitle,
                         weight: "bold",
                         size: "xxs",
-                        color: "#eb4d4b" // Red accent text
+                        color: "#eb4d4b" 
                     },
-                    // Main Title
                     {
                         type: "text",
-                        text: task.title,
+                        text: task.title || "No Title",
                         weight: "bold",
                         size: "xl",
-                        color: "#ffffff", // White Text
+                        color: "#ffffff",
                         wrap: true,
                         margin: "sm"
                     },
-                    // Time / Date
                     {
                         type: "text",
                         text: timeDisplay,
                         size: "sm",
-                        color: "#9ca3af", // Light Grey
+                        color: "#9ca3af",
                         margin: "xs"
                     },
-                    // Location Text (if not a link)
                     (task.location && !locationLink) ? {
                         type: "text",
                         text: `📍 ${task.location}`,
@@ -247,19 +233,9 @@ export const useTaskData = (currentUser) => {
                         margin: "md",
                         wrap: true
                     } : null,
-                    // Divider if buttons exist
                     ...(buttonComponents.length > 0 ? [
-                        {
-                            type: "separator",
-                            margin: "lg",
-                            color: "#374151" // Dark Grey Line
-                        },
-                        {
-                            type: "box",
-                            layout: "vertical",
-                            margin: "lg",
-                            contents: buttonComponents
-                        }
+                        { type: "separator", margin: "lg", color: "#374151" },
+                        { type: "box", layout: "vertical", margin: "lg", contents: buttonComponents }
                     ] : [])
                 ].filter(Boolean),
                 paddingAll: "20px"
@@ -267,20 +243,33 @@ export const useTaskData = (currentUser) => {
         }
     };
 
+    // 🟢 DEBUG LOG: Check this in Chrome Console if message fails!
+    // Copy the object logged here and paste into https://developers.line.biz/flex-simulator/
+    console.log("🚀 SENDING LINE JSON:", JSON.stringify(flexMessage, null, 2));
+
     TARGETS.forEach(async (target) => {
-        if (!target.token || !target.groupId) return;
+        if (!target.token || !target.groupId) {
+             console.warn(`⚠️ Skipping ${target.name}: Missing Token or Group ID`);
+             return;
+        }
         if (target.allowedTags !== "ALL") {
             if (!task.tag || !target.allowedTags.includes(task.tag)) return;
         }
         
         try {
             const relayData = { token: target.token, payload: { to: target.groupId, messages: [flexMessage] } };
-            await fetch(PROXY_URL, {
+            
+            // Sending to Proxy
+            const response = await fetch(PROXY_URL, {
                 method: "POST",
                 headers: { "Content-Type": "text/plain;charset=utf-8" }, 
                 body: JSON.stringify(relayData)
             });
-            console.log(`✅ LINE Sent to ${target.name}`);
+
+            // 🟢 Check response from Proxy if possible
+            const result = await response.text(); 
+            console.log(`✅ LINE Sent to ${target.name} | Server Response:`, result);
+
         } catch (error) { console.error(`❌ Network Error (${target.name}):`, error); }
     });
   };
