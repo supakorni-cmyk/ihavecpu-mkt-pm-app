@@ -11,7 +11,7 @@ import {
   query, 
   orderBy,
   where,
-  runTransaction // 🟢 1. Import Transaction
+  runTransaction 
 } from 'firebase/firestore';
 
 export const useTaskData = (currentUser) => {
@@ -90,7 +90,7 @@ export const useTaskData = (currentUser) => {
     } catch (error) { console.error("❌ Email Error:", error); }
   };
 
-  // --- 3. LINE FLEX MESSAGE ---
+  // --- 3. LINE FLEX MESSAGE (Added Date) ---
   const sendLinePush = async (task, headerTitle, headerColor = "#1DB446") => {
     const PROXY_URL = import.meta.env.VITE_GOOGLE_SCRIPT_URL; 
     if (!PROXY_URL) return;
@@ -110,23 +110,33 @@ export const useTaskData = (currentUser) => {
         }
     ];
 
+    // --- DATE & TIME FORMATTERS ---
+    const formatDateLine = (isoString) => {
+        if (!isoString) return null;
+        return new Date(isoString).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    };
+
     const formatTime = (isoString) => {
         if (!isoString) return null;
         return new Date(isoString).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
     };
     
+    let dateDisplay = "No Date";
     let timeDisplay = "TBD";
+
     if (task.startTime) {
+        dateDisplay = formatDateLine(task.startTime);
         timeDisplay = `${formatTime(task.startTime)}`;
         if (task.endTime) timeDisplay += ` - ${formatTime(task.endTime)}`;
     } else if (task.deadline) {
+        dateDisplay = formatDateLine(task.deadline);
         timeDisplay = `Due: ${formatTime(task.deadline)}`;
     }
 
     const refLink = getValidUrl(task.reference);
     const finalLink = getValidUrl(task.finalFile);
     const locationLink = getValidUrl(task.location);
-    const MEGAPHONE_IMAGE = "https://plus.unsplash.com/premium_photo-1678193923226-bc247f475175?q=80&w=665&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D";
+    const MEGAPHONE_IMAGE = "https://images.unsplash.com/photo-1585676625395-9c8d30327776?ixlib=rb-4.0.3&q=80&fm=jpg&crop=entropy&cs=tinysrgb&w=1080&fit=max";
     const heroImageUrl = getValidUrl(task.imageUrl) || MEGAPHONE_IMAGE;
 
     const actions = [];
@@ -176,8 +186,25 @@ export const useTaskData = (currentUser) => {
                 contents: [
                     { type: "text", text: headerTitle, weight: "bold", size: "xxs", color: "#eb4d4b" },
                     { type: "text", text: task.title || "No Title", weight: "bold", size: "xl", color: "#ffffff", wrap: true, margin: "sm" },
-                    { type:"text", text: task.deadline, size: "sm", color: "#ffffff", margin: "xs" },
-                    { type: "text", text: timeDisplay, size: "sm", color: "#9ca3af", margin: "xs" },
+                    
+                    // 🟢 ADDED: Date Row
+                    { 
+                        type: "text", 
+                        text: `📅 ${dateDisplay}`, 
+                        size: "sm", 
+                        color: "#cccccc", // Slightly lighter than main text
+                        margin: "md" 
+                    },
+                    
+                    // Time Row
+                    { 
+                        type: "text", 
+                        text: `⏰ ${timeDisplay}`, 
+                        size: "sm", 
+                        color: "#9ca3af", 
+                        margin: "xs" 
+                    },
+
                     (task.location && !locationLink) ? { type: "text", text: `📍 ${task.location}`, size: "xs", color: "#6b7280", margin: "md", wrap: true } : null,
                     ...(buttonComponents.length > 0 ? [
                         { type: "separator", margin: "lg", color: "#374151" },
@@ -206,37 +233,22 @@ export const useTaskData = (currentUser) => {
     });
   };
 
-  // --- 4. ALERT LOGIC (🟢 TRANSACTION FIX) ---
-  
+  // --- 4. ALERT LOGIC (Transaction Safe) ---
   const triggerAlert = async (task, prefix, userEmail, updateKey) => {
-    // Determine Color
     let color = "#F59E0B"; 
     if (prefix.includes("TODAY") || prefix.includes("URGENT")) color = "#EF4444";
 
     try {
-        // 🟢 ATOMIC DATABASE TRANSACTION
-        // This guarantees only ONE device enters this block successfully.
         await runTransaction(db, async (transaction) => {
-            // 1. Read fresh data directly from DB
             const taskRef = doc(db, "tasks", task.id);
             const taskSnapshot = await transaction.get(taskRef);
-            
             if (!taskSnapshot.exists()) throw "Task does not exist!";
-            
             const freshTask = taskSnapshot.data();
-
-            // 2. Check if already notified
-            if (freshTask[updateKey] === true) {
-                throw "ALREADY_SENT"; // 🚫 Abort transaction, stop here.
-            }
-
-            // 3. Mark as notified immediately
+            if (freshTask[updateKey] === true) throw "ALREADY_SENT"; 
             transaction.update(taskRef, { [updateKey]: true });
         });
 
-        // 🟢 IF WE ARE HERE, WE WON THE RACE. SEND MESSAGES.
         console.log(`🔔 Sending Alert: ${prefix} for ${task.title}`);
-
         await sendLinePush(task, prefix, color);
 
         const emailData = {
@@ -260,7 +272,7 @@ export const useTaskData = (currentUser) => {
 
     } catch (e) {
         if (e === "ALREADY_SENT") {
-            console.log(`🚫 Skipped duplicate alert for ${task.title} (Race condition handled).`);
+            console.log(`🚫 Skipped duplicate alert for ${task.title}.`);
         } else {
             console.error("Transaction failed: ", e);
         }
@@ -283,7 +295,6 @@ export const useTaskData = (currentUser) => {
         const timeDiff = deadline - now;
         const daysLeft = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
 
-        // 🟢 Pass the key string ('notified0Day') instead of object for cleaner transaction logic
         if (daysLeft <= 0 && daysLeft > -3 && !task.notified0Day) {
             await triggerAlert(task,"🔥🔥 DEADLINE TODAY", user.email, "notified0Day");
         }
@@ -296,7 +307,7 @@ export const useTaskData = (currentUser) => {
     });
   };
 
-  // --- 🐶 5. PET ACTIONS & GAME LOOP ---
+  // --- 🐶 5. PET ACTIONS ---
   const adoptPet = async (petData) => {
       if (!currentUser) return;
       try {
@@ -313,67 +324,49 @@ export const useTaskData = (currentUser) => {
 
   const interactWithPet = async (action) => {
       if (!myPet) return;
-      
       const currentStats = {
           hunger: Number(myPet.stats?.hunger) || 0,
           happiness: Number(myPet.stats?.happiness) || 0,
           energy: Number(myPet.stats?.energy) || 0,
       };
-
       const newStats = { ...currentStats };
       
       if (action === 'eating') {
           newStats.hunger = Math.min(100, currentStats.hunger + 20);
           newStats.energy = Math.min(100, currentStats.energy + 5);
-      } 
-      else if (action === 'playing') {
+      } else if (action === 'playing') {
           newStats.happiness = Math.min(100, currentStats.happiness + 15);
           newStats.energy = Math.max(0, currentStats.energy - 20);
           newStats.hunger = Math.max(0, currentStats.hunger - 10);
-      } 
-      else if (action === 'petting') {
+      } else if (action === 'petting') {
           newStats.happiness = Math.min(100, currentStats.happiness + 10);
-      } 
-      else if (action === 'sleeping') {
+      } else if (action === 'sleeping') {
           newStats.energy = 100;
           newStats.hunger = Math.max(0, currentStats.hunger - 20);
       }
       
       try {
-          await updateDoc(doc(db, "pets", myPet.id), { 
-              stats: newStats,
-              lastInteraction: new Date().toISOString()
-          });
+          await updateDoc(doc(db, "pets", myPet.id), { stats: newStats, lastInteraction: new Date().toISOString() });
       } catch (error) { console.error("Interaction failed:", error); }
   };
 
   useEffect(() => {
     if (!myPet || !myPet.stats) return;
-
     const intervalId = setInterval(async () => {
         const currentStats = {
             hunger: Number(myPet.stats.hunger) || 0,
             happiness: Number(myPet.stats.happiness) || 0,
             energy: Number(myPet.stats.energy) || 0,
         };
-        
         const newStats = {
             hunger: Math.max(0, currentStats.hunger - 2),
             happiness: Math.max(0, currentStats.happiness - 2),
             energy: Math.max(0, currentStats.energy - 1)
         };
-
-        if (
-            newStats.hunger !== currentStats.hunger || 
-            newStats.happiness !== currentStats.happiness || 
-            newStats.energy !== currentStats.energy
-        ) {
-            try {
-                await updateDoc(doc(db, "pets", myPet.id), { stats: newStats });
-            } catch (err) { console.error("Decay error:", err); }
+        if (newStats.hunger !== currentStats.hunger || newStats.happiness !== currentStats.happiness || newStats.energy !== currentStats.energy) {
+            try { await updateDoc(doc(db, "pets", myPet.id), { stats: newStats }); } catch (err) { console.error("Decay error:", err); }
         }
     }, 30000); 
-
     return () => clearInterval(intervalId);
   }, [myPet]);
 
@@ -429,17 +422,15 @@ export const useTaskData = (currentUser) => {
     try {
         const oldTask = tasks.find(t => t.id === id);
         if (!oldTask) return;
-
         const cleanedUpdates = cleanData(updates);
         await updateDoc(doc(db, "tasks", id), cleanedUpdates);
-
+        
+        // Notify on important changes
         const changedFields = [];
         if (updates.startTime && updates.startTime !== oldTask.startTime) changedFields.push("Start Time");
         if (updates.endTime && updates.endTime !== oldTask.endTime) changedFields.push("End Time");
         if (updates.deadline && updates.deadline !== oldTask.deadline) changedFields.push("Due Date");
-        if (updates.description && updates.description !== oldTask.description) changedFields.push("Details");
-        if (updates.location && updates.location !== oldTask.location) changedFields.push("Location");
-
+        
         if (changedFields.length > 0) {
             const mergedTask = { ...oldTask, ...updates }; 
             await sendLinePush(mergedTask, "✏️ Task Updated", "#3B82F6"); 
@@ -456,16 +447,9 @@ export const useTaskData = (currentUser) => {
             notified2Days: false,
             notified0Day: false
         });
-
         await addDoc(collection(db, "tasks"), cleanedTask);
-        
-        const emailData = { "Task": task.title };
-        if (task.startTime) emailData["Start Date & Time"] = formatDateTime(task.startTime);
-        emailData["Details"] = task.description || "No details provided";
-        
-        await sendEmailNotification(`New Task: ${task.title}`, emailData);
+        await sendEmailNotification(`New Task: ${task.title}`, { "Task": task.title, "Details": task.description || "-" });
         await sendLinePush(task, "🆕 New Task Created", "#1DB446");
-        
     } catch (error) { console.error("Error adding task:", error); }
   };
   
@@ -474,20 +458,14 @@ export const useTaskData = (currentUser) => {
         await updateDoc(doc(db, "tasks", taskId), { status: newStatus });
         const task = tasks.find(t => t.id === taskId);
         const updatedTask = { ...task, status: newStatus };
-
-        if (newStatus === 'canceled') {
-            await sendLinePush(updatedTask, "🚫 This task was canceled", "#9CA3AF");
-        } else {
-            await sendLinePush(updatedTask, "🔄 Status Updated", "#3B82F6");
-        }
+        if (newStatus === 'canceled') await sendLinePush(updatedTask, "🚫 Task Canceled", "#9CA3AF");
+        else await sendLinePush(updatedTask, "🔄 Status Updated", "#3B82F6");
     } catch (error) { console.error("Error moving task:", error); }
   };
   
   const deleteTask = async (id) => { 
       if(!confirm("Delete task?")) return;
-      try { 
-          await deleteDoc(doc(db, "tasks", id)); 
-      } catch (error) { console.error(error); } 
+      try { await deleteDoc(doc(db, "tasks", id)); } catch (error) { console.error(error); } 
   };
 
   const markNotificationRead = async (id) => { try { await updateDoc(doc(db, "notifications", id), { isRead: true }); } catch(e) {} };
