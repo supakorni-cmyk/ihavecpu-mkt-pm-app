@@ -15,7 +15,6 @@ import {
 } from 'firebase/firestore';
 
 export const useTaskData = (currentUser) => {
-  // --- STATE ---
   const [tasks, setTasks] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [leaves, setLeaves] = useState([]);
@@ -90,7 +89,7 @@ export const useTaskData = (currentUser) => {
     } catch (error) { console.error("❌ Email Error:", error); }
   };
 
-  // --- 3. LINE FLEX MESSAGE (Added Date) ---
+  // --- 3. LINE FLEX MESSAGE (FIXED DATE) ---
   const sendLinePush = async (task, headerTitle, headerColor = "#1DB446") => {
     const PROXY_URL = import.meta.env.VITE_GOOGLE_SCRIPT_URL; 
     if (!PROXY_URL) return;
@@ -110,27 +109,39 @@ export const useTaskData = (currentUser) => {
         }
     ];
 
-    // --- DATE & TIME FORMATTERS ---
+    // --- DATE FORMATTERS ---
     const formatDateLine = (isoString) => {
         if (!isoString) return null;
-        return new Date(isoString).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+        try {
+            return new Date(isoString).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+        } catch (e) { return null; }
     };
 
     const formatTime = (isoString) => {
         if (!isoString) return null;
-        return new Date(isoString).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+        try {
+            return new Date(isoString).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+        } catch (e) { return null; }
     };
     
-    let dateDisplay = "No Date";
-    let timeDisplay = "TBD";
+    // 🟢 HANDLE MIXED FIELD NAMES (startTime vs startDate)
+    const startIso = task.startTime || task.startDate;
+    const endIso = task.endTime || task.endDate;
+    const dueIso = task.deadline || task.dueDate;
 
-    if (task.startTime) {
-        dateDisplay = formatDateLine(task.startTime);
-        timeDisplay = `${formatTime(task.startTime)}`;
-        if (task.endTime) timeDisplay += ` - ${formatTime(task.endTime)}`;
-    } else if (task.deadline) {
-        dateDisplay = formatDateLine(task.deadline);
-        timeDisplay = `Due: ${formatTime(task.deadline)}`;
+    let dateDisplay = "No Date";
+    let timeDisplay = "All Day";
+
+    if (startIso) {
+        dateDisplay = formatDateLine(startIso) || "Invalid Date";
+        timeDisplay = formatTime(startIso) || "TBD";
+        if (endIso) {
+            const endTime = formatTime(endIso);
+            if (endTime) timeDisplay += ` - ${endTime}`;
+        }
+    } else if (dueIso) {
+        dateDisplay = formatDateLine(dueIso) || "Invalid Date";
+        timeDisplay = `Due: ${formatTime(dueIso) || "TBD"}`;
     }
 
     const refLink = getValidUrl(task.reference);
@@ -187,25 +198,39 @@ export const useTaskData = (currentUser) => {
                     { type: "text", text: headerTitle, weight: "bold", size: "xxs", color: "#eb4d4b" },
                     { type: "text", text: task.title || "No Title", weight: "bold", size: "xl", color: "#ffffff", wrap: true, margin: "sm" },
                     
-                    // 🟢 ADDED: Date Row
-                    { 
-                        type: "text", 
-                        text: `📅 ${dateDisplay}`, 
-                        size: "sm", 
-                        color: "#cccccc", // Slightly lighter than main text
-                        margin: "md" 
-                    },
-                    
-                    // Time Row
-                    { 
-                        type: "text", 
-                        text: `⏰ ${timeDisplay}`, 
-                        size: "sm", 
-                        color: "#9ca3af", 
-                        margin: "xs" 
+                    // 🟢 DATE ROW (Baseline Layout)
+                    {
+                        type: "box",
+                        layout: "baseline",
+                        margin: "md",
+                        contents: [
+                            { type: "text", text: "📅", size: "sm", flex: 1, color: "#9ca3af" },
+                            { type: "text", text: dateDisplay, size: "sm", flex: 8, color: "#e5e7eb", weight: "bold" }
+                        ]
                     },
 
-                    (task.location && !locationLink) ? { type: "text", text: `📍 ${task.location}`, size: "xs", color: "#6b7280", margin: "md", wrap: true } : null,
+                    // 🟢 TIME ROW (Baseline Layout)
+                    {
+                        type: "box",
+                        layout: "baseline",
+                        margin: "sm",
+                        contents: [
+                            { type: "text", text: "⏰", size: "sm", flex: 1, color: "#9ca3af" },
+                            { type: "text", text: timeDisplay, size: "sm", flex: 8, color: "#9ca3af" }
+                        ]
+                    },
+
+                    // LOCATION ROW
+                    (task.location && !locationLink) ? {
+                        type: "box",
+                        layout: "baseline",
+                        margin: "md",
+                        contents: [
+                            { type: "text", text: "📍", size: "sm", flex: 1, color: "#9ca3af" },
+                            { type: "text", text: task.location, size: "sm", flex: 8, color: "#9ca3af", wrap: true }
+                        ]
+                    } : null,
+
                     ...(buttonComponents.length > 0 ? [
                         { type: "separator", margin: "lg", color: "#374151" },
                         { type: "box", layout: "vertical", margin: "lg", contents: buttonComponents }
@@ -255,8 +280,11 @@ export const useTaskData = (currentUser) => {
             "Status": "⚠️ " + prefix.replace("🔥🔥", "").replace("🔥", "").trim(),
             "Task": task.title,
         };
-        if (task.startTime) emailData["Start Date & Time"] = formatDateTime(task.startTime);
-        if (task.deadline) emailData["Due Date & Time"] = formatDateTime(task.deadline);
+        const startIso = task.startTime || task.startDate;
+        const dueIso = task.deadline || task.dueDate;
+        
+        if (startIso) emailData["Start Date & Time"] = formatDateTime(startIso);
+        if (dueIso) emailData["Due Date & Time"] = formatDateTime(dueIso);
         emailData["Details"] = task.description || "-";
 
         await sendEmailNotification(`${prefix}: ${task.title}`, emailData);
@@ -289,9 +317,13 @@ export const useTaskData = (currentUser) => {
         const status = task.status ? task.status.toLowerCase() : '';
         const isComplete = status === 'completed' || status === 'done' || status === 'canceled';
 
-        if (isComplete || !task.deadline) return;
+        if (isComplete) return;
 
-        const deadline = new Date(task.deadline);
+        // 🟢 Check both field names for deadline logic
+        const deadlineIso = task.deadline || task.dueDate || task.startDate || task.startTime;
+        if (!deadlineIso) return;
+
+        const deadline = new Date(deadlineIso);
         const timeDiff = deadline - now;
         const daysLeft = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
 
@@ -307,7 +339,7 @@ export const useTaskData = (currentUser) => {
     });
   };
 
-  // --- 🐶 5. PET ACTIONS ---
+  // --- 🐶 5. PET ACTIONS & GAME LOOP ---
   const adoptPet = async (petData) => {
       if (!currentUser) return;
       try {
@@ -425,7 +457,6 @@ export const useTaskData = (currentUser) => {
         const cleanedUpdates = cleanData(updates);
         await updateDoc(doc(db, "tasks", id), cleanedUpdates);
         
-        // Notify on important changes
         const changedFields = [];
         if (updates.startTime && updates.startTime !== oldTask.startTime) changedFields.push("Start Time");
         if (updates.endTime && updates.endTime !== oldTask.endTime) changedFields.push("End Time");
