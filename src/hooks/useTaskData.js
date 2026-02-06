@@ -176,6 +176,7 @@ export const useTaskData = (currentUser) => {
                 contents: [
                     { type: "text", text: headerTitle, weight: "bold", size: "xxs", color: "#eb4d4b" },
                     { type: "text", text: task.title || "No Title", weight: "bold", size: "xl", color: "#ffffff", wrap: true, margin: "sm" },
+                    { type:"text", text: task.deadline, size: "sm", color: "#ffffff", margin: "xs" },
                     { type: "text", text: timeDisplay, size: "sm", color: "#9ca3af", margin: "xs" },
                     (task.location && !locationLink) ? { type: "text", text: `📍 ${task.location}`, size: "xs", color: "#6b7280", margin: "md", wrap: true } : null,
                     ...(buttonComponents.length > 0 ? [
