@@ -11,10 +11,11 @@ import {
   query, 
   orderBy,
   where,
-  runTransaction 
+  runTransaction // 🟢 1. Import Transaction for Atomic Updates
 } from 'firebase/firestore';
 
 export const useTaskData = (currentUser) => {
+  // --- STATE ---
   const [tasks, setTasks] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [leaves, setLeaves] = useState([]);
@@ -89,7 +90,7 @@ export const useTaskData = (currentUser) => {
     } catch (error) { console.error("❌ Email Error:", error); }
   };
 
-  // --- 3. LINE FLEX MESSAGE (FIXED DATE) ---
+  // --- 3. LINE FLEX MESSAGE (Date Row + "Go to Task" Button) ---
   const sendLinePush = async (task, headerTitle, headerColor = "#1DB446") => {
     const PROXY_URL = import.meta.env.VITE_GOOGLE_SCRIPT_URL; 
     if (!PROXY_URL) return;
@@ -109,22 +110,22 @@ export const useTaskData = (currentUser) => {
         }
     ];
 
-    // --- DATE FORMATTERS ---
+    // --- DEEP LINK GENERATION ---
+    const appUrl = window.location.origin; // e.g. https://your-app.web.app
+    const taskDeepLink = `${appUrl}?taskId=${task.id}`;
+
+    // --- FORMATTERS ---
     const formatDateLine = (isoString) => {
         if (!isoString) return null;
-        try {
-            return new Date(isoString).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-        } catch (e) { return null; }
+        try { return new Date(isoString).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }); } catch (e) { return null; }
     };
 
     const formatTime = (isoString) => {
         if (!isoString) return null;
-        try {
-            return new Date(isoString).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-        } catch (e) { return null; }
+        try { return new Date(isoString).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }); } catch (e) { return null; }
     };
     
-    // 🟢 HANDLE MIXED FIELD NAMES (startTime vs startDate)
+    // Check both field name possibilities
     const startIso = task.startTime || task.startDate;
     const endIso = task.endTime || task.endDate;
     const dueIso = task.deadline || task.dueDate;
@@ -147,15 +148,29 @@ export const useTaskData = (currentUser) => {
     const refLink = getValidUrl(task.reference);
     const finalLink = getValidUrl(task.finalFile);
     const locationLink = getValidUrl(task.location);
-    const MEGAPHONE_IMAGE = "https://images.unsplash.com/photo-1585676625395-9c8d30327776?ixlib=rb-4.0.3&q=80&fm=jpg&crop=entropy&cs=tinysrgb&w=1080&fit=max";
+    const MEGAPHONE_IMAGE = "https://plus.unsplash.com/premium_photo-1678193923226-bc247f475175?q=80&w=665&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D";
     const heroImageUrl = getValidUrl(task.imageUrl) || MEGAPHONE_IMAGE;
+
+    // --- BUTTONS ---
+    const primaryButton = {
+        type: "button",
+        style: "primary",
+        color: "#3B82F6", // Blue
+        height: "sm",
+        action: {
+            type: "uri",
+            label: "🚀 Go to Task",
+            uri: taskDeepLink
+        },
+        margin: "md"
+    };
 
     const actions = [];
     if (refLink) actions.push({ type: "uri", label: "📄 Reference", uri: refLink });
     if (finalLink) actions.push({ type: "uri", label: "📂 Final File", uri: finalLink });
     if (locationLink) actions.push({ type: "uri", label: "📍 Location", uri: locationLink });
 
-    const buttonComponents = actions.map(act => ({
+    const secondaryButtons = actions.map(act => ({
         type: "button",
         style: "secondary",
         color: "#ffffff",
@@ -184,7 +199,7 @@ export const useTaskData = (currentUser) => {
                         cornerRadius: "md",
                         paddingAll: "xs",
                         offsetTop: "12px",
-                        offsetStart: "12px", 
+                        offsetStart: "12px", // 🟢 FIXED: offsetStart
                         maxWidth: "120px"
                     }
                 ],
@@ -198,42 +213,20 @@ export const useTaskData = (currentUser) => {
                     { type: "text", text: headerTitle, weight: "bold", size: "xxs", color: "#eb4d4b" },
                     { type: "text", text: task.title || "No Title", weight: "bold", size: "xl", color: "#ffffff", wrap: true, margin: "sm" },
                     
-                    // 🟢 DATE ROW (Baseline Layout)
-                    {
-                        type: "box",
-                        layout: "baseline",
-                        margin: "md",
-                        contents: [
-                            { type: "text", text: "📅", size: "sm", flex: 1, color: "#9ca3af" },
-                            { type: "text", text: dateDisplay, size: "sm", flex: 8, color: "#e5e7eb", weight: "bold" }
-                        ]
-                    },
+                    // 🟢 Date Row
+                    { type: "box", layout: "baseline", margin: "md", contents: [{ type: "text", text: "📅", size: "sm", flex: 1, color: "#9ca3af" }, { type: "text", text: dateDisplay, size: "sm", flex: 8, color: "#e5e7eb", weight: "bold" }] },
+                    // 🟢 Time Row
+                    { type: "box", layout: "baseline", margin: "sm", contents: [{ type: "text", text: "⏰", size: "sm", flex: 1, color: "#9ca3af" }, { type: "text", text: timeDisplay, size: "sm", flex: 8, color: "#9ca3af" }] },
+                    
+                    (task.location && !locationLink) ? { type: "box", layout: "baseline", margin: "md", contents: [{ type: "text", text: "📍", size: "sm", flex: 1, color: "#9ca3af" }, { type: "text", text: task.location, size: "sm", flex: 8, color: "#9ca3af", wrap: true }] } : null,
 
-                    // 🟢 TIME ROW (Baseline Layout)
-                    {
-                        type: "box",
-                        layout: "baseline",
-                        margin: "sm",
-                        contents: [
-                            { type: "text", text: "⏰", size: "sm", flex: 1, color: "#9ca3af" },
-                            { type: "text", text: timeDisplay, size: "sm", flex: 8, color: "#9ca3af" }
-                        ]
-                    },
+                    { type: "separator", margin: "lg", color: "#374151" },
+                    
+                    // 🟢 Primary "Go to Task" Button
+                    primaryButton,
 
-                    // LOCATION ROW
-                    (task.location && !locationLink) ? {
-                        type: "box",
-                        layout: "baseline",
-                        margin: "md",
-                        contents: [
-                            { type: "text", text: "📍", size: "sm", flex: 1, color: "#9ca3af" },
-                            { type: "text", text: task.location, size: "sm", flex: 8, color: "#9ca3af", wrap: true }
-                        ]
-                    } : null,
-
-                    ...(buttonComponents.length > 0 ? [
-                        { type: "separator", margin: "lg", color: "#374151" },
-                        { type: "box", layout: "vertical", margin: "lg", contents: buttonComponents }
+                    ...(secondaryButtons.length > 0 ? [
+                        { type: "box", layout: "vertical", margin: "sm", contents: secondaryButtons }
                     ] : [])
                 ].filter(Boolean),
                 paddingAll: "20px"
@@ -264,21 +257,31 @@ export const useTaskData = (currentUser) => {
     if (prefix.includes("TODAY") || prefix.includes("URGENT")) color = "#EF4444";
 
     try {
+        // 🟢 ATOMIC DATABASE TRANSACTION
         await runTransaction(db, async (transaction) => {
             const taskRef = doc(db, "tasks", task.id);
             const taskSnapshot = await transaction.get(taskRef);
             if (!taskSnapshot.exists()) throw "Task does not exist!";
+            
             const freshTask = taskSnapshot.data();
+            // Check if another device already updated this flag
             if (freshTask[updateKey] === true) throw "ALREADY_SENT"; 
+            
+            // Mark as notified immediately
             transaction.update(taskRef, { [updateKey]: true });
         });
 
         console.log(`🔔 Sending Alert: ${prefix} for ${task.title}`);
         await sendLinePush(task, prefix, color);
 
+        // 🟢 Email Deep Link
+        const appUrl = window.location.origin;
+        const taskDeepLink = `${appUrl}?taskId=${task.id}`;
+
         const emailData = {
             "Status": "⚠️ " + prefix.replace("🔥🔥", "").replace("🔥", "").trim(),
             "Task": task.title,
+            "Link": taskDeepLink
         };
         const startIso = task.startTime || task.startDate;
         const dueIso = task.deadline || task.dueDate;
@@ -319,7 +322,7 @@ export const useTaskData = (currentUser) => {
 
         if (isComplete) return;
 
-        // 🟢 Check both field names for deadline logic
+        // Check various possible date fields
         const deadlineIso = task.deadline || task.dueDate || task.startDate || task.startTime;
         if (!deadlineIso) return;
 
@@ -339,7 +342,7 @@ export const useTaskData = (currentUser) => {
     });
   };
 
-  // --- 🐶 5. PET ACTIONS & GAME LOOP ---
+  // --- 5. PET ACTIONS & GAME LOOP ---
   const adoptPet = async (petData) => {
       if (!currentUser) return;
       try {
@@ -478,9 +481,13 @@ export const useTaskData = (currentUser) => {
             notified2Days: false,
             notified0Day: false
         });
-        await addDoc(collection(db, "tasks"), cleanedTask);
+        const docRef = await addDoc(collection(db, "tasks"), cleanedTask);
+        
+        // Pass the new ID so the Deep Link works immediately
+        const taskWithId = { ...cleanedTask, id: docRef.id };
+
         await sendEmailNotification(`New Task: ${task.title}`, { "Task": task.title, "Details": task.description || "-" });
-        await sendLinePush(task, "🆕 New Task Created", "#1DB446");
+        await sendLinePush(taskWithId, "🆕 New Task Created", "#1DB446");
     } catch (error) { console.error("Error adding task:", error); }
   };
   

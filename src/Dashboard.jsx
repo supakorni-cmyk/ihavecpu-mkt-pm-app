@@ -1,5 +1,5 @@
 // src/Dashboard.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 
@@ -9,7 +9,7 @@ import { getSafeRequirements } from './utils/constants';
 
 // Shared Components
 import Sidebar from './components/shared/Sidebar';
-import GlobalPlayer from './components/common/GlobalPlayer'; // <--- NEW IMPORT
+import GlobalPlayer from './components/common/GlobalPlayer'; 
 
 // Views
 import HomeView from './components/views/HomeView';
@@ -26,40 +26,53 @@ import OTView from './components/views/OtView';
 import AddTaskModal from './components/modals/AddTaskModal';
 import EditTaskModal from './components/modals/EditTaskModal';
 import RequirementSheetModal from './components/modals/RequirementModal';
+import TaskDetailModal from './components/modals/TaskDetailModal'; // 🟢 IMPORTED
 
 export default function Dashboard() {
   const { currentUser, logout } = useAuth();
   const navigate = useNavigate();
+  
+  // 🟢 SINGLE HOOK CALL
   const data = useTaskData(currentUser);
 
-  const {
-    tasks,
-    addTask,
-    updateTask,
-    deleteTask,
-  } = useTaskData(currentUser);
-
-  // --- GLOBAL PLAYER STATE ---
+  // --- STATE ---
   const [playerMood, setPlayerMood] = useState(null);
-  const [playerMode, setPlayerMode] = useState('hidden'); // 'hidden' | 'mini' | 'full'
-
+  const [playerMode, setPlayerMode] = useState('hidden'); 
   const [currentView, setCurrentView] = useState('home');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [selectedTaskId, setSelectedTaskId] = useState(null);
+  const [selectedTaskId, setSelectedTaskId] = useState(null); // For Edit
   const [activeRequirementId, setActiveRequirementId] = useState(null);
+  
+  // 🟢 DEEP LINK STATE
+  const [deepLinkTask, setDeepLinkTask] = useState(null);
 
+  // --- DERIVED STATE ---
   const selectedTask = data.tasks.find(t => t.id === selectedTaskId);
   const activeRequirement = selectedTask 
     ? getSafeRequirements(selectedTask).find(r => r.id === activeRequirementId) 
     : null;
 
   const handleLogout = async () => { await logout(); navigate('/'); };
+  const handlePlayMood = (mood) => { setPlayerMood(mood); setPlayerMode('mini'); };
 
-  // --- PLAYER HANDLER ---
-  const handlePlayMood = (mood) => {
-      setPlayerMood(mood);
-      setPlayerMode('mini'); // Open in mini mode by default
-  };
+  // 🟢 DEEP LINK HANDLER (On Load)
+  useEffect(() => {
+    if (data.tasks.length > 0) {
+      const params = new URLSearchParams(window.location.search);
+      const targetId = params.get('taskId');
+
+      if (targetId) {
+        const foundTask = data.tasks.find(t => t.id === targetId);
+        if (foundTask) {
+          console.log("🔗 Deep Link Found for:", foundTask.title);
+          setDeepLinkTask(foundTask);
+          
+          // Optional: Clean URL
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
+      }
+    }
+  }, [data.tasks]);
 
   return (
     <div className="flex h-screen w-full bg-gray-50 font-sans overflow-hidden">
@@ -79,8 +92,8 @@ export default function Dashboard() {
             markNotificationRead={data.markNotificationRead}
             clearAllNotifications={data.clearAllNotifications}
             users={data.allUsers}
-            onUpdateTask={updateTask} // 🟢 Pass this
-            onDeleteTask={deleteTask} // 🟢 Pass this
+            onUpdateTask={data.updateTask} 
+            onDeleteTask={data.deleteTask} 
           />
         )}
         
@@ -97,11 +110,10 @@ export default function Dashboard() {
 
         {currentView === 'calendar' && (
           <CalendarView 
-          tasks={data.tasks} 
-          setSelectedTaskId={setSelectedTaskId} 
-          onAddTask={addTask}
-          onUpdateTask={updateTask}
-          onDeleteTask={deleteTask}
+            tasks={data.tasks} 
+            onAddTask={data.addTask}
+            onUpdateTask={data.updateTask}
+            onDeleteTask={data.deleteTask}
           />
         )}
 
@@ -139,7 +151,6 @@ export default function Dashboard() {
           />
         )}
 
-        {/* --- PASS PLAYER PROPS TO SELFHEAL --- */}
         {currentView === 'selfheal' && (
             <SelfHealView 
                 onPlay={handlePlayMood} 
@@ -153,7 +164,6 @@ export default function Dashboard() {
         )}
       </main>
 
-      {/* --- GLOBAL PLAYER (ALWAYS RENDERED) --- */}
       <GlobalPlayer 
           mood={playerMood} 
           mode={playerMode} 
@@ -171,6 +181,7 @@ export default function Dashboard() {
           task={selectedTask}
           onClose={() => setSelectedTaskId(null)}
           onUpdate={(updates) => data.updateTask(selectedTask.id, updates)}
+          onDelete={() => data.deleteTask(selectedTask.id)}
           onOpenRequirement={(reqId) => setActiveRequirementId(reqId)}
         />
       )}
@@ -181,6 +192,22 @@ export default function Dashboard() {
           requirement={activeRequirement} 
           onClose={() => setActiveRequirementId(null)} 
           onUpdateTask={(updates) => data.updateTask(selectedTask.id, updates)} 
+        />
+      )}
+
+      {/* 🟢 DEEP LINK READ-ONLY MODAL */}
+      {deepLinkTask && (
+        <TaskDetailModal 
+            task={deepLinkTask}
+            onClose={() => setDeepLinkTask(null)}
+            onEdit={() => {
+                setSelectedTaskId(deepLinkTask.id); // Open Edit Modal
+                setDeepLinkTask(null); // Close Read-Only
+            }}
+            onDelete={() => {
+                data.deleteTask(deepLinkTask.id);
+                setDeepLinkTask(null);
+            }}
         />
       )}
     </div>
