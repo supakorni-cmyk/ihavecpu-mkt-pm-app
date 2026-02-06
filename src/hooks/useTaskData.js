@@ -24,6 +24,7 @@ export const useTaskData = (currentUser) => {
   const [notifications, setNotifications] = useState([]); 
   const [myPet, setMyPet] = useState(null); 
   
+  // 🟢 MEMORY LOCK (For single tab)
   const processedAlerts = useRef(new Set()); 
   const [allUsers, setAllUsers] = useState([]);
 
@@ -96,10 +97,9 @@ export const useTaskData = (currentUser) => {
     } catch (error) { console.error("❌ Email Error:", error); }
   };
 
-  // --- 3. LINE FLEX MESSAGE (FIXED OFFSET) ---
+  // --- 3. LINE FLEX MESSAGE ---
   const sendLinePush = async (task, headerTitle, headerColor = "#1DB446") => {
     const PROXY_URL = import.meta.env.VITE_GOOGLE_SCRIPT_URL; 
-
     if (!PROXY_URL) return;
 
     const TARGETS = [
@@ -133,8 +133,7 @@ export const useTaskData = (currentUser) => {
     const refLink = getValidUrl(task.reference);
     const finalLink = getValidUrl(task.finalFile);
     const locationLink = getValidUrl(task.location);
-    
-    const MEGAPHONE_IMAGE = "https://plus.unsplash.com/premium_photo-1678193923226-bc247f475175?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MXx8YW5ub3VuY2VtZW50fGVufDB8fDB8fHww";
+    const MEGAPHONE_IMAGE = "https://images.unsplash.com/photo-1585676625395-9c8d30327776?ixlib=rb-4.0.3&q=80&fm=jpg&crop=entropy&cs=tinysrgb&w=1080&fit=max";
     const heroImageUrl = getValidUrl(task.imageUrl) || MEGAPHONE_IMAGE;
 
     const actions = [];
@@ -151,7 +150,6 @@ export const useTaskData = (currentUser) => {
         margin: "sm"
     }));
 
-    // 🟢 FIXED FLEX STRUCTURE (offsetStart)
     const flexMessage = {
         type: "flex",
         altText: `${headerTitle}: ${task.title || "Task"}`,
@@ -162,75 +160,31 @@ export const useTaskData = (currentUser) => {
                 type: "box",
                 layout: "vertical",
                 contents: [
-                    {
-                        type: "image",
-                        url: heroImageUrl,
-                        size: "full",
-                        aspectMode: "cover",
-                        aspectRatio: "20:13",
-                        gravity: "center"
-                    },
+                    { type: "image", url: heroImageUrl, size: "full", aspectMode: "cover", aspectRatio: "20:13", gravity: "center" },
                     {
                         type: "box",
                         layout: "horizontal",
-                        contents: [
-                            {
-                                type: "text",
-                                text: (task.tag || "TASK").toUpperCase(),
-                                size: "xs",
-                                color: "#ffffff",
-                                align: "center",
-                                weight: "bold"
-                            }
-                        ],
+                        contents: [{ type: "text", text: (task.tag || "TASK").toUpperCase(), size: "xs", color: "#ffffff", align: "center", weight: "bold" }],
                         position: "absolute",
                         backgroundColor: "#eb4d4b",
                         cornerRadius: "md",
                         paddingAll: "xs",
                         offsetTop: "12px",
-                        // 🟢 FIXED: offsetLeft -> offsetStart
                         offsetStart: "12px", 
                         maxWidth: "120px"
                     }
                 ],
-                paddingAll: "0px" 
+                paddingAll: "none" 
             },
             body: {
                 type: "box",
                 layout: "vertical",
                 backgroundColor: "#202833",
                 contents: [
-                    {
-                        type: "text",
-                        text: headerTitle,
-                        weight: "bold",
-                        size: "xxs",
-                        color: "#eb4d4b" 
-                    },
-                    {
-                        type: "text",
-                        text: task.title || "No Title",
-                        weight: "bold",
-                        size: "xl",
-                        color: "#ffffff",
-                        wrap: true,
-                        margin: "sm"
-                    },
-                    {
-                        type: "text",
-                        text: timeDisplay,
-                        size: "sm",
-                        color: "#9ca3af",
-                        margin: "xs"
-                    },
-                    (task.location && !locationLink) ? {
-                        type: "text",
-                        text: `📍 ${task.location}`,
-                        size: "xs",
-                        color: "#6b7280",
-                        margin: "md",
-                        wrap: true
-                    } : null,
+                    { type: "text", text: headerTitle, weight: "bold", size: "xxs", color: "#eb4d4b" },
+                    { type: "text", text: task.title || "No Title", weight: "bold", size: "xl", color: "#ffffff", wrap: true, margin: "sm" },
+                    { type: "text", text: timeDisplay, size: "sm", color: "#9ca3af", margin: "xs" },
+                    (task.location && !locationLink) ? { type: "text", text: `📍 ${task.location}`, size: "xs", color: "#6b7280", margin: "md", wrap: true } : null,
                     ...(buttonComponents.length > 0 ? [
                         { type: "separator", margin: "lg", color: "#374151" },
                         { type: "box", layout: "vertical", margin: "lg", contents: buttonComponents }
@@ -241,8 +195,6 @@ export const useTaskData = (currentUser) => {
         }
     };
 
-    console.log("🚀 SENDING LINE JSON:", JSON.stringify(flexMessage, null, 2));
-
     TARGETS.forEach(async (target) => {
         if (!target.token || !target.groupId) return;
         if (target.allowedTags !== "ALL") {
@@ -251,24 +203,38 @@ export const useTaskData = (currentUser) => {
         
         try {
             const relayData = { token: target.token, payload: { to: target.groupId, messages: [flexMessage] } };
-            const response = await fetch(PROXY_URL, {
+            await fetch(PROXY_URL, {
                 method: "POST",
                 headers: { "Content-Type": "text/plain;charset=utf-8" }, 
                 body: JSON.stringify(relayData)
             });
-            const result = await response.text(); 
-            console.log(`✅ LINE Sent to ${target.name} | Result: ${result}`);
-
+            console.log(`✅ LINE Sent to ${target.name}`);
         } catch (error) { console.error(`❌ Network Error (${target.name}):`, error); }
     });
   };
 
-  // --- 4. ALERT LOGIC ---
+  // --- 4. ALERT LOGIC (🟢 FIXED DUPLICATE ISSUE) ---
   const triggerAlert = async (task, prefix, userEmail, updateFlag) => {
+    // 🟢 1. Create a Unique Lock ID
     const alertId = `${task.id}-${Object.keys(updateFlag)[0]}`; 
+    
+    // 🟢 2. Check Local Memory (Ref) - Fast check
     if (processedAlerts.current.has(alertId)) return;
-    processedAlerts.current.add(alertId);
 
+    // 🟢 3. Check Browser Storage (LocalStorage) - Cross-tab check
+    const storageKey = `sent_alert_${alertId}`;
+    if (localStorage.getItem(storageKey)) {
+        console.log(`🚫 Skipped duplicate alert: ${alertId} (found in localStorage)`);
+        return;
+    }
+
+    // 🟢 4. Set Locks IMMEDIATELY
+    processedAlerts.current.add(alertId);
+    localStorage.setItem(storageKey, "true"); // Locks other tabs
+
+    console.log(`🔔 Sending Alert: ${prefix} for ${task.title}`);
+
+    // 🟢 5. Send Notifications
     await sendLinePush(task, prefix, "#EF4444");
 
     const emailData = {
@@ -276,7 +242,6 @@ export const useTaskData = (currentUser) => {
         "Task": task.title,
     };
     if (task.startTime) emailData["Start Date & Time"] = formatDateTime(task.startTime);
-    if (task.endTime) emailData["End Date & Time"] = formatDateTime(task.endTime);
     if (task.deadline) emailData["Due Date & Time"] = formatDateTime(task.deadline);
     emailData["Details"] = task.description || "-";
 
@@ -291,6 +256,7 @@ export const useTaskData = (currentUser) => {
         type: 'alert'
     });
 
+    // 🟢 6. Update Database
     await updateDoc(doc(db, "tasks", task.id), updateFlag);
   };
 
