@@ -10,7 +10,8 @@ import {
   doc, 
   query, 
   orderBy,
-  where 
+  where,
+  runTransaction // 🟢 1. Import Transaction
 } from 'firebase/firestore';
 
 export const useTaskData = (currentUser) => {
@@ -23,9 +24,6 @@ export const useTaskData = (currentUser) => {
   const [photos, setPhotos] = useState([]);
   const [notifications, setNotifications] = useState([]); 
   const [myPet, setMyPet] = useState(null); 
-  
-  // 🟢 MEMORY LOCK (For single tab)
-  const processedAlerts = useRef(new Set()); 
   const [allUsers, setAllUsers] = useState([]);
 
   // --- 1. DATA CLEANER ---
@@ -59,12 +57,7 @@ export const useTaskData = (currentUser) => {
       if (!urlToCheck.startsWith('http://') && !urlToCheck.startsWith('https://')) {
           urlToCheck = `https://${urlToCheck}`;
       }
-      try {
-          new URL(urlToCheck); 
-          return urlToCheck;
-      } catch (_) {
-          return null;
-      }
+      try { new URL(urlToCheck); return urlToCheck; } catch (_) { return null; }
   };
 
   // --- 2. EMAIL NOTIFICATION ---
@@ -200,7 +193,6 @@ export const useTaskData = (currentUser) => {
         if (target.allowedTags !== "ALL") {
             if (!task.tag || !target.allowedTags.includes(task.tag)) return;
         }
-        
         try {
             const relayData = { token: target.token, payload: { to: target.groupId, messages: [flexMessage] } };
             await fetch(PROXY_URL, {
@@ -213,51 +205,65 @@ export const useTaskData = (currentUser) => {
     });
   };
 
-  // --- 4. ALERT LOGIC (🟢 FIXED DUPLICATE ISSUE) ---
-  const triggerAlert = async (task, prefix, userEmail, updateFlag) => {
-    // 🟢 1. Create a Unique Lock ID
-    const alertId = `${task.id}-${Object.keys(updateFlag)[0]}`; 
-    
-    // 🟢 2. Check Local Memory (Ref) - Fast check
-    if (processedAlerts.current.has(alertId)) return;
+  // --- 4. ALERT LOGIC (🟢 TRANSACTION FIX) ---
+  
+  const triggerAlert = async (task, prefix, userEmail, updateKey) => {
+    // Determine Color
+    let color = "#F59E0B"; 
+    if (prefix.includes("TODAY") || prefix.includes("URGENT")) color = "#EF4444";
 
-    // 🟢 3. Check Browser Storage (LocalStorage) - Cross-tab check
-    const storageKey = `sent_alert_${alertId}`;
-    if (localStorage.getItem(storageKey)) {
-        console.log(`🚫 Skipped duplicate alert: ${alertId} (found in localStorage)`);
-        return;
+    try {
+        // 🟢 ATOMIC DATABASE TRANSACTION
+        // This guarantees only ONE device enters this block successfully.
+        await runTransaction(db, async (transaction) => {
+            // 1. Read fresh data directly from DB
+            const taskRef = doc(db, "tasks", task.id);
+            const taskSnapshot = await transaction.get(taskRef);
+            
+            if (!taskSnapshot.exists()) throw "Task does not exist!";
+            
+            const freshTask = taskSnapshot.data();
+
+            // 2. Check if already notified
+            if (freshTask[updateKey] === true) {
+                throw "ALREADY_SENT"; // 🚫 Abort transaction, stop here.
+            }
+
+            // 3. Mark as notified immediately
+            transaction.update(taskRef, { [updateKey]: true });
+        });
+
+        // 🟢 IF WE ARE HERE, WE WON THE RACE. SEND MESSAGES.
+        console.log(`🔔 Sending Alert: ${prefix} for ${task.title}`);
+
+        await sendLinePush(task, prefix, color);
+
+        const emailData = {
+            "Status": "⚠️ " + prefix.replace("🔥🔥", "").replace("🔥", "").trim(),
+            "Task": task.title,
+        };
+        if (task.startTime) emailData["Start Date & Time"] = formatDateTime(task.startTime);
+        if (task.deadline) emailData["Due Date & Time"] = formatDateTime(task.deadline);
+        emailData["Details"] = task.description || "-";
+
+        await sendEmailNotification(`${prefix}: ${task.title}`, emailData);
+
+        await addDoc(collection(db, "notifications"), {
+            title: `${prefix}: ${task.title}`,
+            taskId: task.id,
+            userEmail: userEmail,
+            isRead: false,
+            createdAt: new Date().toISOString(),
+            type: 'alert'
+        });
+
+    } catch (e) {
+        if (e === "ALREADY_SENT") {
+            console.log(`🚫 Skipped duplicate alert for ${task.title} (Race condition handled).`);
+        } else {
+            console.error("Transaction failed: ", e);
+        }
     }
-
-    // 🟢 4. Set Locks IMMEDIATELY
-    processedAlerts.current.add(alertId);
-    localStorage.setItem(storageKey, "true"); // Locks other tabs
-
-    console.log(`🔔 Sending Alert: ${prefix} for ${task.title}`);
-
-    // 🟢 5. Send Notifications
-    await sendLinePush(task, prefix, "#EF4444");
-
-    const emailData = {
-        "Status": "⚠️ " + prefix.replace("🔥🔥", "").replace("🔥", "").trim(),
-        "Task": task.title,
-    };
-    if (task.startTime) emailData["Start Date & Time"] = formatDateTime(task.startTime);
-    if (task.deadline) emailData["Due Date & Time"] = formatDateTime(task.deadline);
-    emailData["Details"] = task.description || "-";
-
-    await sendEmailNotification(`${prefix}: ${task.title}`, emailData);
-
-    await addDoc(collection(db, "notifications"), {
-        title: `${prefix}: ${task.title}`,
-        taskId: task.id,
-        userEmail: userEmail,
-        isRead: false,
-        createdAt: new Date().toISOString(),
-        type: 'alert'
-    });
-
-    // 🟢 6. Update Database
-    await updateDoc(doc(db, "tasks", task.id), updateFlag);
   };
 
   const checkDeadlines = (taskList, user) => {
@@ -276,14 +282,15 @@ export const useTaskData = (currentUser) => {
         const timeDiff = deadline - now;
         const daysLeft = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
 
+        // 🟢 Pass the key string ('notified0Day') instead of object for cleaner transaction logic
         if (daysLeft <= 0 && daysLeft > -3 && !task.notified0Day) {
-            await triggerAlert(task,"🔥🔥 DEADLINE TODAY", user.email, { notified0Day: true});
+            await triggerAlert(task,"🔥🔥 DEADLINE TODAY", user.email, "notified0Day");
         }
         else if (daysLeft <= 2 && daysLeft > 0 && !task.notified2Days) {
-            await triggerAlert(task, "🔥 URGENT: 2 Days Left", user.email, { notified2Days: true });
+            await triggerAlert(task, "🔥 URGENT: 2 Days Left", user.email, "notified2Days");
         }
         else if (daysLeft <= 7 && daysLeft > 2 && !task.notified7Days) {
-            await triggerAlert(task, "⚠️ Reminder: 7 Days Left", user.email, { notified7Days: true });
+            await triggerAlert(task, "⚠️ Reminder: 7 Days Left", user.email, "notified7Days");
         }
     });
   };
