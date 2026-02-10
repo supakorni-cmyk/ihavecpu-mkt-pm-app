@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
     Table, X, Plus, Save, ZoomIn, ZoomOut, Trash2, 
     AlignLeft, AlignCenter, AlignRight, Hash, DollarSign, Type, Calculator, ExternalLink,
-    Wand2, Copy, CheckCircle2
+    Wand2, Copy, CheckCircle2, Clipboard // 🟢 Added Clipboard Icon
 } from 'lucide-react';
 
 const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => {
@@ -32,7 +32,7 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
         setHasUnsavedChanges(false);
     }, [requirement]);
 
-    // 🟢 NEW: Toggle Status in Header
+    // Status Toggle
     const toggleStatus = () => {
         const updatedReqs = task.requirements.map(r => {
             if (r.id === requirement.id) return { ...r, isDone: !r.isDone };
@@ -101,17 +101,14 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
 
     const getEffectiveCellValue = (row, col, rowIndex) => {
         const rawValue = row[col.id];
-        
         if (rawValue !== undefined && rawValue !== null && rawValue !== '') {
             return evaluateFormula(rawValue, rowIndex);
         }
-
         if (col.autoFormula) {
             const specificFormula = generateSpecificFormula(col.autoFormula, rowIndex);
             const cleanFormula = specificFormula.startsWith('=') ? specificFormula : '=' + specificFormula;
             return evaluateFormula(cleanFormula, rowIndex);
         }
-
         return '';
     };
 
@@ -243,6 +240,48 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
         setHasUnsavedChanges(false);
     };
 
+    // 🟢 NEW: PASTE FROM CLIPBOARD
+    const handlePasteFromClipboard = async () => {
+        try {
+            const text = await navigator.clipboard.readText();
+            if (!text) {
+                alert("Clipboard is empty!");
+                return;
+            }
+
+            // 1. Split rows (by new line)
+            const rows = text.trim().split(/\r\n|\n|\r/);
+            
+            const newRows = rows.map((rowStr) => {
+                // 2. Split columns (by tab - standard for Excel/Sheets)
+                const cellValues = rowStr.split('\t');
+                const newRow = { id: Date.now() + Math.random() }; // Ensure unique ID
+
+                // 3. Map pasted cells to existing columns
+                columns.forEach((col, index) => {
+                    let val = cellValues[index] || '';
+                    
+                    // 4. Clean Data based on Column Format
+                    if (col.format === 'currency' || col.format === 'number') {
+                        // Remove $ , ฿ etc.
+                        val = val.replace(/[^\d.-]/g, '');
+                    }
+                    
+                    newRow[col.id] = val;
+                });
+                return newRow;
+            });
+
+            // 5. Append to table
+            setTableData((prev) => [...prev, ...newRows]);
+            setHasUnsavedChanges(true);
+
+        } catch (err) {
+            console.error("Paste Failed:", err);
+            alert("Unable to access clipboard. Please ensure you have granted permission.");
+        }
+    };
+
     const copyDataToClipboard = () => {
         const headers = columns.map(c => c.name).join('\t');
         const rows = tableData.map((row, rIdx) => 
@@ -293,7 +332,7 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
                                 {requirement.title} 
                                 {hasUnsavedChanges && <span className="text-[10px] bg-yellow-400 text-yellow-900 px-2 rounded-full">Unsaved</span>}
                             </h3>
-                            {/* 🟢 Status Toggle */}
+                            {/* Status Toggle */}
                             <div 
                                 onClick={toggleStatus}
                                 className={`text-[10px] flex items-center gap-1 cursor-pointer hover:underline opacity-90 transition-colors ${requirement.isDone ? 'text-green-200' : 'text-gray-200'}`}
@@ -314,15 +353,27 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
                         <button onClick={handleSave} className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm shadow-sm transition-all ${hasUnsavedChanges ? 'bg-yellow-400 text-yellow-900 hover:bg-yellow-300' : 'bg-white/10 hover:bg-white/20'}`}>
                             <Save size={16} /> Save
                         </button>
+                        
+                        {/* 🟢 MODIFIED BUTTON GROUP */}
                         <div className="flex bg-white/10 rounded-lg p-0.5">
+                            {/* NEW: Paste Button */}
+                            <button 
+                                onClick={handlePasteFromClipboard} 
+                                className="px-3 py-1.5 rounded-md hover:bg-white/20 text-xs font-bold flex items-center gap-2 transition" 
+                                title="Paste table data from Clipboard"
+                            >
+                                <Clipboard size={14} /> Paste
+                            </button>
+                            <div className="w-px bg-white/20 my-1 mx-1"></div>
                             <button onClick={copyDataToClipboard} className="px-3 py-1.5 rounded-md hover:bg-white/20 text-xs font-bold flex items-center gap-2 transition" title="Copy data to paste in existing sheet">
-                                <Copy size={14} /> Copy Data
+                                <Copy size={14} /> Copy
                             </button>
                             <div className="w-px bg-white/20 my-1 mx-1"></div>
                             <button onClick={openNewSheet} className="px-2 py-1.5 rounded-md hover:bg-white/20 transition" title="Open empty Google Sheet">
                                 <ExternalLink size={14} />
                             </button>
                         </div>
+
                         <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-full text-white transition"><X size={24} /></button>
                     </div>
                 </div>
@@ -470,7 +521,6 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
                         style={{ top: contextMenu.y, left: contextMenu.x }}
                         onClick={(e) => e.stopPropagation()}
                     >
-                        {/* Context Menu Content (Identical to previous versions) */}
                          <div className="px-3 pb-2 text-xs font-bold text-gray-400 uppercase tracking-wider border-b border-gray-50 mb-1 flex justify-between items-center">
                             {contextMenu.type === 'row' ? `Row ${contextMenu.index + 1}` : `Column ${getColLetter(contextMenu.index)}`}
                             <button onClick={() => setContextMenu(null)} className="hover:bg-red-50 hover:text-red-500 rounded p-0.5"><X size={12}/></button>
@@ -521,7 +571,7 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
                                         placeholder="e.g. =A*B"
                                         value={columns[contextMenu.index].autoFormula || ''}
                                         onChange={(e) => updateColumnProperty(contextMenu.id, 'autoFormula', e.target.value)}
-                                        onClick={(e) => e.stopPropagation()} // Prevent closing
+                                        onClick={(e) => e.stopPropagation()} 
                                     />
                                     <p className="text-[9px] text-gray-400 mt-1">Use column letters (e.g. A, B)</p>
                                 </div>
