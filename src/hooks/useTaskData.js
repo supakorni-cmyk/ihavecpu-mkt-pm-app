@@ -23,7 +23,7 @@ export const useTaskData = (currentUser) => {
   const [albums, setAlbums] = useState([]); 
   const [photos, setPhotos] = useState([]);
   const [notifications, setNotifications] = useState([]); 
-  const [documents, setDocuments] = useState([]); 
+  const [documents, setDocuments] = useState([]); // 🟢 Documents State
   const [myPet, setMyPet] = useState(null); 
   const [allUsers, setAllUsers] = useState([]);
 
@@ -146,7 +146,7 @@ export const useTaskData = (currentUser) => {
     const refLink = getValidUrl(task.reference);
     const finalLink = getValidUrl(task.finalFile);
     const locationLink = getValidUrl(task.location);
-    const MEGAPHONE_IMAGE = "https://plus.unsplash.com/premium_photo-1678193923226-bc247f475175?q=80&w=665&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D";
+    const MEGAPHONE_IMAGE = "https://images.unsplash.com/photo-1585676625395-9c8d30327776?ixlib=rb-4.0.3&q=80&fm=jpg&crop=entropy&cs=tinysrgb&w=1080&fit=max";
     const heroImageUrl = getValidUrl(task.imageUrl) || MEGAPHONE_IMAGE;
 
     const primaryButton = {
@@ -317,49 +317,65 @@ export const useTaskData = (currentUser) => {
     });
   };
 
-  // --- 🟢 5. PET ACTIONS & GAME LOOP (RESTORED) ---
+  // --- 🟢 5. DOCUMENT ACTIONS ---
+  // This is the function causing the error if missing from return
+  const addDocument = async (docData) => {
+      try {
+          await addDoc(collection(db, "documents"), cleanData({
+              ...docData,
+              createdAt: new Date().toISOString(),
+              createdBy: currentUser?.email
+          }));
+      } catch (e) { console.error("Error adding document:", e); }
+  };
+
+  const updateDocument = async (id, updates) => {
+      try {
+          await updateDoc(doc(db, "documents", id), cleanData(updates));
+      } catch (e) { console.error("Error updating document:", e); }
+  };
+
+  const deleteDocument = async (id) => {
+      if(confirm("Delete this document permanently?")) {
+          try { await deleteDoc(doc(db, "documents", id)); } catch (e) { console.error(e); }
+      }
+  };
+
+  // --- 6. PET ACTIONS & GAME LOOP ---
   const adoptPet = async (petData) => {
       if (!currentUser) return;
       try {
-          const newPet = {
+          await addDoc(collection(db, "pets"), {
               ...petData,
               ownerEmail: currentUser.email,
               stats: { hunger: 80, happiness: 80, energy: 80 },
               createdAt: new Date().toISOString(),
               lastInteraction: new Date().toISOString()
-          };
-          await addDoc(collection(db, "pets"), newPet);
+          });
       } catch (error) { console.error("Adoption failed:", error); }
   };
 
   const interactWithPet = async (action) => {
       if (!myPet) return;
-      
       const currentStats = {
           hunger: Number(myPet.stats?.hunger) || 0,
           happiness: Number(myPet.stats?.happiness) || 0,
           energy: Number(myPet.stats?.energy) || 0,
       };
-
       const newStats = { ...currentStats };
-      
       if (action === 'eating') {
           newStats.hunger = Math.min(100, currentStats.hunger + 20);
           newStats.energy = Math.min(100, currentStats.energy + 5);
-      } 
-      else if (action === 'playing') {
+      } else if (action === 'playing') {
           newStats.happiness = Math.min(100, currentStats.happiness + 15);
           newStats.energy = Math.max(0, currentStats.energy - 20);
           newStats.hunger = Math.max(0, currentStats.hunger - 10);
-      } 
-      else if (action === 'petting') {
+      } else if (action === 'petting') {
           newStats.happiness = Math.min(100, currentStats.happiness + 10);
-      } 
-      else if (action === 'sleeping') {
+      } else if (action === 'sleeping') {
           newStats.energy = 100;
           newStats.hunger = Math.max(0, currentStats.hunger - 20);
       }
-      
       try {
           await updateDoc(doc(db, "pets", myPet.id), { 
               stats: newStats,
@@ -368,39 +384,27 @@ export const useTaskData = (currentUser) => {
       } catch (error) { console.error("Interaction failed:", error); }
   };
 
-  // Game Loop: Decrease stats over time
   useEffect(() => {
     if (!myPet || !myPet.stats) return;
-
     const intervalId = setInterval(async () => {
         const currentStats = {
             hunger: Number(myPet.stats.hunger) || 0,
             happiness: Number(myPet.stats.happiness) || 0,
             energy: Number(myPet.stats.energy) || 0,
         };
-        
         const newStats = {
             hunger: Math.max(0, currentStats.hunger - 2),
             happiness: Math.max(0, currentStats.happiness - 2),
             energy: Math.max(0, currentStats.energy - 1)
         };
-
-        // Only update if changes occur to avoid excessive writes
-        if (
-            newStats.hunger !== currentStats.hunger || 
-            newStats.happiness !== currentStats.happiness || 
-            newStats.energy !== currentStats.energy
-        ) {
-            try {
-                await updateDoc(doc(db, "pets", myPet.id), { stats: newStats });
-            } catch (err) { console.error("Decay error:", err); }
+        if (newStats.hunger !== currentStats.hunger || newStats.happiness !== currentStats.happiness || newStats.energy !== currentStats.energy) {
+            try { await updateDoc(doc(db, "pets", myPet.id), { stats: newStats }); } catch (err) { console.error("Decay error:", err); }
         }
-    }, 30000); // 30 Seconds
-
+    }, 30000); 
     return () => clearInterval(intervalId);
   }, [myPet]);
 
-  // --- 🟢 LISTENERS (ALL) ---
+  // --- 7. LISTENERS ---
   useEffect(() => {
     const unsubTasks = onSnapshot(query(collection(db, "tasks"), orderBy("createdAt", "desc")), (snapshot) => {
         const loaded = snapshot.docs.map(d => ({ ...d.data(), id: d.id }));
@@ -477,7 +481,6 @@ export const useTaskData = (currentUser) => {
   const moveTask = async (taskId, newStatus) => { try { await updateDoc(doc(db, "tasks", taskId), { status: newStatus }); } catch (e) { console.error(e); } };
   const deleteTask = async (id) => { if(confirm("Delete?")) await deleteDoc(doc(db, "tasks", id)); };
 
-  // OTHERS
   const addTransaction = async (t) => { try { await addDoc(collection(db, "transactions"), cleanData({ ...t, createdAt: new Date().toISOString() })); } catch (e) { console.error(e); } };
   const updateTransaction = async (id, u) => { try { await updateDoc(doc(db, "transactions", id), cleanData(u)); } catch (e) { console.error(e); } };
   const deleteTransaction = async (id) => { if(confirm("Delete?")) await deleteDoc(doc(db, "transactions", id)); };
@@ -507,6 +510,7 @@ export const useTaskData = (currentUser) => {
       albums, addAlbum, deleteAlbum, photos, addPhoto, deletePhoto,
       notifications: activeNotifications, markNotificationRead, clearAllNotifications,
       allUsers, myPet, adoptPet, interactWithPet,
+      // 🟢 Exporting Document Functions
       documents, addDocument, updateDocument, deleteDocument
   };
 };
