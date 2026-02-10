@@ -1,8 +1,8 @@
 // src/components/views/DocumentView.jsx
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   FileText, Table, FileQuestion, Search, 
-  Trash2, Calendar, Link as LinkIcon 
+  Trash2, Calendar, Link as LinkIcon, Upload, File 
 } from 'lucide-react';
 import DocumentEditorModal from '../modals/DocumentEditorModal';
 
@@ -10,9 +10,9 @@ const DocumentView = ({ documents, tasks, onAdd, onUpdate, onDelete }) => {
   const [filter, setFilter] = useState('ALL'); // ALL, DOC, SHEET, FORM
   const [search, setSearch] = useState('');
   const [selectedDoc, setSelectedDoc] = useState(null); // For Editing
-  
-  // 🟢 State for creation mode
   const [createType, setCreateType] = useState(null); // 'DOC', 'SHEET', 'FORM', or null
+  
+  const fileInputRef = useRef(null);
 
   // Filter Logic
   const filteredDocs = documents.filter(doc => {
@@ -37,6 +37,61 @@ const DocumentView = ({ documents, tasks, onAdd, onUpdate, onDelete }) => {
       }
   };
 
+  // --- 🟢 FILE UPLOAD HANDLER ---
+  const handleUploadClick = () => {
+      fileInputRef.current.click();
+  };
+
+  const handleFileChange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      let content = '';
+      let title = file.name;
+
+      // 1. Handle Text Files (Read Content directly)
+      if (file.type === 'text/plain') {
+          try {
+              const text = await file.text();
+              content = `<div>${text.replace(/\n/g, '<br>')}</div>`;
+          } catch (err) {
+              console.error("Read error", err);
+              content = "Error reading text file.";
+          }
+      } 
+      // 2. Handle Binary Files (Create Visual Chip)
+      else {
+          const fileIconChar = file.name.endsWith('.pdf') ? '📄' : file.name.endsWith('.xlsx') ? '📊' : '📎';
+          // Simulate an attachment chip
+          content = `
+              <div style="
+                  display: inline-flex; align-items: center; gap: 8px; 
+                  padding: 10px 14px; margin: 10px 0; 
+                  background: #f8fafc; border: 1px solid #e2e8f0; 
+                  border-radius: 8px; font-family: sans-serif; font-size: 14px; 
+                  color: #334155; font-weight: 500; user-select: none;" contenteditable="false">
+                  <span style="font-size: 18px;">${fileIconChar}</span>
+                  <span>${file.name}</span>
+                  <span style="font-size: 11px; color: #94a3b8; margin-left: 8px;">(${(file.size / 1024).toFixed(1)} KB)</span>
+              </div><br/><br/>
+          `;
+      }
+
+      // 3. Create the Document immediately
+      const newDoc = {
+          title: title,
+          type: 'DOC', // We treat uploads as generic Docs containing the file info
+          content: content,
+          linkedTaskId: '',
+          createdAt: new Date().toISOString()
+      };
+
+      onAdd(newDoc);
+      
+      // Reset input
+      e.target.value = '';
+  };
+
   return (
     <div className="flex flex-col h-full bg-gray-50">
       {/* HEADER */}
@@ -59,8 +114,26 @@ const DocumentView = ({ documents, tasks, onAdd, onUpdate, onDelete }) => {
                 />
             </div>
 
-            {/* 🟢 SEPARATE BUTTONS */}
+            <div className="h-8 w-px bg-gray-200 hidden md:block"></div>
+
+            {/* BUTTONS */}
             <div className="flex gap-2">
+                {/* 🟢 HIDDEN INPUT & UPLOAD BUTTON */}
+                <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    className="hidden" 
+                    accept=".txt,.pdf,.docx,.xlsx" 
+                    onChange={handleFileChange} 
+                />
+                <button 
+                    onClick={handleUploadClick}
+                    className="bg-white hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition border border-gray-200 shadow-sm"
+                    title="Upload .txt, .pdf, .docx, .xlsx"
+                >
+                    <Upload size={16} /> Upload
+                </button>
+
                 <button 
                     onClick={() => setCreateType('DOC')}
                     className="bg-blue-50 hover:bg-blue-100 text-blue-600 px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition border border-blue-200"
@@ -143,7 +216,7 @@ const DocumentView = ({ documents, tasks, onAdd, onUpdate, onDelete }) => {
           {filteredDocs.length === 0 && (
               <div className="col-span-full flex flex-col items-center justify-center py-20 text-gray-400 opacity-50">
                   <FileText size={64} className="mb-4" />
-                  <p>No documents found.</p>
+                  <p>No documents found. Start by creating or uploading one.</p>
               </div>
           )}
       </div>
@@ -152,7 +225,7 @@ const DocumentView = ({ documents, tasks, onAdd, onUpdate, onDelete }) => {
       {(createType || selectedDoc) && (
           <DocumentEditorModal 
             existingDoc={selectedDoc}
-            initialType={createType} // 🟢 Pass the type selected from buttons
+            initialType={createType} 
             tasks={tasks}
             onClose={() => { setCreateType(null); setSelectedDoc(null); }}
             onSave={(data) => {

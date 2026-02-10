@@ -2,8 +2,8 @@
 import React, { useState, useRef } from 'react';
 import { 
     X, Save, FileText, Table, FileQuestion, Link as LinkIcon, 
-    Plus, Trash2, Upload, Bold, Italic, Underline, 
-    AlignLeft, AlignCenter, AlignRight, Type, Paperclip 
+    Plus, Trash2, Bold, Italic, Underline, 
+    AlignLeft, AlignCenter, AlignRight, Type 
 } from 'lucide-react';
 import RequirementSheetModal from './RequirementModal'; 
 
@@ -13,12 +13,12 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
     const [linkedTaskId, setLinkedTaskId] = useState(existingDoc?.linkedTaskId || '');
     
     // Content States
-    const [docContent, setDocContent] = useState(existingDoc?.content || ''); // HTML String for Doc
+    const [docContent, setDocContent] = useState(existingDoc?.content || ''); // HTML String
     const [sheetData, setSheetData] = useState(existingDoc?.sheetData || null); 
     const [formQuestions, setFormQuestions] = useState(existingDoc?.formQuestions || []);
 
+    // Refs
     const docEditorRef = useRef(null);
-    const fileInputRef = useRef(null);
 
     // --- FORM LOGIC ---
     const addQuestion = () => {
@@ -31,68 +31,13 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
         setFormQuestions(prev => prev.filter(q => q.id !== id));
     };
 
-    // --- RICH TEXT FORMATTING (DOC MODE) ---
+    // --- 🟢 RICH TEXT FORMATTING (DOC MODE) ---
     const execCmd = (command, value = null) => {
         document.execCommand(command, false, value);
-        // Sync state immediately
+        // Sync state immediately so we don't lose changes on save
         if (docEditorRef.current) {
             setDocContent(docEditorRef.current.innerHTML);
         }
-    };
-
-    // --- FILE UPLOAD HANDLER ---
-    const handleFileClick = () => {
-        fileInputRef.current.click();
-    };
-
-    const handleFileUpload = (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        // 1. Handle Text Files (Read Content)
-        if (file.type === 'text/plain') {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                if (type === 'DOC') {
-                    // Append text to doc
-                    const text = event.target.result.replace(/\n/g, '<br>');
-                    const newContent = (docContent || '') + `<div>${text}</div>`;
-                    setDocContent(newContent);
-                    if (docEditorRef.current) docEditorRef.current.innerHTML = newContent;
-                }
-            };
-            reader.readAsText(file);
-        } 
-        // 2. Handle Binary Files (Create Attachment Chip)
-        else {
-            // Note: In a real app, you would upload 'file' to Firebase Storage here and get a URL.
-            // Since we are client-side only for this demo, we simulate a link.
-            const fileIcon = file.name.endsWith('.pdf') ? '📄' : file.name.endsWith('.xlsx') ? '📊' : '📎';
-            
-            const attachmentHTML = `
-                <div style="
-                    display: inline-flex; align-items: center; gap: 8px; 
-                    padding: 8px 12px; margin: 10px 0; 
-                    background: #f3f4f6; border: 1px solid #e5e7eb; 
-                    border-radius: 8px; font-size: 14px; color: #374151; font-weight: 500;
-                    user-select: none;" contenteditable="false">
-                    <span>${fileIcon}</span>
-                    <span>${file.name}</span>
-                    <span style="font-size: 10px; color: #9ca3af; margin-left: 8px;">(${(file.size / 1024).toFixed(1)} KB)</span>
-                </div><br/>
-            `;
-
-            if (type === 'DOC') {
-                const newContent = (docContent || '') + attachmentHTML;
-                setDocContent(newContent);
-                if (docEditorRef.current) docEditorRef.current.innerHTML = newContent;
-            } else {
-                alert(`File "${file.name}" attached. (Note: Only .txt files display content directly in this view)`);
-            }
-        }
-        
-        // Clear input to allow re-uploading same file
-        e.target.value = '';
     };
 
     // --- HANDLE SAVE ---
@@ -103,7 +48,7 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
             title,
             type,
             linkedTaskId,
-            content: type === 'DOC' ? docContent : null,
+            content: type === 'DOC' ? (docEditorRef.current?.innerHTML || docContent) : null,
             sheetData: type === 'SHEET' ? sheetData : null,
             formQuestions: type === 'FORM' ? formQuestions : null,
         };
@@ -169,24 +114,6 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
                     </div>
 
                     <div className="flex items-center gap-3">
-                        {/* 🟢 UPLOAD BUTTON */}
-                        <input 
-                            type="file" 
-                            ref={fileInputRef} 
-                            className="hidden" 
-                            accept=".txt,.pdf,.docx,.xlsx" 
-                            onChange={handleFileUpload} 
-                        />
-                        <button 
-                            onClick={handleFileClick} 
-                            className="p-2 hover:bg-blue-50 text-blue-600 rounded-lg transition border border-transparent hover:border-blue-100"
-                            title="Upload File (.txt, .pdf, .docx, .xlsx)"
-                        >
-                            <Upload size={18} />
-                        </button>
-
-                        <div className="h-6 w-px bg-gray-300 mx-1"></div>
-
                         <div className="relative">
                             <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14}/>
                             <select 
@@ -194,7 +121,7 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
                                 onChange={(e) => setLinkedTaskId(e.target.value)}
                                 className="pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-xs font-medium outline-none focus:border-blue-500 w-40 truncate"
                             >
-                                <option value="">Link Task</option>
+                                <option value="">Link to Task (Optional)</option>
                                 {tasks.map(t => <option key={t.id} value={t.id}>{t.title}</option>)}
                             </select>
                         </div>
@@ -209,24 +136,32 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
                 {/* BODY CONTENT */}
                 <div className="flex-1 flex flex-col overflow-hidden bg-white">
                     
-                    {/* --- DOC EDITOR --- */}
+                    {/* --- DOC EDITOR (Rich Text) --- */}
                     {type === 'DOC' && (
                         <>
-                            {/* 🟢 RICH TEXT TOOLBAR */}
-                            <div className="px-6 py-2 border-b border-gray-100 bg-white flex items-center gap-1">
-                                <button onMouseDown={(e) => {e.preventDefault(); execCmd('bold');}} className="p-1.5 hover:bg-gray-100 rounded text-gray-600"><Bold size={16}/></button>
-                                <button onMouseDown={(e) => {e.preventDefault(); execCmd('italic');}} className="p-1.5 hover:bg-gray-100 rounded text-gray-600"><Italic size={16}/></button>
-                                <button onMouseDown={(e) => {e.preventDefault(); execCmd('underline');}} className="p-1.5 hover:bg-gray-100 rounded text-gray-600"><Underline size={16}/></button>
+                            {/* 🟢 TOOLBAR */}
+                            <div className="px-6 py-2 border-b border-gray-100 bg-white flex items-center gap-1 shrink-0">
+                                <button onMouseDown={(e) => {e.preventDefault(); execCmd('bold');}} className="p-1.5 hover:bg-gray-100 rounded text-gray-600 transition" title="Bold"><Bold size={16}/></button>
+                                <button onMouseDown={(e) => {e.preventDefault(); execCmd('italic');}} className="p-1.5 hover:bg-gray-100 rounded text-gray-600 transition" title="Italic"><Italic size={16}/></button>
+                                <button onMouseDown={(e) => {e.preventDefault(); execCmd('underline');}} className="p-1.5 hover:bg-gray-100 rounded text-gray-600 transition" title="Underline"><Underline size={16}/></button>
+                                
                                 <div className="h-4 w-px bg-gray-200 mx-2"></div>
-                                <button onMouseDown={(e) => {e.preventDefault(); execCmd('justifyLeft');}} className="p-1.5 hover:bg-gray-100 rounded text-gray-600"><AlignLeft size={16}/></button>
-                                <button onMouseDown={(e) => {e.preventDefault(); execCmd('justifyCenter');}} className="p-1.5 hover:bg-gray-100 rounded text-gray-600"><AlignCenter size={16}/></button>
-                                <button onMouseDown={(e) => {e.preventDefault(); execCmd('justifyRight');}} className="p-1.5 hover:bg-gray-100 rounded text-gray-600"><AlignRight size={16}/></button>
+                                
+                                <button onMouseDown={(e) => {e.preventDefault(); execCmd('justifyLeft');}} className="p-1.5 hover:bg-gray-100 rounded text-gray-600 transition" title="Align Left"><AlignLeft size={16}/></button>
+                                <button onMouseDown={(e) => {e.preventDefault(); execCmd('justifyCenter');}} className="p-1.5 hover:bg-gray-100 rounded text-gray-600 transition" title="Align Center"><AlignCenter size={16}/></button>
+                                <button onMouseDown={(e) => {e.preventDefault(); execCmd('justifyRight');}} className="p-1.5 hover:bg-gray-100 rounded text-gray-600 transition" title="Align Right"><AlignRight size={16}/></button>
+                                
                                 <div className="h-4 w-px bg-gray-200 mx-2"></div>
-                                <div className="flex items-center gap-1">
-                                    <Type size={14} className="text-gray-400"/>
-                                    <select onChange={(e) => execCmd('fontSize', e.target.value)} className="text-xs bg-transparent outline-none cursor-pointer">
-                                        <option value="3">Normal</option>
+                                
+                                <div className="flex items-center gap-1 group relative">
+                                    <Type size={14} className="text-gray-400 ml-1"/>
+                                    <select 
+                                        onChange={(e) => execCmd('fontSize', e.target.value)} 
+                                        className="text-xs bg-transparent outline-none cursor-pointer p-1 text-gray-600 font-medium"
+                                        defaultValue="3"
+                                    >
                                         <option value="1">Small</option>
+                                        <option value="3">Normal</option>
                                         <option value="5">Large</option>
                                         <option value="7">Huge</option>
                                     </select>
