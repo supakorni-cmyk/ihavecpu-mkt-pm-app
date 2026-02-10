@@ -317,31 +317,138 @@ export const useTaskData = (currentUser) => {
     });
   };
 
-  // --- 🟢 DOCUMENT ACTIONS ---
-  const addDocument = async (docData) => {
+  // --- 🟢 5. PET ACTIONS & GAME LOOP (RESTORED) ---
+  const adoptPet = async (petData) => {
+      if (!currentUser) return;
       try {
-          await addDoc(collection(db, "documents"), cleanData({
-              ...docData,
+          const newPet = {
+              ...petData,
+              ownerEmail: currentUser.email,
+              stats: { hunger: 80, happiness: 80, energy: 80 },
               createdAt: new Date().toISOString(),
-              createdBy: currentUser?.email
-          }));
-      } catch (e) { console.error("Error adding document:", e); }
+              lastInteraction: new Date().toISOString()
+          };
+          await addDoc(collection(db, "pets"), newPet);
+      } catch (error) { console.error("Adoption failed:", error); }
   };
 
-  const updateDocument = async (id, updates) => {
-      try {
-          await updateDoc(doc(db, "documents", id), cleanData(updates));
-      } catch (e) { console.error("Error updating document:", e); }
-  };
+  const interactWithPet = async (action) => {
+      if (!myPet) return;
+      
+      const currentStats = {
+          hunger: Number(myPet.stats?.hunger) || 0,
+          happiness: Number(myPet.stats?.happiness) || 0,
+          energy: Number(myPet.stats?.energy) || 0,
+      };
 
-  const deleteDocument = async (id) => {
-      if(confirm("Delete this document permanently?")) {
-          try { await deleteDoc(doc(db, "documents", id)); } catch (e) { console.error(e); }
+      const newStats = { ...currentStats };
+      
+      if (action === 'eating') {
+          newStats.hunger = Math.min(100, currentStats.hunger + 20);
+          newStats.energy = Math.min(100, currentStats.energy + 5);
+      } 
+      else if (action === 'playing') {
+          newStats.happiness = Math.min(100, currentStats.happiness + 15);
+          newStats.energy = Math.max(0, currentStats.energy - 20);
+          newStats.hunger = Math.max(0, currentStats.hunger - 10);
+      } 
+      else if (action === 'petting') {
+          newStats.happiness = Math.min(100, currentStats.happiness + 10);
+      } 
+      else if (action === 'sleeping') {
+          newStats.energy = 100;
+          newStats.hunger = Math.max(0, currentStats.hunger - 20);
       }
+      
+      try {
+          await updateDoc(doc(db, "pets", myPet.id), { 
+              stats: newStats,
+              lastInteraction: new Date().toISOString()
+          });
+      } catch (error) { console.error("Interaction failed:", error); }
   };
+
+  // Game Loop: Decrease stats over time
+  useEffect(() => {
+    if (!myPet || !myPet.stats) return;
+
+    const intervalId = setInterval(async () => {
+        const currentStats = {
+            hunger: Number(myPet.stats.hunger) || 0,
+            happiness: Number(myPet.stats.happiness) || 0,
+            energy: Number(myPet.stats.energy) || 0,
+        };
+        
+        const newStats = {
+            hunger: Math.max(0, currentStats.hunger - 2),
+            happiness: Math.max(0, currentStats.happiness - 2),
+            energy: Math.max(0, currentStats.energy - 1)
+        };
+
+        // Only update if changes occur to avoid excessive writes
+        if (
+            newStats.hunger !== currentStats.hunger || 
+            newStats.happiness !== currentStats.happiness || 
+            newStats.energy !== currentStats.energy
+        ) {
+            try {
+                await updateDoc(doc(db, "pets", myPet.id), { stats: newStats });
+            } catch (err) { console.error("Decay error:", err); }
+        }
+    }, 30000); // 30 Seconds
+
+    return () => clearInterval(intervalId);
+  }, [myPet]);
+
+  // --- 🟢 LISTENERS (ALL) ---
+  useEffect(() => {
+    const unsubTasks = onSnapshot(query(collection(db, "tasks"), orderBy("createdAt", "desc")), (snapshot) => {
+        const loaded = snapshot.docs.map(d => ({ ...d.data(), id: d.id }));
+        setTasks(loaded);
+        if (currentUser?.email) checkDeadlines(loaded, currentUser);
+    });
+
+    const unsubDocs = onSnapshot(query(collection(db, "documents"), orderBy("createdAt", "desc")), (snapshot) => {
+        setDocuments(snapshot.docs.map(d => ({ ...d.data(), id: d.id })));
+    });
+
+    const unsubTrans = onSnapshot(collection(db, "transactions"), (s) => setTransactions(s.docs.map(d => ({...d.data(), id: d.id}))));
+    
+    const unsubLeaves = onSnapshot(query(collection(db, "leaves"), orderBy("createdAt", "desc")), (snapshot) => {
+        setLeaves(snapshot.docs.map(d => ({ ...d.data(), id: d.id })));
+    });
+
+    const unsubOT = onSnapshot(query(collection(db, "ot_records"), orderBy("createdAt", "desc")), (snapshot) => {
+        setOtRecords(snapshot.docs.map(d => ({ ...d.data(), id: d.id })));
+    });
+
+    const unsubNotifs = onSnapshot(query(collection(db, "notifications"), orderBy("createdAt", "desc")), (snapshot) => {
+        const allNotifs = snapshot.docs.map(d => ({ ...d.data(), id: d.id }));
+        setNotifications(allNotifs.filter(n => n.userEmail === currentUser?.email));
+    });
+
+    const unsubUsers = onSnapshot(collection(db, "users"), (s) => setAllUsers(s.docs.map(d => ({...d.data(), id: d.id}))));
+    
+    let unsubPet = () => {};
+    if (currentUser?.email) {
+        const qPet = query(collection(db, "pets"), where("ownerEmail", "==", currentUser.email));
+        unsubPet = onSnapshot(qPet, (snapshot) => {
+            if (!snapshot.empty) {
+                const docData = snapshot.docs[0];
+                setMyPet({ ...docData.data(), id: docData.id });
+            } else {
+                setMyPet(null);
+            }
+        });
+    }
+
+    return () => { 
+        unsubTasks(); unsubDocs(); unsubTrans(); unsubLeaves(); unsubOT(); 
+        unsubNotifs(); unsubUsers(); unsubPet();
+    };
+  }, [currentUser]);
 
   // --- CRUD ACTIONS ---
-  // TASKS
   const addTask = async (task) => {
     try {
         const cleanedTask = cleanData({ ...task, createdAt: new Date().toISOString(), notified7Days: false, notified2Days: false, notified0Day: false });
@@ -390,74 +497,13 @@ export const useTaskData = (currentUser) => {
   const markNotificationRead = async (id) => { try { await updateDoc(doc(db, "notifications", id), { isRead: true }); } catch(e) {} };
   const clearAllNotifications = async () => { notifications.forEach(async (n) => { try { await deleteDoc(doc(db, "notifications", n.id)); } catch(e) {} }); };
 
-  // PET
-  const adoptPet = async (petData) => { if (!currentUser) return; try { await addDoc(collection(db, "pets"), { ...petData, ownerEmail: currentUser.email, stats: { hunger: 80, happiness: 80, energy: 80 }, createdAt: new Date().toISOString(), lastInteraction: new Date().toISOString() }); } catch (error) { console.error(error); } };
-  const interactWithPet = async (action) => { if (!myPet) return; try { await updateDoc(doc(db, "pets", myPet.id), { /* simplified */ }); } catch (error) { console.error(error); } };
-  useEffect(() => { /* pet logic */ }, [myPet]);
-
-  // --- 🟢 LISTENERS (RESTORED) ---
-  useEffect(() => {
-    // 1. Tasks
-    const unsubTasks = onSnapshot(query(collection(db, "tasks"), orderBy("createdAt", "desc")), (snapshot) => {
-        const loaded = snapshot.docs.map(d => ({ ...d.data(), id: d.id }));
-        setTasks(loaded);
-        if (currentUser?.email) checkDeadlines(loaded, currentUser);
-    });
-
-    // 2. Documents
-    const unsubDocs = onSnapshot(query(collection(db, "documents"), orderBy("createdAt", "desc")), (snapshot) => {
-        setDocuments(snapshot.docs.map(d => ({ ...d.data(), id: d.id })));
-    });
-
-    // 3. Transactions (Budget)
-    const unsubTrans = onSnapshot(collection(db, "transactions"), (s) => setTransactions(s.docs.map(d => ({...d.data(), id: d.id}))));
-    
-    // 4. Leaves 🟢 (Fixed)
-    const unsubLeaves = onSnapshot(query(collection(db, "leaves"), orderBy("createdAt", "desc")), (snapshot) => {
-        setLeaves(snapshot.docs.map(d => ({ ...d.data(), id: d.id })));
-    });
-
-    // 5. OT Records 🟢 (Fixed)
-    const unsubOT = onSnapshot(query(collection(db, "ot_records"), orderBy("createdAt", "desc")), (snapshot) => {
-        setOtRecords(snapshot.docs.map(d => ({ ...d.data(), id: d.id })));
-    });
-
-    // 6. Notifications
-    const unsubNotifs = onSnapshot(query(collection(db, "notifications"), orderBy("createdAt", "desc")), (snapshot) => {
-        const allNotifs = snapshot.docs.map(d => ({ ...d.data(), id: d.id }));
-        setNotifications(allNotifs.filter(n => n.userEmail === currentUser?.email));
-    });
-
-    // 7. Users & Others
-    const unsubUsers = onSnapshot(collection(db, "users"), (s) => setAllUsers(s.docs.map(d => ({...d.data(), id: d.id}))));
-    
-    // 8. Pet
-    let unsubPet = () => {};
-    if (currentUser?.email) {
-        const qPet = query(collection(db, "pets"), where("ownerEmail", "==", currentUser.email));
-        unsubPet = onSnapshot(qPet, (snapshot) => {
-            if (!snapshot.empty) {
-                const docData = snapshot.docs[0];
-                setMyPet({ ...docData.data(), id: docData.id });
-            } else {
-                setMyPet(null);
-            }
-        });
-    }
-
-    return () => { 
-        unsubTasks(); unsubDocs(); unsubTrans(); unsubLeaves(); unsubOT(); 
-        unsubNotifs(); unsubUsers(); unsubPet();
-    };
-  }, [currentUser]);
-
   const activeNotifications = useMemo(() => notifications.filter(n => { if (!n.taskId) return true; const task = tasks.find(t => t.id === n.taskId); return !task || (task.status !== 'canceled'); }), [notifications, tasks]);
 
   return { 
       tasks, addTask, updateTask, deleteTask, moveTask, 
       transactions, addTransaction, deleteTransaction, updateTransaction,
-      leaves, addLeave, deleteLeave, // 🟢 NOW CONNECTED
-      otRecords, addOTRecord, deleteOTRecord, updateOTStatus, // 🟢 NOW CONNECTED
+      leaves, addLeave, deleteLeave, 
+      otRecords, addOTRecord, deleteOTRecord, updateOTStatus, 
       albums, addAlbum, deleteAlbum, photos, addPhoto, deletePhoto,
       notifications: activeNotifications, markNotificationRead, clearAllNotifications,
       allUsers, myPet, adoptPet, interactWithPet,
