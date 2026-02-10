@@ -3,9 +3,10 @@ import React, { useState } from 'react';
 import { X, Save, FileText, Table, FileQuestion, Link as LinkIcon, Plus, Trash2 } from 'lucide-react';
 import RequirementSheetModal from './RequirementModal'; 
 
-const DocumentEditorModal = ({ existingDoc, tasks, onClose, onSave }) => {
+const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave }) => {
+    // 🟢 Initialize type with existing doc type OR the button clicked (initialType)
     const [title, setTitle] = useState(existingDoc?.title || '');
-    const [type, setType] = useState(existingDoc?.type || 'DOC');
+    const [type, setType] = useState(existingDoc?.type || initialType || 'DOC');
     const [linkedTaskId, setLinkedTaskId] = useState(existingDoc?.linkedTaskId || '');
     
     // Content States
@@ -41,7 +42,6 @@ const DocumentEditorModal = ({ existingDoc, tasks, onClose, onSave }) => {
 
     // --- RENDER SHEET EDITOR (Wrapper around RequirementModal) ---
     if (type === 'SHEET') {
-        // Construct a mock task object so RequirementModal works as expected
         const mockReq = { 
             id: 'temp-sheet', 
             title: title, 
@@ -56,7 +56,6 @@ const DocumentEditorModal = ({ existingDoc, tasks, onClose, onSave }) => {
                 onClose={onClose}
                 onUpdateTask={(updatedTaskWrapper) => {
                     const updatedReq = updatedTaskWrapper.requirements[0];
-                    // Save to Document, not Task
                     onSave({
                         title: title || updatedReq.title,
                         type: 'SHEET',
@@ -80,17 +79,10 @@ const DocumentEditorModal = ({ existingDoc, tasks, onClose, onSave }) => {
                 <div className="px-6 py-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center shrink-0">
                     <div className="flex items-center gap-4 flex-1">
                         <div className="relative group">
-                            <div className={`p-2 rounded-lg cursor-pointer transition ${type === 'DOC' ? 'bg-blue-100 text-blue-600' : type === 'FORM' ? 'bg-purple-100 text-purple-600' : 'bg-green-100 text-green-600'}`}>
+                            <div className={`p-2 rounded-lg transition ${type === 'DOC' ? 'bg-blue-100 text-blue-600' : type === 'FORM' ? 'bg-purple-100 text-purple-600' : 'bg-green-100 text-green-600'}`}>
                                 {type === 'DOC' && <FileText size={24}/>}
                                 {type === 'FORM' && <FileQuestion size={24}/>}
                             </div>
-                            {!existingDoc && (
-                                <div className="absolute top-full left-0 mt-2 bg-white shadow-xl border border-gray-100 rounded-xl p-2 hidden group-hover:block w-40 z-50">
-                                    <button onClick={() => setType('DOC')} className="flex items-center gap-2 p-2 hover:bg-gray-50 w-full text-left rounded-lg text-xs font-bold text-gray-600"><FileText size={14} className="text-blue-500"/> Document</button>
-                                    <button onClick={() => setType('SHEET')} className="flex items-center gap-2 p-2 hover:bg-gray-50 w-full text-left rounded-lg text-xs font-bold text-gray-600"><Table size={14} className="text-green-500"/> Sheet</button>
-                                    <button onClick={() => setType('FORM')} className="flex items-center gap-2 p-2 hover:bg-gray-50 w-full text-left rounded-lg text-xs font-bold text-gray-600"><FileQuestion size={14} className="text-purple-500"/> Form</button>
-                                </div>
-                            )}
                         </div>
 
                         <input 
@@ -99,6 +91,7 @@ const DocumentEditorModal = ({ existingDoc, tasks, onClose, onSave }) => {
                             className="text-xl font-bold bg-transparent outline-none w-full placeholder:text-gray-400"
                             value={title}
                             onChange={(e) => setTitle(e.target.value)}
+                            autoFocus={!existingDoc} // Auto focus title for new docs
                         />
                     </div>
 

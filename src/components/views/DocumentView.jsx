@@ -1,8 +1,8 @@
 // src/components/views/DocumentView.jsx
 import React, { useState } from 'react';
 import { 
-  FileText, Table, FileQuestion, Plus, Search, 
-  MoreVertical, Calendar, Link as LinkIcon, Trash2 
+  FileText, Table, FileQuestion, Search, 
+  Trash2, Calendar, Link as LinkIcon 
 } from 'lucide-react';
 import DocumentEditorModal from '../modals/DocumentEditorModal';
 
@@ -10,7 +10,9 @@ const DocumentView = ({ documents, tasks, onAdd, onUpdate, onDelete }) => {
   const [filter, setFilter] = useState('ALL'); // ALL, DOC, SHEET, FORM
   const [search, setSearch] = useState('');
   const [selectedDoc, setSelectedDoc] = useState(null); // For Editing
-  const [isCreating, setIsCreating] = useState(false); // For New Doc Modal
+  
+  // 🟢 State for creation mode
+  const [createType, setCreateType] = useState(null); // 'DOC', 'SHEET', 'FORM', or null
 
   // Filter Logic
   const filteredDocs = documents.filter(doc => {
@@ -38,28 +40,46 @@ const DocumentView = ({ documents, tasks, onAdd, onUpdate, onDelete }) => {
   return (
     <div className="flex flex-col h-full bg-gray-50">
       {/* HEADER */}
-      <div className="px-8 py-6 bg-white border-b border-gray-200 flex justify-between items-center">
+      <div className="px-8 py-6 bg-white border-b border-gray-200 flex flex-col md:flex-row justify-between items-center gap-4">
         <div>
             <h1 className="text-2xl font-black text-gray-800">Documents</h1>
             <p className="text-gray-500 text-sm">Manage docs, sheets, and forms.</p>
         </div>
-        <div className="flex gap-3">
-            <div className="relative">
+        
+        <div className="flex flex-col md:flex-row gap-3 items-center w-full md:w-auto">
+            {/* Search */}
+            <div className="relative w-full md:w-64">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                 <input 
                     type="text" 
                     placeholder="Search documents..." 
-                    className="pl-9 pr-4 py-2 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-100 transition w-64"
+                    className="pl-9 pr-4 py-2 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-100 transition w-full"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                 />
             </div>
-            <button 
-                onClick={() => setIsCreating(true)}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition shadow-lg shadow-blue-200"
-            >
-                <Plus size={18} /> New File
-            </button>
+
+            {/* 🟢 SEPARATE BUTTONS */}
+            <div className="flex gap-2">
+                <button 
+                    onClick={() => setCreateType('DOC')}
+                    className="bg-blue-50 hover:bg-blue-100 text-blue-600 px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition border border-blue-200"
+                >
+                    <FileText size={16} /> New Doc
+                </button>
+                <button 
+                    onClick={() => setCreateType('SHEET')}
+                    className="bg-green-50 hover:bg-green-100 text-green-600 px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition border border-green-200"
+                >
+                    <Table size={16} /> New Sheet
+                </button>
+                <button 
+                    onClick={() => setCreateType('FORM')}
+                    className="bg-purple-50 hover:bg-purple-100 text-purple-600 px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition border border-purple-200"
+                >
+                    <FileQuestion size={16} /> New Form
+                </button>
+            </div>
         </div>
       </div>
 
@@ -84,7 +104,7 @@ const DocumentView = ({ documents, tasks, onAdd, onUpdate, onDelete }) => {
                 <div 
                     key={doc.id} 
                     onClick={() => setSelectedDoc(doc)}
-                    className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md hover:border-blue-200 transition cursor-pointer group flex flex-col h-48"
+                    className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md hover:border-blue-200 transition cursor-pointer group flex flex-col h-48 animate-in fade-in zoom-in-95 duration-300"
                 >
                     <div className="flex justify-between items-start mb-3">
                         <div className="p-2 bg-gray-50 rounded-lg group-hover:bg-blue-50 transition">
@@ -129,18 +149,19 @@ const DocumentView = ({ documents, tasks, onAdd, onUpdate, onDelete }) => {
       </div>
 
       {/* EDITOR MODAL */}
-      {(isCreating || selectedDoc) && (
+      {(createType || selectedDoc) && (
           <DocumentEditorModal 
             existingDoc={selectedDoc}
+            initialType={createType} // 🟢 Pass the type selected from buttons
             tasks={tasks}
-            onClose={() => { setIsCreating(false); setSelectedDoc(null); }}
+            onClose={() => { setCreateType(null); setSelectedDoc(null); }}
             onSave={(data) => {
                 if (selectedDoc) {
                     onUpdate(selectedDoc.id, data);
                 } else {
                     onAdd(data);
                 }
-                setIsCreating(false); 
+                setCreateType(null); 
                 setSelectedDoc(null);
             }}
           />
