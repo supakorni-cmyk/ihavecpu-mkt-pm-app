@@ -305,7 +305,7 @@ export const useTaskData = (currentUser) => {
         const timeDiff = deadline - now;
         const daysLeft = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
 
-        if (daysLeft <= 0 && daysLeft > -3 && !task.notified0Day) {
+        if (daysLeft <= 0 && !task.notified0Day) {
             await triggerAlert(task,"🔥🔥 DEADLINE TODAY", user.email, "notified0Day");
         }
         else if (daysLeft <= 2 && daysLeft > 0 && !task.notified2Days) {
