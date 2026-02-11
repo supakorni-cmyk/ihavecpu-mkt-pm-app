@@ -1,6 +1,6 @@
 // src/components/shared/Sidebar.jsx
 import React from 'react';
-import { Computer, LogOut, Home, Layout, Calendar as CalendarIcon, Presentation, Image as ImageIcon, Table, Heart, UserMinus, Clock, Cat } from 'lucide-react';
+import { Computer, LogOut, Home, Layout, Calendar as CalendarIcon, Presentation, Image as ImageIcon, Table, Heart, UserMinus, Clock, Cat, Clipboard } from 'lucide-react';
 
 export default function Sidebar({ currentView, setCurrentView, onLogout }) {
   const NavItem = ({ view, icon: Icon, label, colorClass = "text-blue-600 bg-blue-50" }) => (
@@ -27,6 +27,7 @@ export default function Sidebar({ currentView, setCurrentView, onLogout }) {
         <NavItem view="board" icon={Layout} label="Board" />
         <NavItem view="calendar" icon={CalendarIcon} label="Calendar" />
         <NavItem view="report" icon={Presentation} label="Report Builder" />
+        <NavItem view="documents" icon={Clipboard} label="Document" />
         <NavItem view="album" icon={ImageIcon} label="Photo Album" colorClass="text-purple-600 bg-purple-50" />
         <NavItem view="budget" icon={Table} label="Budget" colorClass="text-emerald-600 bg-emerald-50" />
         {/* ADD THIS NEW ITEM */}

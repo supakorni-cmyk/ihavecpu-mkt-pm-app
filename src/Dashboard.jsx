@@ -21,6 +21,7 @@ import LeaveView from './components/views/LeaveView';
 import SelfHealView from './components/views/SelfHealView';
 import ReportView from './components/views/ReportView';
 import OTView from './components/views/OtView';
+import DocumentView from './components/views/DocumentView';
 
 // Modals
 import AddTaskModal from './components/modals/AddTaskModal';
@@ -114,6 +115,16 @@ export default function Dashboard() {
             onAddTask={data.addTask}
             onUpdateTask={data.updateTask}
             onDeleteTask={data.deleteTask}
+          />
+        )}
+
+        {currentView === 'documents' && (
+          <DocumentView 
+            documents={data.documents}
+            tasks={data.tasks}
+            onAdd={data.addDocument}
+            onUpdate={data.updateDocument}
+            onDelete={data.deleteDocument}
           />
         )}
 

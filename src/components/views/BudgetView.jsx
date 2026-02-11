@@ -18,13 +18,13 @@ import {
   Filter,
   Calendar,
   Tag,
-  Sparkles,      // ✨ AI Icon
-  Send,          // ✨ AI Send Icon
-  MessageSquare  // ✨ AI Chat Icon
+  Sparkles,
+  Send,
+  MessageSquare,
+  Copy // 🟢 IMPORTED COPY ICON
 } from 'lucide-react';
 
 import { BUDGET_CATEGORIES } from '../../utils/constants';
-// --- IMPORT AI SERVICE ---
 import { analyzeFinancials } from '../../utils/aiService';
 import aiAvatar from '../../assets/bot/avatar.png'
 
@@ -55,7 +55,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
     // --- AI STATE ---
     const [isAiOpen, setIsAiOpen] = useState(false);
     const [aiQuery, setAiQuery] = useState('');
-    const [lastQuestion, setLastQuestion] = useState(''); // 🟢 ADD THIS
+    const [lastQuestion, setLastQuestion] = useState(''); 
     const [aiResponse, setAiResponse] = useState('');
     const [isAiLoading, setIsAiLoading] = useState(false);
     const aiInputRef = useRef(null);
@@ -180,10 +180,10 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
         e.preventDefault();
         if (!aiQuery.trim()) return;
 
-        const questionToSend = aiQuery; // Capture text
-        setLastQuestion(questionToSend); // 🟢 1. Lock message in chat
-        setAiQuery('');                  // 🟢 2. Clear input
-        setAiResponse('');               // Clear previous response
+        const questionToSend = aiQuery; 
+        setLastQuestion(questionToSend); 
+        setAiQuery('');                  
+        setAiResponse('');               
 
         setIsAiLoading(true);
         
@@ -218,6 +218,20 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
     const handleAddTransaction = (e) => { e.preventDefault(); onAdd({ ...newTransaction, type: activeTab === 'overview' ? 'income' : activeTab, createdAt: new Date(), id: Date.now().toString() }); setIsAddOpen(false); setNewTransaction({ type: 'income', date: new Date().toISOString().split('T')[0], brand: '', category: BUDGET_CATEGORIES[0], description: '', amount: '', company: '', emailSubject: '', invoice: '', invoiceFile: null, quotation: '', qtFile: null, paymentDate: '', status: 'Pending', slip: '', slipFile: null, remark: '' }); };
     const handleEditClick = (t) => { setEditFormData({ ...t }); setIsEditOpen(true); };
     const handleEditSubmit = (e) => { e.preventDefault(); onUpdate(editFormData.id, editFormData); setIsEditOpen(false); setEditFormData(null); };
+
+    // 🟢 NEW: HANDLE DUPLICATE
+    const handleDuplicate = (transaction) => {
+        // Pre-fill the New Transaction state with the selected transaction's data
+        setNewTransaction({
+            ...transaction,
+            date: new Date().toISOString().split('T')[0], // Reset date to today for convenience
+            id: undefined, // Clear ID so a new one is generated
+            // Ensure type matches the item (useful if in overview, though buttons hidden there)
+            type: transaction.type 
+        });
+        // Open the Add Modal
+        setIsAddOpen(true);
+    };
 
     return (
         <div className="flex flex-col h-full bg-gray-50 font-sans relative">
@@ -522,13 +536,15 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                             <td className="px-4 py-4"><EditableCell value={t.remark} className="italic text-gray-500 text-xs" onSave={(val) => onUpdate(t.id, { remark: val })} /></td>
                                             <td className="px-6 py-4 text-center">
                                                 <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition">
-                                                    <button onClick={() => handleEditClick(t)} className="text-blue-400 hover:text-blue-600 p-1 rounded-md hover:bg-blue-50"><Edit2 size={16} /></button>
-                                                    <button onClick={() => onDelete(t.id)} className="text-gray-300 hover:text-red-500 p-1 rounded-md hover:bg-red-50"><Trash2 size={16} /></button>
+                                                    <button onClick={() => handleEditClick(t)} className="text-blue-400 hover:text-blue-600 p-1 rounded-md hover:bg-blue-50" title="Edit"><Edit2 size={16} /></button>
+                                                    {/* 🟢 DUPLICATE BUTTON */}
+                                                    <button onClick={() => handleDuplicate(t)} className="text-indigo-400 hover:text-indigo-600 p-1 rounded-md hover:bg-indigo-50" title="Duplicate"><Copy size={16} /></button>
+                                                    <button onClick={() => onDelete(t.id)} className="text-gray-300 hover:text-red-500 p-1 rounded-md hover:bg-red-50" title="Delete"><Trash2 size={16} /></button>
                                                 </div>
                                             </td>
                                         </tr>
                                     ))}
-                                    {filteredTransactions.length === 0 && <tr><td colSpan="12" className="px-6 py-12 text-center text-gray-400 font-medium">No records found.</td></tr>}
+                                    {filteredTransactions.length === 0 && <tr><td colSpan="14" className="px-6 py-12 text-center text-gray-400 font-medium">No records found.</td></tr>}
                                 </tbody>
                             </table>
                         </div>
