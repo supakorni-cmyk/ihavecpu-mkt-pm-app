@@ -49,15 +49,30 @@ const CalendarView = ({ tasks, onAddTask, onUpdateTask, onDeleteTask }) => {
                dateObj.getFullYear() === today.getFullYear();
     };
 
+    // 🟢 FIXED DATE PARSING LOGIC
     const getTasksForDate = (dateObj) => {
-        const targetTime = dateObj.getTime();
-        const startOfDay = new Date(targetTime); startOfDay.setHours(0,0,0,0);
-        const endOfDay = new Date(targetTime); endOfDay.setHours(23,59,59,999);
+        const startOfDay = new Date(dateObj); 
+        startOfDay.setHours(0,0,0,0);
+        
+        const endOfDay = new Date(dateObj); 
+        endOfDay.setHours(23,59,59,999);
 
         return activeTasks.filter(task => {
             if (!task.startDate && !task.deadline) return false;
-            const d = new Date(task.startDate || task.deadline);
-            return d >= startOfDay && d <= endOfDay;
+            
+            // Determine the active date range for the task
+            let start = task.startDate ? new Date(task.startDate) : new Date(task.deadline);
+            let end = task.deadline ? new Date(task.deadline) : new Date(task.startDate);
+            
+            // Safety check: if start is somehow later than end, swap them
+            if (start > end) {
+                const temp = start;
+                start = end;
+                end = temp;
+            }
+
+            // 🟢 Show task if this specific calendar day falls between its Start Date and Deadline
+            return start <= endOfDay && end >= startOfDay;
         });
     };
 
