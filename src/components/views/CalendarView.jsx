@@ -29,8 +29,8 @@ const CalendarView = ({ tasks, onAddTask, onUpdateTask, onDeleteTask }) => {
     const [selectedDateForNewTask, setSelectedDateForNewTask] = useState(null);
     
     // 🟢 MODAL STATE
-    const [selectedTask, setSelectedTask] = useState(null); // Detail View
-    const [editingTask, setEditingTask] = useState(null);   // Edit View
+    const [selectedTask, setSelectedTask] = useState(null); 
+    const [editingTask, setEditingTask] = useState(null);   
 
     const activeTasks = useMemo(() => {
         return tasks.filter(t => t.status !== 'canceled');
@@ -49,15 +49,30 @@ const CalendarView = ({ tasks, onAddTask, onUpdateTask, onDeleteTask }) => {
                dateObj.getFullYear() === today.getFullYear();
     };
 
+    // 🟢 FIXED DATE PARSING LOGIC
     const getTasksForDate = (dateObj) => {
-        const targetTime = dateObj.getTime();
-        const startOfDay = new Date(targetTime); startOfDay.setHours(0,0,0,0);
-        const endOfDay = new Date(targetTime); endOfDay.setHours(23,59,59,999);
+        const startOfDay = new Date(dateObj); 
+        startOfDay.setHours(0,0,0,0);
+        
+        const endOfDay = new Date(dateObj); 
+        endOfDay.setHours(23,59,59,999);
 
         return activeTasks.filter(task => {
             if (!task.startDate && !task.deadline) return false;
-            const d = new Date(task.startDate || task.deadline);
-            return d >= startOfDay && d <= endOfDay;
+            
+            // Determine the active date range for the task
+            let start = task.startDate ? new Date(task.startDate) : new Date(task.deadline);
+            let end = task.deadline ? new Date(task.deadline) : new Date(task.startDate);
+            
+            // Safety check: if start is somehow later than end, swap them
+            if (start > end) {
+                const temp = start;
+                start = end;
+                end = temp;
+            }
+
+            // 🟢 Show task if this specific calendar day falls between its Start Date and Deadline
+            return start <= endOfDay && end >= startOfDay;
         });
     };
 
@@ -65,10 +80,8 @@ const CalendarView = ({ tasks, onAddTask, onUpdateTask, onDeleteTask }) => {
     
     // Click Empty Date -> Open Add Modal
     const handleDateClick = (date) => {
-        // Format to local ISO string (handling timezone offset simply)
         const d = new Date(date);
         d.setHours(9, 0, 0, 0); // Default to 9 AM
-        // Adjust for timezone to ensure date string is correct locally
         const offsetMs = d.getTimezoneOffset() * 60 * 1000;
         const localISOTime = new Date(d.getTime() - offsetMs).toISOString().slice(0, 16);
 
@@ -278,7 +291,7 @@ const CalendarView = ({ tasks, onAddTask, onUpdateTask, onDeleteTask }) => {
                 {viewMode === 'day' && renderDayView()}
             </div>
 
-            {/* 🟢 4. RENDER MODALS */}
+            {/* MODALS */}
             {isAddModalOpen && (
                 <AddTaskModal 
                     onClose={() => setIsAddModalOpen(false)}
@@ -293,8 +306,8 @@ const CalendarView = ({ tasks, onAddTask, onUpdateTask, onDeleteTask }) => {
                     task={selectedTask}
                     onClose={() => setSelectedTask(null)}
                     onEdit={() => {
-                        setEditingTask(selectedTask); // Switch to Edit
-                        setSelectedTask(null);        // Close Detail
+                        setEditingTask(selectedTask); 
+                        setSelectedTask(null);        
                     }}
                     onDelete={() => {
                         if(onDeleteTask) onDeleteTask(selectedTask.id);
