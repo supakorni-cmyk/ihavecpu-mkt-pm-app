@@ -29,8 +29,8 @@ const CalendarView = ({ tasks, onAddTask, onUpdateTask, onDeleteTask }) => {
     const [selectedDateForNewTask, setSelectedDateForNewTask] = useState(null);
     
     // 🟢 MODAL STATE
-    const [selectedTask, setSelectedTask] = useState(null); // Detail View
-    const [editingTask, setEditingTask] = useState(null);   // Edit View
+    const [selectedTask, setSelectedTask] = useState(null); 
+    const [editingTask, setEditingTask] = useState(null);   
 
     const activeTasks = useMemo(() => {
         return tasks.filter(t => t.status !== 'canceled');
@@ -49,15 +49,23 @@ const CalendarView = ({ tasks, onAddTask, onUpdateTask, onDeleteTask }) => {
                dateObj.getFullYear() === today.getFullYear();
     };
 
+    // 🟢 FIXED: Shows ONLY on the Deadline Date (or Start Date if no Deadline exists)
     const getTasksForDate = (dateObj) => {
-        const targetTime = dateObj.getTime();
-        const startOfDay = new Date(targetTime); startOfDay.setHours(0,0,0,0);
-        const endOfDay = new Date(targetTime); endOfDay.setHours(23,59,59,999);
+        const startOfDay = new Date(dateObj); 
+        startOfDay.setHours(0,0,0,0);
+        
+        const endOfDay = new Date(dateObj); 
+        endOfDay.setHours(23,59,59,999);
 
         return activeTasks.filter(task => {
-            if (!task.startDate && !task.deadline) return false;
-            const d = new Date(task.startDate || task.deadline);
-            return d >= startOfDay && d <= endOfDay;
+            // Prefer deadline/dueDate, fallback to startDate/startTime if no deadline
+            const targetDateStr = task.deadline || task.dueDate || task.startDate || task.startTime;
+            if (!targetDateStr) return false;
+            
+            const targetDate = new Date(targetDateStr);
+            
+            // Check if this task's deadline falls exactly on this calendar day
+            return targetDate >= startOfDay && targetDate <= endOfDay;
         });
     };
 
@@ -65,10 +73,8 @@ const CalendarView = ({ tasks, onAddTask, onUpdateTask, onDeleteTask }) => {
     
     // Click Empty Date -> Open Add Modal
     const handleDateClick = (date) => {
-        // Format to local ISO string (handling timezone offset simply)
         const d = new Date(date);
         d.setHours(9, 0, 0, 0); // Default to 9 AM
-        // Adjust for timezone to ensure date string is correct locally
         const offsetMs = d.getTimezoneOffset() * 60 * 1000;
         const localISOTime = new Date(d.getTime() - offsetMs).toISOString().slice(0, 16);
 
@@ -293,8 +299,8 @@ const CalendarView = ({ tasks, onAddTask, onUpdateTask, onDeleteTask }) => {
                     task={selectedTask}
                     onClose={() => setSelectedTask(null)}
                     onEdit={() => {
-                        setEditingTask(selectedTask); // Switch to Edit
-                        setSelectedTask(null);        // Close Detail
+                        setEditingTask(selectedTask); 
+                        setSelectedTask(null);        
                     }}
                     onDelete={() => {
                         if(onDeleteTask) onDeleteTask(selectedTask.id);
