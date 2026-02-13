@@ -1,6 +1,6 @@
 // src/components/modals/GanttChartModal.jsx
 import React, { useMemo } from 'react';
-import { X, Calendar, Layers, Clock } from 'lucide-react';
+import { X, Calendar, Layers } from 'lucide-react';
 import { COLUMNS } from '../../utils/constants';
 
 export default function GanttChartModal({ mainTask, subtasks, onClose }) {
