@@ -21,12 +21,16 @@ import { COLUMNS, TAG_COLORS, formatDate } from '../../utils/constants';
 // --- IMPORT THE MODALS ---
 import EditTaskModal from '../modals/EditTaskModal';
 import RequirementSheetModal from '../modals/RequirementModal'; 
+import TaskDetailModal from '../modals/TaskDetailModal'; // 🟢 Added TaskDetailModal
 
 const FILTER_CATEGORIES = ['All', 'Planning', 'Project', 'Product Review', 'Event', 'Guest Speaker', 'Meeting'];
 
 // --- MAIN COMPONENT ---
 const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTask }) => {
   const [isExportOpen, setIsExportOpen] = useState(false);
+  
+  // 🟢 Separate states for Viewing vs Editing
+  const [selectedTask, setSelectedTask] = useState(null); 
   const [editingTask, setEditingTask] = useState(null);
   const [activeRequirement, setActiveRequirement] = useState(null);
 
@@ -84,9 +88,10 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
     onMoveTask(draggableId, destination.droppableId);
   };
 
+  // 🟢 Open Task Detail instead of Edit Modal
   const handleTaskClick = (taskId) => {
     const task = tasks.find(t => t.id === taskId);
-    if (task) setEditingTask(task);
+    if (task) setSelectedTask(task);
   };
 
   const handleOpenRequirement = (reqId) => {
@@ -182,6 +187,28 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
         <ExportEventModal tasks={tasks} onClose={() => setIsExportOpen(false)} />
       )}
 
+      {/* 🟢 Render Task Detail Modal First */}
+      {selectedTask && (
+        <TaskDetailModal 
+            task={selectedTask}
+            tasks={tasks}
+            onClose={() => setSelectedTask(null)}
+            onEdit={() => {
+                setEditingTask(selectedTask); 
+                setSelectedTask(null);        
+            }}
+            onDelete={() => {
+                if(onDeleteTask) onDeleteTask(selectedTask.id);
+                setSelectedTask(null);
+            }}
+            onSelectTask={(taskId) => {
+                // Allows jumping to a subtask directly from the detail view
+                const t = tasks.find(x => x.id === taskId);
+                if (t) setSelectedTask(t);
+            }}
+        />
+      )}
+
       {editingTask && (
         <EditTaskModal 
             task={editingTask}
@@ -217,15 +244,11 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
 // --- SUB-COMPONENTS ---
 
 const ExportEventModal = ({ tasks, onClose }) => {
-  // Filter Logic:
-  // 1. Must be P.Pao (isPao === true)
-  // 2. Must NOT be 'canceled', 'done', or 'completed'
   const events = tasks.filter(t => {
       const s = (t.status || '').toLowerCase();
       return t.isPao === true && s !== 'canceled' && s !== 'done' && s !== 'completed';
   });
   
-  // Sort by Date (using startTime first, then deadline)
   events.sort((a, b) => {
       const dateA = new Date(a.startTime || a.deadline || 0);
       const dateB = new Date(b.startTime || b.deadline || 0);
@@ -240,13 +263,11 @@ const ExportEventModal = ({ tasks, onClose }) => {
       return acc; 
   }, {});
 
-  // --- HELPER: Format Time ---
   const formatTime = (isoString) => {
       if (!isoString) return "";
       return new Date(isoString).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   };
 
-  // --- GENERATOR LOGIC ---
   const generateExportText = () => { 
       if (events.length === 0) return "No pending P.Pao events found."; 
       let text = "☀️🌈อัพเดทตารางงานพี่เปา⭐️⭐️\n\n"; 
@@ -255,14 +276,12 @@ const ExportEventModal = ({ tasks, onClose }) => {
           text += `━━━━━━━━━━━━━━━━━━━━━━\n🗓️ ${month.toUpperCase()}\n━━━━━━━━━━━━━━━━━━━━━━\n`; 
           
           monthTasks.forEach(t => { 
-              // 1. Date Logic
               const bestDate = t.startTime || t.deadline; 
               let dateStr = 'TBD'; 
               if (bestDate) { 
                   dateStr = new Date(bestDate).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
               } 
               
-              // 2. Time Logic
               let timeStr = "";
               if (t.startTime) {
                   timeStr = `⏰ ${formatTime(t.startTime)}`;
@@ -271,12 +290,10 @@ const ExportEventModal = ({ tasks, onClose }) => {
                   timeStr = `⏰ Due: ${formatTime(t.deadline)}`;
               }
 
-              // 3. Build Text
               text += `\n📅 ${dateStr}`;
               if (timeStr) text += `\n${timeStr}`;
               text += `\n📌 ${t.title}`;
               
-              // Conditional Fields
               if (t.description && t.description.trim()) {
                   text += `\n📝 ${t.description.trim()}`;
               }
@@ -290,7 +307,7 @@ const ExportEventModal = ({ tasks, onClose }) => {
                   text += `\n📂 Final File: ${t.finalFile.trim()}`;
               }
               
-              text += `\n\n`; // Spacing
+              text += `\n\n`; 
           }); 
           text += "\n"; 
       }); 
@@ -349,7 +366,6 @@ const TaskCard = ({ task, index, onClick, onDelete }) => {
   const completedReqs = reqs.filter(r => r.isDone).length;
   const progress = reqs.length > 0 ? (completedReqs / reqs.length) * 100 : 0;
   
-  // Use startTime for display if available, else deadline
   const displayDate = task.startTime 
     ? new Date(task.startTime).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute:'2-digit' }) 
     : formatDate(task.deadline);

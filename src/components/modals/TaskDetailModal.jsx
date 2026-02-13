@@ -3,11 +3,11 @@ import React from 'react';
 import { 
   X, Calendar, Clock, MapPin, Tag, 
   FileText, Link as LinkIcon, ExternalLink, 
-  CheckSquare, Pencil, Trash2, Layers, CornerDownRight, CheckCircle2 
+  CheckSquare, Pencil, Trash2, Layers, CornerDownRight 
 } from 'lucide-react';
 import { TAG_COLORS, formatDate, COLUMNS } from '../../utils/constants';
 
-export default function TaskDetailModal({ task, onClose, onEdit, onDelete, tasks = [] }) {
+export default function TaskDetailModal({ task, onClose, onEdit, onDelete, tasks = [], onSelectTask }) { // 🟢 Added onSelectTask
   if (!task) return null;
 
   const openLink = (url) => {
@@ -27,11 +27,9 @@ export default function TaskDetailModal({ task, onClose, onEdit, onDelete, tasks
     task.location.includes('maps.app')
   );
 
-  // 🟢 HIERARCHY LOOKUPS
   const parentTask = task.parentTaskId ? tasks.find(t => t.id === task.parentTaskId) : null;
   const subtasks = tasks.filter(t => t.parentTaskId === task.id);
 
-  // Helper to format status cleanly
   const getStatusLabel = (statusId) => {
       const col = COLUMNS.find(c => c.id === statusId);
       return col ? col.title : statusId;
@@ -52,7 +50,6 @@ export default function TaskDetailModal({ task, onClose, onEdit, onDelete, tasks
                 <span className={`px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wider shadow-sm border border-white ${TAG_COLORS[task.tag] || 'bg-gray-100 text-gray-600'}`}>
                     {task.tag || 'General'}
                 </span>
-                {/* 🟢 Badge if Main Task */}
                 {task.isMainTask && (
                     <span className="px-3 py-1 rounded-lg text-xs font-bold tracking-wider shadow-sm border border-white bg-indigo-600 text-white flex items-center gap-1">
                         <Layers size={12}/> Main Project
@@ -64,11 +61,15 @@ export default function TaskDetailModal({ task, onClose, onEdit, onDelete, tasks
         {/* --- BODY --- */}
         <div className="px-8 pt-6 pb-4 overflow-y-auto custom-scrollbar flex-1">
             
-            {/* 🟢 Show Parent Task Reference if Subtask */}
+            {/* Show Parent Task Reference if Subtask */}
             {parentTask && (
-                <div className="mb-2 mt-2 flex items-center gap-1.5 text-xs font-medium text-gray-500">
+                <div 
+                    onClick={() => onSelectTask && onSelectTask(parentTask.id)}
+                    className="mb-2 mt-2 flex items-center w-fit gap-1.5 text-xs font-medium text-gray-500 cursor-pointer hover:bg-gray-100 p-1.5 rounded transition"
+                    title="Click to view main task"
+                >
                     <CornerDownRight size={14} className="text-gray-400" />
-                    Subtask of: <span className="text-indigo-600 font-bold">{parentTask.title}</span>
+                    Subtask of: <span className="text-indigo-600 font-bold underline decoration-indigo-300">{parentTask.title}</span>
                 </div>
             )}
 
@@ -131,7 +132,7 @@ export default function TaskDetailModal({ task, onClose, onEdit, onDelete, tasks
                 </div>
             )}
 
-            {/* 🟢 SUBTASKS LIST */}
+            {/* 🟢 SUBTASKS LIST (Clickable to switch view) */}
             {task.isMainTask && subtasks.length > 0 && (
                 <div className="mt-8 pt-6 border-t border-gray-100">
                     <h4 className="font-bold text-gray-800 text-sm mb-4 flex items-center gap-2">
@@ -139,14 +140,18 @@ export default function TaskDetailModal({ task, onClose, onEdit, onDelete, tasks
                     </h4>
                     <div className="space-y-2">
                         {subtasks.map(st => (
-                            <div key={st.id} className="p-3 bg-white border border-gray-200 rounded-xl flex justify-between items-center shadow-sm">
+                            <div 
+                                key={st.id} 
+                                onClick={() => onSelectTask && onSelectTask(st.id)}
+                                className="p-3 bg-white border border-gray-200 rounded-xl flex justify-between items-center shadow-sm cursor-pointer hover:border-indigo-300 hover:shadow-md transition group"
+                            >
                                 <div className="flex items-center gap-3 truncate">
                                     <div className={`shrink-0 w-2 h-2 rounded-full ${st.status === 'done' || st.status === 'completed' ? 'bg-green-500' : 'bg-amber-400'}`}></div>
-                                    <span className={`text-sm font-medium truncate ${st.status === 'done' || st.status === 'completed' ? 'text-gray-400 line-through' : 'text-gray-700'}`}>
+                                    <span className={`text-sm font-medium truncate group-hover:text-indigo-600 transition-colors ${st.status === 'done' || st.status === 'completed' ? 'text-gray-400 line-through group-hover:text-gray-500' : 'text-gray-700'}`}>
                                         {st.title}
                                     </span>
                                 </div>
-                                <span className="text-xs font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded shrink-0">
+                                <span className="text-xs font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded shrink-0 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
                                     {getStatusLabel(st.status)}
                                 </span>
                             </div>
