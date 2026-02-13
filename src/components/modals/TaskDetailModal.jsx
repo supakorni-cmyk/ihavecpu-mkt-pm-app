@@ -8,7 +8,7 @@ import {
 import { TAG_COLORS, formatDate, COLUMNS } from '../../utils/constants';
 
 // 🟢 Import the new Gantt Chart Component
-import GanttChartModal from './GanttChartModal';
+import GanttChartModal from './GanttChartModal.jsx';
 
 export default function TaskDetailModal({ task, onClose, onEdit, onDelete, tasks = [], onSelectTask }) {
   // 🟢 State for Gantt Modal
