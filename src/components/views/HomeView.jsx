@@ -216,6 +216,7 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
       {selectedTask && (
         <TaskDetailModal 
             task={selectedTask}
+            tasks={tasks}
             onClose={() => setSelectedTask(null)}
             onEdit={() => {
                 setEditingTask(selectedTask); // Open Edit
@@ -232,6 +233,7 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
       {editingTask && (
         <EditTaskModal 
             task={editingTask}
+            tasks={tasks}
             onClose={() => setEditingTask(null)}
             onUpdate={(updates) => {
                 onUpdateTask(editingTask.id, updates);

@@ -185,6 +185,7 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
       {editingTask && (
         <EditTaskModal 
             task={editingTask}
+            tasks={tasks}
             onClose={() => setEditingTask(null)}
             onUpdate={(updatedData) => {
                 onUpdateTask(editingTask.id, updatedData);

@@ -287,6 +287,7 @@ const CalendarView = ({ tasks, onAddTask, onUpdateTask, onDeleteTask }) => {
             {/* 🟢 4. RENDER MODALS */}
             {isAddModalOpen && (
                 <AddTaskModal 
+                    tasks={tasks}
                     onClose={() => setIsAddModalOpen(false)}
                     onAdd={onAddTask}
                     initialDate={selectedDateForNewTask} 
@@ -297,6 +298,7 @@ const CalendarView = ({ tasks, onAddTask, onUpdateTask, onDeleteTask }) => {
             {selectedTask && (
                 <TaskDetailModal 
                     task={selectedTask}
+                    tasks={tasks}
                     onClose={() => setSelectedTask(null)}
                     onEdit={() => {
                         setEditingTask(selectedTask); 
@@ -313,6 +315,7 @@ const CalendarView = ({ tasks, onAddTask, onUpdateTask, onDeleteTask }) => {
             {editingTask && (
                 <EditTaskModal 
                     task={editingTask}
+                    tasks={tasks}
                     onClose={() => setEditingTask(null)}
                     onUpdate={(updates) => {
                         onUpdateTask(editingTask.id, updates);
