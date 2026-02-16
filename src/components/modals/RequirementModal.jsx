@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
     Table, X, Plus, Save, ZoomIn, ZoomOut, Trash2, 
     AlignLeft, AlignCenter, AlignRight, Hash, DollarSign, Type, Calculator, ExternalLink,
-    Wand2, Copy, CheckCircle2, Clipboard, Eraser, MousePointer2
+    Wand2, Copy, CheckCircle2, Clipboard, Eraser
 } from 'lucide-react';
 
 const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => {
@@ -15,7 +15,7 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
     
     // Selection & Editor State
-    const [selection, setSelection] = useState(null); // { start: {r, c}, end: {r, c} }
+    const [selection, setSelection] = useState(null); 
     const [isSelecting, setIsSelecting] = useState(false);
     const [editingCell, setEditingCell] = useState({ rowId: null, colId: null });
     const [contextMenu, setContextMenu] = useState(null); 
@@ -45,14 +45,17 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
     // 🟢 KEYBOARD NAVIGATION & EDITING (Excel Logic)
     useEffect(() => {
         const handleKeyDown = (e) => {
-            // If editing, let input handle keys (except Enter/Tab)
+            // 1. If editing a grid cell, let input handle keys (except Enter/Tab to close)
             if (editingCell.rowId) {
                 if (e.key === 'Enter' || e.key === 'Tab') {
                     e.preventDefault();
-                    // Commit logic here if needed, mainly blur handles it
                     setEditingCell({ rowId: null, colId: null });
-                    // Move selection logic could go here
                 }
+                return;
+            }
+
+            // 🟢 2. CRITICAL FIX: If focused on ANY other input (like Column Names), do NOT intercept!
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
                 return;
             }
 
@@ -83,18 +86,14 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
                 return;
             }
 
-            // 🟢 Type to Replace (Excel Style)
-            // Checks if key is a printable character (length 1), not a modifier key
+            // Type to Replace
             if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-                // Determine target cell
                 const row = tableData[startR];
                 const col = columns[startC];
                 
                 if (row && col) {
                     e.preventDefault();
-                    // Update data with the single key pressed
                     handleCellChange(row.id, col.id, e.key);
-                    // Enter edit mode
                     setEditingCell({ rowId: row.id, colId: col.id });
                 }
             }
@@ -103,7 +102,6 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [selection, editingCell, tableData, columns]);
-
 
     // Toggle Status
     const toggleStatus = () => {
@@ -215,7 +213,6 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
 
     const handleDoubleClick = (rowId, colId) => {
         setEditingCell({ rowId, colId });
-        // Don't clear selection on double click, allows context
     };
 
     // --- CRUD ACTIONS ---
@@ -304,19 +301,13 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
     };
 
     // --- CLIPBOARD ACTIONS ---
-    
-    // 🟢 Paste (Global or Selected Cell)
     const handlePaste = async () => {
         try {
             const text = await navigator.clipboard.readText();
             if (!text) return;
 
             const rows = text.trim().split(/\r\n|\n|\r/);
-            
-            // If dragging, paste starting from selection top-left
-            // If no selection or dragging, append to bottom (Legacy behavior)
-            
-            let startR = tableData.length; // Default to append
+            let startR = tableData.length; 
             let startC = 0;
 
             if (selection) {
@@ -330,7 +321,6 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
                 const cellValues = rowStr.split('\t');
                 const targetRowIdx = startR + rOffset;
 
-                // Ensure row exists
                 if (!newData[targetRowIdx]) {
                     const newRow = { id: Date.now() + Math.random() };
                     columns.forEach(c => newRow[c.id] = '');
@@ -357,7 +347,6 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
         } catch (err) { console.error("Paste Failed:", err); alert("Unable to access clipboard."); }
     };
 
-    // 🟢 Copy Selected Cells
     const handleCopySelection = () => {
         if (!selection) return;
         const minR = Math.min(selection.start.r, selection.end.r);
@@ -375,14 +364,9 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
             rowsText.push(rowData.join('\t'));
         }
         
-        navigator.clipboard.writeText(rowsText.join('\n'))
-            .then(() => {
-                setContextMenu(null);
-                // alert("Selection copied!"); // Optional feedback
-            });
+        navigator.clipboard.writeText(rowsText.join('\n')).then(() => setContextMenu(null));
     };
 
-    // 🟢 Legacy: Copy Whole Table
     const copyDataToClipboard = () => {
         const headers = columns.map(c => c.name).join('\t');
         const rows = tableData.map((row, rIdx) => columns.map(col => { const val = getEffectiveCellValue(row, col, rIdx); return val === undefined || val === null ? '' : val; }).join('\t')).join('\n');
@@ -394,8 +378,6 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
     const handleContextMenu = (e, type, id, index) => {
         e.preventDefault(); e.stopPropagation(); 
         
-        // If clicking on existing selection, keep context
-        // Else, start new single-cell selection
         if (type === 'cell' && selection && isSelected(id.rIdx, id.cIdx)) { 
             // Keep Selection
         } else if (type === 'cell') { 
@@ -449,7 +431,6 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
                         <div className="flex bg-white/10 rounded-lg p-0.5">
                             <button onClick={handleClearTable} className="px-3 py-1.5 rounded-md hover:bg-red-500/30 text-xs font-bold flex items-center gap-2 transition text-red-200 hover:text-white" title="Clear table"><Eraser size={14} /> Clear</button>
                             <div className="w-px bg-white/20 my-1 mx-1"></div>
-                            {/* Updated Paste to use Smart Paste */}
                             <button onClick={handlePaste} className="px-3 py-1.5 rounded-md hover:bg-white/20 text-xs font-bold flex items-center gap-2 transition" title="Paste"><Clipboard size={14} /> Paste</button>
                             <div className="w-px bg-white/20 my-1 mx-1"></div>
                             <button onClick={copyDataToClipboard} className="px-3 py-1.5 rounded-md hover:bg-white/20 text-xs font-bold flex items-center gap-2 transition" title="Copy"><Copy size={14} /> Copy</button>
@@ -463,13 +444,25 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
                 {/* TABLE AREA */}
                 <div className="flex-1 overflow-auto bg-gray-100 p-8 relative" ref={tableContainerRef}>
                     <div className="bg-white border border-gray-300 shadow-xl inline-block origin-top-left transition-transform duration-200 ease-out select-none" style={{ transform: `scale(${scale})` }}>
+                        
                         {/* HEADER */}
                         <div className="flex border-b border-gray-300 bg-gray-50 sticky top-0 z-20 shadow-sm">
                             <div className="w-10 p-2 border-r border-gray-300 bg-gray-100 flex items-center justify-center text-gray-400 font-mono text-xs">#</div>
                             {columns.map((col, idx) => (
                                 <div key={col.id} className="border-r border-gray-300 relative group flex flex-col" style={{ width: colWidths[col.id] || 200, minWidth: 60 }} onContextMenu={(e) => handleContextMenu(e, 'col', col.id, idx)}>
                                     <div className={`bg-gray-200 text-center text-[10px] font-bold py-1 border-b border-gray-300 select-none flex justify-center items-center gap-1 ${col.autoFormula ? 'text-purple-600' : 'text-gray-600'}`}>{col.autoFormula && <Wand2 size={8} />} {getColLetter(idx)}</div>
-                                    <input className="w-full bg-transparent text-center text-xs font-bold p-2 outline-none focus:bg-blue-50" value={col.name} onChange={(e) => updateColumnProperty(col.id, 'name', e.target.value)} />
+                                    
+                                    {/* 🟢 THIS IS THE INPUT THAT WAS BEING BLOCKED */}
+                                    <input 
+                                        className="w-full bg-transparent text-center text-xs font-bold p-2 outline-none focus:bg-blue-50 select-text" 
+                                        value={col.name} 
+                                        onChange={(e) => updateColumnProperty(col.id, 'name', e.target.value)} 
+                                    />
+
+                                    <div className="absolute top-1 left-1 opacity-20 group-hover:opacity-100 pointer-events-none">
+                                        {col.format === 'number' && <Hash size={10} className="text-blue-500"/>}
+                                        {col.format === 'currency' && <DollarSign size={10} className="text-green-500"/>}
+                                    </div>
                                     <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-400 z-10 opacity-0 group-hover:opacity-100" onMouseDown={(e) => { const startX = e.pageX; const startWidth = colWidths[col.id] || 200; const onMove = (mv) => { setColWidths(prev => ({ ...prev, [col.id]: Math.max(60, startWidth + (mv.pageX - startX)) })); setHasUnsavedChanges(true); }; const onUp = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); }; window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp); }} />
                                 </div>
                             ))}
@@ -496,7 +489,7 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
 
                                     return (
                                         <div key={col.id} className={`border-r border-gray-200 relative ${selectionStyle}`} style={{ width: colWidths[col.id] || 200, minWidth: 60 }} onMouseDown={() => handleMouseDown(rIdx, cIdx)} onMouseEnter={() => handleMouseEnter(rIdx, cIdx)} onDoubleClick={() => handleDoubleClick(row.id, col.id)} onContextMenu={(e) => handleContextMenu(e, 'cell', {rIdx, cIdx}, null)}>
-                                            {isEditing ? <input ref={editorRef} autoFocus className="w-full h-full px-2 py-1.5 text-sm outline-none bg-white ring-2 ring-blue-500 z-20 absolute inset-0 font-mono" value={rawValue || ''} onChange={(e) => handleCellChange(row.id, col.id, e.target.value)} onBlur={() => setEditingCell({ rowId: null, colId: null })} placeholder={col.autoFormula ? `Auto: ${col.autoFormula}` : ''} /> : <div className={`w-full h-full px-2 py-1.5 text-sm truncate cursor-cell ${alignClass} ${cellClass}`}>{displayValue}</div>}
+                                            {isEditing ? <input ref={editorRef} autoFocus className="w-full h-full px-2 py-1.5 text-sm outline-none bg-white ring-2 ring-blue-500 z-20 absolute inset-0 font-mono" value={rawValue || ''} onChange={(e) => handleCellChange(row.id, col.id, e.target.value)} onBlur={() => setEditingCell({ rowId: null, colId: null })} placeholder={col.autoFormula ? `Auto: ${col.autoFormula}` : ''} /> : <div className={`w-full h-full px-2 py-1.5 text-sm truncate cursor-cell select-none ${alignClass} ${cellClass}`}>{displayValue}</div>}
                                         </div>
                                     );
                                 })}
