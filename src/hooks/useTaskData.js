@@ -146,7 +146,7 @@ export const useTaskData = (currentUser) => {
     const refLink = getValidUrl(task.reference);
     const finalLink = getValidUrl(task.finalFile);
     const locationLink = getValidUrl(task.location);
-    const MEGAPHONE_IMAGE = "https://plus.unsplash.com/premium_photo-1679056944647-ef4d4a03389a?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D";
+    const MEGAPHONE_IMAGE = "https://plus.unsplash.com/premium_photo-1679056944647-ef4d4a03389a?q=80&w=774&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D";
     const heroImageUrl = getValidUrl(task.imageUrl) || MEGAPHONE_IMAGE;
 
     const primaryButton = {
@@ -287,7 +287,6 @@ export const useTaskData = (currentUser) => {
     }
   };
 
-  // 🟢 FIXED: DEADLINE CHECKER (Strictly prevents past notifications)
   const checkDeadlines = (taskList, user) => {
     if (!user) return;
     const now = new Date();
@@ -303,19 +302,10 @@ export const useTaskData = (currentUser) => {
         if (!deadlineIso) return;
 
         const deadline = new Date(deadlineIso);
-        
-        // 🛑 STOP: If deadline is in the past, do not send notifications.
         if (deadline < now) return; 
 
-        // Calculate Days Left (Positive Numbers)
-        // 1 = Today (within 24h), 2 = Tomorrow, etc.
         const timeDiff = deadline - now;
         const daysLeft = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
-
-        // Logic:
-        // daysLeft = 1 (Means < 24h left) -> Today Alert
-        // daysLeft = 2 or 3 -> 2 Days Alert
-        // daysLeft = 4 to 7 -> 7 Days Alert
 
         if (daysLeft <= 1 && !task.notified0Day) {
             await triggerAlert(task,"🔥🔥 DEADLINE TODAY", user.email, "notified0Day");
@@ -420,7 +410,12 @@ export const useTaskData = (currentUser) => {
     const unsubTasks = onSnapshot(query(collection(db, "tasks"), orderBy("createdAt", "desc")), (snapshot) => {
         const loadedTasks = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
         setTasks(loadedTasks);
-        if (currentUser?.email) checkDeadlines(loadedTasks, currentUser);
+        
+        // 🟢 FIX: Only check deadlines if there are NO pending local writes.
+        // Transactions throw "failed-precondition" if they touch a document with pending local writes.
+        if (currentUser?.email && !snapshot.metadata.hasPendingWrites) {
+            checkDeadlines(loadedTasks, currentUser);
+        }
     });
 
     const unsubDocs = onSnapshot(query(collection(db, "documents"), orderBy("createdAt", "desc")), (snapshot) => {
