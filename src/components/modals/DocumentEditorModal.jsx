@@ -82,61 +82,54 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
                     } else {
                         const errorData = await response.json();
                         errorMessage = errorData?.error?.message || `HTTP Error ${response.status}`;
-                        console.warn(`⚠️ Model ${model} failed:`, errorMessage);
                     }
                 } catch (networkError) {
                     console.error("Network Blocked:", networkError);
-                    throw new Error("Your browser blocked the connection. Please disable AdBlockers, Brave Shields, or VPNs.");
+                    throw new Error("Your browser blocked the connection. Please disable AdBlockers or VPNs.");
                 }
             }
 
             if (!responseData) {
                 throw new Error(`All models failed. Last Google error: ${errorMessage}`);
             }
-
-            const data = responseData;
-            console.log("Gemini Raw Response:", data);
             
-            if (data.candidates && data.candidates.length > 0) {
-                const candidate = data.candidates[0];
+            if (responseData.candidates && responseData.candidates.length > 0) {
+                const candidate = responseData.candidates[0];
                 
                 if (candidate.finishReason && candidate.finishReason !== 'STOP') {
-                    throw new Error(`Generation stopped early. Reason: ${candidate.finishReason} (Usually means Google's Safety Filters blocked it).`);
+                    throw new Error(`Generation stopped early. Reason: ${candidate.finishReason}`);
                 }
 
                 if (candidate.content && candidate.content.parts && candidate.content.parts[0].text) {
                     let generatedHtml = candidate.content.parts[0].text;
-                    
-                    // Clean up markdown wrappers
                     generatedHtml = generatedHtml.replace(/^```html/i, '').replace(/```$/i, '').trim();
 
-                    // 🟢 FIXED: Directly append the HTML and move the cursor to the end
+                    // 🟢 FIXED: Bulletproof Cursor & Paste Logic
                     if (docEditorRef.current) {
-                        const currentHtml = docEditorRef.current.innerHTML;
-                        const spacing = currentHtml && currentHtml !== '<br>' ? '<br/><br/>' : '';
-                        
-                        // Safely inject the new HTML
-                        docEditorRef.current.innerHTML = currentHtml + spacing + generatedHtml;
-                        
-                        // Force the browser cursor to the very end of the newly inserted text
-                        try {
-                            const range = document.createRange();
-                            const sel = window.getSelection();
-                            range.selectNodeContents(docEditorRef.current);
-                            range.collapse(false); // false = collapse to the end
-                            sel.removeAllRanges();
-                            sel.addRange(range);
-                        } catch(e) {
-                            console.warn("Could not move cursor to end", e);
-                        }
-                        
+                        // 1. Force the editor to become active
                         docEditorRef.current.focus();
+
+                        // 2. Create a browser selection range at the very end of the document
+                        const selection = window.getSelection();
+                        const range = document.createRange();
+                        range.selectNodeContents(docEditorRef.current);
+                        range.collapse(false); // 'false' collapses the cursor to the exact end
+                        
+                        selection.removeAllRanges();
+                        selection.addRange(range);
+
+                        // 3. Add a line break if the document isn't empty, then paste!
+                        const currentHtml = docEditorRef.current.innerHTML.trim();
+                        const spacing = (currentHtml && currentHtml !== '<br>') ? '<br/><br/>' : '';
+                        
+                        // ExecCommand acts exactly like a user pasting text (keeps Undo history!)
+                        document.execCommand('insertHTML', false, spacing + generatedHtml);
                     }
                     
                     setAiPrompt('');
                     setShowAiBar(false);
                 } else {
-                    throw new Error("Response is missing text content. Check the console for details.");
+                    throw new Error("Response is missing text content.");
                 }
             } else {
                 throw new Error("No candidates returned from Gemini.");
@@ -148,7 +141,7 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
             setIsGeneratingAi(false);
         }
     };
-    
+
     // --- HANDLE SAVE ---
     const handleSave = () => {
         if (!title.trim()) { alert("Please enter a title"); return; }
@@ -319,6 +312,7 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
                                     className="outline-none text-gray-800 leading-relaxed font-serif text-lg min-h-full empty:before:content-[attr(placeholder)] empty:before:text-gray-300"
                                     placeholder="Start typing your document..."
                                     dangerouslySetInnerHTML={{ __html: initialContent.current }}
+                                    onInput={(e) => { initialContent.current = e.target.innerHTML; }} // 🟢 Added this line
                                     style={{ whiteSpace: 'pre-wrap' }}
                                 />
                             </div>
