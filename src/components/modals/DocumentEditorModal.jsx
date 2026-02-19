@@ -63,7 +63,7 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
 
             // 🟢 FIXED: Changed model to 'gemini-1.5-flash-latest' 
             // (If this still throws an error, change it to 'gemini-pro')
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`, {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${API_KEY}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
