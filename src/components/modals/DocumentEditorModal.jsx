@@ -44,7 +44,8 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
         }
     };
 
-const handleGenerateAi = async () => {
+// --- 🟢 GEMINI AI GENERATOR (WITH AUTO-FALLBACK) ---
+    const handleGenerateAi = async () => {
         if (!aiPrompt.trim()) return;
         setIsGeneratingAi(true);
         
@@ -60,35 +61,52 @@ const handleGenerateAi = async () => {
             Format your response STRICTLY as valid HTML (using <p>, <br>, <b>, <i>, <ul>, <li>, <h3> where appropriate) so it can be inserted directly into a rich text editor. 
             DO NOT wrap your response in markdown code blocks like \`\`\`html.`;
 
-            let response;
-            try {
-                // 🟢 FIXED: Using the modern, active 'gemini-1.5-flash' model. 
-                response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: promptText }] }]
-                    })
-                });
-            } catch (networkError) {
-                console.error("Network Blocked:", networkError);
-                throw new Error("Your browser blocked the connection. Please disable AdBlockers, Brave Shields, or VPNs.");
+            // 🟢 AUTO-FALLBACK: Try the newest model, fallback to older ones if Google rejects it.
+            const modelsToTry = ['gemini-1.5-flash', 'gemini-1.0-pro', 'gemini-pro'];
+            let responseData = null;
+            let errorMessage = "";
+
+            for (const model of modelsToTry) {
+                try {
+                    // 🟢 NOTE: Upgraded from v1beta to the stable v1 endpoint
+                    const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${apiKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            contents: [{ parts: [{ text: promptText }] }]
+                        })
+                    });
+
+                    if (response.ok) {
+                        responseData = await response.json();
+                        console.log(`✅ Success using model: ${model}`);
+                        break; // Success! Break out of the loop.
+                    } else {
+                        const errorData = await response.json();
+                        errorMessage = errorData?.error?.message || `HTTP Error ${response.status}`;
+                        console.warn(`⚠️ Model ${model} failed:`, errorMessage);
+                        // Loop will automatically continue to the next model
+                    }
+                } catch (networkError) {
+                    console.error("Network Blocked:", networkError);
+                    throw new Error("Your browser blocked the connection. Please disable AdBlockers, Brave Shields, or VPNs.");
+                }
             }
 
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData?.error?.message || `HTTP Error ${response.status}`);
+            // If ALL models failed, throw the final error
+            if (!responseData) {
+                throw new Error(`All models failed. Last Google error: ${errorMessage}`);
             }
 
-            const data = await response.json();
+            const data = responseData;
             console.log("Gemini Raw Response:", data);
             
             if (data.candidates && data.candidates.length > 0) {
                 const candidate = data.candidates[0];
                 
-                // 🟢 Catch Safety blocks or other stops gracefully
+                // Catch Safety blocks
                 if (candidate.finishReason && candidate.finishReason !== 'STOP') {
-                    throw new Error(`Generation stopped early. Reason: ${candidate.finishReason} (This usually means Google's Safety Filters blocked your prompt).`);
+                    throw new Error(`Generation stopped early. Reason: ${candidate.finishReason} (Usually means Google's Safety Filters blocked it).`);
                 }
 
                 if (candidate.content && candidate.content.parts && candidate.content.parts[0].text) {
