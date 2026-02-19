@@ -44,7 +44,6 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
         }
     };
 
-    // --- 🟢 GEMINI AI GENERATOR ---
     const handleGenerateAi = async () => {
         if (!aiPrompt.trim()) return;
         setIsGeneratingAi(true);
@@ -69,28 +68,47 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
                 })
             });
 
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData?.error?.message || `HTTP Error ${response.status}`);
+            }
+
             const data = await response.json();
             
-            if (data.candidates && data.candidates[0]?.content?.parts[0]?.text) {
-                let generatedHtml = data.candidates[0].content.parts[0].text;
+            // 🟢 LOG THE RAW DATA TO THE CONSOLE FOR DEBUGGING
+            console.log("Gemini Raw Response:", data);
+            
+            if (data.candidates && data.candidates.length > 0) {
+                const candidate = data.candidates[0];
                 
-                // Clean up markdown wrappers if the AI ignored the instruction
-                generatedHtml = generatedHtml.replace(/^```html/i, '').replace(/```$/i, '').trim();
-
-                // Focus editor and insert at cursor
-                if (docEditorRef.current) {
-                    docEditorRef.current.focus();
-                    document.execCommand('insertHTML', false, `${generatedHtml}<br/><br/>`);
+                // Check if Google blocked the prompt due to safety ratings
+                if (candidate.finishReason && candidate.finishReason !== 'STOP') {
+                    throw new Error(`Generation stopped. Reason: ${candidate.finishReason} (Usually caused by Safety Filters)`);
                 }
-                
-                setAiPrompt('');
-                setShowAiBar(false);
+
+                if (candidate.content && candidate.content.parts && candidate.content.parts[0].text) {
+                    let generatedHtml = candidate.content.parts[0].text;
+                    
+                    // Clean up markdown wrappers
+                    generatedHtml = generatedHtml.replace(/^```html/i, '').replace(/```$/i, '').trim();
+
+                    // Focus editor and insert at cursor
+                    if (docEditorRef.current) {
+                        docEditorRef.current.focus();
+                        document.execCommand('insertHTML', false, `${generatedHtml}<br/><br/>`);
+                    }
+                    
+                    setAiPrompt('');
+                    setShowAiBar(false);
+                } else {
+                    throw new Error("Response is missing text content. Check console for details.");
+                }
             } else {
-                throw new Error("Invalid response from Gemini");
+                throw new Error("No candidates returned from Gemini.");
             }
         } catch (error) {
             console.error("AI Generation Error:", error);
-            alert("Failed to generate content. Please check your internet connection and API key.");
+            alert(`AI Error: ${error.message}`);
         } finally {
             setIsGeneratingAi(false);
         }
