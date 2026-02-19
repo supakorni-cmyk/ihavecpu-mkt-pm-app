@@ -44,8 +44,7 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
         }
     };
 
-// --- 🟢 GEMINI AI GENERATOR ---
-    const handleGenerateAi = async () => {
+const handleGenerateAi = async () => {
         if (!aiPrompt.trim()) return;
         setIsGeneratingAi(true);
         
@@ -63,8 +62,8 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
 
             let response;
             try {
-                // 🟢 Changed to universally supported 'gemini-pro'
-                response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`, {
+                // 🟢 FIXED: Using the modern, active 'gemini-1.5-flash' model. 
+                response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -72,7 +71,6 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
                     })
                 });
             } catch (networkError) {
-                // 🟢 This catches the "Failed to fetch" specifically!
                 console.error("Network Blocked:", networkError);
                 throw new Error("Your browser blocked the connection. Please disable AdBlockers, Brave Shields, or VPNs.");
             }
@@ -88,8 +86,9 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
             if (data.candidates && data.candidates.length > 0) {
                 const candidate = data.candidates[0];
                 
+                // 🟢 Catch Safety blocks or other stops gracefully
                 if (candidate.finishReason && candidate.finishReason !== 'STOP') {
-                    throw new Error(`Generation stopped. Reason: ${candidate.finishReason} (Usually Safety Filters)`);
+                    throw new Error(`Generation stopped early. Reason: ${candidate.finishReason} (This usually means Google's Safety Filters blocked your prompt).`);
                 }
 
                 if (candidate.content && candidate.content.parts && candidate.content.parts[0].text) {
@@ -107,7 +106,7 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
                     setAiPrompt('');
                     setShowAiBar(false);
                 } else {
-                    throw new Error("Response is missing text content. Check console for details.");
+                    throw new Error("Response is missing text content. Check the console for details.");
                 }
             } else {
                 throw new Error("No candidates returned from Gemini.");
