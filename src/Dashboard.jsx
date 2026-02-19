@@ -76,7 +76,7 @@ export default function Dashboard() {
   }, [data.tasks]);
 
   return (
-    <div className="flex h-screen w-full bg-gray-50 font-sans overflow-hidden">
+  <div className="flex flex-col md:flex-row h-screen w-full bg-gray-50 font-sans overflow-hidden">
       
       <Sidebar 
         currentView={currentView} 
