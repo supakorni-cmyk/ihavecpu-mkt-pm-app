@@ -1,8 +1,8 @@
 // src/components/views/HomeView.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Heart, Calendar, CheckCircle2, Clock, 
-  ArrowRight, User, Briefcase, Bell 
+  ArrowRight, User, Briefcase, Bell, CloudRain, Sun, Droplets, Wind, TrendingUp, MapPin
 } from 'lucide-react';
 import { formatDate } from '../../utils/constants';
 
@@ -20,43 +20,24 @@ const SYSTEM_AVATARS = {
 
 // --- TEAM CONFIGURATION ---
 const INITIAL_TEAM = [
-  { 
-    id: 1, 
-    name: 'เป้ ไข่หมุน', 
-    email: 'jittikorn.m@ihavecpu.com',
-    role: 'Marketing Manager', 
-    avatar: SYSTEM_AVATARS.jittikorn 
-  },
-  { 
-    id: 2, 
-    name: 'SPARKIEZZ', 
-    email: 'supakorn.i@ihavecpu.com',
-    role: 'Assistant Manager', 
-    avatar: SYSTEM_AVATARS.supakorn 
-  },
-  { 
-    id: 3, 
-    name: 'อียุ้ยคนสวย', 
-    email: 'sophisa.p@ihavecpu.com',
-    role: 'Assistant Manager', 
-    avatar: SYSTEM_AVATARS.sophisa 
-  },
-  { 
-    id: 4, 
-    name: 'ณ๊องส์บิ๋ม', 
-    email: 'suchada.t@ihavecpu.com',
-    role: 'Graphic Head', 
-    avatar: SYSTEM_AVATARS.suchada 
-  },
+  { id: 1, name: 'เป้ ไข่หมุน', email: 'jittikorn.m@ihavecpu.com', role: 'Marketing Manager', avatar: SYSTEM_AVATARS.jittikorn },
+  { id: 2, name: 'SPARKIEZZ', email: 'supakorn.i@ihavecpu.com', role: 'Assistant Manager', avatar: SYSTEM_AVATARS.supakorn },
+  { id: 3, name: 'อียุ้ยคนสวย', email: 'sophisa.p@ihavecpu.com', role: 'Assistant Manager', avatar: SYSTEM_AVATARS.sophisa },
+  { id: 4, name: 'ณ๊องส์บิ๋ม', email: 'suchada.t@ihavecpu.com', role: 'Graphic Head', avatar: SYSTEM_AVATARS.suchada },
 ];
 
 const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead, clearAllNotifications, users = [], onUpdateTask, onDeleteTask }) => {
   const [team] = useState(INITIAL_TEAM);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   
-  // 🟢 MODAL STATE
-  const [selectedTask, setSelectedTask] = useState(null); // Detail View
-  const [editingTask, setEditingTask] = useState(null);   // Edit View
+  // MODAL STATE
+  const [selectedTask, setSelectedTask] = useState(null); 
+  const [editingTask, setEditingTask] = useState(null);   
+
+  // --- API DATA STATE ---
+  const [weatherData, setWeatherData] = useState(null);
+  const [goldPrice, setGoldPrice] = useState(null);
+  const [locationName, setLocationName] = useState("Locating..."); // 🟢 NEW: Dynamic Location Name
 
   // --- STATS LOGIC ---
   const completedTasks = tasks.filter(t => {
@@ -69,7 +50,6 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
       return s !== 'completed' && s !== 'done' && s !== 'canceled';
   }).length;
 
-  // --- EVENT FILTERING ---
   const upcomingEvents = tasks.filter(t => {
       const s = (t.status || '').toLowerCase();
       if (s === 'canceled' || s === 'completed' || s === 'done') return false;
@@ -89,14 +69,99 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
   const displayAvatar = coreMember?.avatar || currentUser?.photoURL || 'https://ui-avatars.com/api/?background=random&color=fff&name=' + (currentUser?.email || 'User');
   const displayName = coreMember?.name || currentUser?.displayName || currentUser?.email?.split('@')[0] || 'Guest';
 
-  // Group Separation
   const coreEmails = team.map(m => m.email.toLowerCase());
-  const cutePeople = users.filter(u => 
-    u.email && !coreEmails.includes(u.email.toLowerCase())
-  );
+  const cutePeople = users.filter(u => u.email && !coreEmails.includes(u.email.toLowerCase()));
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+
+  // --- FETCH WEATHER (DYNAMIC LOCATION) & GOLD PRICE ---
+  useEffect(() => {
+      // 1. Gold Fetch Logic (Independent of location)
+      const fetchGold = async () => {
+          try {
+              const goldRes = await fetch("https://open.er-api.com/v6/latest/USD"); 
+              const fxJson = await goldRes.json();
+              const usdToThb = fxJson.rates.THB || 35.0; 
+
+              const mockGoldOzUsd = 2050; 
+              const thaiBahtWeightOz = 15.244 / 31.1035; 
+              const calculatedThbPrice = mockGoldOzUsd * usdToThb * thaiBahtWeightOz;
+              
+              setGoldPrice({
+                  price: (calculatedThbPrice * 1.05).toFixed(0), 
+                  currency: "THB",
+                  unit: "1 Baht (15.2g)"
+              });
+          } catch (error) {
+              console.error("Failed to fetch gold price", error);
+          }
+      };
+
+      // 2. Weather Fetch Logic
+      const fetchWeather = async (lat, lon, locName) => {
+          try {
+              const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&timezone=auto`);
+              const weatherJson = await weatherRes.json();
+              if (weatherJson && weatherJson.current_weather) {
+                  setWeatherData(weatherJson.current_weather);
+              }
+              setLocationName(locName);
+          } catch (error) {
+              console.error("Failed to fetch weather", error);
+              setLocationName("Unknown Location");
+          }
+      };
+
+      fetchGold();
+
+      // 3. Get User Location
+      if ("geolocation" in navigator) {
+          navigator.geolocation.getCurrentPosition(
+              async (position) => {
+                  const lat = position.coords.latitude;
+                  const lon = position.coords.longitude;
+                  
+                  try {
+                      // Reverse Geocoding to get City Name
+                      const geoRes = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`);
+                      const geoData = await geoRes.json();
+                      const city = geoData.city || geoData.locality || "Current Location";
+                      
+                      fetchWeather(lat, lon, city);
+                  } catch (e) {
+                      fetchWeather(lat, lon, "Current Location");
+                  }
+              },
+              (error) => {
+                  // Fallback if user denies location permission
+                  console.warn("Geolocation denied/failed. Falling back to Pathum Thani.");
+                  fetchWeather(14.0208, 100.5250, "Pathum Thani");
+              },
+              { timeout: 10000 }
+          );
+      } else {
+          // Fallback if browser doesn't support geolocation
+          fetchWeather(14.0208, 100.5250, "Pathum Thani");
+      }
+
+  }, []);
+
+  const getWeatherIcon = (code) => {
+      // WMO Weather interpretation codes
+      if (code === 0) return <Sun className="text-yellow-500" size={32} />; // Clear sky
+      if (code > 0 && code < 4) return <CloudRain className="text-gray-400" size={32} />; // Partly cloudy
+      if (code >= 51 && code <= 67) return <Droplets className="text-blue-400" size={32} />; // Rain
+      return <CloudRain className="text-gray-500" size={32} />; // Default
+  };
+
+  const getWeatherCondition = (code) => {
+      if (code === 0) return "Clear Sky";
+      if (code === 1 || code === 2 || code === 3) return "Partly Cloudy";
+      if (code >= 51 && code <= 67) return "Raining";
+      return "Cloudy";
+  };
+
 
   return (
     <div className="flex flex-col h-full overflow-y-auto bg-gray-50 p-8 font-sans relative">
@@ -153,20 +218,58 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
         </div>
       </div>
 
-      {/* --- OTHER USERS --- */}
-      {cutePeople.length > 0 && (
-          <div className="mb-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2"><Heart className="text-pink-500 fill-pink-500 animate-pulse" size={20}/> คนน่ารัก ({cutePeople.length})</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
-                {cutePeople.map((user, idx) => (
-                    <div key={user.id || idx} className={`bg-white p-6 rounded-2xl shadow-sm border ${user.email === currentUser?.email ? 'border-pink-500 ring-2 ring-pink-100' : 'border-pink-100'} flex flex-col items-center justify-center text-center hover:border-pink-300 hover:shadow-md transition group`}>
-                        <div className="w-20 h-20 rounded-full bg-pink-50 flex items-center justify-center mb-4 overflow-hidden border-2 border-white shadow-sm relative">{user.photoURL || user.avatar ? <img src={user.photoURL || user.avatar} alt={user.name} className="w-full h-full object-cover transition transform group-hover:scale-110 duration-500" /> : <span className="text-2xl font-bold text-pink-400">{(user.name || user.email || '?').charAt(0).toUpperCase()}</span>}</div>
-                        <h4 className="font-bold text-gray-800">{user.name || user.email?.split('@')[0]}</h4><span className="text-xs text-pink-500 font-medium bg-pink-50 px-2 py-0.5 rounded-full mt-1 mb-1">{user.role || 'Guest'}</span><span className="text-[10px] text-gray-400 truncate w-full px-2">{user.email}</span>
-                    </div>
-                ))}
+      {/* --- WIDGETS: WEATHER & GOLD PRICE --- */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
+        
+        {/* Weather Widget */}
+        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-2xl border border-blue-100 shadow-sm flex justify-between items-center relative overflow-hidden group">
+            <div className="absolute -right-6 -top-6 text-white opacity-50 group-hover:scale-110 transition-transform duration-700">
+                {weatherData ? getWeatherIcon(weatherData.weathercode) : <CloudRain size={120} />}
             </div>
-          </div>
-      )}
+            <div className="relative z-10">
+                {/* 🟢 DYNAMIC LOCATION NAME HERE */}
+                <h4 className="text-xs font-bold text-blue-500 uppercase tracking-wider mb-1 flex items-center gap-1"><MapPin size={12}/> {locationName}</h4>
+                <div className="text-4xl font-black text-gray-800 tracking-tighter">
+                    {weatherData ? `${weatherData.temperature}°C` : '--°C'}
+                </div>
+                <p className="text-sm font-medium text-gray-600 mt-1">
+                    {weatherData ? getWeatherCondition(weatherData.weathercode) : 'Loading...'}
+                </p>
+            </div>
+            <div className="relative z-10 text-right space-y-2">
+                {weatherData && (
+                    <>
+                        <div className="flex items-center gap-2 text-xs font-bold text-gray-500 bg-white/60 px-3 py-1.5 rounded-lg shadow-sm border border-white">
+                            <Wind size={14} className="text-blue-400"/> {weatherData.windspeed} km/h
+                        </div>
+                        <div className="text-[10px] text-gray-400">Last updated: {new Date(weatherData.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+                    </>
+                )}
+            </div>
+        </div>
+
+        {/* Gold Price Widget */}
+        <div className="bg-gradient-to-br from-yellow-50 to-amber-50 p-6 rounded-2xl border border-yellow-100 shadow-sm flex justify-between items-center relative overflow-hidden group">
+            <div className="absolute -right-6 -top-6 text-white opacity-50 group-hover:scale-110 transition-transform duration-700">
+                <TrendingUp size={120} className="text-yellow-400" />
+            </div>
+            <div className="relative z-10">
+                <h4 className="text-xs font-bold text-yellow-600 uppercase tracking-wider mb-1">Today's Gold Price (Est.)</h4>
+                <div className="text-4xl font-black text-gray-800 tracking-tighter">
+                    {goldPrice ? `฿${new Intl.NumberFormat('en-US').format(goldPrice.price)}` : '฿--,--'}
+                </div>
+                <p className="text-sm font-medium text-gray-600 mt-1">
+                    per {goldPrice ? goldPrice.unit : 'Baht Weight'}
+                </p>
+            </div>
+            <div className="relative z-10 text-right">
+                <div className="inline-flex items-center gap-1.5 text-xs font-bold text-green-600 bg-green-100/50 border border-green-200 px-3 py-1.5 rounded-lg">
+                    <span>Live Market Est.</span>
+                </div>
+            </div>
+        </div>
+
+      </div>
 
       {/* --- STATS GRID --- */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
@@ -185,7 +288,7 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
             {upcomingEvents.length > 0 ? upcomingEvents.slice(0, 5).map(task => (
                 <div 
                     key={task.id} 
-                    onClick={() => setSelectedTask(task)} // 🟢 CLICK TO OPEN DETAIL MODAL
+                    onClick={() => setSelectedTask(task)} 
                     className="flex items-center p-4 hover:bg-gray-50 rounded-xl transition border border-gray-50 hover:border-gray-200 group cursor-pointer"
                 >
                     <div className="w-14 h-14 bg-blue-50 rounded-xl flex flex-col items-center justify-center text-blue-600 font-bold shrink-0 mr-4">
@@ -212,15 +315,30 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
         </div>
       </div>
 
-      {/* 🟢 DETAIL MODAL (First Layer) */}
+      {/* --- OTHER USERS --- */}
+      {cutePeople.length > 0 && (
+          <div className="mt-12 mb-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2"><Heart className="text-pink-500 fill-pink-500 animate-pulse" size={20}/> คนน่ารัก ({cutePeople.length})</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
+                {cutePeople.map((user, idx) => (
+                    <div key={user.id || idx} className={`bg-white p-6 rounded-2xl shadow-sm border ${user.email === currentUser?.email ? 'border-pink-500 ring-2 ring-pink-100' : 'border-pink-100'} flex flex-col items-center justify-center text-center hover:border-pink-300 hover:shadow-md transition group`}>
+                        <div className="w-20 h-20 rounded-full bg-pink-50 flex items-center justify-center mb-4 overflow-hidden border-2 border-white shadow-sm relative">{user.photoURL || user.avatar ? <img src={user.photoURL || user.avatar} alt={user.name} className="w-full h-full object-cover transition transform group-hover:scale-110 duration-500" /> : <span className="text-2xl font-bold text-pink-400">{(user.name || user.email || '?').charAt(0).toUpperCase()}</span>}</div>
+                        <h4 className="font-bold text-gray-800">{user.name || user.email?.split('@')[0]}</h4><span className="text-xs text-pink-500 font-medium bg-pink-50 px-2 py-0.5 rounded-full mt-1 mb-1">{user.role || 'Guest'}</span><span className="text-[10px] text-gray-400 truncate w-full px-2">{user.email}</span>
+                    </div>
+                ))}
+            </div>
+          </div>
+      )}
+
+      {/* 🟢 DETAIL MODAL */}
       {selectedTask && (
         <TaskDetailModal 
             task={selectedTask}
             tasks={tasks}
             onClose={() => setSelectedTask(null)}
             onEdit={() => {
-                setEditingTask(selectedTask); // Open Edit
-                setSelectedTask(null);        // Close Detail
+                setEditingTask(selectedTask); 
+                setSelectedTask(null);        
             }}
             onDelete={() => {
                 if(onDeleteTask) onDeleteTask(selectedTask.id);
@@ -229,7 +347,7 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
         />
       )}
 
-      {/* 🟢 EDIT MODAL (Second Layer) */}
+      {/* 🟢 EDIT MODAL */}
       {editingTask && (
         <EditTaskModal 
             task={editingTask}
