@@ -64,7 +64,6 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
       return dateA - dateB;
   });
 
-  // User Identification
   const coreMember = team.find(member => member.email === currentUser?.email);
   const displayAvatar = coreMember?.avatar || currentUser?.photoURL || 'https://ui-avatars.com/api/?background=random&color=fff&name=' + (currentUser?.email || 'User');
   const displayName = coreMember?.name || currentUser?.displayName || currentUser?.email?.split('@')[0] || 'Guest';
@@ -75,36 +74,80 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
   const unreadCount = notifications.filter(n => !n.isRead).length;
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
 
-  // --- FETCH WEATHER (DYNAMIC LOCATION) & GOLD PRICE ---
+  // --- FETCH WEATHER & ACTUAL GOLD PRICE ---
   useEffect(() => {
-      // 1. Gold Fetch Logic (Independent of location)
       const fetchGold = async () => {
           try {
+              // 🟢 Tier 1: Try thaigold.info (Official Thai Gold Traders Association) using a free CORS proxy
+              const thaigoldUrl = 'https://www.thaigold.info/RealTimeDataV2/gtdata_.txt';
+              const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(thaigoldUrl)}`;
+              
+              const res1 = await fetch(proxyUrl);
+              if (res1.ok) {
+                  const data1 = await res1.json();
+                  // The text file is an array of objects. We look for "ทองคำแท่ง" (Gold Bar)
+                  const goldBar = data1.find(item => item.name && (item.name.includes("แท่ง") || item.name.includes("Bar")));
+                  
+                  if (goldBar && goldBar.ask && goldBar.bid) {
+                      setGoldPrice({
+                          sell: parseInt(goldBar.ask.replace(/,/g, '')),
+                          buy: parseInt(goldBar.bid.replace(/,/g, '')),
+                          currency: "THB",
+                          unit: "1 Baht (15.24g)",
+                          isActual: true // Marks it as exact official data
+                      });
+                      return; // Exit early if successful
+                  }
+              }
+          } catch (error) {
+              console.warn("Tier 1 (thaigold.info) failed:", error);
+          }
+
+          try {
+              // 🟢 Tier 2: Fallback to chnwt API
+              const res2 = await fetch('https://api.chnwt.dev/thai-gold-api/latest');
+              if (res2.ok) {
+                  const data2 = await res2.json();
+                  if (data2.status === 'success' && data2.response?.price?.gold_bar) {
+                      setGoldPrice({
+                          sell: parseInt(data2.response.price.gold_bar.sell.replace(/,/g, '')),
+                          buy: parseInt(data2.response.price.gold_bar.buy.replace(/,/g, '')),
+                          currency: "THB",
+                          unit: "1 Baht (15.24g)",
+                          isActual: true
+                      });
+                      return;
+                  }
+              }
+          } catch (error) {
+              console.warn("Tier 2 (chnwt API) failed:", error);
+          }
+
+          try {
+              // 🟡 Tier 3: Last Resort - Calculation based on Real-Time USD to THB rate
               const goldRes = await fetch("https://open.er-api.com/v6/latest/USD"); 
               const fxJson = await goldRes.json();
               const usdToThb = fxJson.rates.THB || 35.0; 
 
-              // Rough estimation based on real-world mechanics
-              const mockGoldOzUsd = 2350; 
+              const mockGoldOzUsd = 2350; // Approximated global gold price
               const thaiBahtWeightOz = 15.244 / 31.1035; 
               const calculatedThbPrice = mockGoldOzUsd * usdToThb * thaiBahtWeightOz;
               
-              // Standardize to nearest 50 THB (Thai Gold Traders Association standard format)
+              // Standardize to nearest 50 THB (Thai format)
               const basePrice = Math.floor((calculatedThbPrice * 1.03) / 50) * 50;
               
-              // 🟢 Setup standard Buy/Sell prices (100 THB spread for Bullion)
               setGoldPrice({
-                  sell: basePrice + 100, // Shop sells to customer
-                  buy: basePrice,        // Shop buys from customer
+                  sell: basePrice + 100,
+                  buy: basePrice,       
                   currency: "THB",
-                  unit: "1 Baht (15.24g)"
+                  unit: "1 Baht (15.24g)",
+                  isActual: false // Flags it as an estimate
               });
           } catch (error) {
-              console.error("Failed to fetch gold price", error);
+              console.error("All Gold fetch methods failed", error);
           }
       };
 
-      // 2. Weather Fetch Logic
       const fetchWeather = async (lat, lon, locName) => {
           try {
               const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&timezone=auto`);
@@ -121,44 +164,34 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
 
       fetchGold();
 
-      // 3. Get User Location
       if ("geolocation" in navigator) {
           navigator.geolocation.getCurrentPosition(
               async (position) => {
                   const lat = position.coords.latitude;
                   const lon = position.coords.longitude;
-                  
                   try {
-                      // Reverse Geocoding to get City Name
                       const geoRes = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`);
                       const geoData = await geoRes.json();
                       const city = geoData.city || geoData.locality || "Current Location";
-                      
                       fetchWeather(lat, lon, city);
-                  } catch (e) {
-                      fetchWeather(lat, lon, "Current Location");
-                  }
+                  } catch (e) { fetchWeather(lat, lon, "Current Location"); }
               },
               (error) => {
-                  // Fallback if user denies location permission
                   console.warn("Geolocation denied/failed. Falling back to Pathum Thani.");
                   fetchWeather(14.0208, 100.5250, "Pathum Thani");
               },
               { timeout: 10000 }
           );
       } else {
-          // Fallback if browser doesn't support geolocation
           fetchWeather(14.0208, 100.5250, "Pathum Thani");
       }
-
   }, []);
 
   const getWeatherIcon = (code) => {
-      // WMO Weather interpretation codes
-      if (code === 0) return <Sun className="text-yellow-500" size={32} />; // Clear sky
-      if (code > 0 && code < 4) return <CloudRain className="text-gray-400" size={32} />; // Partly cloudy
-      if (code >= 51 && code <= 67) return <Droplets className="text-blue-400" size={32} />; // Rain
-      return <CloudRain className="text-gray-500" size={32} />; // Default
+      if (code === 0) return <Sun className="text-yellow-500" size={32} />; 
+      if (code > 0 && code < 4) return <CloudRain className="text-gray-400" size={32} />; 
+      if (code >= 51 && code <= 67) return <Droplets className="text-blue-400" size={32} />; 
+      return <CloudRain className="text-gray-500" size={32} />; 
   };
 
   const getWeatherCondition = (code) => {
@@ -253,7 +286,7 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
             </div>
         </div>
 
-        {/* 🟢 UPDATED: Gold Price Widget (Buy / Sell) */}
+        {/* Gold Price Widget (Buy / Sell) */}
         <div className="bg-gradient-to-br from-yellow-50 to-amber-50 p-6 rounded-2xl border border-yellow-100 shadow-sm flex justify-between items-center relative overflow-hidden group h-full">
             <div className="absolute -right-6 -top-6 text-white opacity-50 group-hover:scale-110 transition-transform duration-700">
                 <TrendingUp size={120} className="text-yellow-400" />
@@ -262,7 +295,16 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
                 
                 <div className="flex justify-between items-start mb-2">
                     <h4 className="text-xs font-bold text-yellow-600 uppercase tracking-wider flex items-center gap-1">Today's Gold Price</h4>
-                    <div className="inline-flex items-center gap-1.5 text-[10px] font-bold text-green-600 bg-green-100/50 border border-green-200 px-2 py-1 rounded-md">Live Est.</div>
+                    
+                    {goldPrice && goldPrice.isActual ? (
+                        <div className="inline-flex items-center gap-1.5 text-[10px] font-bold text-green-700 bg-green-100 border border-green-200 px-2 py-1 rounded-md shadow-sm">
+                            <CheckCircle2 size={10} /> Live Market
+                        </div>
+                    ) : (
+                        <div className="inline-flex items-center gap-1.5 text-[10px] font-bold text-yellow-700 bg-yellow-100 border border-yellow-300 px-2 py-1 rounded-md shadow-sm">
+                            Estimated
+                        </div>
+                    )}
                 </div>
 
                 <div className="flex items-center gap-6 mt-2">
