@@ -61,15 +61,21 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
             Format your response STRICTLY as valid HTML (using <p>, <br>, <b>, <i>, <ul>, <li>, <h3> where appropriate) so it can be inserted directly into a rich text editor. 
             DO NOT wrap your response in markdown code blocks like \`\`\`html.`;
 
-            // 🟢 FIXED: Changed model to 'gemini-1.5-flash-latest' 
-            // (If this still throws an error, change it to 'gemini-pro')
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{ parts: [{ text: promptText }] }]
-                })
-            });
+            let response;
+            try {
+                // 🟢 Changed to universally supported 'gemini-pro'
+                response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: promptText }] }]
+                    })
+                });
+            } catch (networkError) {
+                // 🟢 This catches the "Failed to fetch" specifically!
+                console.error("Network Blocked:", networkError);
+                throw new Error("Your browser blocked the connection. Please disable AdBlockers, Brave Shields, or VPNs.");
+            }
 
             if (!response.ok) {
                 const errorData = await response.json();
@@ -83,7 +89,7 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
                 const candidate = data.candidates[0];
                 
                 if (candidate.finishReason && candidate.finishReason !== 'STOP') {
-                    throw new Error(`Generation stopped. Reason: ${candidate.finishReason} (Usually caused by Safety Filters)`);
+                    throw new Error(`Generation stopped. Reason: ${candidate.finishReason} (Usually Safety Filters)`);
                 }
 
                 if (candidate.content && candidate.content.parts && candidate.content.parts[0].text) {
