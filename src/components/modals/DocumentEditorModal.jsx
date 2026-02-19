@@ -3,7 +3,7 @@ import React, { useState, useRef } from 'react';
 import { 
     X, Save, FileText, Table, FileQuestion, Link as LinkIcon, 
     Plus, Trash2, Bold, Italic, Underline, 
-    AlignLeft, AlignCenter, AlignRight, Type 
+    AlignLeft, AlignCenter, AlignRight, Type, Sparkles 
 } from 'lucide-react';
 import RequirementSheetModal from './RequirementModal'; 
 
@@ -16,7 +16,12 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
     const [sheetData, setSheetData] = useState(existingDoc?.sheetData || null); 
     const [formQuestions, setFormQuestions] = useState(existingDoc?.formQuestions || []);
 
-    // 🟢 FIXED: Use useRef for the initial doc content to prevent re-rendering while typing
+    // 🟢 AI Assist State
+    const [showAiBar, setShowAiBar] = useState(false);
+    const [aiPrompt, setAiPrompt] = useState('');
+    const [isGeneratingAi, setIsGeneratingAi] = useState(false);
+
+    // Uncontrolled Editor Refs
     const initialContent = useRef(existingDoc?.content || '');
     const docEditorRef = useRef(null);
 
@@ -31,12 +36,63 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
         setFormQuestions(prev => prev.filter(q => q.id !== id));
     };
 
-    // --- RICH TEXT FORMATTING (DOC MODE) ---
+    // --- 🟢 RICH TEXT FORMATTING (DOC MODE) ---
     const execCmd = (command, value = null) => {
         document.execCommand(command, false, value);
-        // Ensure the editor keeps focus after clicking a formatting button
         if (docEditorRef.current) {
             docEditorRef.current.focus();
+        }
+    };
+
+    // --- 🟢 GEMINI AI GENERATOR ---
+    const handleGenerateAi = async () => {
+        if (!aiPrompt.trim()) return;
+        setIsGeneratingAi(true);
+        
+        try {
+            const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+            if (!apiKey) {
+                alert("Missing Gemini API Key in .env file.");
+                setIsGeneratingAi(false);
+                return;
+            }
+
+            const promptText = `You are a professional copywriter and document assistant. Generate content based on the following request: "${aiPrompt}". 
+            Format your response STRICTLY as valid HTML (using <p>, <br>, <b>, <i>, <ul>, <li>, <h3> where appropriate) so it can be inserted directly into a rich text editor. 
+            DO NOT wrap your response in markdown code blocks like \`\`\`html.`;
+
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: promptText }] }]
+                })
+            });
+
+            const data = await response.json();
+            
+            if (data.candidates && data.candidates[0]?.content?.parts[0]?.text) {
+                let generatedHtml = data.candidates[0].content.parts[0].text;
+                
+                // Clean up markdown wrappers if the AI ignored the instruction
+                generatedHtml = generatedHtml.replace(/^```html/i, '').replace(/```$/i, '').trim();
+
+                // Focus editor and insert at cursor
+                if (docEditorRef.current) {
+                    docEditorRef.current.focus();
+                    document.execCommand('insertHTML', false, `${generatedHtml}<br/><br/>`);
+                }
+                
+                setAiPrompt('');
+                setShowAiBar(false);
+            } else {
+                throw new Error("Invalid response from Gemini");
+            }
+        } catch (error) {
+            console.error("AI Generation Error:", error);
+            alert("Failed to generate content. Please check your internet connection and API key.");
+        } finally {
+            setIsGeneratingAi(false);
         }
     };
 
@@ -48,7 +104,6 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
             title,
             type,
             linkedTaskId,
-            // 🟢 FIXED: Grab the content directly from the DOM right when saving
             content: type === 'DOC' ? (docEditorRef.current?.innerHTML || initialContent.current) : null,
             sheetData: type === 'SHEET' ? sheetData : null,
             formQuestions: type === 'FORM' ? formQuestions : null,
@@ -141,33 +196,67 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
                     {type === 'DOC' && (
                         <>
                             {/* 🟢 TOOLBAR */}
-                            <div className="px-6 py-2 border-b border-gray-100 bg-white flex items-center gap-1 shrink-0">
-                                <button onMouseDown={(e) => {e.preventDefault(); execCmd('bold');}} className="p-1.5 hover:bg-gray-100 rounded text-gray-600 transition" title="Bold"><Bold size={16}/></button>
-                                <button onMouseDown={(e) => {e.preventDefault(); execCmd('italic');}} className="p-1.5 hover:bg-gray-100 rounded text-gray-600 transition" title="Italic"><Italic size={16}/></button>
-                                <button onMouseDown={(e) => {e.preventDefault(); execCmd('underline');}} className="p-1.5 hover:bg-gray-100 rounded text-gray-600 transition" title="Underline"><Underline size={16}/></button>
-                                
-                                <div className="h-4 w-px bg-gray-200 mx-2"></div>
-                                
-                                <button onMouseDown={(e) => {e.preventDefault(); execCmd('justifyLeft');}} className="p-1.5 hover:bg-gray-100 rounded text-gray-600 transition" title="Align Left"><AlignLeft size={16}/></button>
-                                <button onMouseDown={(e) => {e.preventDefault(); execCmd('justifyCenter');}} className="p-1.5 hover:bg-gray-100 rounded text-gray-600 transition" title="Align Center"><AlignCenter size={16}/></button>
-                                <button onMouseDown={(e) => {e.preventDefault(); execCmd('justifyRight');}} className="p-1.5 hover:bg-gray-100 rounded text-gray-600 transition" title="Align Right"><AlignRight size={16}/></button>
-                                
-                                <div className="h-4 w-px bg-gray-200 mx-2"></div>
-                                
-                                <div className="flex items-center gap-1 group relative">
-                                    <Type size={14} className="text-gray-400 ml-1"/>
-                                    <select 
-                                        onChange={(e) => execCmd('fontSize', e.target.value)} 
-                                        className="text-xs bg-transparent outline-none cursor-pointer p-1 text-gray-600 font-medium"
-                                        defaultValue="3"
-                                    >
-                                        <option value="1">Small</option>
-                                        <option value="3">Normal</option>
-                                        <option value="5">Large</option>
-                                        <option value="7">Huge</option>
-                                    </select>
+                            <div className="px-6 py-2 border-b border-gray-100 bg-white flex items-center justify-between shrink-0">
+                                <div className="flex items-center gap-1">
+                                    <button onMouseDown={(e) => {e.preventDefault(); execCmd('bold');}} className="p-1.5 hover:bg-gray-100 rounded text-gray-600 transition" title="Bold"><Bold size={16}/></button>
+                                    <button onMouseDown={(e) => {e.preventDefault(); execCmd('italic');}} className="p-1.5 hover:bg-gray-100 rounded text-gray-600 transition" title="Italic"><Italic size={16}/></button>
+                                    <button onMouseDown={(e) => {e.preventDefault(); execCmd('underline');}} className="p-1.5 hover:bg-gray-100 rounded text-gray-600 transition" title="Underline"><Underline size={16}/></button>
+                                    
+                                    <div className="h-4 w-px bg-gray-200 mx-2"></div>
+                                    
+                                    <button onMouseDown={(e) => {e.preventDefault(); execCmd('justifyLeft');}} className="p-1.5 hover:bg-gray-100 rounded text-gray-600 transition" title="Align Left"><AlignLeft size={16}/></button>
+                                    <button onMouseDown={(e) => {e.preventDefault(); execCmd('justifyCenter');}} className="p-1.5 hover:bg-gray-100 rounded text-gray-600 transition" title="Align Center"><AlignCenter size={16}/></button>
+                                    <button onMouseDown={(e) => {e.preventDefault(); execCmd('justifyRight');}} className="p-1.5 hover:bg-gray-100 rounded text-gray-600 transition" title="Align Right"><AlignRight size={16}/></button>
+                                    
+                                    <div className="h-4 w-px bg-gray-200 mx-2"></div>
+                                    
+                                    <div className="flex items-center gap-1 group relative">
+                                        <Type size={14} className="text-gray-400 ml-1"/>
+                                        <select 
+                                            onChange={(e) => execCmd('fontSize', e.target.value)} 
+                                            className="text-xs bg-transparent outline-none cursor-pointer p-1 text-gray-600 font-medium"
+                                            defaultValue="3"
+                                        >
+                                            <option value="1">Small</option>
+                                            <option value="3">Normal</option>
+                                            <option value="5">Large</option>
+                                            <option value="7">Huge</option>
+                                        </select>
+                                    </div>
                                 </div>
+
+                                {/* 🟢 GEMINI TRIGGER BUTTON */}
+                                <button 
+                                    onClick={() => setShowAiBar(!showAiBar)}
+                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${showAiBar ? 'bg-indigo-100 text-indigo-700' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'}`}
+                                >
+                                    <Sparkles size={14} /> AI Assist
+                                </button>
                             </div>
+
+                            {/* 🟢 AI PROMPT INPUT BAR */}
+                            {showAiBar && (
+                                <div className="px-6 py-3 bg-indigo-50/50 border-b border-indigo-100 flex gap-2 items-center shrink-0 animate-in slide-in-from-top-1">
+                                    <Sparkles size={18} className="text-indigo-400 shrink-0"/>
+                                    <input 
+                                        type="text" 
+                                        placeholder="Tell Gemini what to write... (e.g. 'Write an outline for a marketing campaign')"
+                                        className="flex-1 bg-white border border-indigo-200 rounded-lg px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500/30 transition-all"
+                                        value={aiPrompt}
+                                        onChange={(e) => setAiPrompt(e.target.value)}
+                                        onKeyDown={(e) => e.key === 'Enter' && handleGenerateAi()}
+                                        disabled={isGeneratingAi}
+                                        autoFocus
+                                    />
+                                    <button 
+                                        onClick={handleGenerateAi}
+                                        disabled={!aiPrompt.trim() || isGeneratingAi}
+                                        className={`px-5 py-2 rounded-lg text-xs font-bold text-white transition-all shadow-sm flex items-center gap-2 ${isGeneratingAi || !aiPrompt.trim() ? 'bg-indigo-300 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 active:scale-95'}`}
+                                    >
+                                        {isGeneratingAi ? <><Sparkles size={14} className="animate-spin"/> Generating...</> : "Generate"}
+                                    </button>
+                                </div>
+                            )}
 
                             {/* 🟢 EDITABLE AREA */}
                             <div className="flex-1 overflow-y-auto p-8 cursor-text" onClick={() => docEditorRef.current?.focus()}>
@@ -176,8 +265,6 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
                                     contentEditable
                                     className="outline-none text-gray-800 leading-relaxed font-serif text-lg min-h-full empty:before:content-[attr(placeholder)] empty:before:text-gray-300"
                                     placeholder="Start typing your document..."
-                                    // FIXED: dangerouslySetInnerHTML is only mapped to the ref so it renders ONCE.
-                                    // Removed the onInput handler so React stops interrupting your typing.
                                     dangerouslySetInnerHTML={{ __html: initialContent.current }}
                                     style={{ whiteSpace: 'pre-wrap' }}
                                 />
