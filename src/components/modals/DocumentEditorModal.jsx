@@ -44,7 +44,7 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
         }
     };
 
-// --- 🟢 GEMINI AI GENERATOR (WITH AUTO-FALLBACK) ---
+// --- 🟢 GEMINI AI GENERATOR (UPDATED FOR GEMINI 2.0 / 2.5) ---
     const handleGenerateAi = async () => {
         if (!aiPrompt.trim()) return;
         setIsGeneratingAi(true);
@@ -61,15 +61,15 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
             Format your response STRICTLY as valid HTML (using <p>, <br>, <b>, <i>, <ul>, <li>, <h3> where appropriate) so it can be inserted directly into a rich text editor. 
             DO NOT wrap your response in markdown code blocks like \`\`\`html.`;
 
-            // 🟢 AUTO-FALLBACK: Try the newest model, fallback to older ones if Google rejects it.
-            const modelsToTry = ['gemini-1.5-flash', 'gemini-1.0-pro', 'gemini-pro'];
+            // 🟢 Try the newest active models (Google retired 1.0 and 1.5)
+            const modelsToTry = ['gemini-2.5-flash', 'gemini-2.0-flash'];
             let responseData = null;
             let errorMessage = "";
 
             for (const model of modelsToTry) {
                 try {
-                    // 🟢 NOTE: Upgraded from v1beta to the stable v1 endpoint
-                    const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${apiKey}`, {
+                    // 🟢 Use v1beta which supports the newest model releases
+                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -85,7 +85,6 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
                         const errorData = await response.json();
                         errorMessage = errorData?.error?.message || `HTTP Error ${response.status}`;
                         console.warn(`⚠️ Model ${model} failed:`, errorMessage);
-                        // Loop will automatically continue to the next model
                     }
                 } catch (networkError) {
                     console.error("Network Blocked:", networkError);
