@@ -13,11 +13,11 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
     const [linkedTaskId, setLinkedTaskId] = useState(existingDoc?.linkedTaskId || '');
     
     // Content States
-    const [docContent, setDocContent] = useState(existingDoc?.content || ''); // HTML String
     const [sheetData, setSheetData] = useState(existingDoc?.sheetData || null); 
     const [formQuestions, setFormQuestions] = useState(existingDoc?.formQuestions || []);
 
-    // Refs
+    // 🟢 FIXED: Use useRef for the initial doc content to prevent re-rendering while typing
+    const initialContent = useRef(existingDoc?.content || '');
     const docEditorRef = useRef(null);
 
     // --- FORM LOGIC ---
@@ -31,12 +31,12 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
         setFormQuestions(prev => prev.filter(q => q.id !== id));
     };
 
-    // --- 🟢 RICH TEXT FORMATTING (DOC MODE) ---
+    // --- RICH TEXT FORMATTING (DOC MODE) ---
     const execCmd = (command, value = null) => {
         document.execCommand(command, false, value);
-        // Sync state immediately so we don't lose changes on save
+        // Ensure the editor keeps focus after clicking a formatting button
         if (docEditorRef.current) {
-            setDocContent(docEditorRef.current.innerHTML);
+            docEditorRef.current.focus();
         }
     };
 
@@ -48,7 +48,8 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
             title,
             type,
             linkedTaskId,
-            content: type === 'DOC' ? (docEditorRef.current?.innerHTML || docContent) : null,
+            // 🟢 FIXED: Grab the content directly from the DOM right when saving
+            content: type === 'DOC' ? (docEditorRef.current?.innerHTML || initialContent.current) : null,
             sheetData: type === 'SHEET' ? sheetData : null,
             formQuestions: type === 'FORM' ? formQuestions : null,
         };
@@ -175,8 +176,9 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
                                     contentEditable
                                     className="outline-none text-gray-800 leading-relaxed font-serif text-lg min-h-full empty:before:content-[attr(placeholder)] empty:before:text-gray-300"
                                     placeholder="Start typing your document..."
-                                    onInput={(e) => setDocContent(e.target.innerHTML)}
-                                    dangerouslySetInnerHTML={{ __html: docContent }}
+                                    // FIXED: dangerouslySetInnerHTML is only mapped to the ref so it renders ONCE.
+                                    // Removed the onInput handler so React stops interrupting your typing.
+                                    dangerouslySetInnerHTML={{ __html: initialContent.current }}
                                     style={{ whiteSpace: 'pre-wrap' }}
                                 />
                             </div>
