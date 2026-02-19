@@ -44,7 +44,7 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
         }
     };
 
-// --- 🟢 GEMINI AI GENERATOR (UPDATED FOR GEMINI 2.0 / 2.5) ---
+// --- 🟢 GEMINI AI GENERATOR ---
     const handleGenerateAi = async () => {
         if (!aiPrompt.trim()) return;
         setIsGeneratingAi(true);
@@ -61,14 +61,12 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
             Format your response STRICTLY as valid HTML (using <p>, <br>, <b>, <i>, <ul>, <li>, <h3> where appropriate) so it can be inserted directly into a rich text editor. 
             DO NOT wrap your response in markdown code blocks like \`\`\`html.`;
 
-            // 🟢 Try the newest active models (Google retired 1.0 and 1.5)
             const modelsToTry = ['gemini-2.5-flash', 'gemini-2.0-flash'];
             let responseData = null;
             let errorMessage = "";
 
             for (const model of modelsToTry) {
                 try {
-                    // 🟢 Use v1beta which supports the newest model releases
                     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -80,7 +78,7 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
                     if (response.ok) {
                         responseData = await response.json();
                         console.log(`✅ Success using model: ${model}`);
-                        break; // Success! Break out of the loop.
+                        break; 
                     } else {
                         const errorData = await response.json();
                         errorMessage = errorData?.error?.message || `HTTP Error ${response.status}`;
@@ -92,7 +90,6 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
                 }
             }
 
-            // If ALL models failed, throw the final error
             if (!responseData) {
                 throw new Error(`All models failed. Last Google error: ${errorMessage}`);
             }
@@ -103,7 +100,6 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
             if (data.candidates && data.candidates.length > 0) {
                 const candidate = data.candidates[0];
                 
-                // Catch Safety blocks
                 if (candidate.finishReason && candidate.finishReason !== 'STOP') {
                     throw new Error(`Generation stopped early. Reason: ${candidate.finishReason} (Usually means Google's Safety Filters blocked it).`);
                 }
@@ -114,10 +110,27 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
                     // Clean up markdown wrappers
                     generatedHtml = generatedHtml.replace(/^```html/i, '').replace(/```$/i, '').trim();
 
-                    // Focus editor and insert at cursor
+                    // 🟢 FIXED: Directly append the HTML and move the cursor to the end
                     if (docEditorRef.current) {
+                        const currentHtml = docEditorRef.current.innerHTML;
+                        const spacing = currentHtml && currentHtml !== '<br>' ? '<br/><br/>' : '';
+                        
+                        // Safely inject the new HTML
+                        docEditorRef.current.innerHTML = currentHtml + spacing + generatedHtml;
+                        
+                        // Force the browser cursor to the very end of the newly inserted text
+                        try {
+                            const range = document.createRange();
+                            const sel = window.getSelection();
+                            range.selectNodeContents(docEditorRef.current);
+                            range.collapse(false); // false = collapse to the end
+                            sel.removeAllRanges();
+                            sel.addRange(range);
+                        } catch(e) {
+                            console.warn("Could not move cursor to end", e);
+                        }
+                        
                         docEditorRef.current.focus();
-                        document.execCommand('insertHTML', false, `${generatedHtml}<br/><br/>`);
                     }
                     
                     setAiPrompt('');
@@ -135,7 +148,7 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
             setIsGeneratingAi(false);
         }
     };
-
+    
     // --- HANDLE SAVE ---
     const handleSave = () => {
         if (!title.trim()) { alert("Please enter a title"); return; }
