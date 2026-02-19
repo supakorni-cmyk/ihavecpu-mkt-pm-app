@@ -44,6 +44,7 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
         }
     };
 
+// --- 🟢 GEMINI AI GENERATOR ---
     const handleGenerateAi = async () => {
         if (!aiPrompt.trim()) return;
         setIsGeneratingAi(true);
@@ -60,7 +61,9 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
             Format your response STRICTLY as valid HTML (using <p>, <br>, <b>, <i>, <ul>, <li>, <h3> where appropriate) so it can be inserted directly into a rich text editor. 
             DO NOT wrap your response in markdown code blocks like \`\`\`html.`;
 
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+            // 🟢 FIXED: Changed model to 'gemini-1.5-flash-latest' 
+            // (If this still throws an error, change it to 'gemini-pro')
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -74,14 +77,11 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
             }
 
             const data = await response.json();
-            
-            // 🟢 LOG THE RAW DATA TO THE CONSOLE FOR DEBUGGING
             console.log("Gemini Raw Response:", data);
             
             if (data.candidates && data.candidates.length > 0) {
                 const candidate = data.candidates[0];
                 
-                // Check if Google blocked the prompt due to safety ratings
                 if (candidate.finishReason && candidate.finishReason !== 'STOP') {
                     throw new Error(`Generation stopped. Reason: ${candidate.finishReason} (Usually caused by Safety Filters)`);
                 }
