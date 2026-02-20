@@ -56,6 +56,7 @@ export default function Sidebar({ currentView, setCurrentView, onLogout }) {
             <NavItem view="documents" icon={Clipboard} label="Document" />
             <NavItem view="album" icon={ImageIcon} label="Photo Album" colorClass="text-purple-600 bg-purple-50" />
             <NavItem view="budget" icon={Table} label="Budget" colorClass="text-emerald-600 bg-emerald-50" />
+            <NavItem view="video-summarize" icon={Youtube} label="Video Summarizer" colorClass="text-red-600 bg-red-50" />
             <NavItem view="leave" icon={UserMinus} label="Leave Recorder" colorClass="text-orange-600 bg-orange-50" />
             <NavItem view="ot" icon={Clock} label="OT Recorder" colorClass="text-indigo-600 bg-indigo-50" />
             <NavItem view="selfheal" icon={Heart} label="Self Heal" colorClass="text-pink-500 bg-pink-50" />
