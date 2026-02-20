@@ -96,20 +96,45 @@ export default function AddTaskModal({ onClose, onAdd, initialDate, tasks = [] }
     onClose();
   };
 
-  const handleMagicFill = async () => {
+const handleMagicFill = async () => {
     if (!title.trim()) {
         alert("Please type a Task Title first!");
         return;
     }
+    
     setIsGenerating(true);
     try {
-        const suggestion = await suggestTaskDescription(title);
-        if (suggestion) {
-            setDescription(prev => (prev ? prev + "\n\n" + suggestion : suggestion));
-        }
+        const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+        const availableTags = TAGS.join(", "); // Give AI your exact tags
+
+        const prompt = `Analyze this task title: "${title}".
+        Return a raw JSON object with exactly these keys:
+        - "description": A professional 2-sentence breakdown of what needs to be done.
+        - "tag": Choose the SINGLE most relevant tag from this list: [${availableTags}]. If none fit, use "General".
+        - "location": Guess a logical location (e.g., "Studio 1", "Meeting Room", "Online") or leave empty "".
+        Do not include markdown blocks like \`\`\`json. Return ONLY the JSON object.`;
+
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+        });
+
+        const data = await response.json();
+        let rawText = data.candidates[0].content.parts[0].text;
+        
+        // Clean and parse the JSON
+        rawText = rawText.replace(/^```json/i, '').replace(/```$/i, '').trim();
+        const aiData = JSON.parse(rawText);
+
+        // 🤖 AUTOMATION: Apply AI suggestions directly to state!
+        if (aiData.description) setDescription(prev => prev ? prev + "\n\n" + aiData.description : aiData.description);
+        if (aiData.tag && TAGS.includes(aiData.tag)) setTag(aiData.tag);
+        if (aiData.location && !location) setLocation(aiData.location);
+
     } catch (error) {
         console.error("AI Error:", error);
-        alert("Failed to generate description.");
+        alert("Failed to auto-fill task details.");
     } finally {
         setIsGenerating(false);
     }

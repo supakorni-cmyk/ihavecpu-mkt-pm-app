@@ -105,12 +105,28 @@ const RequirementSheetModal = ({ task, requirement, onClose, onUpdateTask }) => 
 
     // Toggle Status
     const toggleStatus = () => {
-        const updatedReqs = task.requirements.map(r => {
-            if (r.id === requirement.id) return { ...r, isDone: !r.isDone };
-            return r;
-        });
-        onUpdateTask({ requirements: updatedReqs });
-    };
+            const updatedReqs = task.requirements.map(r => {
+                if (r.id === requirement.id) return { ...r, isDone: !r.isDone };
+                return r;
+            });
+
+            let newStatus = task.status;
+            
+            // 🤖 AUTOMATION: Check if ALL requirements are now done
+            const allDone = updatedReqs.length > 0 && updatedReqs.every(r => r.isDone);
+            
+            if (allDone && newStatus !== 'completed' && newStatus !== 'done') {
+                // Auto-prompt the user to close out the task
+                if (window.confirm("🎉 All requirements are completed! Do you want to move this task to 'Done'?")) {
+                    newStatus = 'done'; // Make sure this matches your exact Column ID for completed tasks
+                }
+            }
+
+            onUpdateTask({ 
+                requirements: updatedReqs, 
+                status: newStatus 
+            });
+        };
 
     // --- 🧮 LOGIC ENGINE ---
     const getColLetter = (index) => {
