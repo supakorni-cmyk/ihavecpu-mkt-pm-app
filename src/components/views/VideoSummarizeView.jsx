@@ -46,7 +46,7 @@ const VideoSummarizeView = () => {
                 ? `Only include videos published between ${startDate} and ${endDate}.` 
                 : "Find the most recent videos.";
 
-            // 🟢 STRICT PROMPT: Forces AI to extract REAL links via Google Search, not guess them.
+            // 🟢 PROMPT: Instruct AI to output JSON, knowing we will parse it manually
             const prompt = `You are a web scraper. You must use the Google Search tool to find REAL, ACTIVE YouTube videos from the channel "iHAVECPU" about: "${videoDetail}".
             ${dateContext}
             
@@ -63,17 +63,17 @@ const VideoSummarizeView = () => {
             - "channel": "iHAVECPU"
             - "views": "Estimated view count"
             - "link": "The REAL, verified YouTube URL"
-            - "summary": "1-2 sentence summary"`;
+            - "summary": "1-2 sentence summary"
+            
+            Output ONLY the raw JSON array. Start with [ and end with ].`;
 
             const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
                     contents: [{ parts: [{ text: prompt }] }],
-                    tools: [{ googleSearch: {} }],
-                    generationConfig: {
-                        responseMimeType: "application/json"
-                    }
+                    // 🟢 FIXED: Kept the search tool, but removed the JSON mime-type config that caused the crash.
+                    tools: [{ googleSearch: {} }]
                 })
             });
 
@@ -93,12 +93,19 @@ const VideoSummarizeView = () => {
                 throw new Error(`AI blocked the request. Reason: ${candidate.finishReason}`);
             }
 
-            const rawText = candidate.content?.parts?.[0]?.text;
+            let rawText = candidate.content?.parts?.[0]?.text;
             if (!rawText || !rawText.trim()) {
                 throw new Error("No matching data found. Try broader keywords.");
             }
 
-            const parsedResults = JSON.parse(rawText);
+            // 🟢 ROBUST JSON EXTRACTION: Safely pulls out the array even if Gemini adds search citations at the bottom
+            const jsonMatch = rawText.match(/\[[\s\S]*\]/);
+            if (!jsonMatch) {
+                console.error("Raw AI Output:", rawText);
+                throw new Error("AI did not return the data in the expected format. Please try again.");
+            }
+
+            const parsedResults = JSON.parse(jsonMatch[0]);
             setResults(Array.isArray(parsedResults) ? parsedResults : [parsedResults]);
 
         } catch (err) {
