@@ -1,6 +1,6 @@
 // src/components/shared/Sidebar.jsx
 import React, { useState } from 'react';
-import { LogOut, Home, Layout, Calendar as CalendarIcon, Presentation, Image as ImageIcon, Table, Heart, UserMinus, Clock, Clipboard, Menu, X, Cat, MonitorPlay } from 'lucide-react';
+import { LogOut, Home, Layout, Calendar as CalendarIcon, Presentation, Image as ImageIcon, Table, Heart, UserMinus, Clock, Clipboard, Menu, X, Cat, MonitorPlay, Mail } from 'lucide-react';
 
 export default function Sidebar({ currentView, setCurrentView, onLogout }) {
   const [isOpen, setIsOpen] = useState(false); // State for mobile menu
@@ -60,6 +60,7 @@ export default function Sidebar({ currentView, setCurrentView, onLogout }) {
             <NavItem view="leave" icon={UserMinus} label="Leave Recorder" colorClass="text-orange-600 bg-orange-50" />
             <NavItem view="ot" icon={Clock} label="OT Recorder" colorClass="text-indigo-600 bg-indigo-50" />
             <NavItem view="selfheal" icon={Heart} label="Self Heal" colorClass="text-pink-500 bg-pink-50" />
+            <NavItem view="my-email" icon={Mail} label="My Email" colorClass="text-indigo-600 bg-indigo-50" />
           </nav>
         </div>
 

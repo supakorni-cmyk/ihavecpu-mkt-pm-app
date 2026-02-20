@@ -23,6 +23,7 @@ import ReportView from './components/views/ReportView';
 import OTView from './components/views/OtView';
 import DocumentView from './components/views/DocumentView';
 import VideoSummarizeView from './components/views/VideoSummarizeView';
+import MyEmailView from './components/views/MyEmailView';
 
 // Modals
 import AddTaskModal from './components/modals/AddTaskModal';
@@ -164,6 +165,12 @@ export default function Dashboard() {
             onDelete={data.deleteOTRecord}
             onUpdateStatus={data.updateOTStatus}
             currentUser={currentUser}
+          />
+        )}
+
+        {currentView === 'my-email' && (
+          <MyEmailView 
+          currentUser={currentUser}
           />
         )}
 
