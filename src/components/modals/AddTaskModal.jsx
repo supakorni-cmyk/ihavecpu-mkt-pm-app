@@ -43,6 +43,8 @@ export default function AddTaskModal({ onClose, onAdd, initialDate, tasks = [] }
       }
   }, [initialDate]);
 
+  const [rawBrief, setRawBrief] = useState('');
+
   const handleAddRequirement = (e) => {
     e.preventDefault();
     if (!newReqTitle.trim()) return;
@@ -140,6 +142,63 @@ const handleMagicFill = async () => {
     }
   };
 
+  // 🤖 AUTOMATION 4: AI BRIEF TO PROJECT GENERATOR
+  const handleAiBriefBreakdown = async () => {
+    if (!rawBrief.trim()) { alert("Please paste a brief or notes first!"); return; }
+    setIsGenerating(true);
+    
+    try {
+        const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+        const promptText = `Parse the following messy notes or brief into a structured project.
+        Notes: "${rawBrief}"
+        Return ONLY a raw JSON object with these keys:
+        - "title": A catchy, professional project title.
+        - "description": A clean summary.
+        - "tag": The closest matching tag from: [${TAGS.join(', ')}].
+        - "location": A guessed location if mentioned, else "".
+        - "requirements": An array of strings representing checklist steps needed to finish this.
+        Do not use markdown wrappers like \`\`\`json.`;
+
+        // We use gemini-2.5-flash for the fastest json parsing
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] })
+        });
+
+        const data = await response.json();
+        let jsonStr = data.candidates[0].content.parts[0].text.replace(/^```json/i, '').replace(/```$/i, '').trim();
+        const aiData = JSON.parse(jsonStr);
+
+        // Apply generated data
+        if (aiData.title) setTitle(aiData.title);
+        if (aiData.description) setDescription(aiData.description);
+        if (aiData.tag && TAGS.includes(aiData.tag)) setTag(aiData.tag);
+        if (aiData.location) setLocation(aiData.location);
+        
+        // Map string array to your app's requirement object structure
+        if (aiData.requirements && aiData.requirements.length > 0) {
+            const formattedReqs = aiData.requirements.map((reqTitle, idx) => ({
+                id: Date.now().toString() + idx,
+                title: reqTitle,
+                isDone: false,
+                tableData: [], columns: [], colWidths: {}
+            }));
+            setRequirements(formattedReqs);
+        }
+        
+        // Auto-check "Is Main Task" since a brief implies a project
+        setIsMainTask(true);
+        setRawBrief(''); // Clear the input
+
+    } catch (error) {
+        console.error(error);
+        alert("Could not parse the brief. Try adjusting the text.");
+    } finally {
+        setIsGenerating(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]" onClick={onClose}>
       <div className="bg-white rounded-none md:rounded-2xl w-full h-full md:h-auto md:max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-screen md:max-h-[90vh]" onClick={e => e.stopPropagation()}>
@@ -153,7 +212,28 @@ const handleMagicFill = async () => {
 
         {/* Form Body */}
         <div className="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-5">
-            
+            {/* 🤖 AI BRIEF BREAKDOWN INPUT */}
+            <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 mb-4">
+                <label className="block text-xs font-bold text-indigo-800 uppercase tracking-wider mb-2 flex items-center gap-1">
+                    <Sparkles size={14}/> AI Magic Project Setup
+                </label>
+                <div className="flex gap-2">
+                    <textarea 
+                        className="flex-1 bg-white border border-indigo-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-400 resize-none h-10 custom-scrollbar" 
+                        placeholder="Paste client brief, LINE chat, or messy notes here..."
+                        value={rawBrief}
+                        onChange={(e) => setRawBrief(e.target.value)}
+                    />
+                    <button 
+                        type="button"
+                        onClick={handleAiBriefBreakdown}
+                        disabled={isGenerating || !rawBrief.trim()}
+                        className="bg-indigo-600 text-white px-4 rounded-lg font-bold text-xs hover:bg-indigo-700 transition disabled:opacity-50"
+                    >
+                        {isGenerating ? "Building..." : "Build Project"}
+                    </button>
+                </div>
+            </div>
             {/* Title */}
             <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Task Title</label>

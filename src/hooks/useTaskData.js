@@ -476,13 +476,67 @@ export const useTaskData = (currentUser) => {
         await sendLinePush(taskWithId, "🆕 New Task Created", "#1DB446");
     } catch (error) { console.error("Error adding task:", error); }
   };
+  // --- AUTOMATED UPDATE TASK ---
   const updateTask = async (id, updates) => {
     try {
         const oldTask = tasks.find(t => t.id === id);
         if (!oldTask) return;
+        
         const cleanedUpdates = cleanData(updates);
+
+        // 🤖 AUTOMATION 1: CASCADING DEADLINES
+        // If this is a Main Task and the deadline changed, shift all subtasks by the exact same amount!
+        if (oldTask.isMainTask && updates.deadline && oldTask.deadline && updates.deadline !== oldTask.deadline) {
+            const oldTime = new Date(oldTask.deadline).getTime();
+            const newTime = new Date(updates.deadline).getTime();
+            const deltaMs = newTime - oldTime; // Time difference in milliseconds
+
+            const subtasks = tasks.filter(t => t.parentTaskId === id);
+            subtasks.forEach(async (sub) => {
+                if (sub.deadline) {
+                    const subNewTime = new Date(new Date(sub.deadline).getTime() + deltaMs);
+                    await updateDoc(doc(db, "tasks", sub.id), { deadline: subNewTime.toISOString() });
+                }
+            });
+            console.log(`⏱️ Shifted deadlines for ${subtasks.length} subtasks.`);
+        }
+
+        // 🤖 AUTOMATION 2: REVIEW & APPROVAL HANDOFF
+        // If task moved to "review" and has a final file, alert the manager immediately!
+        if (updates.status === 'review' && oldTask.status !== 'review') {
+            const mergedTask = { ...oldTask, ...updates };
+            if (mergedTask.finalFile) {
+                await sendLinePush(mergedTask, "👀 READY FOR REVIEW", "#F59E0B"); // Orange Alert
+            }
+        }
+
+        // 🟢 Update the actual document
         await updateDoc(doc(db, "tasks", id), cleanedUpdates);
         
+        // 🤖 AUTOMATION 3: SMART STATUS SYNC
+        // If this is a subtask, automatically update the parent project's status
+        if (oldTask.parentTaskId && updates.status) {
+            const parent = tasks.find(t => t.id === oldTask.parentTaskId);
+            const siblings = tasks.filter(t => t.parentTaskId === oldTask.parentTaskId && t.id !== id);
+            
+            if (parent) {
+                // Scenario A: If moving subtask to In Progress, wake up the parent task
+                if (updates.status === 'in-progress' && parent.status === 'todo') {
+                    await updateDoc(doc(db, "tasks", parent.id), { status: 'in-progress' });
+                }
+                
+                // Scenario B: If completing a subtask, check if ALL subtasks are done
+                if (updates.status === 'done' || updates.status === 'completed') {
+                    const allSiblingsDone = siblings.every(s => s.status === 'done' || s.status === 'completed');
+                    if (allSiblingsDone && parent.status !== 'done' && parent.status !== 'completed') {
+                        await updateDoc(doc(db, "tasks", parent.id), { status: 'done' });
+                        await sendLinePush({ ...parent, status: 'done' }, "🎉 PROJECT COMPLETED!", "#10B981");
+                    }
+                }
+            }
+        }
+        
+        // Standard notification logic
         const changedFields = [];
         if (updates.startTime && updates.startTime !== oldTask.startTime) changedFields.push("Start Time");
         if (updates.endTime && updates.endTime !== oldTask.endTime) changedFields.push("End Time");
@@ -492,7 +546,9 @@ export const useTaskData = (currentUser) => {
             const mergedTask = { ...oldTask, ...updates }; 
             await sendLinePush(mergedTask, "✏️ Task Updated", "#3B82F6"); 
         }
-    } catch (error) { console.error("FAILED to update task:", error); }
+    } catch (error) { 
+        console.error("FAILED to update task:", error); 
+    }
   };
   const moveTask = async (taskId, newStatus) => { try { await updateDoc(doc(db, "tasks", taskId), { status: newStatus }); const task = tasks.find(t => t.id === taskId); const updatedTask = { ...task, status: newStatus }; if (newStatus === 'canceled') await sendLinePush(updatedTask, "🚫 Task Canceled", "#9CA3AF"); else await sendLinePush(updatedTask, "🔄 Status Updated", "#3B82F6"); } catch (error) { console.error("Error moving task:", error); } };
   const deleteTask = async (id) => { if(!confirm("Delete task?")) return; try { await deleteDoc(doc(db, "tasks", id)); } catch (error) { console.error(error); } };
