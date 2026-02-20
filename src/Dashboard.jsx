@@ -22,6 +22,7 @@ import SelfHealView from './components/views/SelfHealView';
 import ReportView from './components/views/ReportView';
 import OTView from './components/views/OtView';
 import DocumentView from './components/views/DocumentView';
+import VideoSummarizeView from './components/views/VideoSummarizeView';
 
 // Modals
 import AddTaskModal from './components/modals/AddTaskModal';
@@ -146,6 +147,10 @@ export default function Dashboard() {
             onDelete={data.deleteTransaction} 
             onUpdate={data.updateTransaction}
           />
+        )}
+
+        {currentView === 'video-summarize' && (
+          <VideoSummarizeView />
         )}
 
         {currentView === 'leave' && (
