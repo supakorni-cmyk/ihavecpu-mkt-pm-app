@@ -21,7 +21,7 @@ import {
   Sparkles,
   Send,
   MessageSquare,
-  Copy // 🟢 IMPORTED COPY ICON
+  Copy
 } from 'lucide-react';
 
 import { BUDGET_CATEGORIES } from '../../utils/constants';
@@ -117,7 +117,6 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
     // --- AGGREGATED DATA ---
     const incomeTrend = getMonthlyData('income');
     const spendingTrend = getMonthlyData('spending');
-    const incomeCategories = getCategoryData('income');
     const spendingCategories = getCategoryData('spending');
     const topIncome = getTopTransactions('income');
     const topSpending = getTopTransactions('spending');
@@ -171,7 +170,11 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
 
     const totalIncome = transactions.filter(t => t.type === 'income').reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
     const totalSpending = transactions.filter(t => t.type === 'spending').reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
-    const netSpending = totalSpending - totalIncome;
+    
+    // Net Balance for Dashboard
+    const netBalance = totalIncome - totalSpending;
+    const budgetUsedPct = Math.min((totalSpending / TOTAL_BUDGET_CONST) * 100, 100).toFixed(1);
+
     const filteredTransactions = transactions.filter(t => t.type === activeTab);
     const tabTotal = filteredTransactions.reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
 
@@ -219,22 +222,18 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
     const handleEditClick = (t) => { setEditFormData({ ...t }); setIsEditOpen(true); };
     const handleEditSubmit = (e) => { e.preventDefault(); onUpdate(editFormData.id, editFormData); setIsEditOpen(false); setEditFormData(null); };
 
-    // 🟢 NEW: HANDLE DUPLICATE
     const handleDuplicate = (transaction) => {
-        // Pre-fill the New Transaction state with the selected transaction's data
         setNewTransaction({
             ...transaction,
-            date: new Date().toISOString().split('T')[0], // Reset date to today for convenience
-            id: undefined, // Clear ID so a new one is generated
-            // Ensure type matches the item (useful if in overview, though buttons hidden there)
+            date: new Date().toISOString().split('T')[0], 
+            id: undefined, 
             type: transaction.type 
         });
-        // Open the Add Modal
         setIsAddOpen(true);
     };
 
     return (
-        <div className="flex flex-col h-full bg-gray-50 font-sans relative">
+        <div className="flex flex-col h-full bg-gray-50/50 font-sans relative">
             {/* --- HEADER --- */}
             <header className="px-8 py-5 border-b border-gray-200 bg-white shadow-sm z-10 flex justify-between items-center">
                 <div className="flex items-center gap-3">
@@ -266,7 +265,6 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
             {isAiOpen && (
                 <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm" onClick={() => setIsAiOpen(false)}>
                     <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col h-[600px]" onClick={e => e.stopPropagation()}>
-                        {/* Header */}
                         <div className="bg-indigo-600 p-6 flex justify-between items-center text-white">
                             <div className="flex items-center gap-3">
                                 <div className="p-2 bg-white/20 rounded-lg backdrop-blur-md"><Sparkles size={24} className="animate-pulse"/></div>
@@ -274,10 +272,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                             </div>
                             <button onClick={() => setIsAiOpen(false)} className="p-2 hover:bg-white/20 rounded-full transition"><X size={20}/></button>
                         </div>
-
-                        {/* Chat Area */}
                         <div className="flex-1 bg-gray-50 p-6 overflow-y-auto custom-scrollbar space-y-4">
-                             {/* Intro Message */}
                              <div className="flex gap-3">
                                 <img src={AI_AVATAR} alt="AI" className="w-8 h-8 rounded-full object-cover border border-indigo-100 bg-white"/>
                                 <div className="bg-white p-4 rounded-2xl rounded-tl-none shadow-sm border border-gray-100 text-sm text-gray-700 max-w-[85%]">
@@ -290,59 +285,30 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                     </ul>
                                 </div>
                              </div>
-
-                             {/* User Query */}
                              {lastQuestion && (
                                  <div className="flex gap-3 flex-row-reverse">
                                     <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-bold text-xs">You</div>
-                                    <div className="bg-indigo-600 text-white p-4 rounded-2xl rounded-tr-none shadow-md text-sm max-w-[85%]">
-                                        {lastQuestion}
-                                    </div>
+                                    <div className="bg-indigo-600 text-white p-4 rounded-2xl rounded-tr-none shadow-md text-sm max-w-[85%]">{lastQuestion}</div>
                                  </div>
                              )}
-
-                             {/* Loading State */}
                              {isAiLoading && (
                                 <div className="flex gap-3">
                                     <img src={AI_AVATAR} alt="AI" className="w-8 h-8 rounded-full object-cover border border-indigo-100 bg-white"/>
                                     <div className="bg-white p-4 rounded-2xl rounded-tl-none shadow-sm border border-gray-100 text-sm flex items-center gap-2">
-                                        <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce"></div>
-                                        <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce delay-75"></div>
-                                        <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce delay-150"></div>
+                                        <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce"></div><div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce delay-75"></div><div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce delay-150"></div>
                                     </div>
                                 </div>
                              )}
-
-                             {/* AI Response */}
                              {aiResponse && !isAiLoading && (
                                 <div className="flex gap-3 animate-in fade-in slide-in-from-left-2">
                                     <img src={AI_AVATAR} alt="AI" className="w-8 h-8 rounded-full object-cover border border-indigo-100 bg-white"/>
-                                    <div className="bg-white p-4 rounded-2xl rounded-tl-none shadow-sm border border-gray-100 text-sm text-gray-800 leading-relaxed whitespace-pre-wrap max-w-[90%]">
-                                        {aiResponse}
-                                    </div>
+                                    <div className="bg-white p-4 rounded-2xl rounded-tl-none shadow-sm border border-gray-100 text-sm text-gray-800 leading-relaxed whitespace-pre-wrap max-w-[90%]">{aiResponse}</div>
                                 </div>
                              )}
                         </div>
-
-                        {/* Input Area */}
                         <form onSubmit={handleAiSubmit} className="p-4 bg-white border-t border-gray-100 flex gap-2">
-                            <input 
-                                ref={aiInputRef}
-                                type="text" 
-                                placeholder="Ask a question..." 
-                                className="flex-1 bg-gray-100 border-transparent focus:bg-white border focus:border-indigo-500 rounded-xl px-4 py-3 outline-none transition text-sm"
-                                value={aiQuery}
-                                onChange={(e) => setAiQuery(e.target.value)}
-                            />
-                            <button 
-                                type="submit"
-                                disabled={isAiLoading || !aiQuery.trim()}
-                                className={`p-3 rounded-xl transition shadow-lg flex items-center justify-center
-                                    ${isAiLoading || !aiQuery.trim() ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-indigo-600 text-white hover:bg-indigo-700 hover:scale-105 active:scale-95'}
-                                `}
-                            >
-                                <Send size={20} />
-                            </button>
+                            <input ref={aiInputRef} type="text" placeholder="Ask a question..." className="flex-1 bg-gray-100 border-transparent focus:bg-white border focus:border-indigo-500 rounded-xl px-4 py-3 outline-none transition text-sm" value={aiQuery} onChange={(e) => setAiQuery(e.target.value)} />
+                            <button type="submit" disabled={isAiLoading || !aiQuery.trim()} className={`p-3 rounded-xl transition shadow-lg flex items-center justify-center ${isAiLoading || !aiQuery.trim() ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-indigo-600 text-white hover:bg-indigo-700 hover:scale-105 active:scale-95'}`}><Send size={20} /></button>
                         </form>
                     </div>
                 </div>
@@ -350,7 +316,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
 
             {/* --- TABS --- */}
             <div className="flex-1 overflow-hidden flex flex-col">
-                <div className="px-8 pt-6 pb-0 flex gap-1 border-b border-gray-200 bg-gray-50">
+                <div className="px-8 pt-6 pb-0 flex gap-1 border-b border-gray-200 bg-gray-50/50">
                     {['overview', 'income', 'spending'].map(tab => (
                         <button key={tab} onClick={() => setActiveTab(tab)} className={`px-8 py-3 font-bold text-sm rounded-t-xl transition-all capitalize relative ${activeTab === tab ? 'bg-white shadow-sm border border-b-0 border-gray-200 text-blue-600' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'} ${activeTab === tab && tab === 'income' ? 'text-green-600' : activeTab === tab && tab === 'spending' ? 'text-red-600' : ''}`}>{tab}{activeTab === tab && <div className={`absolute top-0 left-0 w-full h-1 rounded-t-xl ${tab === 'income' ? 'bg-green-500' : tab === 'spending' ? 'bg-red-500' : 'bg-blue-500'}`}></div>}</button>
                     ))}
@@ -358,144 +324,169 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
 
                 <div className="flex-1 overflow-auto p-8">
                     {activeTab === 'overview' ? (
-                        <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10">
-                            {/* 1. Summary Cards */}
+                        
+                        /* 🟢 NEW PROFESSIONAL DASHBOARD LAYOUT */
+                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10">
+                            
+                            {/* --- KPI ROW --- */}
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                                <div className="bg-blue-600 text-white p-6 rounded-2xl shadow-lg flex flex-col justify-between h-32"><div className="flex justify-between items-start"><span className="text-blue-200 text-xs font-bold uppercase tracking-wider">Total Budget</span><Wallet size={20} className="text-blue-200"/></div><div className="text-3xl font-black tracking-tight">฿{formatAmount(TOTAL_BUDGET_CONST)}</div></div>
-                                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex flex-col justify-between h-32"><div className="flex justify-between items-start"><span className="text-gray-400 text-xs font-bold uppercase tracking-wider">Total Income</span><div className="p-1.5 bg-green-50 rounded text-green-600"><TrendingUp size={16}/></div></div><div className="text-2xl font-bold text-gray-800">฿{formatAmount(totalIncome)}</div></div>
-                                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex flex-col justify-between h-32"><div className="flex justify-between items-start"><span className="text-gray-400 text-xs font-bold uppercase tracking-wider">Total Spending</span><div className="p-1.5 bg-red-50 rounded text-red-600"><TrendingDown size={16}/></div></div><div className="text-2xl font-bold text-gray-800">฿{formatAmount(totalSpending)}</div></div>
-                                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex flex-col justify-between h-32"><div className="flex justify-between items-start"><span className="text-gray-400 text-xs font-bold uppercase tracking-wider">Net (Spending - Income)</span><Activity size={20} className="text-gray-300"/></div><div className={`text-2xl font-bold ${netSpending > 0 ? 'text-red-600' : 'text-green-600'}`}>฿{formatAmount(netSpending)}</div></div>
-                            </div>
-
-                            {/* 2. Charts */}
-                            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-                                <div className="flex justify-between items-center mb-6">
-                                    <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2"><Activity size={20} className="text-blue-500"/> Monthly Overview (Income vs Spending)</h3>
-                                </div>
-                                <div className="h-72 w-full bg-gray-50 rounded-xl p-4 border border-gray-100">
-                                    <CombinedLineChart data={combinedData} />
-                                </div>
-                            </div>
-
-                            {/* 3. INCOME SECTION */}
-                            <div>
-                                <h3 className="text-xl font-black text-gray-800 mb-4 flex items-center gap-2 border-b pb-2"><TrendingUp className="text-green-600"/> Income Analysis</h3>
-                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                                    <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-                                        <h4 className="text-sm font-bold text-gray-500 uppercase mb-4">Monthly Income Trend</h4>
-                                        <div className="h-64"><SimpleLineChart data={incomeTrend} color="#16a34a" /></div>
-                                    </div>
-                                    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 flex flex-col">
-                                        <h4 className="text-sm font-bold text-gray-500 uppercase mb-4 flex items-center gap-2"><PieChartIcon size={16}/> By Category</h4>
-                                        <div className="flex-1 min-h-[200px]"><SimplePieChart data={incomeCategories} /></div>
-                                    </div>
-                                </div>
                                 
-                                {/* Income Table */}
-                                <div className="mt-6 bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-                                    <div className="px-6 py-4 bg-green-50 border-b border-green-100"><h4 className="font-bold text-green-800 text-sm uppercase">Top 10 Income Sources</h4></div>
-                                    <table className="w-full text-sm text-left">
-                                        <thead className="text-xs text-gray-500 uppercase bg-gray-50 font-bold border-b border-gray-200">
-                                            <tr><th className="px-6 py-3">Brand</th><th className="px-6 py-3">Category</th><th className="px-6 py-3">Description</th><th className="px-6 py-3">Month</th><th className="px-6 py-3 text-right">Amount</th></tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-gray-100">
-                                            {topIncome.map((t, idx) => (
-                                                <tr key={idx} className="hover:bg-green-50/20">
-                                                    <td className="px-6 py-3 font-medium text-gray-700">{t.brand || '-'}</td>
-                                                    <td className="px-6 py-3 text-gray-500">{t.category}</td>
-                                                    <td className="px-6 py-3 text-gray-500 truncate max-w-xs">{t.description}</td>
-                                                    <td className="px-6 py-3 text-gray-500">{new Date(t.date).toLocaleString('default', { month: 'short', year: '2-digit' })}</td>
-                                                    <td className="px-6 py-3 text-right font-bold text-green-600">฿{formatAmount(t.amount)}</td>
-                                                </tr>
-                                            ))}
-                                            {topIncome.length === 0 && <tr><td colSpan="5" className="px-6 py-4 text-center text-gray-400">No data available</td></tr>}
-                                        </tbody>
-                                    </table>
-                                </div>
-
-                                {/* FILTER TABLE */}
-                                <div className="mt-6 bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-                                    <div className="px-6 py-4 border-b border-gray-100 flex flex-col md:flex-row md:justify-between md:items-center bg-gray-50 gap-4">
-                                        <h4 className="font-bold text-gray-800 text-sm uppercase flex items-center gap-2">
-                                            <Filter size={16} className="text-blue-500" /> Income Breakdown
-                                        </h4>
-                                        <div className="flex flex-wrap items-center gap-3">
-                                            <div className="relative">
-                                                <PieChartIcon size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"/>
-                                                <select className="text-xs border border-gray-300 rounded-lg pl-8 pr-3 py-1.5 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-200 bg-white font-medium text-gray-700 cursor-pointer hover:border-gray-400 transition-colors" value={incomeCategoryFilter} onChange={(e) => setIncomeCategoryFilter(e.target.value)}><option value="All">All Categories</option>{BUDGET_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}</select>
-                                            </div>
-                                            <div className="relative">
-                                                <Calendar size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"/>
-                                                <select className="text-xs border border-gray-300 rounded-lg pl-8 pr-3 py-1.5 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-200 bg-white font-medium text-gray-700 cursor-pointer hover:border-gray-400 transition-colors" value={incomeMonthFilter} onChange={(e) => setIncomeMonthFilter(e.target.value)}><option value="All">All Months</option>{uniqueMonths.map(m => <option key={m} value={m}>{m}</option>)}</select>
-                                            </div>
-                                            <div className="relative">
-                                                <Tag size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"/>
-                                                <select className="text-xs border border-gray-300 rounded-lg pl-8 pr-3 py-1.5 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-200 bg-white font-medium text-gray-700 cursor-pointer hover:border-gray-400 transition-colors max-w-[150px]" value={incomeBrandFilter} onChange={(e) => setIncomeBrandFilter(e.target.value)}><option value="All">All Brands</option>{uniqueBrands.map(b => <option key={b} value={b}>{b}</option>)}</select>
-                                            </div>
+                                {/* Total Budget */}
+                                <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white p-6 rounded-2xl shadow-xl flex flex-col justify-between relative overflow-hidden group">
+                                    <div className="absolute -right-6 -top-6 text-white/5 group-hover:scale-110 transition-transform duration-700">
+                                        <Wallet size={120} />
+                                    </div>
+                                    <div className="relative z-10 flex justify-between items-start mb-4">
+                                        <span className="text-slate-300 text-xs font-bold uppercase tracking-wider">Total Budget</span>
+                                        <div className="p-2 bg-white/10 rounded-lg backdrop-blur-sm"><Wallet size={18} className="text-white"/></div>
+                                    </div>
+                                    <div className="relative z-10">
+                                        <div className="text-3xl font-black tracking-tight mb-1" title={`฿${formatAmount(TOTAL_BUDGET_CONST)}`}>
+                                            ฿{formatCompactNumber(TOTAL_BUDGET_CONST)}
+                                        </div>
+                                        <div className="w-full bg-slate-700 rounded-full h-1.5 mt-3 mb-1 overflow-hidden">
+                                            <div className={`h-1.5 rounded-full ${budgetUsedPct > 90 ? 'bg-red-500' : 'bg-blue-400'}`} style={{width: `${budgetUsedPct}%`}}></div>
+                                        </div>
+                                        <div className="flex justify-between text-[10px] text-slate-400 font-medium">
+                                            <span>{budgetUsedPct}% Used</span>
+                                            <span>฿{formatCompactNumber(TOTAL_BUDGET_CONST - totalSpending)} Left</span>
                                         </div>
                                     </div>
-                                    <div className="max-h-96 overflow-y-auto custom-scrollbar">
-                                        <table className="w-full text-sm text-left">
-                                            <thead className="text-xs text-gray-500 uppercase bg-white font-bold border-b border-gray-200 sticky top-0 shadow-sm z-10">
-                                                <tr><th className="px-6 py-3 w-32">Date</th><th className="px-6 py-3 w-48">Brand</th><th className="px-6 py-3 w-40">Category</th><th className="px-6 py-3">Description</th><th className="px-6 py-3 text-right w-40">Amount</th></tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-gray-100">
-                                                {filteredIncomeTransactions.length > 0 ? (
-                                                    filteredIncomeTransactions.map((t) => (
-                                                        <tr key={t.id} className="hover:bg-blue-50/10 transition-colors">
-                                                            <td className="px-6 py-3 text-gray-500 whitespace-nowrap">{new Date(t.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
-                                                            <td className="px-6 py-3 font-medium text-gray-700 truncate">{t.brand}</td>
-                                                            <td className="px-6 py-3 text-gray-500 text-xs">{t.category}</td>
-                                                            <td className="px-6 py-3 text-gray-500 truncate max-w-lg">{t.description}</td>
-                                                            <td className="px-6 py-3 text-right font-bold text-green-600 whitespace-nowrap">฿{formatAmount(t.amount)}</td>
-                                                        </tr>
-                                                    ))
-                                                ) : (<tr><td colSpan="5" className="px-6 py-12 text-center text-gray-400"><p className="mb-1">No income records found for these filters.</p><p className="text-xs opacity-60">Try selecting different criteria.</p></td></tr>)}
-                                            </tbody>
-                                        </table>
+                                </div>
+
+                                {/* Total Income */}
+                                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between group hover:shadow-md transition-shadow">
+                                    <div className="flex justify-between items-start mb-4">
+                                        <span className="text-gray-400 text-xs font-bold uppercase tracking-wider">Total Income</span>
+                                        <div className="p-2 bg-green-50 rounded-lg text-green-600 group-hover:scale-110 transition-transform"><TrendingUp size={18}/></div>
                                     </div>
-                                    <div className="bg-gray-50 px-6 py-2 border-t border-gray-200 text-xs text-gray-400 text-right flex justify-between"><span className="font-bold text-gray-500">Total: ฿{formatAmount(filteredIncomeTransactions.reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0))}</span><span>Showing {filteredIncomeTransactions.length} records</span></div>
+                                    <div>
+                                        <div className="text-3xl font-black text-gray-800 tracking-tight" title={`฿${formatAmount(totalIncome)}`}>
+                                            ฿{formatCompactNumber(totalIncome)}
+                                        </div>
+                                        <p className="text-xs text-gray-400 mt-2 font-medium">Across {transactions.filter(t=>t.type==='income').length} transactions</p>
+                                    </div>
+                                </div>
+
+                                {/* Total Spending */}
+                                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between group hover:shadow-md transition-shadow">
+                                    <div className="flex justify-between items-start mb-4">
+                                        <span className="text-gray-400 text-xs font-bold uppercase tracking-wider">Total Spending</span>
+                                        <div className="p-2 bg-red-50 rounded-lg text-red-600 group-hover:scale-110 transition-transform"><TrendingDown size={18}/></div>
+                                    </div>
+                                    <div>
+                                        <div className="text-3xl font-black text-gray-800 tracking-tight" title={`฿${formatAmount(totalSpending)}`}>
+                                            ฿{formatCompactNumber(totalSpending)}
+                                        </div>
+                                        <p className="text-xs text-gray-400 mt-2 font-medium">Across {transactions.filter(t=>t.type==='spending').length} transactions</p>
+                                    </div>
+                                </div>
+
+                                {/* Net Balance */}
+                                <div className={`p-6 rounded-2xl shadow-sm border flex flex-col justify-between group hover:shadow-md transition-shadow ${netBalance >= 0 ? 'bg-gradient-to-br from-emerald-50 to-green-50 border-green-100' : 'bg-gradient-to-br from-rose-50 to-red-50 border-red-100'}`}>
+                                    <div className="flex justify-between items-start mb-4">
+                                        <span className={`text-xs font-bold uppercase tracking-wider ${netBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>Net Balance</span>
+                                        <div className={`p-2 rounded-lg ${netBalance >= 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}><Activity size={18}/></div>
+                                    </div>
+                                    <div>
+                                        <div className={`text-3xl font-black tracking-tight ${netBalance >= 0 ? 'text-green-700' : 'text-red-700'}`} title={`฿${formatAmount(Math.abs(netBalance))}`}>
+                                            {netBalance >= 0 ? '+' : '-'}฿{formatCompactNumber(Math.abs(netBalance))}
+                                        </div>
+                                        <p className={`text-xs mt-2 font-medium ${netBalance >= 0 ? 'text-green-600/70' : 'text-red-600/70'}`}>Income vs Spending</p>
+                                    </div>
                                 </div>
                             </div>
 
-                            {/* 4. SPENDING SECTION */}
-                            <div>
-                                <h3 className="text-xl font-black text-gray-800 mb-4 flex items-center gap-2 border-b pb-2"><TrendingDown className="text-red-600"/> Spending Analysis</h3>
-                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                                    <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-                                        <h4 className="text-sm font-bold text-gray-500 uppercase mb-4">Monthly Spending Trend</h4>
-                                        <div className="h-64"><SimpleLineChart data={spendingTrend} color="#dc2626" /></div>
+                            {/* --- MAIN CHARTS ROW --- */}
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                {/* Combined Trend Chart */}
+                                <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col">
+                                    <div className="flex justify-between items-center mb-6">
+                                        <div>
+                                            <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">Cash Flow Trend</h3>
+                                            <p className="text-xs text-gray-500 mt-1">Monthly comparison of income and expenses</p>
+                                        </div>
                                     </div>
-                                    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 flex flex-col">
-                                        <h4 className="text-sm font-bold text-gray-500 uppercase mb-4 flex items-center gap-2"><PieChartIcon size={16}/> By Category</h4>
-                                        <div className="flex-1 min-h-[200px]"><SimplePieChart data={spendingCategories} /></div>
+                                    <div className="flex-1 min-h-[280px] w-full bg-gray-50/50 rounded-xl p-4 border border-gray-50">
+                                        <CombinedLineChart data={combinedData} />
                                     </div>
                                 </div>
-                                {/* Spending Table */}
-                                <div className="mt-6 bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-                                    <div className="px-6 py-4 bg-red-50 border-b border-red-100"><h4 className="font-bold text-red-800 text-sm uppercase">Top 10 Expenses</h4></div>
-                                    <table className="w-full text-sm text-left">
-                                        <thead className="text-xs text-gray-500 uppercase bg-gray-50 font-bold border-b border-gray-200">
-                                            <tr><th className="px-6 py-3">Brand</th><th className="px-6 py-3">Category</th><th className="px-6 py-3">Description</th><th className="px-6 py-3">Month</th><th className="px-6 py-3 text-right">Amount</th></tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-gray-100">
-                                            {topSpending.map((t, idx) => (
-                                                <tr key={idx} className="hover:bg-red-50/20">
-                                                    <td className="px-6 py-3 font-medium text-gray-700">{t.brand || '-'}</td>
-                                                    <td className="px-6 py-3 text-gray-500">{t.category}</td>
-                                                    <td className="px-6 py-3 text-gray-500 truncate max-w-xs">{t.description}</td>
-                                                    <td className="px-6 py-3 text-gray-500">{new Date(t.date).toLocaleString('default', { month: 'short', year: '2-digit' })}</td>
-                                                    <td className="px-6 py-3 text-right font-bold text-red-600">฿{formatAmount(t.amount)}</td>
-                                                </tr>
-                                            ))}
-                                            {topSpending.length === 0 && <tr><td colSpan="5" className="px-6 py-4 text-center text-gray-400">No data available</td></tr>}
-                                        </tbody>
-                                    </table>
+
+                                {/* Spending Breakdown */}
+                                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col">
+                                    <div className="mb-6">
+                                        <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">Spending by Category</h3>
+                                        <p className="text-xs text-gray-500 mt-1">Where your budget is going</p>
+                                    </div>
+                                    <div className="flex-1 flex items-center justify-center">
+                                        <SimplePieChart data={spendingCategories} />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* --- DEEP DIVE ROW (Top Lists) --- */}
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                {/* Top Income Sources */}
+                                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
+                                    <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/30">
+                                        <h3 className="font-bold text-gray-800 flex items-center gap-2"><TrendingUp size={18} className="text-green-500"/> Top Income Sources</h3>
+                                        <span className="text-[10px] font-bold text-green-600 bg-green-50 border border-green-100 px-2 py-1 rounded-md uppercase tracking-wide">Top 5</span>
+                                    </div>
+                                    <div className="p-2 flex-1">
+                                        {topIncome.slice(0, 5).map((t, idx) => (
+                                            <div key={idx} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-xl transition-colors">
+                                                <div className="flex items-center gap-3 overflow-hidden">
+                                                    <div className="w-10 h-10 rounded-full bg-green-50 border border-green-100 flex items-center justify-center text-green-600 font-bold shrink-0">
+                                                        {t.brand ? t.brand.charAt(0).toUpperCase() : <TrendingUp size={16}/>}
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <p className="font-bold text-gray-800 text-sm truncate">{t.brand || t.description || 'Unknown'}</p>
+                                                        <p className="text-xs text-gray-500 truncate mt-0.5">{t.category}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="text-right shrink-0 ml-4">
+                                                    <p className="font-bold text-green-600 text-sm">฿{formatCompactNumber(t.amount)}</p>
+                                                    <p className="text-[10px] text-gray-400 mt-0.5">{new Date(t.date).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {topIncome.length === 0 && <div className="p-8 text-center text-gray-400 text-sm">No income recorded yet</div>}
+                                    </div>
+                                </div>
+
+                                {/* Top Expenses */}
+                                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
+                                    <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/30">
+                                        <h3 className="font-bold text-gray-800 flex items-center gap-2"><TrendingDown size={18} className="text-red-500"/> Top Expenses</h3>
+                                        <span className="text-[10px] font-bold text-red-600 bg-red-50 border border-red-100 px-2 py-1 rounded-md uppercase tracking-wide">Top 5</span>
+                                    </div>
+                                    <div className="p-2 flex-1">
+                                        {topSpending.slice(0, 5).map((t, idx) => (
+                                            <div key={idx} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-xl transition-colors">
+                                                <div className="flex items-center gap-3 overflow-hidden">
+                                                    <div className="w-10 h-10 rounded-full bg-red-50 border border-red-100 flex items-center justify-center text-red-600 font-bold shrink-0">
+                                                        {t.brand ? t.brand.charAt(0).toUpperCase() : <TrendingDown size={16}/>}
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <p className="font-bold text-gray-800 text-sm truncate">{t.brand || t.description || 'Unknown'}</p>
+                                                        <p className="text-xs text-gray-500 truncate mt-0.5">{t.category}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="text-right shrink-0 ml-4">
+                                                    <p className="font-bold text-red-600 text-sm">฿{formatCompactNumber(t.amount)}</p>
+                                                    <p className="text-[10px] text-gray-400 mt-0.5">{new Date(t.date).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {topSpending.length === 0 && <div className="p-8 text-center text-gray-400 text-sm">No expenses recorded yet</div>}
+                                    </div>
                                 </div>
                             </div>
                         </div>
+
                     ) : (
-                        /* DATA TABLE (Scrollable) */
+                        
+                        /* DATA TABLE FOR INCOME/SPENDING (Scrollable) */
                         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto">
                             <table className="w-full text-sm text-left">
                                 <thead className="text-xs text-gray-500 uppercase bg-gray-50 font-bold border-b border-gray-200 sticky top-0 z-10">
@@ -537,7 +528,6 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                             <td className="px-6 py-4 text-center">
                                                 <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition">
                                                     <button onClick={() => handleEditClick(t)} className="text-blue-400 hover:text-blue-600 p-1 rounded-md hover:bg-blue-50" title="Edit"><Edit2 size={16} /></button>
-                                                    {/* 🟢 DUPLICATE BUTTON */}
                                                     <button onClick={() => handleDuplicate(t)} className="text-indigo-400 hover:text-indigo-600 p-1 rounded-md hover:bg-indigo-50" title="Duplicate"><Copy size={16} /></button>
                                                     <button onClick={() => onDelete(t.id)} className="text-gray-300 hover:text-red-500 p-1 rounded-md hover:bg-red-50" title="Delete"><Trash2 size={16} /></button>
                                                 </div>
@@ -827,9 +817,9 @@ const SimplePieChart = ({ data }) => {
     const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#6366f1'];
 
     return (
-        <div className="flex items-center gap-6 h-full">
+        <div className="flex items-center gap-6 h-full w-full">
             <div className="w-32 h-32 relative shrink-0">
-                <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
+                <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90 drop-shadow-sm">
                     {data.map((d, i) => {
                         const sliceAngle = (d.value / total) * 360;
                         const x1 = 50 + 50 * Math.cos(Math.PI * currentAngle / 180);
@@ -843,10 +833,13 @@ const SimplePieChart = ({ data }) => {
                     })}
                 </svg>
             </div>
-            <div className="flex-1 space-y-1 overflow-y-auto max-h-40 text-xs custom-scrollbar">
+            <div className="flex-1 space-y-1.5 overflow-y-auto max-h-40 text-xs custom-scrollbar pr-2">
                 {data.map((d, i) => (
-                    <div key={i} className="flex justify-between items-center">
-                        <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full" style={{backgroundColor: colors[i % colors.length]}}></span><span className="text-gray-600 truncate max-w-[100px]" title={d.name}>{d.name}</span></div>
+                    <div key={i} className="flex justify-between items-center group">
+                        <div className="flex items-center gap-2">
+                            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{backgroundColor: colors[i % colors.length]}}></span>
+                            <span className="text-gray-600 truncate max-w-[120px] group-hover:text-gray-900 transition-colors" title={d.name}>{d.name}</span>
+                        </div>
                         <span className="font-bold text-gray-800">{((d.value / total) * 100).toFixed(0)}%</span>
                     </div>
                 ))}

@@ -33,6 +33,7 @@ export default function AddTaskModal({ onClose, onAdd, initialDate, tasks = [] }
   const [isMainTask, setIsMainTask] = useState(false);
   const [parentTaskId, setParentTaskId] = useState('');
 
+  
   // Get available Main Tasks
   const mainTasks = tasks.filter(t => t.isMainTask && t.status !== 'canceled');
 
