@@ -11,6 +11,7 @@ const VideoSummarizeView = () => {
     const [videoDetail, setVideoDetail] = useState('');
     
     const [isSearching, setIsSearching] = useState(false);
+    const [hasSearched, setHasSearched] = useState(false); // 🟢 Track if a search was attempted
     const [results, setResults] = useState([]);
     const [error, setError] = useState('');
 
@@ -35,23 +36,28 @@ const VideoSummarizeView = () => {
         setIsSearching(true);
         setError('');
         setResults([]);
+        setHasSearched(true); // 🟢 Mark that we are actively trying to search
 
         try {
             const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
             if (!apiKey) throw new Error("Missing Gemini API Key in .env file.");
 
             const dateContext = (startDate && endDate) 
-                ? `Published between ${startDate} and ${endDate}.` 
+                ? `Published specifically between ${startDate} and ${endDate}.` 
                 : "Search for the most relevant and recent videos.";
 
-            // 🟢 UPDATED PROMPT: Strictly locked to iHAVECPU
-            const prompt = `Act as an expert YouTube research agent. Find the most relevant videos matching this description: "${videoDetail}".
+            // 🟢 UPDATED PROMPT: Clearer instructions for returning empty arrays if nothing matches
+            const prompt = `Search Google and YouTube for videos matching this description: "${videoDetail}".
             
             CRITICAL CONSTRAINT: You MUST ONLY return videos from the YouTube channel "iHAVECPU" (URL: https://www.youtube.com/@iHAVECPU_). Do not include videos from any other tech channels.
             Filter criteria: ${dateContext}
             
             Provide real, accurate YouTube links from the iHAVECPU channel and estimate their current view counts.
-            Return ONLY a valid JSON array of objects. Each object MUST have exactly these keys:
+            
+            Return ONLY a valid JSON array of objects. 
+            If you cannot find ANY videos that match, return an empty array: []
+            
+            If you find videos, each object MUST have exactly these keys:
             - "title": "The Video Title"
             - "channel": "iHAVECPU"
             - "views": "View count (e.g., 1.5M views)"
@@ -63,7 +69,11 @@ const VideoSummarizeView = () => {
             const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                body: JSON.stringify({ 
+                    contents: [{ parts: [{ text: prompt }] }],
+                    // 🟢 NEW: Enable live Google Search so Gemini can browse YouTube in real-time
+                    tools: [{ googleSearch: {} }] 
+                })
             });
 
             if (!response.ok) {
@@ -74,10 +84,11 @@ const VideoSummarizeView = () => {
             const data = await response.json();
             const rawText = data.candidates[0].content.parts[0].text;
 
+            // Extract JSON array robustly
             const jsonMatch = rawText.match(/\[[\s\S]*\]/);
             if (!jsonMatch) {
                 console.error("AI Output:", rawText);
-                throw new Error("AI did not return a valid list of videos.");
+                throw new Error("AI did not return a valid format. Try adjusting your search keywords.");
             }
 
             const parsedResults = JSON.parse(jsonMatch[0]);
@@ -117,14 +128,14 @@ const VideoSummarizeView = () => {
                         <form onSubmit={handleSearch} className="relative z-10">
                             <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
                                 
-                                {/* Video Detail Input (Spans larger area) */}
+                                {/* Video Detail Input */}
                                 <div className="md:col-span-6 lg:col-span-7">
                                     <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-2">
                                         <Search size={14} className="text-red-500"/> Search Query or Topic
                                     </label>
                                     <textarea 
                                         className="w-full bg-gray-50 border border-gray-200 rounded-2xl p-4 text-sm outline-none focus:bg-white focus:border-red-400 focus:ring-4 focus:ring-red-500/10 transition-all resize-none h-[116px] custom-scrollbar"
-                                        placeholder="e.g. 'Review of the latest Intel Core Ultra processors' or 'Marketing strategies for 2026'"
+                                        placeholder="e.g. 'Review of the latest Intel Core Ultra processors' or 'Motherboard recommendations'"
                                         value={videoDetail}
                                         onChange={(e) => setVideoDetail(e.target.value)}
                                         required
@@ -169,7 +180,7 @@ const VideoSummarizeView = () => {
                                         `}
                                     >
                                         {isSearching ? (
-                                            <><Loader2 size={18} className="animate-spin" /> Searching Web & Summarizing...</>
+                                            <><Loader2 size={18} className="animate-spin" /> Browsing Web & Summarizing...</>
                                         ) : (
                                             <><Sparkles size={18} className="animate-pulse"/> Generate Summary</>
                                         )}
@@ -200,7 +211,7 @@ const VideoSummarizeView = () => {
                             )}
                         </div>
 
-                        {/* Loading Skeletons */}
+                        {/* 1. Loading Skeletons */}
                         {isSearching && (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-pulse">
                                 {[1, 2, 3].map(i => (
@@ -214,8 +225,8 @@ const VideoSummarizeView = () => {
                             </div>
                         )}
 
-                        {/* Empty State */}
-                        {!isSearching && results.length === 0 && !error && (
+                        {/* 2. Initial Empty State (Before searching) */}
+                        {!isSearching && results.length === 0 && !error && !hasSearched && (
                             <div className="bg-white rounded-3xl border border-gray-100 border-dashed p-16 text-center shadow-sm">
                                 <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
                                     <MonitorPlay size={32} className="text-gray-300"/>
@@ -225,7 +236,20 @@ const VideoSummarizeView = () => {
                             </div>
                         )}
 
-                        {/* Video Cards Grid */}
+                        {/* 3. 🟢 FIXED: "No Results Found" State */}
+                        {!isSearching && results.length === 0 && !error && hasSearched && (
+                            <div className="bg-white rounded-3xl border border-rose-100 p-16 text-center shadow-sm bg-gradient-to-b from-white to-rose-50/30">
+                                <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <Search size={32} className="text-red-400"/>
+                                </div>
+                                <h4 className="text-xl font-bold text-gray-800 mb-2">No matching videos found</h4>
+                                <p className="text-gray-500 text-sm max-w-md mx-auto leading-relaxed">
+                                    Gemini couldn't find any recent videos from the <b>iHAVECPU</b> channel that match your exact description. Try broadening your keywords or clearing the Date Range.
+                                </p>
+                            </div>
+                        )}
+
+                        {/* 4. Video Cards Grid */}
                         {!isSearching && results.length > 0 && (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in slide-in-from-bottom-4 duration-700">
                                 {results.map((video, idx) => {
@@ -241,7 +265,7 @@ const VideoSummarizeView = () => {
                                                         src={thumbUrl} 
                                                         alt={video.title} 
                                                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                                                        onError={(e) => { e.target.style.display = 'none'; }} // Fallback if thumbnail fails
+                                                        onError={(e) => { e.target.style.display = 'none'; }} 
                                                     />
                                                 ) : (
                                                     <div className="w-full h-full flex items-center justify-center bg-gray-800 text-gray-500">
@@ -249,8 +273,8 @@ const VideoSummarizeView = () => {
                                                     </div>
                                                 )}
                                                 
-                                                {/* Views Badge overlay */}
-                                                <div className="absolute bottom-3 right-3 bg-black/70 backdrop-blur-md text-white text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-lg">
+                                                {/* Views Badge */}
+                                                <div className="absolute bottom-3 right-3 bg-black/80 backdrop-blur-md text-white text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-lg">
                                                     <Eye size={14} className="text-red-400"/> {video.views || "N/A"}
                                                 </div>
                                             </div>
@@ -259,7 +283,7 @@ const VideoSummarizeView = () => {
                                             <div className="p-6 flex flex-col flex-1">
                                                 <div className="flex items-center gap-2 text-xs font-bold text-gray-500 mb-3 truncate">
                                                     <User size={14} className="text-blue-500 shrink-0"/> 
-                                                    <span className="truncate">{video.channel || "YouTube Channel"}</span>
+                                                    <span className="truncate">{video.channel || "iHAVECPU"}</span>
                                                 </div>
                                                 
                                                 <h4 className="font-black text-gray-900 text-lg leading-tight mb-3 line-clamp-2 group-hover:text-red-600 transition-colors" title={video.title}>
