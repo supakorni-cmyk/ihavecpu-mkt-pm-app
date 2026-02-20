@@ -1,6 +1,6 @@
 // src/components/shared/Sidebar.jsx
 import React, { useState } from 'react';
-import { LogOut, Home, Layout, Calendar as CalendarIcon, Presentation, Image as ImageIcon, Table, Heart, UserMinus, Clock, Clipboard, Menu, X, Cat } from 'lucide-react';
+import { LogOut, Home, Layout, Calendar as CalendarIcon, Presentation, Image as ImageIcon, Table, Heart, UserMinus, Clock, Clipboard, Menu, X, Cat, Youtube } from 'lucide-react';
 
 export default function Sidebar({ currentView, setCurrentView, onLogout }) {
   const [isOpen, setIsOpen] = useState(false); // State for mobile menu
