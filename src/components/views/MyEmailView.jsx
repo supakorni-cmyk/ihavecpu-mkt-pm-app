@@ -32,11 +32,15 @@ const MyEmailView = ({ currentUser }) => {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
+            // 🟢 ERROR HANDLER: Catch API errors so we can see what Google is complaining about
             if (!listResponse.ok) {
-            const errorData = await listResponse.json();
-            console.error("Google API Details:", errorData);
-            throw new Error(`Google Error: ${errorData.error?.message || "Unknown API Error"}`);
-}
+                const errorData = await listResponse.json();
+                console.error("Google API Details:", errorData);
+                throw new Error(`Google Error: ${errorData.error?.message || "Unknown API Error"}`);
+            }
+
+            // 🟢 THE MISSING LINE: Parse the successful data!
+            const listData = await listResponse.json();
             
             if (!listData.messages) {
                 setEmails([]);
