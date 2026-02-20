@@ -47,27 +47,28 @@ const VideoSummarizeView = () => {
                 : "Find the best matches available.";
 
             // 🟢 RELAXED PROMPT: Encourages the AI to find videos without threatening it
-            const prompt = `You are a helpful YouTube research assistant. Your task is to find YouTube videos from the popular Thai tech channel "iHAVECPU".
+            const prompt = `You are a helpful YouTube research assistant. "ช่วยค้นหาวิดีโอจากช่อง YouTube 'iHAVECPU' ที่มีเนื้อหาเกี่ยวกับ "${videoDetail}" โดยเน้นวิดีโอที่ลงในช่วง ${dateContext}`
+        
             
-            Please search for videos from iHAVECPU that relate to this topic: "${videoDetail}".
-            ${dateContext}
+            // Please search for videos from iHAVECPU that relate to this topic: "${videoDetail}".
+            // ${dateContext}
             
-            Instructions:
-            1. Use Google Search to find YouTube links specifically from the iHAVECPU channel.
-            2. Even if it is only a partial match to the topic, include it! We want to see options.
-            3. Try to provide up to 6 results.
+            // Instructions:
+            // 1. Use Google Search to find YouTube links specifically from the iHAVECPU channel.
+            // 2. Even if it is only a partial match to the topic, include it! We want to see options.
+            // 3. Try to provide up to 6 results.
             
-            Format your response strictly as a JSON array of objects. 
-            Each object must use these exact keys:
-            {
-              "title": "The title of the video",
-              "channel": "iHAVECPU",
-              "views": "Estimated view count (e.g., 100K views)",
-              "link": "The YouTube URL (https://www.youtube.com/watch?v=...)",
-              "summary": "A brief 1-2 sentence summary of the content"
-            }
+            // Format your response strictly as a JSON array of objects. 
+            // Each object must use these exact keys:
+            // {
+            //   "title": "The title of the video",
+            //   "channel": "iHAVECPU",
+            //   "views": "Estimated view count (e.g., 100K views)",
+            //   "link": "The YouTube URL (https://www.youtube.com/watch?v=...)",
+            //   "summary": "A brief 1-2 sentence summary of the content"
+            // }
             
-            Output ONLY the raw JSON array. Start with [ and end with ]. Do not wrap it in markdown.`;
+            // Output ONLY the raw JSON array. Start with [ and end with ]. Do not wrap it in markdown.`;
 
             const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
                 method: 'POST',
