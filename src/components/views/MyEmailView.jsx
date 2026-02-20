@@ -32,8 +32,11 @@ const MyEmailView = ({ currentUser }) => {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
-            if (!listResponse.ok) throw new Error("Failed to fetch inbox. Token may be expired.");
-            const listData = await listResponse.json();
+            if (!listResponse.ok) {
+            const errorData = await listResponse.json();
+            console.error("Google API Details:", errorData);
+            throw new Error(`Google Error: ${errorData.error?.message || "Unknown API Error"}`);
+}
             
             if (!listData.messages) {
                 setEmails([]);
