@@ -26,7 +26,7 @@ import {
 
 import { BUDGET_CATEGORIES } from '../../utils/constants';
 import { analyzeFinancials } from '../../utils/aiService';
-import aiAvatar from '../../assets/bot/avatar.png'
+import aiAvatar from '../../assets/bot/avatar.png';
 
 const TOTAL_BUDGET_CONST = 33000000;
 const BUDGET_STATUSES = ['Pending', 'Follow-up', 'Complete'];
@@ -112,7 +112,11 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
     // --- AGGREGATED DATA ---
     const incomeTrend = getMonthlyData('income');
     const spendingTrend = getMonthlyData('spending');
+    
+    // 🟢 ADDED: Income Categories for the new Pie Chart
+    const incomeCategories = getCategoryData('income');
     const spendingCategories = getCategoryData('spending');
+    
     const topIncome = getTopTransactions('income');
     const topSpending = getTopTransactions('spending');
 
@@ -355,22 +359,34 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                 </div>
                             </div>
 
-                            {/* --- MAIN CHARTS ROW --- */}
-                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                                {/* Interactive Area Chart */}
-                                <div className="lg:col-span-2 bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 p-8 flex flex-col relative overflow-hidden">
-                                    <div className="flex justify-between items-center mb-8 relative z-10">
-                                        <div>
-                                            <h3 className="text-xl font-black text-gray-900 flex items-center gap-2">Cash Flow Dynamics</h3>
-                                            <p className="text-sm text-gray-500 mt-1 font-medium">Monthly trajectory of income and expenses</p>
-                                        </div>
-                                        <div className="flex gap-4 text-xs font-bold bg-gray-50/80 backdrop-blur-md border border-gray-100 px-4 py-2 rounded-xl">
-                                            <span className="text-green-600 flex items-center gap-2"><div className="w-3 h-3 rounded bg-gradient-to-br from-green-400 to-green-600 shadow-sm"></div> Income</span>
-                                            <span className="text-red-600 flex items-center gap-2"><div className="w-3 h-3 rounded bg-gradient-to-br from-red-400 to-red-600 shadow-sm"></div> Spending</span>
-                                        </div>
+                            {/* --- LINE CHART (FULL WIDTH) --- */}
+                            <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 p-8 flex flex-col relative overflow-hidden w-full">
+                                <div className="flex justify-between items-center mb-8 relative z-10">
+                                    <div>
+                                        <h3 className="text-xl font-black text-gray-900 flex items-center gap-2">Cash Flow Dynamics</h3>
+                                        <p className="text-sm text-gray-500 mt-1 font-medium">Monthly trajectory of income and expenses</p>
                                     </div>
-                                    <div className="flex-1 min-h-[320px] w-full relative z-10">
-                                        <InteractiveCombinedChart data={combinedData} />
+                                    <div className="flex gap-4 text-xs font-bold bg-gray-50/80 backdrop-blur-md border border-gray-100 px-4 py-2 rounded-xl">
+                                        <span className="text-green-600 flex items-center gap-2"><div className="w-3 h-3 rounded bg-gradient-to-br from-green-400 to-green-600 shadow-sm"></div> Income</span>
+                                        <span className="text-red-600 flex items-center gap-2"><div className="w-3 h-3 rounded bg-gradient-to-br from-red-400 to-red-600 shadow-sm"></div> Spending</span>
+                                    </div>
+                                </div>
+                                <div className="flex-1 min-h-[360px] w-full relative z-10">
+                                    <InteractiveCombinedChart data={combinedData} />
+                                </div>
+                            </div>
+
+                            {/* --- PIE CHARTS (SIDE BY SIDE) --- */}
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                {/* Income Breakdown */}
+                                <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 p-8 flex flex-col">
+                                    <div className="mb-8 text-center">
+                                        <h3 className="text-xl font-black text-gray-900">Income Distribution</h3>
+                                        <p className="text-sm text-gray-500 mt-1 font-medium">Where your revenue comes from</p>
+                                    </div>
+                                    <div className="flex-1 flex items-center justify-center">
+                                        {/* 🟢 Passing type="income" uses the green/blue palette */}
+                                        <InteractivePieChart data={incomeCategories} type="income" />
                                     </div>
                                 </div>
 
@@ -381,7 +397,8 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                         <p className="text-sm text-gray-500 mt-1 font-medium">Where your budget is going</p>
                                     </div>
                                     <div className="flex-1 flex items-center justify-center">
-                                        <InteractivePieChart data={spendingCategories} />
+                                        {/* 🟢 Passing type="spending" uses the red/orange palette */}
+                                        <InteractivePieChart data={spendingCategories} type="spending" />
                                     </div>
                                 </div>
                             </div>
@@ -449,9 +466,9 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                     ) : (
                         
                         /* 🟢 DATA TABLE FOR INCOME/SPENDING (Scrollable) */
-                        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto">
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-x-auto">
                             <table className="w-full text-sm text-left">
-                                <thead className="text-xs text-gray-500 uppercase bg-gray-50 font-bold border-b border-gray-200 sticky top-0 z-10">
+                                <thead className="text-xs text-gray-500 uppercase bg-gray-50 font-bold border-b border-gray-200 sticky top-0 z-10 shadow-sm">
                                     <tr className="whitespace-nowrap">
                                         <th className="px-6 py-4">Date</th><th className="px-6 py-4">Brand</th><th className="px-6 py-4">Category</th><th className="px-6 py-4 w-64">Description</th><th className="px-6 py-4 text-right">Amount (THB)</th><th className="px-6 py-4">Company</th><th className="px-6 py-4 w-48">Email Subject</th><th className="px-6 py-4">Quotation</th><th className="px-6 py-4">Invoice</th><th className="px-6 py-4">Payment Date</th><th className="px-6 py-4 text-center">Status</th><th className="px-6 py-4">Slip</th><th className="px-6 py-4 w-48">Remark</th><th className="px-6 py-4 text-center">Action</th>
                                     </tr>
@@ -489,14 +506,14 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                             <td className="px-4 py-4"><EditableCell value={t.remark} className="italic text-gray-500 text-xs" onSave={(val) => onUpdate(t.id, { remark: val })} /></td>
                                             <td className="px-6 py-4 text-center">
                                                 <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition">
-                                                    <button onClick={() => handleEditClick(t)} className="text-blue-400 hover:text-blue-600 p-1 rounded-md hover:bg-blue-50" title="Edit"><Edit2 size={16} /></button>
-                                                    <button onClick={() => handleDuplicate(t)} className="text-indigo-400 hover:text-indigo-600 p-1 rounded-md hover:bg-indigo-50" title="Duplicate"><Copy size={16} /></button>
-                                                    <button onClick={() => onDelete(t.id)} className="text-gray-300 hover:text-red-500 p-1 rounded-md hover:bg-red-50" title="Delete"><Trash2 size={16} /></button>
+                                                    <button onClick={() => handleEditClick(t)} className="text-blue-400 hover:text-blue-600 p-1.5 rounded-md hover:bg-blue-50" title="Edit"><Edit2 size={16} /></button>
+                                                    <button onClick={() => handleDuplicate(t)} className="text-indigo-400 hover:text-indigo-600 p-1.5 rounded-md hover:bg-indigo-50" title="Duplicate"><Copy size={16} /></button>
+                                                    <button onClick={() => onDelete(t.id)} className="text-gray-400 hover:text-red-500 p-1.5 rounded-md hover:bg-red-50" title="Delete"><Trash2 size={16} /></button>
                                                 </div>
                                             </td>
                                         </tr>
                                     ))}
-                                    {filteredTransactions.length === 0 && <tr><td colSpan="14" className="px-6 py-12 text-center text-gray-400 font-medium">No records found.</td></tr>}
+                                    {filteredTransactions.length === 0 && <tr><td colSpan="14" className="px-6 py-12 text-center text-gray-400 font-medium bg-gray-50/50">No records found. Click "Add Record" to start tracking.</td></tr>}
                                 </tbody>
                             </table>
                         </div>
@@ -783,7 +800,7 @@ const InteractiveCombinedChart = ({ data }) => {
                 <div 
                     className="absolute bg-white/90 backdrop-blur-md shadow-2xl border border-gray-100 p-4 rounded-2xl pointer-events-none transform -translate-x-1/2 -translate-y-[110%] transition-all duration-100 ease-out z-20 min-w-[160px]"
                     style={{ 
-                        left: `${(hoverIndex / (data.length - 1 || 1)) * 100 * (1 - (80/1000)) + 4}%`, // Rough % calculation based on SVG width
+                        left: `${(hoverIndex / (data.length - 1 || 1)) * 100 * (1 - (80/1000)) + 4}%`,
                         top: `${Math.min(incomeCoords[hoverIndex].y, spendingCoords[hoverIndex].y) / height * 100}%` 
                     }}
                 >
@@ -804,14 +821,19 @@ const InteractiveCombinedChart = ({ data }) => {
     );
 };
 
-const InteractivePieChart = ({ data }) => {
+// 🟢 MODIFIED: Added `type` prop for dynamic color themes
+const InteractivePieChart = ({ data, type = "spending" }) => {
     const [hoverIndex, setHoverIndex] = useState(null);
 
     if (!data || data.length === 0) return <div className="h-full w-full flex items-center justify-center text-gray-400 font-medium">No data to display</div>;
     
     const total = data.reduce((acc, cur) => acc + cur.value, 0);
     let currentAngle = 0;
-    const colors = ['#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'];
+    
+    // Dynamic color palettes
+    const spendingColors = ['#ef4444', '#f59e0b', '#8b5cf6', '#ec4899', '#f43f5e', '#d946ef', '#f97316'];
+    const incomeColors = ['#10b981', '#3b82f6', '#0ea5e9', '#14b8a6', '#06b6d4', '#34d399', '#2dd4bf'];
+    const colors = type === 'income' ? incomeColors : spendingColors;
 
     return (
         <div className="flex flex-col items-center w-full">
