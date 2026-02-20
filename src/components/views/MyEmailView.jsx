@@ -2,12 +2,12 @@
 import React, { useState, useEffect } from 'react';
 import { 
     Mail, Sparkles, AlertCircle, CheckCircle2, 
-    Clock, Inbox, ChevronRight, Loader2, User
+    Clock, Inbox, ChevronRight, Loader2, User, ExternalLink
 } from 'lucide-react';
 
 const MyEmailView = ({ currentUser }) => {
     // Fallback if no user is passed from the main app
-    const userEmail = currentUser?.email || "marketing-manager@ihavecpu.com";
+    const userEmail = currentUser?.email || "mkt@ihavecpu.com";
 
     const [emails, setEmails] = useState([]);
     const [summary, setSummary] = useState(null);
@@ -271,7 +271,18 @@ const MyEmailView = ({ currentUser }) => {
                             <h3 className="text-xl font-black text-gray-900 flex items-center gap-2">
                                 <Clock className="text-gray-400"/> Recent Emails
                             </h3>
-                            <span className="text-xs font-bold text-gray-500 bg-gray-200 px-2 py-1 rounded">{emails.length} Messages</span>
+                            <div className="flex items-center gap-3">
+                                <span className="text-xs font-bold text-gray-500 bg-gray-200 px-2 py-1.5 rounded-lg">{emails.length} Messages</span>
+                                {/* 🟢 NEW: Go to Inbox Button */}
+                                <a 
+                                    href="https://mail.google.com/" 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-100 px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors"
+                                >
+                                    Go to Inbox <ExternalLink size={14}/>
+                                </a>
+                            </div>
                         </div>
 
                         <div className="bg-white rounded-3xl shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-gray-100 p-2 overflow-hidden flex flex-col">
@@ -282,13 +293,19 @@ const MyEmailView = ({ currentUser }) => {
                             ) : (
                                 <div className="overflow-y-auto max-h-[600px] custom-scrollbar p-2 space-y-2">
                                     {emails.map(email => (
-                                        <div key={email.id} className={`p-4 rounded-2xl transition-all cursor-pointer border ${email.isRead ? 'bg-white border-transparent hover:bg-gray-50' : 'bg-blue-50/30 border-blue-100 shadow-sm'}`}>
+                                        // 🟢 FIXED: Changed from <div> to <a> tag with direct Gmail URL
+                                        <a 
+                                            key={email.id} 
+                                            href={`https://mail.google.com/mail/u/0/#inbox/${email.id}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className={`block p-4 rounded-2xl transition-all border group ${email.isRead ? 'bg-white border-transparent hover:bg-gray-50 hover:border-gray-200' : 'bg-blue-50/30 border-blue-100 shadow-sm hover:bg-blue-50/70'}`}
+                                        >
                                             <div className="flex justify-between items-start mb-1">
-                                                <p className={`text-sm truncate pr-4 ${email.isRead ? 'text-gray-600 font-medium' : 'text-blue-900 font-bold'}`}>
-                                                    {email.sender.split('@')[0]}
+                                                <p className={`text-sm truncate pr-4 group-hover:text-indigo-600 transition-colors ${email.isRead ? 'text-gray-600 font-medium' : 'text-blue-900 font-bold'}`}>
+                                                    {email.sender.split('@')[0].replace(/</g, '').replace(/>/g, '').replace(/"/g, '')}
                                                 </p>
-                                                {/* Simulated Time */}
-                                                <span className="text-[10px] text-gray-400 font-bold shrink-0">10:30 AM</span>
+                                                <ExternalLink size={14} className="text-gray-300 group-hover:text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"/>
                                             </div>
                                             <h4 className={`text-sm mb-1 line-clamp-1 ${email.isRead ? 'text-gray-800' : 'text-gray-900 font-black'}`}>
                                                 {email.subject}
@@ -296,8 +313,13 @@ const MyEmailView = ({ currentUser }) => {
                                             <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed">
                                                 {email.snippet}
                                             </p>
-                                        </div>
+                                        </a>
                                     ))}
+                                    {emails.length === 0 && !isLoading && (
+                                        <div className="p-8 text-center text-gray-500 text-sm font-medium">
+                                            No recent emails found.
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
