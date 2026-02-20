@@ -43,29 +43,34 @@ const VideoSummarizeView = () => {
             if (!apiKey) throw new Error("Missing Gemini API Key in .env file.");
 
             const dateContext = (startDate && endDate) 
-                ? `Limit your search to videos published between ${startDate} and ${endDate}.` 
-                : "Find the most recent and relevant videos available.";
+                ? `Only include videos published between ${startDate} and ${endDate}.` 
+                : "Find the most recent videos.";
 
-            const prompt = `Find YouTube videos from the specific channel "iHAVECPU" (youtube.com/@iHAVECPU_).
-            
-            Search for videos that mention, discuss, or relate to this topic: "${videoDetail}".
+            // 🟢 STRICT PROMPT: Forces AI to extract REAL links via Google Search, not guess them.
+            const prompt = `You are a web scraper. You must use the Google Search tool to find REAL, ACTIVE YouTube videos from the channel "iHAVECPU" about: "${videoDetail}".
             ${dateContext}
             
-            If you absolutely cannot find any videos from iHAVECPU related to this topic, return an empty array: []
+            CRITICAL RULES FOR LINKS:
+            1. DO NOT GUESS OR HALLUCINATE YOUTUBE URLs. This is strictly forbidden.
+            2. You must perform a Google Search (e.g., \`site:youtube.com/@iHAVECPU_ "${videoDetail}"\`).
+            3. Extract the exact \`https://www.youtube.com/watch?v=...\` link directly from the search results.
+            4. If you cannot find a real, working link in the search results, DO NOT include that video.
             
-            If you find videos, each object in the array MUST have exactly these keys:
+            Return a JSON array of objects. If no videos are found, return: []
+            
+            Each object MUST have exactly these keys:
             - "title": "The exact Video Title"
             - "channel": "iHAVECPU"
-            - "views": "Estimated view count (e.g., 50K views, 1M views)"
-            - "link": "A valid YouTube video URL (e.g., https://www.youtube.com/watch?v=...)"
-            - "summary": "A brief 1-2 sentence explanation of what the video is about"`;
+            - "views": "Estimated view count"
+            - "link": "The REAL, verified YouTube URL"
+            - "summary": "1-2 sentence summary"`;
 
             const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
                     contents: [{ parts: [{ text: prompt }] }],
-                    // 🟢 FIXED: This setting guarantees a perfect JSON response and stops empty text crashes!
+                    tools: [{ googleSearch: {} }],
                     generationConfig: {
                         responseMimeType: "application/json"
                     }
@@ -80,32 +85,21 @@ const VideoSummarizeView = () => {
             const data = await response.json();
             
             if (!data.candidates || data.candidates.length === 0) {
-                 throw new Error("Gemini returned no response. Try adjusting your keywords.");
+                 throw new Error("Gemini returned no response.");
             }
 
             const candidate = data.candidates[0];
-            
-            // 🟢 FIXED: Gracefully catch Safety blocks or unexpected stops
             if (candidate.finishReason && candidate.finishReason !== 'STOP') {
                 throw new Error(`AI blocked the request. Reason: ${candidate.finishReason}`);
             }
 
             const rawText = candidate.content?.parts?.[0]?.text;
-            
             if (!rawText || !rawText.trim()) {
-                console.log("Raw Gemini Data:", data);
-                throw new Error("Gemini found no matching data and returned an empty response. Try broader keywords.");
+                throw new Error("No matching data found. Try broader keywords.");
             }
 
-            // 🟢 FIXED: No more regex parsing needed. It is guaranteed to be clean JSON.
             const parsedResults = JSON.parse(rawText);
-            
-            // Ensure it's always an array for the UI mapping
-            if (!Array.isArray(parsedResults)) {
-                 setResults([parsedResults]);
-            } else {
-                 setResults(parsedResults);
-            }
+            setResults(Array.isArray(parsedResults) ? parsedResults : [parsedResults]);
 
         } catch (err) {
             console.error("Search Error:", err);
@@ -308,15 +302,28 @@ const VideoSummarizeView = () => {
                                                     {video.summary}
                                                 </p>
 
-                                                {/* Action Button */}
-                                                <a 
-                                                    href={video.link} 
-                                                    target="_blank" 
-                                                    rel="noopener noreferrer"
-                                                    className="w-full mt-auto bg-gray-50 hover:bg-red-50 text-gray-700 hover:text-red-600 font-bold text-sm py-3 rounded-xl flex items-center justify-center gap-2 transition-colors border border-gray-100 hover:border-red-200"
-                                                >
-                                                    Watch Video <LinkIcon size={16}/>
-                                                </a>
+                                                {/* 🟢 Action Buttons (With Search Fallback) */}
+                                                <div className="mt-auto flex flex-col gap-2">
+                                                    <a 
+                                                        href={video.link} 
+                                                        target="_blank" 
+                                                        rel="noopener noreferrer"
+                                                        className="w-full bg-red-50 hover:bg-red-100 text-red-600 font-bold text-sm py-3 rounded-xl flex items-center justify-center gap-2 transition-colors border border-red-100"
+                                                    >
+                                                        Watch Video <PlayCircle size={16}/>
+                                                    </a>
+                                                    
+                                                    {/* Fallback Search Button */}
+                                                    <a 
+                                                        href={`https://www.youtube.com/results?search_query=iHAVECPU+${encodeURIComponent(video.title)}`}
+                                                        target="_blank" 
+                                                        rel="noopener noreferrer"
+                                                        className="w-full bg-gray-50 hover:bg-gray-100 text-gray-500 font-bold text-xs py-2 rounded-xl flex items-center justify-center gap-2 transition-colors border border-gray-100"
+                                                        title="If the video link is broken, click here to search for it manually."
+                                                    >
+                                                        <Search size={12}/> Link Broken? Search Channel
+                                                    </a>
+                                                </div>
                                             </div>
                                         </div>
                                     );
