@@ -26,6 +26,7 @@ const VideoSummarizeView = () => {
     };
 
     // --- AI SEARCH HANDLER ---
+    // --- AI SEARCH HANDLER ---
     const handleSearch = async (e) => {
         e.preventDefault();
         if (!videoDetail.trim()) {
@@ -36,7 +37,7 @@ const VideoSummarizeView = () => {
         setIsSearching(true);
         setError('');
         setResults([]);
-        setHasSearched(true); // 🟢 Mark that we are actively trying to search
+        setHasSearched(true); 
 
         try {
             const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
@@ -46,8 +47,8 @@ const VideoSummarizeView = () => {
                 ? `Published specifically between ${startDate} and ${endDate}.` 
                 : "Search for the most relevant and recent videos.";
 
-            // 🟢 UPDATED PROMPT: Clearer instructions for returning empty arrays if nothing matches
-            const prompt = `Search Google and YouTube for videos matching this description: "${videoDetail}".
+            // 🟢 UPDATED PROMPT: Relaxed to allow partial matches or keyword matches
+            const prompt = `Search Google and YouTube for videos that partially match or contain these keywords/topics: "${videoDetail}".
             
             CRITICAL CONSTRAINT: You MUST ONLY return videos from the YouTube channel "iHAVECPU" (URL: https://www.youtube.com/@iHAVECPU_). Do not include videos from any other tech channels.
             Filter criteria: ${dateContext}
@@ -55,7 +56,7 @@ const VideoSummarizeView = () => {
             Provide real, accurate YouTube links from the iHAVECPU channel and estimate their current view counts.
             
             Return ONLY a valid JSON array of objects. 
-            If you cannot find ANY videos that match, return an empty array: []
+            If you cannot find ANY videos that even partially match, return an empty array: []
             
             If you find videos, each object MUST have exactly these keys:
             - "title": "The Video Title"
@@ -71,7 +72,6 @@ const VideoSummarizeView = () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
                     contents: [{ parts: [{ text: prompt }] }],
-                    // 🟢 NEW: Enable live Google Search so Gemini can browse YouTube in real-time
                     tools: [{ googleSearch: {} }] 
                 })
             });
