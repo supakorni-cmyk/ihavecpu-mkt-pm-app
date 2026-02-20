@@ -43,37 +43,38 @@ const VideoSummarizeView = () => {
             if (!apiKey) throw new Error("Missing Gemini API Key in .env file.");
 
             const dateContext = (startDate && endDate) 
-                ? `Only include videos published between ${startDate} and ${endDate}.` 
-                : "Find the most recent videos.";
+                ? `Preferably published between ${startDate} and ${endDate}.` 
+                : "Find the best matches available.";
 
-            // 🟢 PROMPT: Instruct AI to output JSON, knowing we will parse it manually
-            const prompt = `You are a web scraper. You must use the Google Search tool to find REAL, ACTIVE YouTube videos from the channel "iHAVECPU" about: "${videoDetail}".
+            // 🟢 RELAXED PROMPT: Encourages the AI to find videos without threatening it
+            const prompt = `You are a helpful YouTube research assistant. Your task is to find YouTube videos from the popular Thai tech channel "iHAVECPU".
+            
+            Please search for videos from iHAVECPU that relate to this topic: "${videoDetail}".
             ${dateContext}
             
-            CRITICAL RULES FOR LINKS:
-            1. DO NOT GUESS OR HALLUCINATE YOUTUBE URLs. This is strictly forbidden.
-            2. You must perform a Google Search (e.g., \`site:youtube.com/@iHAVECPU_ "${videoDetail}"\`).
-            3. Extract the exact \`https://www.youtube.com/watch?v=...\` link directly from the search results.
-            4. If you cannot find a real, working link in the search results, DO NOT include that video.
+            Instructions:
+            1. Use Google Search to find YouTube links specifically from the iHAVECPU channel.
+            2. Even if it is only a partial match to the topic, include it! We want to see options.
+            3. Try to provide up to 6 results.
             
-            Return a JSON array of objects. If no videos are found, return: []
+            Format your response strictly as a JSON array of objects. 
+            Each object must use these exact keys:
+            {
+              "title": "The title of the video",
+              "channel": "iHAVECPU",
+              "views": "Estimated view count (e.g., 100K views)",
+              "link": "The YouTube URL (https://www.youtube.com/watch?v=...)",
+              "summary": "A brief 1-2 sentence summary of the content"
+            }
             
-            Each object MUST have exactly these keys:
-            - "title": "The exact Video Title"
-            - "channel": "iHAVECPU"
-            - "views": "Estimated view count"
-            - "link": "The REAL, verified YouTube URL"
-            - "summary": "1-2 sentence summary"
-            
-            Output ONLY the raw JSON array. Start with [ and end with ].`;
+            Output ONLY the raw JSON array. Start with [ and end with ]. Do not wrap it in markdown.`;
 
             const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
                     contents: [{ parts: [{ text: prompt }] }],
-                    // 🟢 FIXED: Kept the search tool, but removed the JSON mime-type config that caused the crash.
-                    tools: [{ googleSearch: {} }]
+                    tools: [{ googleSearch: {} }] 
                 })
             });
 
@@ -98,15 +99,21 @@ const VideoSummarizeView = () => {
                 throw new Error("No matching data found. Try broader keywords.");
             }
 
-            // 🟢 ROBUST JSON EXTRACTION: Safely pulls out the array even if Gemini adds search citations at the bottom
+            // Clean the output just in case the AI included search citations at the end
             const jsonMatch = rawText.match(/\[[\s\S]*\]/);
             if (!jsonMatch) {
                 console.error("Raw AI Output:", rawText);
-                throw new Error("AI did not return the data in the expected format. Please try again.");
+                throw new Error("AI did not return the data in the expected format.");
             }
 
             const parsedResults = JSON.parse(jsonMatch[0]);
-            setResults(Array.isArray(parsedResults) ? parsedResults : [parsedResults]);
+            
+            // If the AI returned an empty array, it truly couldn't find anything
+            if (Array.isArray(parsedResults) && parsedResults.length === 0) {
+                setResults([]);
+            } else {
+                setResults(Array.isArray(parsedResults) ? parsedResults : [parsedResults]);
+            }
 
         } catch (err) {
             console.error("Search Error:", err);
