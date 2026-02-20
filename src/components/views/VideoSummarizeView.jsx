@@ -1,7 +1,7 @@
 // src/components/views/VideoSummarizeView.jsx
 import React, { useState } from 'react';
 import { 
-    Search, Calendar, Youtube, PlayCircle, Eye, 
+    Search, Calendar, MonitorPlay, PlayCircle, Eye, 
     Link as LinkIcon, Sparkles, Loader2, AlertCircle, User
 } from 'lucide-react';
 
@@ -98,7 +98,7 @@ const VideoSummarizeView = () => {
             <header className="px-8 py-6 border-b border-gray-100 bg-white/80 backdrop-blur-xl shadow-sm z-20 flex justify-between items-center sticky top-0 shrink-0">
                 <div className="flex items-center gap-4">
                     <div className="p-3 rounded-2xl shadow-inner bg-gradient-to-br from-red-500 to-rose-600 text-white">
-                        <Youtube size={24} />
+                        <MonitorPlay size={24} />
                     </div>
                     <div>
                         <h2 className="text-2xl font-black text-gray-900 tracking-tight">AI Video Summarizer</h2>
@@ -218,7 +218,7 @@ const VideoSummarizeView = () => {
                         {!isSearching && results.length === 0 && !error && (
                             <div className="bg-white rounded-3xl border border-gray-100 border-dashed p-16 text-center shadow-sm">
                                 <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                                    <Youtube size={32} className="text-gray-300"/>
+                                    <MonitorPlay size={32} className="text-gray-300"/>
                                 </div>
                                 <h4 className="text-lg font-bold text-gray-700 mb-1">No videos yet</h4>
                                 <p className="text-gray-400 text-sm">Enter a topic above and let Gemini find the best videos for you.</p>
