@@ -25,8 +25,7 @@ const VideoSummarizeView = () => {
             : null;
     };
 
-    // --- AI SEARCH HANDLER ---
-    // --- AI SEARCH HANDLER ---
+// --- AI SEARCH HANDLER ---
     const handleSearch = async (e) => {
         e.preventDefault();
         if (!videoDetail.trim()) {
@@ -44,34 +43,37 @@ const VideoSummarizeView = () => {
             if (!apiKey) throw new Error("Missing Gemini API Key in .env file.");
 
             const dateContext = (startDate && endDate) 
-                ? `Published specifically between ${startDate} and ${endDate}.` 
-                : "Search for the most relevant and recent videos.";
+                ? `Limit your search to videos published between ${startDate} and ${endDate}.` 
+                : "Find the most recent and relevant videos available.";
 
-            // 🟢 UPDATED PROMPT: Relaxed to allow partial matches or keyword matches
-            const prompt = `Search Google and YouTube for videos that partially match or contain these keywords/topics: "${videoDetail}".
+            // 🟢 UPDATED PROMPT: Restructured for better success rates
+            const prompt = `You are a YouTube Video Finder. Your ONLY job is to find YouTube videos from the specific channel "iHAVECPU".
             
-            CRITICAL CONSTRAINT: You MUST ONLY return videos from the YouTube channel "iHAVECPU" (URL: https://www.youtube.com/@iHAVECPU_). Do not include videos from any other tech channels.
-            Filter criteria: ${dateContext}
+            Search for videos from iHAVECPU that mention, discuss, or relate to this topic: "${videoDetail}".
+            ${dateContext}
             
-            Provide real, accurate YouTube links from the iHAVECPU channel and estimate their current view counts.
+            Instructions:
+            1. Search the web specifically for YouTube links belonging to the iHAVECPU channel (youtube.com/@iHAVECPU_).
+            2. Even if the topic is a partial match, include it.
+            3. You must provide real, working YouTube video URLs. Do not guess.
             
-            Return ONLY a valid JSON array of objects. 
-            If you cannot find ANY videos that even partially match, return an empty array: []
+            Return a raw JSON array of objects. If you absolutely cannot find any videos from iHAVECPU related to this topic, return an empty array: []
             
             If you find videos, each object MUST have exactly these keys:
-            - "title": "The Video Title"
+            - "title": "The exact Video Title"
             - "channel": "iHAVECPU"
-            - "views": "View count (e.g., 1.5M views)"
-            - "link": "A valid YouTube URL (e.g., https://www.youtube.com/watch?v=...)"
-            - "summary": "A 2-sentence summary of what the video is about"
+            - "views": "Estimated view count (e.g., 50K views, 1M views)"
+            - "link": "A valid YouTube video URL (e.g., https://www.youtube.com/watch?v=...)"
+            - "summary": "A brief 1-2 sentence explanation of what the video is about"
             
-            Do not wrap the response in \`\`\`json or markdown. Output ONLY the raw JSON array. Return up to 6 results.`;
+            Output ONLY the raw JSON array. No markdown, no backticks.`;
 
             const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
                     contents: [{ parts: [{ text: prompt }] }],
+                    // Use Google Search tool to allow real-time lookups
                     tools: [{ googleSearch: {} }] 
                 })
             });
@@ -82,7 +84,17 @@ const VideoSummarizeView = () => {
             }
 
             const data = await response.json();
-            const rawText = data.candidates[0].content.parts[0].text;
+            
+            // Check if Gemini completely blocked the request or failed
+            if (!data.candidates || data.candidates.length === 0) {
+                 throw new Error("Gemini returned no response. Try adjusting your keywords.");
+            }
+
+            const rawText = data.candidates[0].content?.parts?.[0]?.text;
+            
+            if (!rawText) {
+                throw new Error("No text content returned from AI.");
+            }
 
             // Extract JSON array robustly
             const jsonMatch = rawText.match(/\[[\s\S]*\]/);
@@ -101,6 +113,7 @@ const VideoSummarizeView = () => {
             setIsSearching(false);
         }
     };
+   
 
     return (
         <div className="flex flex-col h-full bg-[#f8fafc] font-sans relative overflow-hidden">
