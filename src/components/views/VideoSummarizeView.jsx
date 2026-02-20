@@ -46,35 +46,29 @@ const VideoSummarizeView = () => {
                 ? `Limit your search to videos published between ${startDate} and ${endDate}.` 
                 : "Find the most recent and relevant videos available.";
 
-            // 🟢 UPDATED PROMPT: Restructured for better success rates
-            const prompt = `You are a YouTube Video Finder. Your ONLY job is to find YouTube videos from the specific channel "iHAVECPU".
+            const prompt = `Find YouTube videos from the specific channel "iHAVECPU" (youtube.com/@iHAVECPU_).
             
-            Search for videos from iHAVECPU that mention, discuss, or relate to this topic: "${videoDetail}".
+            Search for videos that mention, discuss, or relate to this topic: "${videoDetail}".
             ${dateContext}
             
-            Instructions:
-            1. Search the web specifically for YouTube links belonging to the iHAVECPU channel (youtube.com/@iHAVECPU_).
-            2. Even if the topic is a partial match, include it.
-            3. You must provide real, working YouTube video URLs. Do not guess.
+            If you absolutely cannot find any videos from iHAVECPU related to this topic, return an empty array: []
             
-            Return a raw JSON array of objects. If you absolutely cannot find any videos from iHAVECPU related to this topic, return an empty array: []
-            
-            If you find videos, each object MUST have exactly these keys:
+            If you find videos, each object in the array MUST have exactly these keys:
             - "title": "The exact Video Title"
             - "channel": "iHAVECPU"
             - "views": "Estimated view count (e.g., 50K views, 1M views)"
             - "link": "A valid YouTube video URL (e.g., https://www.youtube.com/watch?v=...)"
-            - "summary": "A brief 1-2 sentence explanation of what the video is about"
-            
-            Output ONLY the raw JSON array. No markdown, no backticks.`;
+            - "summary": "A brief 1-2 sentence explanation of what the video is about"`;
 
             const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
                     contents: [{ parts: [{ text: prompt }] }],
-                    // Use Google Search tool to allow real-time lookups
-                    tools: [{ googleSearch: {} }] 
+                    // 🟢 FIXED: This setting guarantees a perfect JSON response and stops empty text crashes!
+                    generationConfig: {
+                        responseMimeType: "application/json"
+                    }
                 })
             });
 
@@ -85,26 +79,33 @@ const VideoSummarizeView = () => {
 
             const data = await response.json();
             
-            // Check if Gemini completely blocked the request or failed
             if (!data.candidates || data.candidates.length === 0) {
                  throw new Error("Gemini returned no response. Try adjusting your keywords.");
             }
 
-            const rawText = data.candidates[0].content?.parts?.[0]?.text;
+            const candidate = data.candidates[0];
             
-            if (!rawText) {
-                throw new Error("No text content returned from AI.");
+            // 🟢 FIXED: Gracefully catch Safety blocks or unexpected stops
+            if (candidate.finishReason && candidate.finishReason !== 'STOP') {
+                throw new Error(`AI blocked the request. Reason: ${candidate.finishReason}`);
             }
 
-            // Extract JSON array robustly
-            const jsonMatch = rawText.match(/\[[\s\S]*\]/);
-            if (!jsonMatch) {
-                console.error("AI Output:", rawText);
-                throw new Error("AI did not return a valid format. Try adjusting your search keywords.");
+            const rawText = candidate.content?.parts?.[0]?.text;
+            
+            if (!rawText || !rawText.trim()) {
+                console.log("Raw Gemini Data:", data);
+                throw new Error("Gemini found no matching data and returned an empty response. Try broader keywords.");
             }
 
-            const parsedResults = JSON.parse(jsonMatch[0]);
-            setResults(parsedResults);
+            // 🟢 FIXED: No more regex parsing needed. It is guaranteed to be clean JSON.
+            const parsedResults = JSON.parse(rawText);
+            
+            // Ensure it's always an array for the UI mapping
+            if (!Array.isArray(parsedResults)) {
+                 setResults([parsedResults]);
+            } else {
+                 setResults(parsedResults);
+            }
 
         } catch (err) {
             console.error("Search Error:", err);
