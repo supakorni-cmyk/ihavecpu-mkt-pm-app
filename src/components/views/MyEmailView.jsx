@@ -15,23 +15,61 @@ const MyEmailView = ({ currentUser }) => {
     const [isSummarizing, setIsSummarizing] = useState(false);
     const [error, setError] = useState('');
 
-    // --- 1. FETCH EMAILS (Currently Simulated for UI Testing) ---
+// --- 1. FETCH REAL EMAILS VIA GMAIL API ---
     const fetchDailyEmails = async () => {
         setIsLoading(true);
-        // Simulate network delay
-        await new Promise(res => setTimeout(res, 1500));
+        setError('');
         
-        // 🟢 MOCK DATA: Replace this with actual Gmail API fetch later
-        const mockEmails = [
-            { id: 1, sender: "boss@ihavecpu.com", subject: "URGENT: Review Q3 Marketing Budget", snippet: "Please review the attached Q3 budget before our 2 PM meeting. We need to cut 10% from social media ads.", date: new Date().toISOString(), isRead: false },
-            { id: 2, sender: "intel-partners@intel.com", subject: "Intel Core Ultra Launch Assets", snippet: "The embargo lifts next week. Attached are the official banners, video b-roll, and pricing sheets.", date: new Date().toISOString(), isRead: true },
-            { id: 3, sender: "team-updates@ihavecpu.com", subject: "Welcome our new Video Editor!", snippet: "Everyone say hi to Alex, who will be handling our short-form TikTok and Reels content starting Monday.", date: new Date().toISOString(), isRead: true },
-            { id: 4, sender: "noreply@youtube.com", subject: "Your video reached 100,000 views!", snippet: "Congratulations! 'Top 5 PC Builds for 2026' just passed 100k views.", date: new Date().toISOString(), isRead: false },
-            { id: 5, sender: "client-support@agency.com", subject: "Delay in website redesign", snippet: "We hit a snag with the new database migration. The launch is pushed back by 3 days.", date: new Date().toISOString(), isRead: false },
-        ];
+        try {
+            // Retrieve the token we saved during login
+            const token = localStorage.getItem('gmail_token');
+            if (!token) {
+                throw new Error("No Gmail access token found. Please log out and log back in with Google.");
+            }
 
-        setEmails(mockEmails);
-        setIsLoading(false);
+            // Fetch the last 10 email IDs from the user's inbox
+            const listResponse = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=10&q=in:inbox', {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            if (!listResponse.ok) throw new Error("Failed to fetch inbox. Token may be expired.");
+            const listData = await listResponse.json();
+            
+            if (!listData.messages) {
+                setEmails([]);
+                setIsLoading(false);
+                return;
+            }
+
+            // Fetch the actual details (Subject, Sender, Snippet) for each email ID
+            const emailPromises = listData.messages.map(async (msg) => {
+                const msgResponse = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=metadata&metadataHeaders=Subject&metadataHeaders=From`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                const msgData = await msgResponse.json();
+                
+                // Extract headers
+                const subjectHeader = msgData.payload.headers.find(h => h.name === 'Subject');
+                const fromHeader = msgData.payload.headers.find(h => h.name === 'From');
+                
+                return {
+                    id: msgData.id,
+                    sender: fromHeader ? fromHeader.value : "Unknown Sender",
+                    subject: subjectHeader ? subjectHeader.value : "No Subject",
+                    snippet: msgData.snippet, // Gmail provides a handy plain-text snippet!
+                    isRead: !msgData.labelIds.includes("UNREAD")
+                };
+            });
+
+            const realEmails = await Promise.all(emailPromises);
+            setEmails(realEmails);
+
+        } catch (err) {
+            console.error("Gmail API Error:", err);
+            setError(err.message);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     // Load emails on component mount

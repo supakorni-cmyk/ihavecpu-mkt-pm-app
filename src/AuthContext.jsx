@@ -22,6 +22,9 @@ export function AuthProvider({ children }) {
 
   // Initialize Google Provider
   const googleProvider = new GoogleAuthProvider();
+  
+  // 🟢 1. ADD THE GMAIL PERMISSION SCOPE
+  googleProvider.addScope('https://www.googleapis.com/auth/gmail.readonly');
 
   function signup(email, password) {
     return createUserWithEmailAndPassword(auth, email, password);
@@ -31,12 +34,30 @@ export function AuthProvider({ children }) {
     return signInWithEmailAndPassword(auth, email, password);
   }
 
-  // NEW: Google Login Function
-  function loginWithGoogle() {
-    return signInWithPopup(auth, googleProvider);
+  // 🟢 2. UPDATE TO AWAIT THE POPUP AND EXTRACT THE TOKEN
+  async function loginWithGoogle() {
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      
+      // Extract the Google Access Token
+      const credential = GoogleAuthProvider.credentialFromResult(result);
+      const token = credential?.accessToken;
+      
+      // Save it to localStorage so your email component can find it
+      if (token) {
+        localStorage.setItem('gmail_token', token);
+      }
+      
+      return result.user;
+    } catch (error) {
+      console.error("Google Login Error:", error);
+      throw error;
+    }
   }
 
+  // 🟢 3. CLEAR THE TOKEN WHEN LOGGING OUT
   function logout() {
+    localStorage.removeItem('gmail_token');
     return signOut(auth);
   }
 
