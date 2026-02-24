@@ -40,8 +40,8 @@ const VideoSummarizeView = () => {
 
         try {
             // You can use a specific YouTube API Key, or fallback to the Gemini one if they share a Google Cloud project
-            const apiKey = import.meta.env.VITE_YOUTUBE_API_KEY || import.meta.env.VITE_GEMINI_API_KEY; 
-            if (!apiKey) throw new Error("Missing API Key in .env file.");
+            const apiKey = import.meta.env.VITE_YOUTUBE_API_KEY; 
+            if (!apiKey) throw new Error("VITE_YOUTUBE_API_KEY is missing! Make sure it is saved in your .env file and you restarted the server.");
 
             const channelId = "UCGVXgdliyi9hv-NiLJ7gG0w"; // 🟢 Official iHAVECPU Channel ID
             
