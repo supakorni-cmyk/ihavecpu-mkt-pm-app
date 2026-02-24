@@ -46,7 +46,7 @@ const VideoSummarizeView = () => {
             const channelId = "UCGVXgdliyi9hv-NiLJ7gG0w"; // 🟢 Official iHAVECPU Channel ID
             
             // --- 1. SEARCH FOR VIDEOS ---
-            let searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&channelId=${channelId}&q=${encodeURIComponent(videoDetail)}&type=video&maxResults=6&key=${apiKey}`;
+            let searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&channelId=${channelId}&q=${encodeURIComponent(videoDetail)}&type=video&maxResults=50&key=${apiKey}`;
             
             // Add exact Date Filters if the user selected them!
             if (startDate) {
