@@ -25,7 +25,7 @@ const VideoSummarizeView = () => {
             : null;
     };
 
-// --- AI SEARCH HANDLER ---
+// --- YOUTUBE DATA API v3 SEARCH HANDLER ---
     const handleSearch = async (e) => {
         e.preventDefault();
         if (!videoDetail.trim()) {
@@ -39,85 +39,74 @@ const VideoSummarizeView = () => {
         setHasSearched(true); 
 
         try {
-            const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-            if (!apiKey) throw new Error("Missing Gemini API Key in .env file.");
+            // You can use a specific YouTube API Key, or fallback to the Gemini one if they share a Google Cloud project
+            const apiKey = import.meta.env.VITE_YOUTUBE_API_KEY || import.meta.env.VITE_GEMINI_API_KEY; 
+            if (!apiKey) throw new Error("Missing API Key in .env file.");
 
-            const dateContext = (startDate && endDate) 
-                ? `วันที่เผยแพร่อยู่ระหว่าง ${startDate} ถึง ${endDate}` 
-                : "ค้นหาวิดีโอที่เกี่ยวข้องและใหม่ล่าสุด";
-
-            // 🟢 FIXED PROMPT: Combined your Thai request with the required JSON formatting rules
-            const prompt = `You are a helpful YouTube research assistant. ช่วยค้นหาวิดีโอจากช่อง YouTube 'iHAVECPU' ที่มีเนื้อหาเกี่ยวกับ "${videoDetail}" โดยเน้น ${dateContext}
+            const channelId = "UCGVXgdliyi9hv-NiLJ7gG0w"; // 🟢 Official iHAVECPU Channel ID
             
-            Instructions:
-            1. Use Google Search to find real, working YouTube links specifically from the iHAVECPU channel.
-            2. Even if it is only a partial match to the topic, include it.
-            3. Try to provide up to 6 results.
-            4. Write the "summary" in Thai.
+            // --- 1. SEARCH FOR VIDEOS ---
+            let searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&channelId=${channelId}&q=${encodeURIComponent(videoDetail)}&type=video&maxResults=6&key=${apiKey}`;
             
-            You MUST format your response strictly as a JSON array of objects. Do not include any conversational text. 
-            Each object must use these exact keys:
-            [
-              {
-                "title": "ชื่อวิดีโอ",
-                "channel": "iHAVECPU",
-                "views": "ยอดวิวโดยประมาณ (เช่น 100K views)",
-                "link": "The YouTube URL (https://www.youtube.com/watch?v=...)",
-                "summary": "สรุปเนื้อหาวิดีโอสั้นๆ 1-2 ประโยค"
-              }
-            ]
-            
-            Output ONLY the raw JSON array. Start with [ and end with ]. Do not wrap it in markdown.`;
-
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    contents: [{ parts: [{ text: prompt }] }],
-                    tools: [{ googleSearch: {} }] 
-                })
-            });
-
-            if (!response.ok) {
-                // Catch Google Rate Limits smoothly
-                if (response.status === 429) {
-                    throw new Error("Whoa, too fast! Google API limit reached. Please wait 15 seconds and try again.");
-                }
-                const errData = await response.json();
-                throw new Error(errData.error?.message || "Failed to fetch from Gemini API");
+            // Add exact Date Filters if the user selected them!
+            if (startDate) {
+                // YouTube requires RFC 3339 format (e.g. 2026-02-24T00:00:00Z)
+                searchUrl += `&publishedAfter=${new Date(startDate).toISOString()}`;
+            }
+            if (endDate) {
+                const end = new Date(endDate);
+                end.setHours(23, 59, 59); // Set to end of the day
+                searchUrl += `&publishedBefore=${end.toISOString()}`;
             }
 
-            const data = await response.json();
+            const searchResponse = await fetch(searchUrl);
+            if (!searchResponse.ok) {
+                const errData = await searchResponse.json();
+                throw new Error(`YouTube API Error: ${errData.error?.message || "Failed to search"}`);
+            }
             
-            if (!data.candidates || data.candidates.length === 0) {
-                 throw new Error("Gemini returned no response.");
-            }
+            const searchData = await searchResponse.json();
 
-            const candidate = data.candidates[0];
-            if (candidate.finishReason && candidate.finishReason !== 'STOP') {
-                throw new Error(`AI blocked the request. Reason: ${candidate.finishReason}`);
-            }
-
-            let rawText = candidate.content?.parts?.[0]?.text;
-            if (!rawText || !rawText.trim()) {
-                throw new Error("No matching data found. Try broader keywords.");
-            }
-
-            // Clean the output
-            const jsonMatch = rawText.match(/\[[\s\S]*\]/);
-            if (!jsonMatch) {
-                console.error("Raw AI Output:", rawText);
-                throw new Error("AI did not return the data in the expected format. Please try again.");
-            }
-
-            const parsedResults = JSON.parse(jsonMatch[0]);
-            
-            // If the AI returned an empty array, it couldn't find anything
-            if (Array.isArray(parsedResults) && parsedResults.length === 0) {
+            // If no videos match the search query, stop here
+            if (!searchData.items || searchData.items.length === 0) {
                 setResults([]);
-            } else {
-                setResults(Array.isArray(parsedResults) ? parsedResults : [parsedResults]);
+                setIsSearching(false);
+                return;
             }
+
+            // --- 2. FETCH EXACT VIEW COUNTS ---
+            // The search API doesn't return view counts, so we pull all the IDs and ask YouTube for their stats
+            const videoIds = searchData.items.map(item => item.id.videoId).join(',');
+            const statsUrl = `https://www.googleapis.com/youtube/v3/videos?part=statistics&id=${videoIds}&key=${apiKey}`;
+            
+            const statsResponse = await fetch(statsUrl);
+            const statsData = await statsResponse.json();
+
+            // Create a lookup map to match views to the correct video ID
+            const viewsMap = {};
+            if (statsData.items) {
+                statsData.items.forEach(item => {
+                    // Format view count nicely (e.g., 1500000 -> 1.5M, 1500 -> 1.5K)
+                    let count = parseInt(item.statistics.viewCount) || 0;
+                    let formattedViews = count;
+                    if (count >= 1000000) formattedViews = (count / 1000000).toFixed(1) + 'M';
+                    else if (count >= 1000) formattedViews = (count / 1000).toFixed(1) + 'K';
+                    
+                    viewsMap[item.id] = `${formattedViews} views`;
+                });
+            }
+
+            // --- 3. FORMAT FOR THE UI ---
+            const formattedResults = searchData.items.map(item => ({
+                // Clean up weird HTML characters like &quot; and &#39;
+                title: item.snippet.title.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&'),
+                channel: item.snippet.channelTitle || "iHAVECPU",
+                views: viewsMap[item.id.videoId] || "N/A",
+                link: `https://www.youtube.com/watch?v=${item.id.videoId}`,
+                summary: item.snippet.description || "คลิกเพื่อดูรายละเอียดเพิ่มเติมในวิดีโอ"
+            }));
+
+            setResults(formattedResults);
 
         } catch (err) {
             console.error("Search Error:", err);
@@ -126,7 +115,6 @@ const VideoSummarizeView = () => {
             setIsSearching(false);
         }
     };
-   
 
     return (
         <div className="flex flex-col h-full bg-[#f8fafc] font-sans relative overflow-hidden">
