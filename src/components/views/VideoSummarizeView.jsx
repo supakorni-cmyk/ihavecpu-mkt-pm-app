@@ -43,32 +43,31 @@ const VideoSummarizeView = () => {
             if (!apiKey) throw new Error("Missing Gemini API Key in .env file.");
 
             const dateContext = (startDate && endDate) 
-                ? `Preferably published between ${startDate} and ${endDate}.` 
-                : "Find the best matches available.";
+                ? `วันที่เผยแพร่อยู่ระหว่าง ${startDate} ถึง ${endDate}` 
+                : "ค้นหาวิดีโอที่เกี่ยวข้องและใหม่ล่าสุด";
 
-            // 🟢 RELAXED PROMPT: Encourages the AI to find videos without threatening it
-            const prompt = `You are a helpful YouTube research assistant. "ช่วยค้นหาวิดีโอจากช่อง YouTube 'iHAVECPU' ที่มีเนื้อหาเกี่ยวกับ "${videoDetail}" โดยเน้นวิดีโอที่ลงในช่วง ${dateContext}`
-        
+            // 🟢 FIXED PROMPT: Combined your Thai request with the required JSON formatting rules
+            const prompt = `You are a helpful YouTube research assistant. ช่วยค้นหาวิดีโอจากช่อง YouTube 'iHAVECPU' ที่มีเนื้อหาเกี่ยวกับ "${videoDetail}" โดยเน้น ${dateContext}
             
-            // Please search for videos from iHAVECPU that relate to this topic: "${videoDetail}".
-            // ${dateContext}
+            Instructions:
+            1. Use Google Search to find real, working YouTube links specifically from the iHAVECPU channel.
+            2. Even if it is only a partial match to the topic, include it.
+            3. Try to provide up to 6 results.
+            4. Write the "summary" in Thai.
             
-            // Instructions:
-            // 1. Use Google Search to find YouTube links specifically from the iHAVECPU channel.
-            // 2. Even if it is only a partial match to the topic, include it! We want to see options.
-            // 3. Try to provide up to 6 results.
+            You MUST format your response strictly as a JSON array of objects. Do not include any conversational text. 
+            Each object must use these exact keys:
+            [
+              {
+                "title": "ชื่อวิดีโอ",
+                "channel": "iHAVECPU",
+                "views": "ยอดวิวโดยประมาณ (เช่น 100K views)",
+                "link": "The YouTube URL (https://www.youtube.com/watch?v=...)",
+                "summary": "สรุปเนื้อหาวิดีโอสั้นๆ 1-2 ประโยค"
+              }
+            ]
             
-            // Format your response strictly as a JSON array of objects. 
-            // Each object must use these exact keys:
-            // {
-            //   "title": "The title of the video",
-            //   "channel": "iHAVECPU",
-            //   "views": "Estimated view count (e.g., 100K views)",
-            //   "link": "The YouTube URL (https://www.youtube.com/watch?v=...)",
-            //   "summary": "A brief 1-2 sentence summary of the content"
-            // }
-            
-            // Output ONLY the raw JSON array. Start with [ and end with ]. Do not wrap it in markdown.`;
+            Output ONLY the raw JSON array. Start with [ and end with ]. Do not wrap it in markdown.`;
 
             const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
                 method: 'POST',
@@ -80,6 +79,10 @@ const VideoSummarizeView = () => {
             });
 
             if (!response.ok) {
+                // Catch Google Rate Limits smoothly
+                if (response.status === 429) {
+                    throw new Error("Whoa, too fast! Google API limit reached. Please wait 15 seconds and try again.");
+                }
                 const errData = await response.json();
                 throw new Error(errData.error?.message || "Failed to fetch from Gemini API");
             }
@@ -100,16 +103,16 @@ const VideoSummarizeView = () => {
                 throw new Error("No matching data found. Try broader keywords.");
             }
 
-            // Clean the output just in case the AI included search citations at the end
+            // Clean the output
             const jsonMatch = rawText.match(/\[[\s\S]*\]/);
             if (!jsonMatch) {
                 console.error("Raw AI Output:", rawText);
-                throw new Error("AI did not return the data in the expected format.");
+                throw new Error("AI did not return the data in the expected format. Please try again.");
             }
 
             const parsedResults = JSON.parse(jsonMatch[0]);
             
-            // If the AI returned an empty array, it truly couldn't find anything
+            // If the AI returned an empty array, it couldn't find anything
             if (Array.isArray(parsedResults) && parsedResults.length === 0) {
                 setResults([]);
             } else {
