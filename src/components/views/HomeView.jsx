@@ -25,7 +25,7 @@ const INITIAL_TEAM = [
   { id: 2, name: 'SPARKIEZZ', email: 'supakorn.i@ihavecpu.com', role: 'Assistant Manager', avatar: SYSTEM_AVATARS.supakorn },
   { id: 3, name: 'อียุ้ยคนสวย', email: 'sophisa.p@ihavecpu.com', role: 'Assistant Manager', avatar: SYSTEM_AVATARS.sophisa },
   { id: 4, name: 'ณ๊องส์บิ๋ม', email: 'suchada.t@ihavecpu.com', role: 'Graphic Head', avatar: SYSTEM_AVATARS.suchada },
-  { id: 5, name: 'มดตัวน้อยตัวนิด', email: 'nichapa.w@ihavecpu.com', role: 'Marketing Coordinator', avatar: SYSTEM_AVATARS.nichapa}
+  { id: 5, name: 'มดตะนอยร้อยแรงม้า', email: 'nichapa.w@ihavecpu.com', role: 'Marketing Coordinator', avatar: SYSTEM_AVATARS.nichapa}
 ];
 
 const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead, clearAllNotifications, users = [], onUpdateTask, onDeleteTask }) => {
