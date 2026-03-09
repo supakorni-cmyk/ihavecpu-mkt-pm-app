@@ -23,11 +23,10 @@ import {
   MessageSquare,
   Copy,
   Zap,
-  Activity,
   Users,
   Target,
-  ArrowUpCircle, ArrowDownCircle, Search, Edit2, Trash2, Calendar, 
-  TrendingUp, DollarSign
+  ArrowUpCircle, ArrowDownCircle, Search, Edit2,
+  DollarSign
 } from 'lucide-react';
 
 import { 
