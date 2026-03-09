@@ -25,7 +25,7 @@ import {
   Zap,
   Users,
   Target,
-  ArrowUpCircle, ArrowDownCircle, Search, Edit2,
+  ArrowUpCircle, ArrowDownCircle, Search,
   DollarSign
 } from 'lucide-react';
 
