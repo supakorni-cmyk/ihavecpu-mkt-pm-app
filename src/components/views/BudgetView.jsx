@@ -82,13 +82,13 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
     const [incomeMonthFilter, setIncomeMonthFilter] = useState('All');
     const [incomeBrandFilter, setIncomeBrandFilter] = useState('All');
 
-    // --- 🟢 NEW: GOOGLE SHEETS ROI STATE ---
+    // --- GOOGLE SHEETS ROI STATE ---
     const [roiData, setRoiData] = useState([]);
-    const [m2n5Data, setM2n5Data] = useState([]); // State for M2:N5 specific visualizer
+    const [m2n5Data, setM2n5Data] = useState([]); 
     const [isRoiLoading, setIsRoiLoading] = useState(false);
     const [roiError, setRoiError] = useState('');
     
-    // 🟢 NEW FILTERS: Influencer and Month
+    // ROI FILTERS
     const [roiInfluencerFilter, setRoiInfluencerFilter] = useState('ALL');
     const [roiMonthFilter, setRoiMonthFilter] = useState('ALL');
 
@@ -134,7 +134,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                 
                 if (!rows || rows.length === 0) return;
 
-                // 🟢 EXTRACTION: Target exactly M2:N5
+                // EXTRACTION: Target exactly M2:N5
                 if (extractedM2N5.length === 0 && rows.length > 1) {
                     for(let i = 1; i <= 4; i++) {
                         if (rows[i] && rows[i].length > 12 && rows[i][12]) {
@@ -146,14 +146,42 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                     }
                 }
 
-                // 🟢 NEW COLUMN MAPPING BASED ON YOUR TEMPLATE
+                // Parse standard rows
                 rows.forEach((row, rowIdx) => {
                     if (rowIdx === 0) return; // Skip Header
 
                     const cleanNum = (str) => parseFloat((str || "0").toString().replace(/[^0-9.-]+/g,""));
                     
-                    // A = Index 0 (Date)
-                    const month = row[0] || "Unknown Date";
+                    // 🟢 ULTIMATE DATE PARSER (Safely inside the loop)
+                    let rawDate = row[0] ? String(row[0]).trim() : "";
+                    let monthStr = "Unknown Date";
+
+                    if (rawDate) {
+                        const match = rawDate.match(/(\d+)[/-](\d+)[/-](\d+)/);
+                        if (match) {
+                            let part1 = parseInt(match[1], 10);
+                            let part2 = parseInt(match[2], 10);
+                            
+                            let monthNum = part2; 
+                            if (part1 > 1000) monthNum = part2; 
+                            else if (part1 > 12) monthNum = part2; 
+                            else if (part2 > 12) monthNum = part1; 
+
+                            const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+                            if (monthNum >= 1 && monthNum <= 12) {
+                                monthStr = monthNames[monthNum - 1]; 
+                            } else {
+                                monthStr = rawDate; 
+                            }
+                        } else {
+                            const dateObj = new Date(rawDate);
+                            if (!isNaN(dateObj.getTime())) {
+                                monthStr = dateObj.toLocaleString('en-US', { month: 'short' });
+                            } else {
+                                monthStr = rawDate; 
+                            }
+                        }
+                    }
                     
                     // B = Index 1 (Platform)
                     const platform = row[1] || "Unknown";
@@ -167,16 +195,15 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                     // I = Index 8 (EMV/Media Value)
                     const emv = cleanNum(row[8]) || 0;
                     
-                    // 🟢 Set Influencer Name from the Tab/Sheet Name!
                     const influencer = currentSheetName; 
                     
-                    // Only push rows that actually have some numeric cost or EMV to avoid blank rows
+                    // Only push rows that actually have some numeric cost or EMV
                     if (emv > 0 || cost > 0 || views > 0) {
                         combinedData.push({
                             id: `${currentSheetName}-${rowIdx}`,
-                            month: month,
+                            month: monthStr,
                             influencer: influencer,
-                            platform: platform, // Stored in data if you ever want to filter by Platform later!
+                            platform: platform, 
                             reach: views,
                             mediaValue: emv,
                             spend: cost,
@@ -199,35 +226,11 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
         } finally {
             setIsRoiLoading(false);
         }
-
-        // 🟢 SMART DATE PARSER: Handles DD/MM/YYYY format perfectly
-        let monthStr = row[0] ? row[0].trim() : "Unknown Date";
-
-        if (monthStr !== "Unknown Date" && monthStr !== "") {
-            if (monthStr.includes('/')) {
-                // Splits "25/08/2026" into ["25", "08", "2026"]
-                const parts = monthStr.split('/');
-                
-                // Assuming DD/MM/YYYY format, the month is the middle number
-                const monthNum = parseInt(parts[1], 10); 
-                
-                const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-                if (monthNum >= 1 && monthNum <= 12) {
-                    monthStr = monthNames[monthNum - 1]; // Convert "08" to "Aug"
-                }
-            } else {
-                // Fallback just in case some rows are formatted differently
-                const dateObj = new Date(monthStr);
-                if (!isNaN(dateObj.getTime())) {
-                    monthStr = dateObj.toLocaleString('en-US', { month: 'short' });
-                }
-            }
-        }
     };
 
     // Filter Dropdown Options
     const uniqueInfluencers = ["ALL", ...new Set(roiData.map(d => d.influencer))];
-    const uniqueMonths = ["ALL", ...new Set(roiData.map(d => d.monthStr))];
+    const uniqueMonths = ["ALL", ...new Set(roiData.map(d => d.month))];
 
     // Computed Filtered Data
     const filteredROI = roiData.filter(item => {
@@ -242,9 +245,8 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
     const roiTotalSpend = filteredROI.reduce((sum, item) => sum + item.spend, 0);
     const roiTotalSavings = filteredROI.reduce((sum, item) => sum + item.savings, 0);
     const roiAvgEfficiency = roiTotalSpend > 0 ? (roiTotalMediaValue / roiTotalSpend).toFixed(2) : 0;
-    // ------------------------------------------------
 
-    // 🟢 NEW: Calculate Monthly Breakdown for the new chart
+    // Calculate Monthly Breakdown for the new chart
     const monthlyRoiMap = {};
     filteredROI.forEach(item => {
         if (!monthlyRoiMap[item.month]) {
@@ -626,7 +628,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
 
                     )}
 
-                    {/* --- 🟢 NEW: INFLUENCER ROI TAB --- */}
+                    {/* --- INFLUENCER ROI TAB --- */}
                     {activeTab === 'influencer_roi' && (
                         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-[1600px] mx-auto pb-12">
                             
@@ -658,7 +660,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                         </div>
                                         
                                         <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
-                                            {/* 🟢 Influencer Filter (Swapped) */}
+                                            {/* Influencer Filter */}
                                             <div className="flex items-center gap-2 bg-gray-50 p-2 rounded-xl border border-gray-200">
                                                 <Users size={14} className="text-gray-400 ml-2" />
                                                 <select 
@@ -671,7 +673,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                                     ))}
                                                 </select>
                                             </div>
-                                            {/* 🟢 Date/Month Filter (Swapped) */}
+                                            {/* Date/Month Filter */}
                                             <div className="flex items-center gap-2 bg-gray-50 p-2 rounded-xl border border-gray-200">
                                                 <Calendar size={14} className="text-gray-400 ml-2" />
                                                 <select 
@@ -762,7 +764,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                             </div>
                                         </div>
 
-                                        {/* 🟢 NEW: Extra Visualizer from M2:N5 */}
+                                        {/* Extra Visualizer from M2:N5 */}
                                         {m2n5Data.length > 0 ? (
                                             <div className="bg-white p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 flex flex-col h-[450px]">
                                                 <h3 className="text-lg font-black text-gray-800 mb-6 flex items-center gap-2">
@@ -787,7 +789,8 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                             </div>
                                         )}
                                     </div>
-                                    {/* 🟢 NEW: Full Width Monthly Breakdown Chart */}
+                                    
+                                    {/* Monthly Breakdown Chart */}
                                     <div className="bg-white p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 flex flex-col h-[450px] mt-8">
                                         <h3 className="text-lg font-black text-gray-800 mb-6 flex items-center gap-2">
                                             <Calendar className="text-blue-500"/> Monthly Trend: Media Value vs Spend
@@ -822,7 +825,6 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
 
                     {/* --- INCOME / SPENDING DATA TABLES --- */}
                     {(activeTab === 'income' || activeTab === 'spending') && (
-                        /* 🟢 DATA TABLE FOR INCOME/SPENDING (Scrollable) */
                         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-x-auto">
                             <table className="w-full text-sm text-left">
                                 <thead className="text-xs text-gray-500 uppercase bg-gray-50 font-bold border-b border-gray-200 sticky top-0 z-10 shadow-sm">
