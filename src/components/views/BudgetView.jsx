@@ -139,8 +139,8 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                     for(let i = 1; i <= 4; i++) {
                         if (rows[i] && rows[i].length > 12 && rows[i][12]) {
                             extractedM2N5.push({
-                                name: rows[i][11], 
-                                value: parseFloat((rows[i][12] || "0").toString().replace(/[^0-9.-]+/g,"")) || 0 
+                                name: rows[i][10], 
+                                value: parseFloat((rows[i][11] || "0").toString().replace(/[^0-9.-]+/g,"")) || 0 
                             });
                         }
                     }
