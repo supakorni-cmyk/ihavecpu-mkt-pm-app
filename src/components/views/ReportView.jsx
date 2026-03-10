@@ -357,8 +357,8 @@ const ReportView = () => {
                 </div>
 
                 {/* RIGHT PANEL: The Canvas */}
-                <div className="flex-1 bg-[#e2e8f0] overflow-y-auto custom-scrollbar p-8 lg:p-12 relative flex flex-col items-center gap-8 print:p-0 print:bg-transparent print:block print:overflow-visible">
-                    
+                <div className="flex-1 bg-[#e2e8f0] overflow-y-auto custom-scrollbar p-8 lg:p-12 relative flex flex-col items-center gap-16 print:p-0 print:bg-transparent print:block print:overflow-visible">
+                                    
                     {/* Canvas Toolbar (Hidden when printing) */}
                     <div className="absolute top-6 right-12 flex gap-3 z-20 print:hidden">
                         <button 
@@ -390,7 +390,7 @@ const ReportView = () => {
                     {!isGenerating && pages.map((pageHtml, index) => (
                         <div 
                             key={index}
-                            className="bg-white w-full max-w-[850px] min-h-[1100px] shadow-2xl rounded-sm ring-1 ring-gray-900/5 p-12 sm:p-16 flex flex-col relative print:shadow-none print:ring-0 print:p-0 print:max-w-none print:w-full print:break-after-page print:h-auto print:min-h-0"
+                            className="bg-white w-full max-w-[850px] min-h-[1100px] shadow-2xl rounded-sm ring-1 ring-gray-900/5 p-16 sm:p-24 flex flex-col relative print:shadow-none print:ring-0 print:p-20 print:max-w-none print:w-full print:break-after-page print:h-auto print:min-h-0"
                         >
                             {/* Page 1 Only: Document Header & Logo */}
                             {index === 0 && (
