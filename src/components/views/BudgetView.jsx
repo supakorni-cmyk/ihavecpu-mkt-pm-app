@@ -139,8 +139,8 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                     for(let i = 1; i <= 4; i++) {
                         if (rows[i] && rows[i].length > 12 && rows[i][12]) {
                             extractedM2N5.push({
-                                name: rows[i][12], 
-                                value: parseFloat((rows[i][13] || "0").toString().replace(/[^0-9.-]+/g,"")) || 0 
+                                name: rows[i][11], 
+                                value: parseFloat((rows[i][12] || "0").toString().replace(/[^0-9.-]+/g,"")) || 0 
                             });
                         }
                     }
@@ -728,7 +728,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                         {m2n5Data.length > 0 ? (
                                             <div className="bg-white p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 flex flex-col h-[450px]">
                                                 <h3 className="text-lg font-black text-gray-800 mb-6 flex items-center gap-2">
-                                                    <BarChart3 className="text-indigo-500"/> Breakdown (M2:N5)
+                                                    <BarChart3 className="text-indigo-500"/> Breakdown
                                                 </h3>
                                                 <div className="flex-1 w-full">
                                                     <ResponsiveContainer width="100%" height="100%">
@@ -745,7 +745,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                         ) : (
                                             <div className="bg-white p-8 rounded-3xl border border-gray-100 border-dashed flex flex-col items-center justify-center text-gray-400 font-bold h-[450px]">
                                                 <PieChartIcon size={48} className="mb-4 text-gray-200" />
-                                                No breakdown data found in M2:N5
+                                                No breakdown data found
                                             </div>
                                         )}
                                     </div>
