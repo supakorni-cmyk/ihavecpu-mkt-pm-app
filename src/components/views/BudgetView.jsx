@@ -786,9 +786,14 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                                     <ResponsiveContainer width="100%" height="100%">
                                                         <BarChart data={m2n5Data} layout="vertical" margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
                                                             <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9"/>
-                                                            <XAxis type="number" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} tickFormatter={(val) => `฿${val/1000}k`}/>
+                                                            {/* Removed manual division, used auto-formatter */}
+                                                            <XAxis type="number" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} tickFormatter={(val) => formatCompactNumber(val)}/>
                                                             <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12, fontWeight: 600}} width={120}/>
-                                                            <RechartsTooltip cursor={{fill: '#f8fafc'}} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 15px rgba(0,0,0,0.1)', fontWeight: 'bold' }}/>
+                                                            <RechartsTooltip 
+                                                                cursor={{fill: '#f8fafc'}} 
+                                                                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 15px rgba(0,0,0,0.1)', fontWeight: 'bold' }}
+                                                                formatter={(value) => formatCompactNumber(value)}
+                                                            />
                                                             <Bar dataKey="value" name="Value" fill="#8b5cf6" radius={[0,6,6,0]} barSize={24} />
                                                         </BarChart>
                                                     </ResponsiveContainer>
