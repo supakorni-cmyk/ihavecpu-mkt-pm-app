@@ -763,9 +763,9 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                             <h3 className="text-lg font-black text-gray-800 mb-6 flex items-center gap-2">
                                                 <PieChartIcon className="text-orange-500"/> Media Value vs Spend
                                             </h3>
-                                            <div className="flex-1 w-full">
+                                            <div className="flex-1 w-full min-h-[250px]">
                                                 {filteredROI.length > 0 ? (
-                                                    <ResponsiveContainer width="100%" height="100%">
+                                                    <ResponsiveContainer width="100%" height="100%" minHeight={250}>
                                                         <BarChart data={filteredROI} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                                                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9"/>
                                                             <XAxis dataKey="influencer" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12, fontWeight: 600}} dy={10}/>
@@ -793,8 +793,8 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                                 <h3 className="text-lg font-black text-gray-800 mb-6 flex items-center gap-2">
                                                     <BarChart3 className="text-indigo-500"/> Breakdown
                                                 </h3>
-                                                <div className="flex-1 w-full">
-                                                    <ResponsiveContainer width="100%" height="100%">
+                                                <div className="flex-1 w-full min-h-[250px]">
+                                                    <ResponsiveContainer width="100%" height="100%" minHeight={250}>
                                                         <BarChart data={m2n5Data} layout="vertical" margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
                                                             <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9"/>
                                                             {/* Removed manual division, used auto-formatter */}
@@ -823,9 +823,9 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                         <h3 className="text-lg font-black text-gray-800 mb-6 flex items-center gap-2">
                                             <Calendar className="text-blue-500"/> Monthly Trend: Media Value vs Spend
                                         </h3>
-                                        <div className="flex-1 w-full">
+                                        <div className="flex-1 w-full min-h-[250px]">
                                             {monthlyROIBreakdown.length > 0 ? (
-                                                <ResponsiveContainer width="100%" height="100%">
+                                                <ResponsiveContainer width="100%" height="100%" minHeight={250}>
                                                     <BarChart data={monthlyROIBreakdown} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                                                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9"/>
                                                         <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12, fontWeight: 600}} dy={10}/>
