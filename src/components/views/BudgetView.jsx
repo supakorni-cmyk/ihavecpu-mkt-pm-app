@@ -84,13 +84,14 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
 
     // --- 🟢 NEW: GOOGLE SHEETS ROI STATE ---
     const [roiData, setRoiData] = useState([]);
+    const [m2n5Data, setM2n5Data] = useState([]); // State for M2:N5 specific visualizer
     const [isRoiLoading, setIsRoiLoading] = useState(false);
     const [roiError, setRoiError] = useState('');
     
-    const [roiSheetFilter, setRoiSheetFilter] = useState('ALL');
+    // 🟢 NEW FILTERS: Influencer and Month
     const [roiInfluencerFilter, setRoiInfluencerFilter] = useState('ALL');
+    const [roiMonthFilter, setRoiMonthFilter] = useState('ALL');
 
-    // Fetch data from Google Sheets when the ROI tab is opened
     useEffect(() => {
         if (activeTab === 'influencer_roi' && roiData.length === 0) {
             fetchSheetData();
@@ -101,15 +102,12 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
         setIsRoiLoading(true);
         setRoiError('');
         try {
-            // Reusing your API key
             const apiKey = import.meta.env.VITE_YOUTUBE_API_KEY || import.meta.env.VITE_GEMINI_API_KEY;
             if (!apiKey) throw new Error("Missing API Key in .env file.");
 
             // ⚠️ YOUR GOOGLE SHEET ID GOES HERE ⚠️
             const SPREADSHEET_ID = "1JwM6_EILqUNC6C0hJEgrIFsfE-xB3kTK1PVIwR-BsZM"; 
             
-            // --- 1. FETCH ALL SHEET NAMES ---
-            // First, we ask Google for the names of every tab in the document
             const metaResponse = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}?fields=sheets.properties.title&key=${apiKey}`);
             if (!metaResponse.ok) {
                 const errData = await metaResponse.json();
@@ -118,11 +116,8 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
             const metaData = await metaResponse.json();
             const sheetNames = metaData.sheets.map(s => s.properties.title);
 
-            // --- 2. BUILD THE BATCH REQUEST ---
-            // Create a query that asks for Columns A:E from EVERY sheet at once
-            const rangesQuery = sheetNames.map(name => `ranges=${encodeURIComponent(name)}!A:E`).join('&');
+            const rangesQuery = sheetNames.map(name => `ranges=${encodeURIComponent(name)}!A:Z`).join('&');
 
-            // --- 3. FETCH ALL DATA AT ONCE ---
             const dataResponse = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values:batchGet?${rangesQuery}&key=${apiKey}`);
             if (!dataResponse.ok) {
                 const errData = await dataResponse.json();
@@ -131,37 +126,52 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
             const batchData = await dataResponse.json();
             
             let combinedData = [];
+            let extractedM2N5 = [];
 
-            // --- 4. COMBINE AND PARSE THE DATA ---
             batchData.valueRanges.forEach((rangeData, sheetIndex) => {
                 const currentSheetName = sheetNames[sheetIndex];
                 const rows = rangeData.values;
                 
-                // Skip if this specific sheet is empty or only has a header row
-                if (!rows || rows.length < 2) return;
+                if (!rows || rows.length === 0) return;
 
-                // Parse the rows
-                const parsedRows = rows.slice(1).map((row, rowIdx) => {
+                // 🟢 EXTRACTION: Target exactly M2:N5 (Rows index 1 to 4, Columns index 12 & 13)
+                if (extractedM2N5.length === 0 && rows.length > 1) {
+                    for(let i = 1; i <= 4; i++) {
+                        if (rows[i] && rows[i].length > 12 && rows[i][12]) {
+                            extractedM2N5.push({
+                                name: rows[i][12], // Column M (Label)
+                                value: parseFloat((rows[i][13] || "0").toString().replace(/[^0-9.-]+/g,"")) || 0 // Column N (Value)
+                            });
+                        }
+                    }
+                }
+
+                // Parse standard rows for the main dashboard
+                rows.forEach((row, rowIdx) => {
+                    if (rowIdx === 0) return; // Skip Header
+
                     const cleanNum = (str) => parseFloat((str || "0").toString().replace(/[^0-9.-]+/g,""));
                     
+                    // 🟢 ASSUMPTION: Col A = Month, Col B = Influencer Name
+                    const month = row[0] || "Unknown Date";
+                    const influencer = row[1] || "Unknown Influencer";
                     const reach = cleanNum(row[2]);
                     const mediaValue = cleanNum(row[3]);
                     const spend = cleanNum(row[4]);
                     
-                    return {
-                        id: `${currentSheetName}-${rowIdx}`,
-                        // If Column A (Campaign Name) is empty, use the actual Tab name instead!
-                        sheetName: row[0] || currentSheetName, 
-                        influencer: row[1] || "Unknown Influencer",
-                        reach: reach,
-                        mediaValue: mediaValue,
-                        spend: spend,
-                        savings: mediaValue - spend,
-                        efficiency: spend > 0 ? parseFloat((mediaValue / spend).toFixed(2)) : 0
-                    };
+                    if (mediaValue > 0 || spend > 0) {
+                        combinedData.push({
+                            id: `${currentSheetName}-${rowIdx}`,
+                            month: month,
+                            influencer: influencer,
+                            reach: reach,
+                            mediaValue: mediaValue,
+                            spend: spend,
+                            savings: mediaValue - spend,
+                            efficiency: spend > 0 ? parseFloat((mediaValue / spend).toFixed(2)) : 0
+                        });
+                    }
                 });
-
-                combinedData = [...combinedData, ...parsedRows];
             });
 
             if (combinedData.length === 0) {
@@ -169,6 +179,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
             }
 
             setRoiData(combinedData);
+            setM2n5Data(extractedM2N5); // Save the M2:N5 block to state!
         } catch (err) {
             console.error("Sheet Fetch Error:", err);
             setRoiError(err.message);
@@ -176,15 +187,16 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
             setIsRoiLoading(false);
         }
     };
+
     // Filter Dropdown Options
-    const uniqueSheets = ["ALL", ...new Set(roiData.map(d => d.sheetName))];
     const uniqueInfluencers = ["ALL", ...new Set(roiData.map(d => d.influencer))];
+    const uniqueMonths = ["ALL", ...new Set(roiData.map(d => d.month))];
 
     // Computed Filtered Data
     const filteredROI = roiData.filter(item => {
-        const matchSheet = roiSheetFilter === 'ALL' || item.sheetName === roiSheetFilter;
         const matchInfluencer = roiInfluencerFilter === 'ALL' || item.influencer === roiInfluencerFilter;
-        return matchSheet && matchInfluencer;
+        const matchMonth = roiMonthFilter === 'ALL' || item.month === roiMonthFilter;
+        return matchInfluencer && matchMonth;
     });
 
     // KPI Totals
@@ -237,25 +249,6 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
     
     const topIncome = getTopTransactions('income');
     const topSpending = getTopTransactions('spending');
-
-    const uniqueMonths = useMemo(() => {
-        const months = new Set();
-        transactions.filter(t => t.type === 'income').forEach(t => {
-            if (t.date) {
-                const d = new Date(t.date);
-                months.add(`${d.toLocaleString('default', { month: 'long' })} ${d.getFullYear()}`);
-            }
-        });
-        return Array.from(months);
-    }, [transactions]);
-
-    const uniqueBrands = useMemo(() => {
-        const brands = new Set();
-        transactions.filter(t => t.type === 'income').forEach(t => {
-            if (t.brand) brands.add(t.brand);
-        });
-        return Array.from(brands).sort();
-    }, [transactions]);
 
     const filteredIncomeTransactions = useMemo(() => {
         return transactions
@@ -609,23 +602,12 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                             </div>
                                             <div>
                                                 <h3 className="font-bold text-gray-800">Campaign ROAS Dashboard</h3>
-                                                <p className="text-xs text-gray-500">Filter by sheet or influencer to recalculate metrics</p>
+                                                <p className="text-xs text-gray-500">Filter by Influencer or Month to recalculate metrics</p>
                                             </div>
                                         </div>
                                         
                                         <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
-                                            <div className="flex items-center gap-2 bg-gray-50 p-2 rounded-xl border border-gray-200">
-                                                <Filter size={14} className="text-gray-400 ml-2" />
-                                                <select 
-                                                    className="bg-transparent border-none text-sm font-bold text-gray-700 outline-none pr-4 cursor-pointer"
-                                                    value={roiSheetFilter}
-                                                    onChange={(e) => setRoiSheetFilter(e.target.value)}
-                                                >
-                                                    {uniqueSheets.map(sheet => (
-                                                        <option key={sheet} value={sheet}>{sheet === 'ALL' ? 'All Sheets (Campaigns)' : sheet}</option>
-                                                    ))}
-                                                </select>
-                                            </div>
+                                            {/* 🟢 Influencer Filter (Swapped) */}
                                             <div className="flex items-center gap-2 bg-gray-50 p-2 rounded-xl border border-gray-200">
                                                 <Users size={14} className="text-gray-400 ml-2" />
                                                 <select 
@@ -635,6 +617,19 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                                 >
                                                     {uniqueInfluencers.map(inf => (
                                                         <option key={inf} value={inf}>{inf === 'ALL' ? 'All Influencers' : inf}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            {/* 🟢 Date/Month Filter (Swapped) */}
+                                            <div className="flex items-center gap-2 bg-gray-50 p-2 rounded-xl border border-gray-200">
+                                                <Calendar size={14} className="text-gray-400 ml-2" />
+                                                <select 
+                                                    className="bg-transparent border-none text-sm font-bold text-gray-700 outline-none pr-4 cursor-pointer"
+                                                    value={roiMonthFilter}
+                                                    onChange={(e) => setRoiMonthFilter(e.target.value)}
+                                                >
+                                                    {uniqueMonths.map(month => (
+                                                        <option key={month} value={month}>{month === 'ALL' ? 'All Months' : month}</option>
                                                     ))}
                                                 </select>
                                             </div>
@@ -686,33 +681,60 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                         </div>
                                     </div>
 
-                                    {/* Visualizer Chart */}
-                                    <div className="bg-white p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100">
-                                        <h3 className="text-lg font-black text-gray-800 mb-6 flex items-center gap-2">
-                                            <PieChartIcon className="text-orange-500"/> Media Value vs Spend by Influencer
-                                        </h3>
-                                        <div className="h-[400px] w-full">
-                                            {filteredROI.length > 0 ? (
-                                                <ResponsiveContainer width="100%" height="100%">
-                                                    <BarChart data={filteredROI} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9"/>
-                                                        <XAxis dataKey="influencer" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12, fontWeight: 600}} dy={10}/>
-                                                        <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dx={-10} tickFormatter={(val) => `฿${val/1000}k`}/>
-                                                        <RechartsTooltip 
-                                                            cursor={{fill: '#f8fafc'}}
-                                                            contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', fontWeight: 'bold' }}
-                                                        />
-                                                        <Legend wrapperStyle={{ paddingTop: '20px', fontWeight: 'bold', color: '#64748b' }}/>
-                                                        <Bar dataKey="mediaValue" name="Earned Media Value (฿)" fill="#f97316" radius={[6,6,0,0]} />
-                                                        <Bar dataKey="spend" name="Actual Spend (฿)" fill="#cbd5e1" radius={[6,6,0,0]} />
-                                                    </BarChart>
-                                                </ResponsiveContainer>
-                                            ) : (
-                                                <div className="w-full h-full flex items-center justify-center text-gray-400 font-bold">
-                                                    No data available for these filters.
-                                                </div>
-                                            )}
+                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                        {/* Main Visualizer Chart */}
+                                        <div className="bg-white p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 flex flex-col h-[450px]">
+                                            <h3 className="text-lg font-black text-gray-800 mb-6 flex items-center gap-2">
+                                                <PieChartIcon className="text-orange-500"/> Media Value vs Spend
+                                            </h3>
+                                            <div className="flex-1 w-full">
+                                                {filteredROI.length > 0 ? (
+                                                    <ResponsiveContainer width="100%" height="100%">
+                                                        <BarChart data={filteredROI} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9"/>
+                                                            <XAxis dataKey="influencer" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12, fontWeight: 600}} dy={10}/>
+                                                            <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dx={-10} tickFormatter={(val) => `฿${val/1000}k`}/>
+                                                            <RechartsTooltip 
+                                                                cursor={{fill: '#f8fafc'}}
+                                                                contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', fontWeight: 'bold' }}
+                                                            />
+                                                            <Legend wrapperStyle={{ paddingTop: '20px', fontWeight: 'bold', color: '#64748b' }}/>
+                                                            <Bar dataKey="mediaValue" name="Earned Media Value (฿)" fill="#f97316" radius={[6,6,0,0]} />
+                                                            <Bar dataKey="spend" name="Actual Spend (฿)" fill="#cbd5e1" radius={[6,6,0,0]} />
+                                                        </BarChart>
+                                                    </ResponsiveContainer>
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center text-gray-400 font-bold">
+                                                        No data available for these filters.
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
+
+                                        {/* 🟢 NEW: Extra Visualizer from M2:N5 */}
+                                        {m2n5Data.length > 0 ? (
+                                            <div className="bg-white p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 flex flex-col h-[450px]">
+                                                <h3 className="text-lg font-black text-gray-800 mb-6 flex items-center gap-2">
+                                                    <BarChart3 className="text-indigo-500"/> Breakdown (M2:N5)
+                                                </h3>
+                                                <div className="flex-1 w-full">
+                                                    <ResponsiveContainer width="100%" height="100%">
+                                                        <BarChart data={m2n5Data} layout="vertical" margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
+                                                            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9"/>
+                                                            <XAxis type="number" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} tickFormatter={(val) => `฿${val/1000}k`}/>
+                                                            <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12, fontWeight: 600}} width={120}/>
+                                                            <RechartsTooltip cursor={{fill: '#f8fafc'}} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 15px rgba(0,0,0,0.1)', fontWeight: 'bold' }}/>
+                                                            <Bar dataKey="value" name="Value" fill="#8b5cf6" radius={[0,6,6,0]} barSize={24} />
+                                                        </BarChart>
+                                                    </ResponsiveContainer>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="bg-white p-8 rounded-3xl border border-gray-100 border-dashed flex flex-col items-center justify-center text-gray-400 font-bold h-[450px]">
+                                                <PieChartIcon size={48} className="mb-4 text-gray-200" />
+                                                No breakdown data found in M2:N5
+                                            </div>
+                                        )}
                                     </div>
                                 </>
                             )}
