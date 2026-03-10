@@ -134,13 +134,29 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                 
                 if (!rows || rows.length === 0) return;
 
-                // EXTRACTION: Target exactly M2:N5
+                // 🟢 EXTRACTION: Target exactly M2:N5 (With fallback and M/K multiplier support)
                 if (extractedM2N5.length === 0 && rows.length > 1) {
                     for(let i = 1; i <= 4; i++) {
-                        if (rows[i] && rows[i].length > 12 && rows[i][12]) {
+                        if (rows[i]) {
+                            // Check M (index 12) and N (index 13). Fallback to L (11) and M (12) if empty.
+                            let nameCell = rows[i][12] ? String(rows[i][12]).trim() : "";
+                            let valCell = rows[i][13] ? String(rows[i][13]).trim() : "";
+                            
+                            if (!nameCell) {
+                                nameCell = rows[i][11] ? String(rows[i][11]).trim() : `Metric ${i}`;
+                                valCell = rows[i][12] ? String(rows[i][12]).trim() : "0";
+                            }
+
+                            // Handle 'M' for millions and 'K' for thousands
+                            let multiplier = 1;
+                            if (valCell.toLowerCase().includes('m')) multiplier = 1000000;
+                            else if (valCell.toLowerCase().includes('k')) multiplier = 1000;
+
+                            let numericValue = parseFloat(valCell.replace(/[^0-9.-]+/g, "")) || 0;
+                            
                             extractedM2N5.push({
-                                name: rows[i][10], 
-                                value: parseFloat((rows[i][11] || "0").toString().replace(/[^0-9.-]+/g,"")) || 0 
+                                name: nameCell, 
+                                value: numericValue * multiplier 
                             });
                         }
                     }
