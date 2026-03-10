@@ -134,38 +134,47 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                 
                 if (!rows || rows.length === 0) return;
 
-                // 🟢 EXTRACTION: Target L2:M5 (With Merged-Cell Auto-Search)
+                // 🟢 BULLETPROOF EXTRACTION: Target L2:M5 (Skips empty template sheets!)
                 if (extractedM2N5.length === 0 && rows.length > 1 && rows[1] && rows[1][11]) {
+                    let tempExtraction = [];
+                    let totalFoundValue = 0; // Tracker to see if we actually found numbers
+                    
                     for(let i = 1; i <= 4; i++) {
                         if (rows[i]) {
                             // Column L = Index 11 (Name)
                             let nameCell = rows[i][11] ? String(rows[i][11]).trim() : "";
                             
-                            // Find the Value: Scan Columns M, N, O, and P (Indexes 12 to 15)
-                            // This perfectly handles merged cells or spacer columns!
+                            // Find the Value: Scan Columns M, N, O, P
                             let valCell = "0";
                             for (let col = 12; col <= 15; col++) {
                                 if (rows[i][col] && String(rows[i][col]).trim() !== "") {
                                     valCell = String(rows[i][col]).trim();
-                                    break; // Stop looking once we find the number
+                                    break; 
                                 }
                             }
                         
                             if (nameCell) { 
-                                // Handle 'M' for millions and 'K' for thousands
                                 let multiplier = 1;
                                 if (valCell.toLowerCase().includes('m')) multiplier = 1000000;
                                 else if (valCell.toLowerCase().includes('k')) multiplier = 1000;
 
-                                // Strip away currency symbols and commas, keep the math safe
                                 let numericValue = parseFloat(valCell.replace(/[^0-9.-]+/g, "")) || 0;
+                                let finalValue = numericValue * multiplier;
                                 
-                                extractedM2N5.push({
+                                totalFoundValue += finalValue; // Add to our verifier
+                                
+                                tempExtraction.push({
                                     name: nameCell, 
-                                    value: numericValue * multiplier 
+                                    value: finalValue 
                                 });
                             }
                         }
+                    }
+                    
+                    // 🟢 THE FIX: ONLY save and stop looking if we actually found real numbers!
+                    // If the sheet just had empty 0s, this ignores it and moves to the next tab.
+                    if (totalFoundValue > 0) {
+                        extractedM2N5 = tempExtraction;
                     }
                 }
 
