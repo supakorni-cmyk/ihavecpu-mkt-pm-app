@@ -5,7 +5,6 @@ import {
     FileText, 
     Building2, 
     Loader2, 
-    Download, 
     Copy, 
     CheckCircle2, 
     LayoutTemplate,
@@ -13,9 +12,11 @@ import {
     Paperclip,
     Trash2,
     Printer,
-    Upload
+    Upload,
+    RotateCcw
 } from 'lucide-react';
 
+// --- VITE-SAFE IMPORTS FOR PARSING ---
 import * as XLSX from 'xlsx';
 import * as pdfjsLib from 'pdfjs-dist/build/pdf';
 
@@ -47,23 +48,32 @@ const ReportView = () => {
         return `https://asset.brandfetch.io/${cleanDomain}/logo?c=1iddfSj8aQZ`;
     };
 
-    // --- FILE UPLOAD HANDLER ---
+    // --- RESET HANDLER ---
+    const handleReset = () => {
+        if (window.confirm("Are you sure you want to clear all fields and the current report?")) {
+            setBrandDomain('');
+            setReportTitle('');
+            setPrompt('');
+            setReportContent('');
+            setActiveLogo('');
+            removeFile(); 
+        }
+    };
+
     // --- ADVANCED FILE UPLOAD HANDLER ---
     const handleFileChange = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
 
         setReferenceFile(file.name);
-        setReferenceText('Extracting data... please wait.'); // Temporary loading text
+        setReferenceText('Extracting data... please wait.'); 
 
         try {
-            // 1. Handle Excel Files (.xlsx, .xls)
             if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
                 const arrayBuffer = await file.arrayBuffer();
                 const workbook = XLSX.read(arrayBuffer, { type: 'buffer' });
                 let allText = '';
                 
-                // Loop through all sheets and convert their tables to CSV-style text
                 workbook.SheetNames.forEach(sheetName => {
                     const worksheet = workbook.Sheets[sheetName];
                     const csv = XLSX.utils.sheet_to_csv(worksheet);
@@ -72,13 +82,11 @@ const ReportView = () => {
                 
                 setReferenceText(allText || 'No data found in Excel file.');
             } 
-            // 2. Handle PDF Files (.pdf)
             else if (file.name.endsWith('.pdf') || file.type === 'application/pdf') {
                 const arrayBuffer = await file.arrayBuffer();
                 const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
                 let fullText = '';
                 
-                // Loop through all pages and scrape the text
                 for (let i = 1; i <= pdf.numPages; i++) {
                     const page = await pdf.getPage(i);
                     const textContent = await page.getTextContent();
@@ -88,7 +96,6 @@ const ReportView = () => {
                 
                 setReferenceText(fullText || 'No text found in PDF.');
             } 
-            // 3. Handle standard Text/CSV/JSON files
             else {
                 const reader = new FileReader();
                 reader.onload = (event) => setReferenceText(event.target.result);
@@ -123,7 +130,6 @@ const ReportView = () => {
             const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
             if (!apiKey) throw new Error("Missing Gemini API Key in .env file.");
 
-            // 🟢 Inject reference text if a file was uploaded!
             const fileContext = referenceText 
                 ? `\n\n--- REFERENCE DATA PROVIDED BY USER ---\nPlease analyze and incorporate the following data into the report:\n${referenceText}\n---------------------------------------\n` 
                 : '';
@@ -138,8 +144,8 @@ const ReportView = () => {
 
                 FORMATTING RULES:
                 - Output the report strictly in Markdown.
-                - Use ## for main section headers.
-                - Use ### for sub-headers.
+                - 🟢 CRITICAL PAGINATION RULE: Use "## " for main section headers. Our system uses "## " as a hard page-break. Please group your output into 2 to 4 logical sections, starting each one with a "## " header so they render on separate physical pages.
+                - Use "### " for sub-headers.
                 - Use bullet points for metrics and lists.
                 - Keep the tone highly professional, concise, and data-driven.
                 - Do not include an introductory greeting (e.g., "Here is the report"), just start directly with the report content.
@@ -181,33 +187,40 @@ const ReportView = () => {
         setTimeout(() => setIsCopied(false), 2000);
     };
 
-    // Trigger Native Browser Print (which allows Saving to PDF)
     const handleExportPDF = () => {
         window.print();
     };
 
-    // Simple Markdown to HTML parser for the Canvas
-    const renderMarkdown = (text) => {
-        if (!text) return { __html: '<div class="text-gray-400 italic text-center mt-20">Your AI-generated report will appear here...</div>' };
+    // 🟢 NEW: SMART PAGINATION PARSER
+    // This splits the AI's Markdown string at every "## " (Main Header) to create separate array items for each page.
+    const parsePages = (text) => {
+        if (!text) return ['<div class="text-gray-400 italic text-center mt-20">Your AI-generated report will appear here...</div>'];
         
-        let html = text
-            .replace(/^### (.*$)/gim, '<h3 class="text-lg font-bold text-gray-800 mt-6 mb-2">$1</h3>')
-            .replace(/^## (.*$)/gim, '<h2 class="text-2xl font-black text-gray-900 mt-8 mb-4 pb-2 border-b border-gray-100">$1</h2>')
-            .replace(/^# (.*$)/gim, '<h1 class="text-3xl font-black text-gray-900 mt-4 mb-6">$1</h1>')
-            .replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-gray-900">$1</strong>')
-            .replace(/\*(.*?)\*/g, '<em class="italic">$1</em>')
-            .replace(/^\* (.*$)/gim, '<li class="ml-4 mb-1 list-disc">$1</li>')
-            .replace(/<\/li>\n/g, '</li>') // Fix spacing between lists
-            .replace(/\n\n/g, '</p><p class="mb-4 text-gray-600 leading-relaxed">')
-            .replace(/\n/g, '<br/>');
+        // Regex splits the text keeping the "## " at the start of the chunks, and filters out empty chunks.
+        const sections = text.split(/(?=^## )/gm).filter(s => s.trim().length > 0);
+        
+        return sections.map(section => {
+            let html = section
+                .replace(/^### (.*$)/gim, '<h3 class="text-lg font-bold text-gray-800 mt-6 mb-2">$1</h3>')
+                .replace(/^## (.*$)/gim, '<h2 class="text-2xl font-black text-gray-900 mt-0 mb-4 pb-2 border-b border-gray-100">$1</h2>') // Removed top margin so it fits nicely at the top of the new page
+                .replace(/^# (.*$)/gim, '<h1 class="text-3xl font-black text-gray-900 mt-0 mb-6">$1</h1>')
+                .replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-gray-900">$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em class="italic">$1</em>')
+                .replace(/^\* (.*$)/gim, '<li class="ml-4 mb-1 list-disc">$1</li>')
+                .replace(/<\/li>\n/g, '</li>')
+                .replace(/\n\n/g, '</p><p class="mb-4 text-gray-600 leading-relaxed">')
+                .replace(/\n/g, '<br/>');
 
-        return { __html: `<p class="mb-4 text-gray-600 leading-relaxed">${html}</p>` };
+            return `<p class="mb-4 text-gray-600 leading-relaxed">${html}</p>`;
+        });
     };
 
+    const pages = parsePages(reportContent);
+
     return (
-        <div className="flex flex-col h-full bg-[#f8fafc] font-sans relative overflow-hidden print:bg-white print:h-auto">
+        <div className="flex flex-col h-full bg-[#f8fafc] font-sans relative overflow-hidden print:bg-[#f8fafc] print:h-auto">
             
-            {/* --- HEADER (Hidden when printing) --- */}
+            {/* --- HEADER --- */}
             <header className="px-8 py-6 border-b border-gray-100 bg-white/80 backdrop-blur-xl shadow-sm z-20 flex justify-between items-center shrink-0 print:hidden">
                 <div className="flex items-center gap-4">
                     <div className="p-3 rounded-2xl shadow-inner bg-gradient-to-br from-indigo-600 to-violet-700 text-white">
@@ -223,7 +236,7 @@ const ReportView = () => {
             {/* --- SPLIT WORKSPACE --- */}
             <div className="flex-1 flex overflow-hidden print:overflow-visible">
                 
-                {/* LEFT PANEL: Builder Form (Hidden when printing) */}
+                {/* LEFT PANEL: Builder Form */}
                 <div className="w-full lg:w-1/3 xl:w-[400px] bg-white border-r border-gray-200 overflow-y-auto custom-scrollbar flex flex-col z-10 shadow-[4px_0_24px_rgba(0,0,0,0.02)] print:hidden">
                     <form onSubmit={handleGenerate} className="p-6 space-y-6 flex-1 flex flex-col">
                         
@@ -242,9 +255,6 @@ const ReportView = () => {
                                     onChange={(e) => setBrandDomain(e.target.value)}
                                     required
                                 />
-                                <p className="text-[10px] text-gray-400 mt-1.5 flex items-center gap-1">
-                                    <Sparkles size={10}/> Fetches official logo via brandfetch.com
-                                </p>
                             </div>
                         </div>
 
@@ -255,6 +265,7 @@ const ReportView = () => {
                                 <input 
                                     type="text" 
                                     className="w-full bg-white border border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 transition-all"
+                                    placeholder="e.g. Q3 Marketing Summary"
                                     value={reportTitle}
                                     onChange={(e) => setReportTitle(e.target.value)}
                                     required
@@ -274,7 +285,7 @@ const ReportView = () => {
                                 />
                             </div>
 
-                            {/* 🟢 NEW: File Context Upload */}
+                            {/* File Context Upload */}
                             <div className="bg-indigo-50/50 p-4 rounded-xl border border-indigo-100 border-dashed">
                                 <label className="block text-xs font-bold text-indigo-800 uppercase tracking-widest mb-2 flex items-center gap-1">
                                     <Paperclip size={14}/> Attach Data for AI Context
@@ -292,7 +303,7 @@ const ReportView = () => {
                                     </div>
                                 ) : (
                                     <>
-                                       <input 
+                                        <input 
                                             type="file" 
                                             accept=".txt,.csv,.json,.md,.xlsx,.xls,.pdf" 
                                             onChange={handleFileChange}
@@ -306,7 +317,6 @@ const ReportView = () => {
                                         >
                                             <Upload size={20} className="text-indigo-400 mb-2 group-hover:-translate-y-1 transition-transform" />
                                             <span className="text-sm font-bold text-indigo-600">Click to upload file</span>
-                                            {/* Update the hint text below too! */}
                                             <span className="text-[10px] text-gray-500 font-medium mt-1">Supports .pdf, .xlsx, .csv, .txt</span>
                                         </label>
                                     </>
@@ -314,12 +324,21 @@ const ReportView = () => {
                             </div>
                         </div>
 
-                        {/* Generate Button */}
-                        <div className="pt-4 border-t border-gray-100 mt-auto">
+                        {/* Generate & Reset Buttons */}
+                        <div className="pt-4 border-t border-gray-100 mt-auto flex gap-3">
+                            <button 
+                                type="button"
+                                onClick={handleReset}
+                                className="p-4 rounded-xl text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all border border-transparent hover:border-red-100 flex-shrink-0"
+                                title="Reset All Fields"
+                            >
+                                <RotateCcw size={20} />
+                            </button>
+                            
                             <button 
                                 type="submit"
                                 disabled={isGenerating}
-                                className={`w-full py-4 rounded-xl font-black text-white shadow-lg transition-all duration-300 flex items-center justify-center gap-2
+                                className={`flex-1 py-4 rounded-xl font-black text-white shadow-lg transition-all duration-300 flex items-center justify-center gap-2
                                     ${isGenerating 
                                         ? 'bg-gray-400 cursor-not-allowed shadow-none' 
                                         : 'bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 hover:-translate-y-0.5 hover:shadow-indigo-500/30'
@@ -327,9 +346,9 @@ const ReportView = () => {
                                 `}
                             >
                                 {isGenerating ? (
-                                    <><Loader2 size={18} className="animate-spin" /> Analyzing Data & Generating...</>
+                                    <><Loader2 size={18} className="animate-spin" /> Analyzing...</>
                                 ) : (
-                                    <><Wand2 size={18} /> Generate Report</>
+                                    <><Wand2 size={18} /> Generate</>
                                 )}
                             </button>
                         </div>
@@ -337,7 +356,7 @@ const ReportView = () => {
                 </div>
 
                 {/* RIGHT PANEL: The Canvas */}
-                <div className="flex-1 bg-[#e2e8f0] overflow-y-auto custom-scrollbar p-8 lg:p-12 relative flex justify-center print:p-0 print:bg-white print:overflow-visible">
+                <div className="flex-1 bg-[#e2e8f0] overflow-y-auto custom-scrollbar p-8 lg:p-12 relative flex flex-col items-center gap-8 print:p-0 print:bg-transparent print:block print:overflow-visible">
                     
                     {/* Canvas Toolbar (Hidden when printing) */}
                     <div className="absolute top-6 right-12 flex gap-3 z-20 print:hidden">
@@ -347,74 +366,76 @@ const ReportView = () => {
                             className={`px-4 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-all shadow-sm ${isCopied ? 'bg-green-500 text-white border-transparent' : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'} disabled:opacity-50 disabled:cursor-not-allowed`}
                         >
                             {isCopied ? <CheckCircle2 size={16}/> : <Copy size={16}/>}
-                            {isCopied ? 'Copied Markdown!' : 'Copy'}
+                            {isCopied ? 'Copied!' : 'Copy Text'}
                         </button>
                         
-                        {/* 🟢 NEW: Export PDF Button */}
                         <button 
                             onClick={handleExportPDF}
                             disabled={!reportContent}
                             className="px-4 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-all shadow-sm bg-gray-900 text-white hover:bg-black disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            <Printer size={16}/> Save as PDF
+                            <Printer size={16}/> Save PDF
                         </button>
                     </div>
 
-                    {/* A4 Document Paper (Removes shadows and margins when printing) */}
-                    <div 
-                        ref={canvasRef}
-                        className="bg-white w-full max-w-[850px] min-h-[1100px] shadow-2xl rounded-sm ring-1 ring-gray-900/5 p-12 sm:p-16 flex flex-col relative transition-all duration-500 print:shadow-none print:ring-0 print:p-0 print:max-w-none print:w-full"
-                    >
-                        {isGenerating && (
-                            <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center text-indigo-600 rounded-sm print:hidden">
-                                <Loader2 size={48} className="animate-spin mb-4" />
-                                <p className="font-bold text-lg animate-pulse">Gemini is analyzing data and writing...</p>
-                            </div>
-                        )}
-
-                        {/* Document Header (Brandfetch Logo) */}
-                        <div className="border-b-2 border-gray-900 pb-8 mb-8 flex justify-between items-end">
-                            <div className="flex-1 pr-8">
-                                <h1 className="text-4xl font-black text-gray-900 tracking-tight leading-tight mb-2">
-                                    {reportTitle || 'Untitled Report'}
-                                </h1>
-                                <p className="text-gray-500 font-medium uppercase tracking-widest text-sm">
-                                    Generated: {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
-                                </p>
-                            </div>
-                            
-                            {/* Brandfetch Logo Area */}
-                            <div className="w-48 h-16 flex items-center justify-end shrink-0">
-                                {activeLogo ? (
-                                    <img 
-                                        src={activeLogo} 
-                                        alt={`${brandDomain} Logo`} 
-                                        className="max-w-full max-h-full object-contain"
-                                        onError={(e) => {
-                                            // Fallback if Brandfetch fails to find the logo
-                                            e.target.onerror = null; 
-                                            e.target.src = `https://logo.clearbit.com/${brandDomain}`;
-                                        }}
-                                    />
-                                ) : (
-                                    <div className="w-full h-full bg-gray-50 border border-gray-100 border-dashed rounded flex items-center justify-center text-gray-300 print:hidden">
-                                        <LayoutTemplate size={24} />
-                                    </div>
-                                )}
-                            </div>
+                    {isGenerating && (
+                        <div className="bg-white w-full max-w-[850px] min-h-[1100px] shadow-2xl rounded-sm ring-1 ring-gray-900/5 flex flex-col items-center justify-center text-indigo-600 print:hidden">
+                            <Loader2 size={48} className="animate-spin mb-4" />
+                            <p className="font-bold text-lg animate-pulse">Gemini is analyzing data and writing...</p>
                         </div>
+                    )}
 
-                        {/* Document Body (Rendered Markdown) */}
+                    {/* 🟢 NEW: RENDER MULTIPLE A4 PAGES */}
+                    {!isGenerating && pages.map((pageHtml, index) => (
                         <div 
-                            className="flex-1 report-prose print:text-black"
-                            dangerouslySetInnerHTML={renderMarkdown(reportContent)}
-                        />
+                            key={index}
+                            className="bg-white w-full max-w-[850px] min-h-[1100px] shadow-2xl rounded-sm ring-1 ring-gray-900/5 p-12 sm:p-16 flex flex-col relative print:shadow-none print:ring-0 print:p-0 print:max-w-none print:w-full print:break-after-page print:h-auto print:min-h-0"
+                        >
+                            {/* Page 1 Only: Document Header & Logo */}
+                            {index === 0 && (
+                                <div className="border-b-2 border-gray-900 pb-8 mb-8 flex justify-between items-end">
+                                    <div className="flex-1 pr-8">
+                                        <h1 className="text-4xl font-black text-gray-900 tracking-tight leading-tight mb-2">
+                                            {reportTitle || 'Untitled Report'}
+                                        </h1>
+                                        <p className="text-gray-500 font-medium uppercase tracking-widest text-sm">
+                                            Generated: {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+                                        </p>
+                                    </div>
+                                    
+                                    <div className="w-48 h-16 flex items-center justify-end shrink-0">
+                                        {activeLogo ? (
+                                            <img 
+                                                src={activeLogo} 
+                                                alt={`${brandDomain} Logo`} 
+                                                className="max-w-full max-h-full object-contain"
+                                                onError={(e) => {
+                                                    e.target.onerror = null; 
+                                                    e.target.src = `https://logo.clearbit.com/${brandDomain}`;
+                                                }}
+                                            />
+                                        ) : (
+                                            <div className="w-full h-full bg-gray-50 border border-gray-100 border-dashed rounded flex items-center justify-center text-gray-300 print:hidden">
+                                                <LayoutTemplate size={24} />
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
 
-                        {/* Document Footer */}
-                        <div className="mt-16 pt-8 border-t border-gray-200 text-center text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center justify-center gap-2">
-                            <Sparkles size={12} /> Generated by AI Report Canvas
+                            {/* Page Content */}
+                            <div 
+                                className="flex-1 report-prose print:text-black"
+                                dangerouslySetInnerHTML={{__html: pageHtml}}
+                            />
+
+                            {/* Page Footer */}
+                            <div className="mt-16 pt-8 border-t border-gray-200 text-center text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center justify-between">
+                                <span className="flex items-center gap-1"><Sparkles size={12} /> AI Report Canvas</span>
+                                <span>Page {index + 1} of {pages.length}</span>
+                            </div>
                         </div>
-                    </div>
+                    ))}
                 </div>
 
             </div>
