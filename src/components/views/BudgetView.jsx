@@ -125,6 +125,8 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
             }
             const batchData = await dataResponse.json();
             
+            console.log("🔍 RAW GOOGLE SHEETS DATA:", batchData);
+
             let combinedData = [];
             let extractedM2N5 = [];
 
@@ -134,52 +136,52 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                 
                 if (!rows || rows.length === 0) return;
 
-                // 🟢 EXTRACTION: Target exactly M2:N5 (Rows index 1 to 4, Columns index 12 & 13)
+                // 🟢 EXTRACTION: Target exactly M2:N5
                 if (extractedM2N5.length === 0 && rows.length > 1) {
                     for(let i = 1; i <= 4; i++) {
                         if (rows[i] && rows[i].length > 12 && rows[i][12]) {
                             extractedM2N5.push({
-                                name: rows[i][12], // Column M (Label)
-                                value: parseFloat((rows[i][13] || "0").toString().replace(/[^0-9.-]+/g,"")) || 0 // Column N (Value)
+                                name: rows[i][12], 
+                                value: parseFloat((rows[i][13] || "0").toString().replace(/[^0-9.-]+/g,"")) || 0 
                             });
                         }
                     }
                 }
 
-                // Parse standard rows for the main dashboard
+                // Parse standard rows
                 rows.forEach((row, rowIdx) => {
                     if (rowIdx === 0) return; // Skip Header
 
                     const cleanNum = (str) => parseFloat((str || "0").toString().replace(/[^0-9.-]+/g,""));
                     
-                    // 🟢 ASSUMPTION: Col A = Month, Col B = Influencer Name
                     const month = row[0] || "Unknown Date";
                     const influencer = row[1] || "Unknown Influencer";
-                    const reach = cleanNum(row[2]);
-                    const mediaValue = cleanNum(row[3]);
-                    const spend = cleanNum(row[4]);
+                    const reach = cleanNum(row[2]) || 0;
+                    const mediaValue = cleanNum(row[3]) || 0;
+                    const spend = cleanNum(row[4]) || 0;
                     
-                    if (mediaValue > 0 || spend > 0) {
-                        combinedData.push({
-                            id: `${currentSheetName}-${rowIdx}`,
-                            month: month,
-                            influencer: influencer,
-                            reach: reach,
-                            mediaValue: mediaValue,
-                            spend: spend,
-                            savings: mediaValue - spend,
-                            efficiency: spend > 0 ? parseFloat((mediaValue / spend).toFixed(2)) : 0
-                        });
-                    }
+                    // 🟢 REMOVED THE STRICT FILTER so it forces rows onto the dashboard even if numbers are missing!
+                    combinedData.push({
+                        id: `${currentSheetName}-${rowIdx}`,
+                        month: month,
+                        influencer: influencer,
+                        reach: reach,
+                        mediaValue: mediaValue,
+                        spend: spend,
+                        savings: mediaValue - spend,
+                        efficiency: spend > 0 ? parseFloat((mediaValue / spend).toFixed(2)) : 0
+                    });
                 });
             });
+
+            console.log("✅ PARSED COMBINED DATA:", combinedData);
 
             if (combinedData.length === 0) {
                 throw new Error("No data found across any sheets. Please check your data formatting.");
             }
 
             setRoiData(combinedData);
-            setM2n5Data(extractedM2N5); // Save the M2:N5 block to state!
+            setM2n5Data(extractedM2N5);
         } catch (err) {
             console.error("Sheet Fetch Error:", err);
             setRoiError(err.message);
