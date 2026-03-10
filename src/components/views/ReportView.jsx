@@ -41,11 +41,12 @@ const ReportView = () => {
     const canvasRef = useRef(null);
     const fileInputRef = useRef(null);
 
-    // --- LOGO FETCHING (BRANDFETCH) ---
+    // --- LOGO FETCHING (3-TIER FALLBACK) ---
     const getBrandfetchLogo = (domain) => {
         if (!domain) return '';
         const cleanDomain = domain.replace(/^https?:\/\//, '').split('/')[0];
-        return `https://asset.brandfetch.io/${cleanDomain}/logo?c=1iddfSj8aQZ`;
+        // Tier 1: Clearbit (Usually highest quality)
+        return `https://logo.clearbit.com/${cleanDomain}`;
     };
 
     // --- RESET HANDLER ---
@@ -405,15 +406,23 @@ const ReportView = () => {
                                     
                                     <div className="w-48 h-16 flex items-center justify-end shrink-0">
                                         {activeLogo ? (
-                                            <img 
-                                                src={activeLogo} 
-                                                alt={`${brandDomain} Logo`} 
-                                                className="max-w-full max-h-full object-contain"
-                                                onError={(e) => {
-                                                    e.target.onerror = null; 
-                                                    e.target.src = `https://logo.clearbit.com/${brandDomain}`;
-                                                }}
-                                            />
+                                        <img 
+                                            src={activeLogo} 
+                                            alt={`${brandDomain} Logo`} 
+                                            className="max-w-full max-h-full object-contain"
+                                            onError={(e) => {
+                                                // Tier 2: Google High-Res Favicon API
+                                                const fallbackSrc = `https://www.google.com/s2/favicons?domain=${brandDomain}&sz=256`;
+                                                
+                                                if (e.target.src !== fallbackSrc) {
+                                                    e.target.onerror = null; // Prevent infinite loops
+                                                    e.target.src = fallbackSrc;
+                                                } else {
+                                                    // Tier 3: If both fail, hide the broken image icon completely
+                                                    e.target.style.display = 'none';
+                                                }
+                                            }}
+                                        />
                                         ) : (
                                             <div className="w-full h-full bg-gray-50 border border-gray-100 border-dashed rounded flex items-center justify-center text-gray-300 print:hidden">
                                                 <LayoutTemplate size={24} />
