@@ -288,9 +288,25 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
         monthlyRoiMap[item.month].spend += item.spend;
     });
 
-    // Sort the months in chronological order
     const monthOrder = { "Jan":1, "Feb":2, "Mar":3, "Apr":4, "May":5, "Jun":6, "Jul":7, "Aug":8, "Sep":9, "Oct":10, "Nov":11, "Dec":12 };
     const monthlyROIBreakdown = Object.values(monthlyRoiMap).sort((a,b) => (monthOrder[a.month] || 99) - (monthOrder[b.month] || 99));
+
+    // 🟢 NEW: Group by Influencer for the Main Chart
+    const influencerRoiMap = {};
+    filteredROI.forEach(item => {
+        if (!influencerRoiMap[item.influencer]) {
+            influencerRoiMap[item.influencer] = { 
+                influencer: item.influencer, 
+                mediaValue: 0, 
+                spend: 0 
+            };
+        }
+        influencerRoiMap[item.influencer].mediaValue += item.mediaValue;
+        influencerRoiMap[item.influencer].spend += item.spend;
+    });
+    
+    // Convert the map back into an array for the chart to read
+    const influencerROIBreakdown = Object.values(influencerRoiMap);
 
     // --- DATA PROCESSING ---
     const getMonthlyData = (type) => {
@@ -773,9 +789,10 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                                 <PieChartIcon className="text-orange-500"/> Media Value vs Spend
                                             </h3>
                                             <div className="flex-1 w-full min-h-[250px]">
-                                                {filteredROI.length > 0 ? (
-                                                    <ResponsiveContainer width="100%" height="100%" minHeight={250}>
-                                                        <BarChart data={filteredROI} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                                            {/* 🟢 CHANGED data source to influencerROIBreakdown */}
+                                            {influencerROIBreakdown.length > 0 ? (
+                                                <ResponsiveContainer width="100%" height="100%" minHeight={250}>
+                                                    <BarChart data={influencerROIBreakdown} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                                                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9"/>
                                                             <XAxis dataKey="influencer" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12, fontWeight: 600}} dy={10}/>
                                                             <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dx={-10} tickFormatter={(val) => `฿${val/1000}k`}/>
