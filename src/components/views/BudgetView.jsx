@@ -199,6 +199,30 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
         } finally {
             setIsRoiLoading(false);
         }
+
+        // 🟢 SMART DATE PARSER: Handles DD/MM/YYYY format perfectly
+        let monthStr = row[0] ? row[0].trim() : "Unknown Date";
+
+        if (monthStr !== "Unknown Date" && monthStr !== "") {
+            if (monthStr.includes('/')) {
+                // Splits "25/08/2026" into ["25", "08", "2026"]
+                const parts = monthStr.split('/');
+                
+                // Assuming DD/MM/YYYY format, the month is the middle number
+                const monthNum = parseInt(parts[1], 10); 
+                
+                const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+                if (monthNum >= 1 && monthNum <= 12) {
+                    monthStr = monthNames[monthNum - 1]; // Convert "08" to "Aug"
+                }
+            } else {
+                // Fallback just in case some rows are formatted differently
+                const dateObj = new Date(monthStr);
+                if (!isNaN(dateObj.getTime())) {
+                    monthStr = dateObj.toLocaleString('en-US', { month: 'short' });
+                }
+            }
+        }
     };
 
     // Filter Dropdown Options
