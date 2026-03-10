@@ -106,7 +106,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
             if (!apiKey) throw new Error("Missing API Key in .env file.");
 
             // ⚠️ YOUR GOOGLE SHEET ID GOES HERE ⚠️
-            const SPREADSHEET_ID = "1JwM6_EILqUNC6C0hJEgrIFsfE-xB3kTK1PVIwR-BsZME"; 
+            const SPREADSHEET_ID = "1JwM6_EILqUNC6C0hJEgrIFsfE-xB3kTK1PVIwR-BsZM"; 
             
             // --- 1. FETCH ALL SHEET NAMES ---
             // First, we ask Google for the names of every tab in the document
