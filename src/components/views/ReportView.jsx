@@ -12,7 +12,8 @@ import {
     Wand2,
     Paperclip,
     Trash2,
-    Printer
+    Printer,
+    Upload
 } from 'lucide-react';
 
 import * as XLSX from 'xlsx';
