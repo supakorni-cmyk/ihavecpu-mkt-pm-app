@@ -134,22 +134,30 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                 
                 if (!rows || rows.length === 0) return;
 
-                // 🟢 EXTRACTION: Target exactly L2:M5 (Row index 1-4, Col index 11-12)
-                // We now check if rows[1][11] has text so it only pulls from the correct tab!
+                // 🟢 EXTRACTION: Target L2:M5 (With Merged-Cell Auto-Search)
                 if (extractedM2N5.length === 0 && rows.length > 1 && rows[1] && rows[1][11]) {
                     for(let i = 1; i <= 4; i++) {
                         if (rows[i]) {
                             // Column L = Index 11 (Name)
                             let nameCell = rows[i][11] ? String(rows[i][11]).trim() : "";
-                            // Column M = Index 12 (Value)
-                            let valCell = rows[i][12] ? String(rows[i][12]).trim() : "0";
+                            
+                            // Find the Value: Scan Columns M, N, O, and P (Indexes 12 to 15)
+                            // This perfectly handles merged cells or spacer columns!
+                            let valCell = "0";
+                            for (let col = 12; col <= 15; col++) {
+                                if (rows[i][col] && String(rows[i][col]).trim() !== "") {
+                                    valCell = String(rows[i][col]).trim();
+                                    break; // Stop looking once we find the number
+                                }
+                            }
                         
-                            if (nameCell) { // Only push if there's actually a label
+                            if (nameCell) { 
                                 // Handle 'M' for millions and 'K' for thousands
                                 let multiplier = 1;
                                 if (valCell.toLowerCase().includes('m')) multiplier = 1000000;
                                 else if (valCell.toLowerCase().includes('k')) multiplier = 1000;
 
+                                // Strip away currency symbols and commas, keep the math safe
                                 let numericValue = parseFloat(valCell.replace(/[^0-9.-]+/g, "")) || 0;
                                 
                                 extractedM2N5.push({
