@@ -244,6 +244,15 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
     const roiAvgEfficiency = roiTotalSpend > 0 ? (roiTotalMediaValue / roiTotalSpend).toFixed(2) : 0;
     // ------------------------------------------------
 
+    // 🟢 NEW: Calculate Monthly Breakdown for the new chart
+    const monthlyRoiMap = {};
+    filteredROI.forEach(item => {
+        if (!monthlyRoiMap[item.month]) {
+            monthlyRoiMap[item.month] = { month: item.month, mediaValue: 0, spend: 0 };
+        }
+        monthlyRoiMap[item.month].mediaValue += item.mediaValue;
+        monthlyRoiMap[item.month].spend += item.spend;
+    });
 
     // Sort the months in chronological order
     const monthOrder = { "Jan":1, "Feb":2, "Mar":3, "Apr":4, "May":5, "Jun":6, "Jul":7, "Aug":8, "Sep":9, "Oct":10, "Nov":11, "Dec":12 };
