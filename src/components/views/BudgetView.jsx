@@ -220,6 +220,11 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
     const roiAvgEfficiency = roiTotalSpend > 0 ? (roiTotalMediaValue / roiTotalSpend).toFixed(2) : 0;
     // ------------------------------------------------
 
+
+    // Sort the months in chronological order
+    const monthOrder = { "Jan":1, "Feb":2, "Mar":3, "Apr":4, "May":5, "Jun":6, "Jul":7, "Aug":8, "Sep":9, "Oct":10, "Nov":11, "Dec":12 };
+    const monthlyROIBreakdown = Object.values(monthlyRoiMap).sort((a,b) => (monthOrder[a.month] || 99) - (monthOrder[b.month] || 99));
+
     // --- DATA PROCESSING ---
     const getMonthlyData = (type) => {
         const data = {};
@@ -748,6 +753,34 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                                 No breakdown data found
                                             </div>
                                         )}
+                                    </div>
+                                    {/* 🟢 NEW: Full Width Monthly Breakdown Chart */}
+                                    <div className="bg-white p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 flex flex-col h-[450px] mt-8">
+                                        <h3 className="text-lg font-black text-gray-800 mb-6 flex items-center gap-2">
+                                            <Calendar className="text-blue-500"/> Monthly Trend: Media Value vs Spend
+                                        </h3>
+                                        <div className="flex-1 w-full">
+                                            {monthlyROIBreakdown.length > 0 ? (
+                                                <ResponsiveContainer width="100%" height="100%">
+                                                    <BarChart data={monthlyROIBreakdown} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9"/>
+                                                        <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12, fontWeight: 600}} dy={10}/>
+                                                        <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dx={-10} tickFormatter={(val) => `฿${val/1000}k`}/>
+                                                        <RechartsTooltip 
+                                                            cursor={{fill: '#f8fafc'}}
+                                                            contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', fontWeight: 'bold' }}
+                                                        />
+                                                        <Legend wrapperStyle={{ paddingTop: '20px', fontWeight: 'bold', color: '#64748b' }}/>
+                                                        <Bar dataKey="mediaValue" name="Earned Media Value (฿)" fill="#3b82f6" radius={[6,6,0,0]} />
+                                                        <Bar dataKey="spend" name="Actual Spend (฿)" fill="#cbd5e1" radius={[6,6,0,0]} />
+                                                    </BarChart>
+                                                </ResponsiveContainer>
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center text-gray-400 font-bold">
+                                                    No data available for these filters.
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 </>
                             )}
