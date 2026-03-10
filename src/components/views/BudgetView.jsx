@@ -134,26 +134,29 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                 
                 if (!rows || rows.length === 0) return;
 
-                // 🟢 EXTRACTION: Target exactly M2:N5 (With fallback and M/K multiplier support)
-                if (extractedM2N5.length === 0 && rows.length > 1) {
+                // 🟢 EXTRACTION: Target exactly L2:M5 (Row index 1-4, Col index 11-12)
+                // We now check if rows[1][11] has text so it only pulls from the correct tab!
+                if (extractedM2N5.length === 0 && rows.length > 1 && rows[1] && rows[1][11]) {
                     for(let i = 1; i <= 4; i++) {
                         if (rows[i]) {
-                            // Check M (index 12) and N (index 13). Fallback to L (11) and M (12) if empty.
+                            // Column L = Index 11 (Name)
                             let nameCell = rows[i][11] ? String(rows[i][11]).trim() : "";
-                            let valCell = rows[i][12] ? String(rows[i][12]).trim() : "";
+                            // Column M = Index 12 (Value)
+                            let valCell = rows[i][12] ? String(rows[i][12]).trim() : "0";
                         
+                            if (nameCell) { // Only push if there's actually a label
+                                // Handle 'M' for millions and 'K' for thousands
+                                let multiplier = 1;
+                                if (valCell.toLowerCase().includes('m')) multiplier = 1000000;
+                                else if (valCell.toLowerCase().includes('k')) multiplier = 1000;
 
-                            // Handle 'M' for millions and 'K' for thousands
-                            let multiplier = 1;
-                            if (valCell.toLowerCase().includes('m')) multiplier = 1000000;
-                            else if (valCell.toLowerCase().includes('k')) multiplier = 1000;
-
-                            let numericValue = parseFloat(valCell.replace(/[^0-9.-]+/g, "")) || 0;
-                            
-                            extractedM2N5.push({
-                                name: nameCell, 
-                                value: numericValue * multiplier 
-                            });
+                                let numericValue = parseFloat(valCell.replace(/[^0-9.-]+/g, "")) || 0;
+                                
+                                extractedM2N5.push({
+                                    name: nameCell, 
+                                    value: numericValue * multiplier 
+                                });
+                            }
                         }
                     }
                 }
