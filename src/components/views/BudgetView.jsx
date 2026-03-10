@@ -139,13 +139,9 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                     for(let i = 1; i <= 4; i++) {
                         if (rows[i]) {
                             // Check M (index 12) and N (index 13). Fallback to L (11) and M (12) if empty.
-                            let nameCell = rows[i][12] ? String(rows[i][12]).trim() : "";
-                            let valCell = rows[i][13] ? String(rows[i][13]).trim() : "";
-                            
-                            if (!nameCell) {
-                                nameCell = rows[i][11] ? String(rows[i][11]).trim() : `Metric ${i}`;
-                                valCell = rows[i][12] ? String(rows[i][12]).trim() : "0";
-                            }
+                            let nameCell = rows[i][11] ? String(rows[i][11]).trim() : "";
+                            let valCell = rows[i][12] ? String(rows[i][12]).trim() : "";
+                        
 
                             // Handle 'M' for millions and 'K' for thousands
                             let multiplier = 1;
