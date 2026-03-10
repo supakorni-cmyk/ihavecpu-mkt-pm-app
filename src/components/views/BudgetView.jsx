@@ -125,8 +125,6 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
             }
             const batchData = await dataResponse.json();
             
-            console.log("🔍 RAW GOOGLE SHEETS DATA:", batchData);
-
             let combinedData = [];
             let extractedM2N5 = [];
 
@@ -148,33 +146,46 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                     }
                 }
 
-                // Parse standard rows
+                // 🟢 NEW COLUMN MAPPING BASED ON YOUR TEMPLATE
                 rows.forEach((row, rowIdx) => {
                     if (rowIdx === 0) return; // Skip Header
 
                     const cleanNum = (str) => parseFloat((str || "0").toString().replace(/[^0-9.-]+/g,""));
                     
+                    // A = Index 0 (Date)
                     const month = row[0] || "Unknown Date";
-                    const influencer = row[1] || "Unknown Influencer";
-                    const reach = cleanNum(row[2]) || 0;
-                    const mediaValue = cleanNum(row[3]) || 0;
-                    const spend = cleanNum(row[4]) || 0;
                     
-                    // 🟢 REMOVED THE STRICT FILTER so it forces rows onto the dashboard even if numbers are missing!
-                    combinedData.push({
-                        id: `${currentSheetName}-${rowIdx}`,
-                        month: month,
-                        influencer: influencer,
-                        reach: reach,
-                        mediaValue: mediaValue,
-                        spend: spend,
-                        savings: mediaValue - spend,
-                        efficiency: spend > 0 ? parseFloat((mediaValue / spend).toFixed(2)) : 0
-                    });
+                    // B = Index 1 (Platform)
+                    const platform = row[1] || "Unknown";
+                    
+                    // D = Index 3 (Views/Reach)
+                    const views = cleanNum(row[3]) || 0;
+                    
+                    // F = Index 5 (Cost/Spend)
+                    const cost = cleanNum(row[5]) || 0;
+                    
+                    // I = Index 8 (EMV/Media Value)
+                    const emv = cleanNum(row[8]) || 0;
+                    
+                    // 🟢 Set Influencer Name from the Tab/Sheet Name!
+                    const influencer = currentSheetName; 
+                    
+                    // Only push rows that actually have some numeric cost or EMV to avoid blank rows
+                    if (emv > 0 || cost > 0 || views > 0) {
+                        combinedData.push({
+                            id: `${currentSheetName}-${rowIdx}`,
+                            month: month,
+                            influencer: influencer,
+                            platform: platform, // Stored in data if you ever want to filter by Platform later!
+                            reach: views,
+                            mediaValue: emv,
+                            spend: cost,
+                            savings: emv - cost,
+                            efficiency: cost > 0 ? parseFloat((emv / cost).toFixed(2)) : 0
+                        });
+                    }
                 });
             });
-
-            console.log("✅ PARSED COMBINED DATA:", combinedData);
 
             if (combinedData.length === 0) {
                 throw new Error("No data found across any sheets. Please check your data formatting.");
