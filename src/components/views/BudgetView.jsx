@@ -227,7 +227,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
 
     // Filter Dropdown Options
     const uniqueInfluencers = ["ALL", ...new Set(roiData.map(d => d.influencer))];
-    const uniqueMonths = ["ALL", ...new Set(roiData.map(d => d.month))];
+    const uniqueMonths = ["ALL", ...new Set(roiData.map(d => d.monthStr))];
 
     // Computed Filtered Data
     const filteredROI = roiData.filter(item => {
