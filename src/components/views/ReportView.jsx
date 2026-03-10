@@ -1,420 +1,286 @@
 // src/components/views/ReportView.jsx
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
-  Presentation, 
-  Printer, 
-  Plus, 
-  GripVertical, 
-  Trash2, 
-  Edit2, 
-  Upload, 
-  Image as ImageIcon,
-  X,
-  Link as LinkIcon 
+    Sparkles, 
+    FileText, 
+    Building2, 
+    Loader2, 
+    Download, 
+    Copy, 
+    CheckCircle2, 
+    LayoutTemplate,
+    Wand2
 } from 'lucide-react';
 
-import ihavecpuLogo from '../../assets/logos/ihavecpu.png'
-
-// --- CONSTANTS ---
-const BRANDS = [
-    { name: 'iHAVECPU', color: 'bg-gray-900 text-white', logo: ihavecpuLogo },
-    { name: 'Intel', color: 'bg-blue-600 text-white', logo: null },
-    { name: 'AMD', color: 'bg-black text-white', logo: null },
-    { name: 'NVIDIA', color: 'bg-green-500 text-white', logo: null },
-    { name: 'ASUS', color: 'bg-blue-800 text-white', logo: null },
-    { name: 'MSI', color: 'bg-red-600 text-white', logo: null }
-];
-
-const ReportView = ({ tasks, currentUser }) => {
-    // --- Local State ---
-    const [selectedBrand, setSelectedBrand] = useState('iHAVECPU');
-    const [activePageId, setActivePageId] = useState(1);
-    const [customLogo, setCustomLogo] = useState(null);
+const ReportView = () => {
+    // --- STATE ---
+    const [brandDomain, setBrandDomain] = useState('ihavecpu.com');
+    const [reportTitle, setReportTitle] = useState('Monthly Campaign ROAS & Audience Analysis');
+    const [prompt, setPrompt] = useState('Analyze the performance of our recent PC component sales campaign. Highlight key ROI metrics, audience engagement on YouTube, and suggest 3 strategic moves for next month.');
     
-    // Safe Date Formatter
-    const getFormattedDate = () => {
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [reportContent, setReportContent] = useState('');
+    const [activeLogo, setActiveLogo] = useState('');
+    const [isCopied, setIsCopied] = useState(false);
+
+    const canvasRef = useRef(null);
+
+    // --- LOGO FETCHING (BRANDFETCH) ---
+    // Brandfetch provides a direct public asset URL for logos based on domain.
+    const getBrandfetchLogo = (domain) => {
+        if (!domain) return '';
+        const cleanDomain = domain.replace(/^https?:\/\//, '').split('/')[0];
+        return `https://asset.brandfetch.io/${cleanDomain}/logo?c=1iddfSj8aQZ`;
+    };
+
+    // --- AI GENERATION ---
+    const handleGenerate = async (e) => {
+        e.preventDefault();
+        if (!prompt.trim() || !brandDomain.trim()) return;
+
+        setIsGenerating(true);
+        setActiveLogo(getBrandfetchLogo(brandDomain));
+        
         try {
-            return new Date().toLocaleDateString('en-GB', {
-                day: '2-digit', month: '2-digit', year: 'numeric'
+            const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+            if (!apiKey) throw new Error("Missing Gemini API Key in .env file.");
+
+            const aiPrompt = `
+                You are an elite business analyst and marketing expert. 
+                Please write a professional business report for the brand: ${brandDomain}.
+                
+                Report Title: ${reportTitle}
+                User Instructions: ${prompt}
+
+                FORMATTING RULES:
+                - Output the report strictly in Markdown.
+                - Use ## for main section headers.
+                - Use ### for sub-headers.
+                - Use bullet points for metrics and lists.
+                - Keep the tone highly professional, concise, and data-driven.
+                - Do not include an introductory greeting (e.g., "Here is the report"), just start directly with the report content.
+            `;
+
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    contents: [{ parts: [{ text: aiPrompt }] }]
+                })
             });
-        } catch (e) {
-            return "Date";
-        }
-    };
-    const [reportDate] = useState(getFormattedDate());
-    
-    // Pages State
-    const [pages, setPages] = useState([
-        { 
-            id: 1, 
-            title: 'Marketing Strategy Report', 
-            bodyText: 'Annual overview and strategic planning for Q1-Q4.', 
-            image: null, 
-            image2: null, 
-            template: 'title-only' 
-        },
-        { 
-            id: 2, 
-            title: 'Visual Overview', 
-            bodyText: 'Here is a look at our new product lineup layout.', 
-            image: null, 
-            image2: null, 
-            template: 'top-1-landscape' 
-        }
-    ]);
 
-    const dragItem = useRef(null);
-    const dragOverItem = useRef(null);
+            if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(errData.error?.message || "Failed to generate report");
+            }
 
-    // --- Derived State & Safety ---
-    const activePage = useMemo(() => {
-        const found = pages.find(p => p.id === activePageId);
-        return found || pages[0]; // Always fall back to first page
-    }, [pages, activePageId]);
+            const data = await response.json();
+            const text = data.candidates[0]?.content?.parts[0]?.text;
+            
+            if (text) {
+                setReportContent(text);
+            }
 
-    // Calculate Active Logo
-    const currentBrandConfig = BRANDS.find(b => b.name === selectedBrand) || BRANDS[0];
-    const activeLogo = customLogo || currentBrandConfig.logo;
-
-    // --- Handlers ---
-    const updatePage = (field, value) => {
-        if (!activePage) return;
-        setPages(prev => prev.map(p => p.id === activePage.id ? { ...p, [field]: value } : p));
-    };
-
-    const handleImageUpload = (e, slot) => {
-        const file = e.target.files && e.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = (ev) => {
-                if(ev.target?.result) updatePage(slot, ev.target.result);
-            };
-            reader.readAsDataURL(file);
-            e.target.value = ''; 
+        } catch (err) {
+            console.error("AI Generation Error:", err);
+            setReportContent(`**Error generating report:** ${err.message}\n\nPlease try again or check your API key.`);
+        } finally {
+            setIsGenerating(false);
         }
     };
 
-    const handleLogoUpload = (e) => {
-        const file = e.target.files && e.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = (ev) => {
-                if(ev.target?.result) setCustomLogo(ev.target.result);
-            };
-            reader.readAsDataURL(file);
-            e.target.value = ''; 
-        }
+    // --- UTILS ---
+    const handleCopy = () => {
+        if (!reportContent) return;
+        navigator.clipboard.writeText(reportContent);
+        setIsCopied(true);
+        setTimeout(() => setIsCopied(false), 2000);
     };
 
-    const addNewPage = () => {
-        const newId = Date.now();
-        setPages([...pages, { 
-            id: newId, 
-            title: 'New Slide', 
-            bodyText: 'Enter content...', 
-            image: null, 
-            image2: null, 
-            template: '1-landscape' 
-        }]);
-        setActivePageId(newId);
+    // Simple Markdown to HTML parser for the Canvas
+    const renderMarkdown = (text) => {
+        if (!text) return { __html: '<div class="text-gray-400 italic text-center mt-20">Your AI-generated report will appear here...</div>' };
+        
+        let html = text
+            .replace(/^### (.*$)/gim, '<h3 class="text-lg font-bold text-gray-800 mt-6 mb-2">$1</h3>')
+            .replace(/^## (.*$)/gim, '<h2 class="text-2xl font-black text-gray-900 mt-8 mb-4 pb-2 border-b border-gray-100">$1</h2>')
+            .replace(/^# (.*$)/gim, '<h1 class="text-3xl font-black text-gray-900 mt-4 mb-6">$1</h1>')
+            .replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-gray-900">$1</strong>')
+            .replace(/\*(.*?)\*/g, '<em class="italic">$1</em>')
+            .replace(/^\* (.*$)/gim, '<li class="ml-4 mb-1 list-disc">$1</li>')
+            .replace(/<\/li>\n/g, '</li>') // Fix spacing between lists
+            .replace(/\n\n/g, '</p><p class="mb-4 text-gray-600 leading-relaxed">')
+            .replace(/\n/g, '<br/>');
+
+        return { __html: `<p class="mb-4 text-gray-600 leading-relaxed">${html}</p>` };
     };
-
-    const removePage = (id, e) => {
-        e.stopPropagation();
-        if (pages.length === 1) return; 
-        const newPages = pages.filter(p => p.id !== id);
-        setPages(newPages);
-        // If we deleted the active page, switch to the first available
-        if (activePageId === id) setActivePageId(newPages[0].id);
-    };
-
-    const handleSort = () => {
-        let _pages = [...pages];
-        const item = _pages.splice(dragItem.current, 1)[0];
-        _pages.splice(dragOverItem.current, 0, item);
-        setPages(_pages);
-    };
-
-    // --- Safety Check Before Render ---
-    if (!activePage) return <div className="p-10 text-center text-gray-500">Loading Slides...</div>;
-
-    // Helper to safely check template string
-    const template = activePage.template || 'title-only';
 
     return (
-        <div className="p-6 md:p-10 h-full w-full bg-gray-100 overflow-y-auto">
-            <div className="max-w-5xl mx-auto mb-8 print:hidden">
-                
-                {/* Header */}
-                <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-3xl font-bold text-gray-800 flex items-center gap-2">
-                        <Presentation className="text-blue-600" /> Presentation Builder
-                    </h2>
-                    <div className="flex gap-3">
-                        <button onClick={() => window.print()} className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold shadow-lg flex items-center gap-2 hover:bg-blue-700 transition">
-                            <Printer size={18} /> Export to PDF
-                        </button>
+        <div className="flex flex-col h-full bg-[#f8fafc] font-sans relative overflow-hidden">
+            
+            {/* --- HEADER --- */}
+            <header className="px-8 py-6 border-b border-gray-100 bg-white/80 backdrop-blur-xl shadow-sm z-20 flex justify-between items-center shrink-0">
+                <div className="flex items-center gap-4">
+                    <div className="p-3 rounded-2xl shadow-inner bg-gradient-to-br from-indigo-600 to-violet-700 text-white">
+                        <Wand2 size={24} />
+                    </div>
+                    <div>
+                        <h2 className="text-2xl font-black text-gray-900 tracking-tight">AI Report Canvas</h2>
+                        <p className="text-sm text-gray-500 font-medium mt-0.5">Generate branded documents instantly with Gemini</p>
                     </div>
                 </div>
+            </header>
 
-                {/* Editor UI */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    
-                    {/* Left Sidebar */}
-                    <div className="lg:col-span-1 space-y-6">
-                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-                            <div className="flex justify-between items-center mb-4">
-                                <label className="text-xs font-bold text-gray-500 uppercase">Slides</label>
-                                <button onClick={addNewPage} className="text-blue-600 text-xs font-bold flex items-center gap-1 hover:underline">
-                                    <Plus size={14} /> Add Slide
-                                </button>
-                            </div>
-                            <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar pr-1">
-                                {pages.map((p, idx) => (
-                                    <div 
-                                        key={p.id} 
-                                        draggable 
-                                        onDragStart={() => (dragItem.current = idx)} 
-                                        onDragEnter={() => (dragOverItem.current = idx)} 
-                                        onDragEnd={handleSort} 
-                                        onClick={() => setActivePageId(p.id)} 
-                                        className={`flex justify-between items-center p-3 rounded-lg border cursor-pointer transition ${activePageId === p.id ? 'border-blue-500 bg-blue-50' : 'border-gray-100 hover:bg-gray-50'}`}
-                                    >
-                                        <div className="flex items-center gap-2 overflow-hidden">
-                                            <GripVertical size={16} className="text-gray-400 cursor-move shrink-0" />
-                                            <span className="text-sm font-medium truncate">#{idx + 1} {p.title}</span>
-                                        </div>
-                                        <button onClick={(e) => removePage(p.id, e)} className="text-gray-400 hover:text-red-500 p-1"><Trash2 size={14} /></button>
-                                    </div>
-                                ))}
+            {/* --- SPLIT WORKSPACE --- */}
+            <div className="flex-1 flex overflow-hidden">
+                
+                {/* LEFT PANEL: Builder Form */}
+                <div className="w-full lg:w-1/3 xl:w-[400px] bg-white border-r border-gray-200 overflow-y-auto custom-scrollbar flex flex-col z-10 shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
+                    <form onSubmit={handleGenerate} className="p-6 space-y-6 flex-1 flex flex-col">
+                        
+                        {/* Brandfetch Setup */}
+                        <div className="space-y-4 bg-gray-50 p-5 rounded-2xl border border-gray-100">
+                            <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+                                <Building2 size={16} className="text-blue-500"/> Brand Details
+                            </h3>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5">Brand Domain (For Logo)</label>
+                                <input 
+                                    type="text" 
+                                    className="w-full bg-white border border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 transition-all shadow-sm"
+                                    placeholder="e.g. apple.com"
+                                    value={brandDomain}
+                                    onChange={(e) => setBrandDomain(e.target.value)}
+                                    required
+                                />
+                                <p className="text-[10px] text-gray-400 mt-1.5 flex items-center gap-1">
+                                    <Sparkles size={10}/> Fetches official logo via brandfetch.com
+                                </p>
                             </div>
                         </div>
 
-                        {/* BRAND & LOGO SELECTOR */}
-                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 space-y-6">
-                            {/* Brand Color */}
+                        {/* Report Config */}
+                        <div className="space-y-4">
                             <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-3">Select Brand</label>
-                                <div className="grid grid-cols-2 gap-2">
-                                    {BRANDS.map(brand => (
-                                        <button 
-                                            key={brand.name} 
-                                            onClick={() => setSelectedBrand(brand.name)} 
-                                            className={`p-2 rounded-lg border-2 text-xs font-bold transition ${selectedBrand === brand.name ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-100 hover:bg-gray-50 text-gray-600'}`}
-                                        >
-                                            {brand.name}
-                                        </button>
-                                    ))}
-                                </div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5">Report Title</label>
+                                <input 
+                                    type="text" 
+                                    className="w-full bg-white border border-gray-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 transition-all"
+                                    value={reportTitle}
+                                    onChange={(e) => setReportTitle(e.target.value)}
+                                    required
+                                />
                             </div>
-
-                            {/* Custom Logo Upload */}
-                            <div>
-                                <label className="flex justify-between items-center text-xs font-bold text-gray-500 uppercase mb-3">
-                                    <span>Brand Logo</span>
-                                    {customLogo && (
-                                        <button onClick={() => setCustomLogo(null)} className="text-red-500 text-xs hover:underline flex items-center gap-1">
-                                            <X size={12}/> Clear
-                                        </button>
-                                    )}
+                            
+                            <div className="flex-1 flex flex-col">
+                                <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5 flex justify-between items-center">
+                                    <span>AI Instructions / Prompt</span>
                                 </label>
-                                
-                                {customLogo ? (
-                                    <div className="w-full h-24 bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-center p-2 relative group">
-                                        <img src={customLogo} alt="Custom Logo" className="max-h-full max-w-full object-contain" />
-                                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition flex items-center justify-center rounded-lg">
-                                            <button onClick={() => setCustomLogo(null)} className="text-white bg-red-500 p-1.5 rounded-full"><Trash2 size={16}/></button>
-                                        </div>
-                                    </div>
+                                <textarea 
+                                    className="w-full flex-1 min-h-[200px] bg-gray-50 border border-gray-200 rounded-xl p-4 text-sm outline-none focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 transition-all resize-none custom-scrollbar leading-relaxed"
+                                    placeholder="Tell Gemini what this report should cover..."
+                                    value={prompt}
+                                    onChange={(e) => setPrompt(e.target.value)}
+                                    required
+                                />
+                            </div>
+                        </div>
+
+                        {/* Generate Button */}
+                        <div className="pt-4 border-t border-gray-100 mt-auto">
+                            <button 
+                                type="submit"
+                                disabled={isGenerating}
+                                className={`w-full py-4 rounded-xl font-black text-white shadow-lg transition-all duration-300 flex items-center justify-center gap-2
+                                    ${isGenerating 
+                                        ? 'bg-gray-400 cursor-not-allowed shadow-none' 
+                                        : 'bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 hover:-translate-y-0.5 hover:shadow-indigo-500/30'
+                                    }
+                                `}
+                            >
+                                {isGenerating ? (
+                                    <><Loader2 size={18} className="animate-spin" /> Generating Document...</>
                                 ) : (
-                                    <div className="border-2 border-dashed border-gray-300 rounded-xl p-4 text-center relative group hover:bg-blue-50 hover:border-blue-300 transition cursor-pointer">
-                                        <input 
-                                            type="file" 
-                                            accept="image/*" 
-                                            onChange={handleLogoUpload} 
-                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" 
-                                        />
-                                        <div className="flex flex-col items-center justify-center text-gray-400 group-hover:text-blue-500">
-                                            <Upload size={20} className="mb-1" />
-                                            <span className="text-xs font-medium">Click to Upload Logo</span>
-                                        </div>
+                                    <><Wand2 size={18} /> Generate Report</>
+                                )}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                {/* RIGHT PANEL: The Canvas */}
+                <div className="flex-1 bg-[#e2e8f0] overflow-y-auto custom-scrollbar p-8 lg:p-12 relative flex justify-center">
+                    
+                    {/* Canvas Toolbar */}
+                    <div className="absolute top-6 right-12 flex gap-2 z-20">
+                        <button 
+                            onClick={handleCopy}
+                            disabled={!reportContent}
+                            className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all shadow-sm ${isCopied ? 'bg-green-500 text-white' : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'} disabled:opacity-50 disabled:cursor-not-allowed`}
+                        >
+                            {isCopied ? <CheckCircle2 size={16}/> : <Copy size={16}/>}
+                            {isCopied ? 'Copied Markdown!' : 'Copy Text'}
+                        </button>
+                    </div>
+
+                    {/* A4 Document Paper */}
+                    <div 
+                        ref={canvasRef}
+                        className="bg-white w-full max-w-[850px] min-h-[1100px] shadow-2xl rounded-sm ring-1 ring-gray-900/5 p-12 sm:p-16 flex flex-col relative transition-all duration-500"
+                    >
+                        {isGenerating && (
+                            <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center text-indigo-600 rounded-sm">
+                                <Loader2 size={48} className="animate-spin mb-4" />
+                                <p className="font-bold text-lg animate-pulse">Gemini is writing...</p>
+                            </div>
+                        )}
+
+                        {/* Document Header (Brandfetch Logo) */}
+                        <div className="border-b-2 border-gray-900 pb-8 mb-8 flex justify-between items-end">
+                            <div className="flex-1 pr-8">
+                                <h1 className="text-4xl font-black text-gray-900 tracking-tight leading-tight mb-2">
+                                    {reportTitle || 'Untitled Report'}
+                                </h1>
+                                <p className="text-gray-500 font-medium uppercase tracking-widest text-sm">
+                                    Generated: {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+                                </p>
+                            </div>
+                            
+                            {/* Brandfetch Logo Area */}
+                            <div className="w-48 h-16 flex items-center justify-end shrink-0">
+                                {activeLogo ? (
+                                    <img 
+                                        src={activeLogo} 
+                                        alt={`${brandDomain} Logo`} 
+                                        className="max-w-full max-h-full object-contain"
+                                        onError={(e) => {
+                                            // Fallback if Brandfetch fails to find the logo
+                                            e.target.onerror = null; 
+                                            e.target.src = `https://logo.clearbit.com/${brandDomain}`;
+                                        }}
+                                    />
+                                ) : (
+                                    <div className="w-full h-full bg-gray-50 border border-gray-100 border-dashed rounded flex items-center justify-center text-gray-300">
+                                        <LayoutTemplate size={24} />
                                     </div>
                                 )}
                             </div>
                         </div>
-                    </div>
 
-                    {/* Main Editor */}
-                    <div className="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-                        <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2 border-b border-gray-100 pb-3">
-                            <Edit2 size={16} /> Edit Slide
-                        </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Title</label>
-                                <input type="text" value={activePage.title || ''} onChange={(e) => updatePage('title', e.target.value)} className="w-full border rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none" />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Template</label>
-                                <select 
-                                    value={template} 
-                                    onChange={(e) => updatePage('template', e.target.value)} 
-                                    className="w-full border rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none bg-white"
-                                >
-                                    <option value="title-only">Title Slide (Center)</option>
-                                    <optgroup label="Standard (Side-by-Side)">
-                                        <option value="1-landscape">1 Landscape Image</option>
-                                        <option value="2-landscape">2 Landscape Images</option>
-                                        <option value="1-portrait">1 Portrait Image</option>
-                                        <option value="2-portrait">2 Portrait Images</option>
-                                    </optgroup>
-                                    <optgroup label="Top Center Layout">
-                                        <option value="top-1-landscape">Title Top + 1 Landscape</option>
-                                        <option value="top-2-portrait">Title Top + 2 Portraits</option>
-                                    </optgroup>
-                                </select>
-                            </div>
-                            <div className="md:col-span-2">
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Content</label>
-                                <textarea value={activePage.bodyText || ''} onChange={(e) => updatePage('bodyText', e.target.value)} className="w-full border rounded-lg p-3 h-20 resize-none focus:ring-2 focus:ring-blue-500 outline-none" />
-                            </div>
-                            
-                            {template !== 'title-only' && (
-                                <div className="md:col-span-2 grid grid-cols-2 gap-4">
-                                    <div className="border-2 border-dashed border-gray-300 rounded-xl p-4 text-center relative group hover:bg-gray-50 transition">
-                                        <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'image')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                                        <Upload className="mx-auto text-gray-400" size={24} />
-                                        <span className="text-xs text-gray-500">Image 1</span>
-                                    </div>
-                                    
-                                    {(template.includes('2') || template.includes('top-2')) && (
-                                        <div className="border-2 border-dashed border-gray-300 rounded-xl p-4 text-center relative group hover:bg-gray-50 transition">
-                                            <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'image2')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                                            <Upload className="mx-auto text-gray-400" size={24} />
-                                            <span className="text-xs text-gray-500">Image 2</span>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
+                        {/* Document Body (Rendered Markdown) */}
+                        <div 
+                            className="flex-1 report-prose"
+                            dangerouslySetInnerHTML={renderMarkdown(reportContent)}
+                        />
+
+                        {/* Document Footer */}
+                        <div className="mt-16 pt-8 border-t border-gray-200 text-center text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center justify-center gap-2">
+                            <Sparkles size={12} /> Generated by AI Report Canvas
                         </div>
                     </div>
                 </div>
+
             </div>
-
-            {/* Preview / Print Area */}
-            <div className="space-y-8 print:space-y-0">
-                {pages.map((page, index) => (
-                    <div 
-                        key={page.id} 
-                        className="max-w-5xl mx-auto bg-white aspect-video shadow-2xl rounded-xl overflow-hidden relative print:shadow-none print:w-full print:h-screen print:rounded-none flex flex-col print:break-after-page"
-                    >
-                        {/* Slide Header */}
-                        <div className={`h-24 flex items-center px-10 justify-between ${currentBrandConfig.color}`}>
-                            <div></div>
-                            {/* Force Render Custom Logo if exists, else Brand Logo, else Brand Name */}
-                            {activeLogo ? (
-                                <img src={activeLogo} alt="Logo" className="h-12 object-contain bg-white/10 p-1 rounded" />
-                            ) : (
-                                <span className="text-xl font-black">{selectedBrand}</span>
-                            )}
-                        </div>
-
-                        {/* RENDER LOGIC */}
-                        {(page.template || 'title-only') === 'title-only' && (
-                            <div className="flex-1 p-20 flex flex-col items-center justify-start pt-32 text-center">
-                                <span className="inline-block px-4 py-1.5 rounded-full bg-gray-100 text-gray-500 text-sm font-bold uppercase tracking-wider mb-6">{reportDate}</span>
-                                <h2 className="text-6xl md:text-7xl font-extrabold text-gray-900 leading-tight mb-8">{page.title}</h2>
-                                <div className="w-32 h-2 bg-blue-600 rounded-full mb-10"></div>
-                                <p className="text-gray-600 text-2xl leading-relaxed max-w-4xl">{page.bodyText}</p>
-                                <div className="mt-auto pt-12 opacity-80">
-                                    {/* <p className="text-gray-400 text-sm font-medium uppercase tracking-widest">Prepared by</p>
-                                    <p className="text-gray-800 font-bold text-xl mt-1">{currentUser?.email || 'Marketing Team'}</p> */}
-                                </div>
-                            </div>
-                        )}
-
-                        {(page.template || '').startsWith('top-') && (
-                            <div className="flex-1 p-10 flex flex-col">
-                                <div className="text-center mb-6">
-                                    <h2 className="text-4xl font-extrabold text-gray-800 leading-tight mb-2">{page.title}</h2>
-                                    <p className="text-gray-600 text-lg">{page.bodyText}</p>
-                                </div>
-                                <div className="flex-1 w-full min-h-0">
-                                    {page.template === 'top-1-landscape' ? (
-                                        <div className="w-full h-full bg-gray-100 rounded-2xl overflow-hidden border border-gray-200 flex items-center justify-center">
-                                            {page.image ? <img src={page.image} className="w-full h-full object-cover" alt="Slide" /> : <ImageIcon size={48} className="text-gray-300" />}
-                                        </div>
-                                    ) : (
-                                        <div className="w-full h-full flex gap-8 justify-center">
-                                            <div className="h-full aspect-[3/4] bg-gray-100 rounded-2xl overflow-hidden border border-gray-200 flex items-center justify-center">
-                                                {page.image ? <img src={page.image} className="w-full h-full object-cover" alt="Slide 1" /> : <ImageIcon size={48} className="text-gray-300" />}
-                                            </div>
-                                            <div className="h-full aspect-[3/4] bg-gray-100 rounded-2xl overflow-hidden border border-gray-200 flex items-center justify-center">
-                                                {page.image2 ? <img src={page.image2} className="w-full h-full object-cover" alt="Slide 2" /> : <ImageIcon size={48} className="text-gray-300" />}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        )}
-
-                        {!(page.template || '').startsWith('top-') && (page.template || 'title-only') !== 'title-only' && (
-                            <div className="flex-1 p-10 flex gap-8">
-                                <div className="flex-1 flex flex-col justify-center space-y-6">
-                                    <div>
-                                        <span className="inline-block px-3 py-1 rounded bg-gray-100 text-gray-500 text-xs font-bold uppercase tracking-wide mb-2">{reportDate}</span>
-                                        <h2 className="text-5xl font-extrabold text-gray-800 leading-tight">{page.title}</h2>
-                                    </div>
-                                    <div className="pt-4"><p className="text-gray-600 text-lg leading-relaxed whitespace-pre-wrap">{page.bodyText}</p></div>
-                                    {/* <div className="pt-8 mt-auto"><p className="text-gray-400 text-sm font-medium">Prepared by</p><p className="text-gray-800 font-bold text-lg">{currentUser?.email || 'Marketing Team'}</p></div> */}
-                                </div>
-
-                                <div className="flex-1 h-full flex flex-col gap-4">
-                                    {page.template === '1-landscape' && (
-                                        <div className="flex-1 bg-gray-100 rounded-2xl overflow-hidden flex items-center justify-center border border-gray-200">
-                                            {page.image ? <img src={page.image} className="w-full h-full object-cover" alt="Slide" /> : <ImageIcon size={48} className="text-gray-300" />}
-                                        </div>
-                                    )}
-                                    {page.template === '2-landscape' && (
-                                        <>
-                                            <div className="flex-1 bg-gray-100 rounded-2xl overflow-hidden flex items-center justify-center border border-gray-200">{page.image && <img src={page.image} className="w-full h-full object-cover" />}</div>
-                                            <div className="flex-1 bg-gray-100 rounded-2xl overflow-hidden flex items-center justify-center border border-gray-200">{page.image2 && <img src={page.image2} className="w-full h-full object-cover" />}</div>
-                                        </>
-                                    )}
-                                    {page.template === '1-portrait' && (
-                                        <div className="flex-1 flex justify-center h-full">
-                                            <div className="h-full aspect-[3/4] bg-gray-100 rounded-2xl overflow-hidden flex items-center justify-center border border-gray-200">{page.image && <img src={page.image} className="w-full h-full object-cover" />}</div>
-                                        </div>
-                                    )}
-                                    {page.template === '2-portrait' && (
-                                        <div className="flex-1 flex gap-4 h-full">
-                                            <div className="flex-1 bg-gray-100 rounded-2xl overflow-hidden flex items-center justify-center border border-gray-200">{page.image && <img src={page.image} className="w-full h-full object-cover" />}</div>
-                                            <div className="flex-1 bg-gray-100 rounded-2xl overflow-hidden flex items-center justify-center border border-gray-200">{page.image2 && <img src={page.image2} className="w-full h-full object-cover" />}</div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Slide Footer */}
-                        {/* <div className="bg-gray-50 border-t border-gray-100 p-4 text-center text-gray-400 text-xs font-medium uppercase tracking-widest">
-                            Confidential • Internal Use Only • Slide {index + 1}
-                        </div> */}
-                    </div>
-                ))}
-            </div>
-
-            {/* Print Styles */}
-            <style>{`
-                @media print { 
-                    @page { size: landscape; margin: 0; } 
-                    body { -webkit-print-color-adjust: exact; } 
-                    aside, nav, .print\\:hidden { display: none !important; } 
-                    main { width: 100vw; height: auto; overflow: visible; background: white; } 
-                    .p-6, .md\\:p-10 { padding: 0 !important; } 
-                    .print\\:break-after-page { break-after: page; height: 100vh; width: 100vw; border-radius: 0; } 
-                }
-            `}</style>
         </div>
     );
 };
