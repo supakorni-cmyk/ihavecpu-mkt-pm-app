@@ -106,39 +106,69 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
             if (!apiKey) throw new Error("Missing API Key in .env file.");
 
             // ⚠️ YOUR GOOGLE SHEET ID GOES HERE ⚠️
-            const SPREADSHEET_ID = "https://docs.google.com/spreadsheets/d/1JwM6_EILqUNC6C0hJEgrIFsfE-xB3kTK1PVIwR-BsZM/edit"; 
+            const SPREADSHEET_ID = "1JwM6_EILqUNC6C0hJEgrIFsfE-xB3kTK1PVIwR-BsZME"; 
             
-            // Assuming columns: A(Campaign), B(Influencer), C(Reach), D(Media Value), E(Spend)
-            const RANGE = "Sheet1!A:E"; 
+            // --- 1. FETCH ALL SHEET NAMES ---
+            // First, we ask Google for the names of every tab in the document
+            const metaResponse = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}?fields=sheets.properties.title&key=${apiKey}`);
+            if (!metaResponse.ok) {
+                const errData = await metaResponse.json();
+                throw new Error(`Google Meta Error: ${errData.error?.message || "Failed to read sheets"}`);
+            }
+            const metaData = await metaResponse.json();
+            const sheetNames = metaData.sheets.map(s => s.properties.title);
 
-            const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${RANGE}?key=${apiKey}`);
-            if (!response.ok) throw new Error("Failed to fetch from Google Sheets. Check your Spreadsheet ID and ensure the sheet is set to 'Anyone with the link can view'.");
+            // --- 2. BUILD THE BATCH REQUEST ---
+            // Create a query that asks for Columns A:E from EVERY sheet at once
+            const rangesQuery = sheetNames.map(name => `ranges=${encodeURIComponent(name)}!A:E`).join('&');
+
+            // --- 3. FETCH ALL DATA AT ONCE ---
+            const dataResponse = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values:batchGet?${rangesQuery}&key=${apiKey}`);
+            if (!dataResponse.ok) {
+                const errData = await dataResponse.json();
+                throw new Error(`Google Data Error: ${errData.error?.message || "Failed to fetch data"}`);
+            }
+            const batchData = await dataResponse.json();
             
-            const data = await response.json();
-            if (!data.values || data.values.length < 2) throw new Error("No data found in sheet.");
+            let combinedData = [];
 
-            // Map rows to our object structure (skipping the header row)
-            const parsed = data.values.slice(1).map((row, idx) => {
-                // Helper to strip commas/symbols and convert to number
-                const cleanNum = (str) => parseFloat((str || "0").toString().replace(/[^0-9.-]+/g,""));
+            // --- 4. COMBINE AND PARSE THE DATA ---
+            batchData.valueRanges.forEach((rangeData, sheetIndex) => {
+                const currentSheetName = sheetNames[sheetIndex];
+                const rows = rangeData.values;
                 
-                const reach = cleanNum(row[2]);
-                const mediaValue = cleanNum(row[3]);
-                const spend = cleanNum(row[4]);
-                
-                return {
-                    id: idx,
-                    sheetName: row[0] || "Unknown Campaign",
-                    influencer: row[1] || "Unknown Influencer",
-                    reach: reach,
-                    mediaValue: mediaValue,
-                    spend: spend,
-                    savings: mediaValue - spend,
-                    efficiency: spend > 0 ? parseFloat((mediaValue / spend).toFixed(2)) : 0
-                };
+                // Skip if this specific sheet is empty or only has a header row
+                if (!rows || rows.length < 2) return;
+
+                // Parse the rows
+                const parsedRows = rows.slice(1).map((row, rowIdx) => {
+                    const cleanNum = (str) => parseFloat((str || "0").toString().replace(/[^0-9.-]+/g,""));
+                    
+                    const reach = cleanNum(row[2]);
+                    const mediaValue = cleanNum(row[3]);
+                    const spend = cleanNum(row[4]);
+                    
+                    return {
+                        id: `${currentSheetName}-${rowIdx}`,
+                        // If Column A (Campaign Name) is empty, use the actual Tab name instead!
+                        sheetName: row[0] || currentSheetName, 
+                        influencer: row[1] || "Unknown Influencer",
+                        reach: reach,
+                        mediaValue: mediaValue,
+                        spend: spend,
+                        savings: mediaValue - spend,
+                        efficiency: spend > 0 ? parseFloat((mediaValue / spend).toFixed(2)) : 0
+                    };
+                });
+
+                combinedData = [...combinedData, ...parsedRows];
             });
 
-            setRoiData(parsed);
+            if (combinedData.length === 0) {
+                throw new Error("No data found across any sheets. Please check your data formatting.");
+            }
+
+            setRoiData(combinedData);
         } catch (err) {
             console.error("Sheet Fetch Error:", err);
             setRoiError(err.message);
@@ -146,7 +176,6 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
             setIsRoiLoading(false);
         }
     };
-
     // Filter Dropdown Options
     const uniqueSheets = ["ALL", ...new Set(roiData.map(d => d.sheetName))];
     const uniqueInfluencers = ["ALL", ...new Set(roiData.map(d => d.influencer))];
