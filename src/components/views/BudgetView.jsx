@@ -22,13 +22,12 @@ import {
   Send,
   MessageSquare,
   Copy,
-  Users,      // 🟢 NEW: For ROI Dashboard
-  Target,     // 🟢 NEW: For ROI Dashboard
-  Zap,        // 🟢 NEW: For ROI Dashboard
-  DollarSign  // 🟢 NEW: For ROI Dashboard
+  Users,      
+  Target,     
+  Zap,        
+  DollarSign  
 } from 'lucide-react';
 
-// 🟢 NEW: Import Recharts specifically for the ROI Bar Chart
 import { BarChart, Bar, Legend, ResponsiveContainer, CartesianGrid, XAxis, YAxis, Tooltip as RechartsTooltip } from 'recharts';
 
 import { BUDGET_CATEGORIES } from '../../utils/constants';
@@ -83,28 +82,83 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
     const [incomeMonthFilter, setIncomeMonthFilter] = useState('All');
     const [incomeBrandFilter, setIncomeBrandFilter] = useState('All');
 
-    // --- 🟢 NEW: INFLUENCER ROI STATE & MOCK DATA ---
+    // --- 🟢 NEW: GOOGLE SHEETS ROI STATE ---
+    const [roiData, setRoiData] = useState([]);
+    const [isRoiLoading, setIsRoiLoading] = useState(false);
+    const [roiError, setRoiError] = useState('');
+    
     const [roiSheetFilter, setRoiSheetFilter] = useState('ALL');
     const [roiInfluencerFilter, setRoiInfluencerFilter] = useState('ALL');
 
-    const mockROIData = [
-        { id: 1, sheetName: "Q1_Tech_Launch", influencer: "ZackTech", reach: 1200000, mediaValue: 45000, spend: 15000, savings: 30000, efficiency: 3.0 },
-        { id: 2, sheetName: "Q1_Tech_Launch", influencer: "ExtremeIT", reach: 2500000, mediaValue: 80000, spend: 20000, savings: 60000, efficiency: 4.0 },
-        { id: 3, sheetName: "Summer_Promo", influencer: "ZackTech", reach: 950000, mediaValue: 32000, spend: 12000, savings: 20000, efficiency: 2.66 },
-        { id: 4, sheetName: "Summer_Promo", influencer: "GamerGirl", reach: 1800000, mediaValue: 65000, spend: 18000, savings: 47000, efficiency: 3.61 },
-        { id: 5, sheetName: "Black_Friday", influencer: "ExtremeIT", reach: 3000000, mediaValue: 120000, spend: 30000, savings: 90000, efficiency: 4.0 },
-        { id: 6, sheetName: "Black_Friday", influencer: "PCBuilderTH", reach: 850000, mediaValue: 28000, spend: 10000, savings: 18000, efficiency: 2.8 }
-    ];
+    // Fetch data from Google Sheets when the ROI tab is opened
+    useEffect(() => {
+        if (activeTab === 'influencer_roi' && roiData.length === 0) {
+            fetchSheetData();
+        }
+    }, [activeTab]);
 
-    const uniqueSheets = ["ALL", ...new Set(mockROIData.map(d => d.sheetName))];
-    const uniqueInfluencers = ["ALL", ...new Set(mockROIData.map(d => d.influencer))];
+    const fetchSheetData = async () => {
+        setIsRoiLoading(true);
+        setRoiError('');
+        try {
+            // Reusing your API key
+            const apiKey = import.meta.env.VITE_YOUTUBE_API_KEY || import.meta.env.VITE_GEMINI_API_KEY;
+            if (!apiKey) throw new Error("Missing API Key in .env file.");
 
-    const filteredROI = mockROIData.filter(item => {
+            // ⚠️ YOUR GOOGLE SHEET ID GOES HERE ⚠️
+            const SPREADSHEET_ID = "https://docs.google.com/spreadsheets/d/1JwM6_EILqUNC6C0hJEgrIFsfE-xB3kTK1PVIwR-BsZM/edit"; 
+            
+            // Assuming columns: A(Campaign), B(Influencer), C(Reach), D(Media Value), E(Spend)
+            const RANGE = "Sheet1!A:E"; 
+
+            const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${RANGE}?key=${apiKey}`);
+            if (!response.ok) throw new Error("Failed to fetch from Google Sheets. Check your Spreadsheet ID and ensure the sheet is set to 'Anyone with the link can view'.");
+            
+            const data = await response.json();
+            if (!data.values || data.values.length < 2) throw new Error("No data found in sheet.");
+
+            // Map rows to our object structure (skipping the header row)
+            const parsed = data.values.slice(1).map((row, idx) => {
+                // Helper to strip commas/symbols and convert to number
+                const cleanNum = (str) => parseFloat((str || "0").toString().replace(/[^0-9.-]+/g,""));
+                
+                const reach = cleanNum(row[2]);
+                const mediaValue = cleanNum(row[3]);
+                const spend = cleanNum(row[4]);
+                
+                return {
+                    id: idx,
+                    sheetName: row[0] || "Unknown Campaign",
+                    influencer: row[1] || "Unknown Influencer",
+                    reach: reach,
+                    mediaValue: mediaValue,
+                    spend: spend,
+                    savings: mediaValue - spend,
+                    efficiency: spend > 0 ? parseFloat((mediaValue / spend).toFixed(2)) : 0
+                };
+            });
+
+            setRoiData(parsed);
+        } catch (err) {
+            console.error("Sheet Fetch Error:", err);
+            setRoiError(err.message);
+        } finally {
+            setIsRoiLoading(false);
+        }
+    };
+
+    // Filter Dropdown Options
+    const uniqueSheets = ["ALL", ...new Set(roiData.map(d => d.sheetName))];
+    const uniqueInfluencers = ["ALL", ...new Set(roiData.map(d => d.influencer))];
+
+    // Computed Filtered Data
+    const filteredROI = roiData.filter(item => {
         const matchSheet = roiSheetFilter === 'ALL' || item.sheetName === roiSheetFilter;
         const matchInfluencer = roiInfluencerFilter === 'ALL' || item.influencer === roiInfluencerFilter;
         return matchSheet && matchInfluencer;
     });
 
+    // KPI Totals
     const roiTotalReach = filteredROI.reduce((sum, item) => sum + item.reach, 0);
     const roiTotalMediaValue = filteredROI.reduce((sum, item) => sum + item.mediaValue, 0);
     const roiTotalSpend = filteredROI.reduce((sum, item) => sum + item.spend, 0);
@@ -309,7 +363,6 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
             {/* --- TABS NAVIGATION --- */}
             <div className="flex-1 overflow-hidden flex flex-col relative z-10">
                 <div className="px-8 pt-8 pb-0 flex gap-2 border-b border-gray-200 bg-transparent overflow-x-auto custom-scrollbar">
-                    {/* 🟢 NEW: Added 'influencer_roi' to tabs */}
                     {['overview', 'income', 'spending', 'influencer_roi'].map(tab => (
                         <button key={tab} onClick={() => setActiveTab(tab)} className={`px-8 py-3.5 font-bold text-sm rounded-t-2xl transition-all duration-300 capitalize relative overflow-hidden whitespace-nowrap ${activeTab === tab ? 'bg-white shadow-[0_-4px_20px_rgba(0,0,0,0.03)] border border-b-0 border-gray-100 text-gray-900' : 'text-gray-500 hover:bg-gray-200/50 hover:text-gray-800'}`}>
                             <span className="relative z-10">{tab === 'influencer_roi' ? 'Influencer ROI' : tab}</span>
@@ -504,120 +557,136 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                     {activeTab === 'influencer_roi' && (
                         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-[1600px] mx-auto pb-12">
                             
-                            {/* Filters Section */}
-                            <div className="bg-white p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 flex flex-col md:flex-row gap-6 items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-3 bg-orange-50 text-orange-600 rounded-xl">
-                                        <Target size={20} />
-                                    </div>
+                            {isRoiLoading ? (
+                                <div className="flex flex-col items-center justify-center py-32 text-indigo-500">
+                                    <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mb-4"></div>
+                                    <p className="font-bold">Fetching Live Data from Google Sheets...</p>
+                                </div>
+                            ) : roiError ? (
+                                <div className="bg-red-50 text-red-600 p-6 rounded-2xl border border-red-100 flex items-start gap-4">
+                                    <Activity size={24} className="mt-1 shrink-0"/> 
                                     <div>
-                                        <h3 className="font-bold text-gray-800">Campaign ROAS Dashboard</h3>
-                                        <p className="text-xs text-gray-500">Filter by sheet or influencer to recalculate metrics</p>
+                                        <h4 className="font-bold text-lg mb-1">Connection Error</h4>
+                                        <p className="text-sm">{roiError}</p>
                                     </div>
                                 </div>
-                                
-                                <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
-                                    <div className="flex items-center gap-2 bg-gray-50 p-2 rounded-xl border border-gray-200">
-                                        <Filter size={14} className="text-gray-400 ml-2" />
-                                        <select 
-                                            className="bg-transparent border-none text-sm font-bold text-gray-700 outline-none pr-4 cursor-pointer"
-                                            value={roiSheetFilter}
-                                            onChange={(e) => setRoiSheetFilter(e.target.value)}
-                                        >
-                                            {uniqueSheets.map(sheet => (
-                                                <option key={sheet} value={sheet}>{sheet === 'ALL' ? 'All Sheets (Campaigns)' : sheet}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div className="flex items-center gap-2 bg-gray-50 p-2 rounded-xl border border-gray-200">
-                                        <Users size={14} className="text-gray-400 ml-2" />
-                                        <select 
-                                            className="bg-transparent border-none text-sm font-bold text-gray-700 outline-none pr-4 cursor-pointer"
-                                            value={roiInfluencerFilter}
-                                            onChange={(e) => setRoiInfluencerFilter(e.target.value)}
-                                        >
-                                            {uniqueInfluencers.map(inf => (
-                                                <option key={inf} value={inf}>{inf === 'ALL' ? 'All Influencers' : inf}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* KPI Cards */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                                <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col">
-                                    <div className="flex justify-between items-start mb-4">
-                                        <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl"><Users size={20}/></div>
-                                    </div>
-                                    <p className="text-sm text-gray-500 font-bold mb-1">Total Reach</p>
-                                    <h3 className="text-3xl font-black text-gray-800">
-                                        {(roiTotalReach / 1000000).toFixed(2)}<span className="text-lg text-gray-400">M</span>
-                                    </h3>
-                                </div>
-
-                                <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col">
-                                    <div className="flex justify-between items-start mb-4">
-                                        <div className="p-3 bg-purple-50 text-purple-600 rounded-2xl"><Activity size={20}/></div>
-                                    </div>
-                                    <p className="text-sm text-gray-500 font-bold mb-1">Total Media Value</p>
-                                    <h3 className="text-3xl font-black text-gray-800">
-                                        ${formatCompactNumber(roiTotalMediaValue)}
-                                    </h3>
-                                </div>
-
-                                <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col relative overflow-hidden">
-                                    <div className="absolute top-0 right-0 w-24 h-24 bg-orange-500/10 rounded-full blur-2xl"></div>
-                                    <div className="flex justify-between items-start mb-4 relative z-10">
-                                        <div className="p-3 bg-orange-50 text-orange-600 rounded-2xl"><Zap size={20}/></div>
-                                    </div>
-                                    <p className="text-sm text-gray-500 font-bold mb-1 relative z-10">Campaign Efficiency</p>
-                                    <h3 className="text-3xl font-black text-gray-800 relative z-10">
-                                        {roiAvgEfficiency}<span className="text-lg text-gray-400">x</span>
-                                    </h3>
-                                </div>
-
-                                <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col relative overflow-hidden">
-                                    <div className="absolute top-0 right-0 w-24 h-24 bg-green-500/10 rounded-full blur-2xl"></div>
-                                    <div className="flex justify-between items-start mb-4 relative z-10">
-                                        <div className="p-3 bg-green-50 text-green-600 rounded-2xl"><DollarSign size={20}/></div>
-                                    </div>
-                                    <p className="text-sm text-gray-500 font-bold mb-1 relative z-10">Net Savings</p>
-                                    <h3 className="text-3xl font-black text-green-600 relative z-10">
-                                        +${formatCompactNumber(roiTotalSavings)}
-                                    </h3>
-                                </div>
-                            </div>
-
-                            {/* Visualizer Chart */}
-                            <div className="bg-white p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100">
-                                <h3 className="text-lg font-black text-gray-800 mb-6 flex items-center gap-2">
-                                    <PieChartIcon className="text-orange-500"/> Media Value vs Spend by Influencer
-                                </h3>
-                                <div className="h-[400px] w-full">
-                                    {filteredROI.length > 0 ? (
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <BarChart data={filteredROI} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9"/>
-                                                <XAxis dataKey="influencer" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12, fontWeight: 600}} dy={10}/>
-                                                <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dx={-10} tickFormatter={(val) => `$${val/1000}k`}/>
-                                                <RechartsTooltip 
-                                                    cursor={{fill: '#f8fafc'}}
-                                                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', fontWeight: 'bold' }}
-                                                />
-                                                <Legend wrapperStyle={{ paddingTop: '20px', fontWeight: 'bold', color: '#64748b' }}/>
-                                                <Bar dataKey="mediaValue" name="Earned Media Value ($)" fill="#f97316" radius={[6,6,0,0]} />
-                                                <Bar dataKey="spend" name="Actual Spend ($)" fill="#cbd5e1" radius={[6,6,0,0]} />
-                                            </BarChart>
-                                        </ResponsiveContainer>
-                                    ) : (
-                                        <div className="w-full h-full flex items-center justify-center text-gray-400 font-bold">
-                                            No data available for these filters.
+                            ) : (
+                                <>
+                                    {/* Filters Section */}
+                                    <div className="bg-white p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 flex flex-col md:flex-row gap-6 items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-3 bg-orange-50 text-orange-600 rounded-xl">
+                                                <Target size={20} />
+                                            </div>
+                                            <div>
+                                                <h3 className="font-bold text-gray-800">Campaign ROAS Dashboard</h3>
+                                                <p className="text-xs text-gray-500">Filter by sheet or influencer to recalculate metrics</p>
+                                            </div>
                                         </div>
-                                    )}
-                                </div>
-                            </div>
+                                        
+                                        <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
+                                            <div className="flex items-center gap-2 bg-gray-50 p-2 rounded-xl border border-gray-200">
+                                                <Filter size={14} className="text-gray-400 ml-2" />
+                                                <select 
+                                                    className="bg-transparent border-none text-sm font-bold text-gray-700 outline-none pr-4 cursor-pointer"
+                                                    value={roiSheetFilter}
+                                                    onChange={(e) => setRoiSheetFilter(e.target.value)}
+                                                >
+                                                    {uniqueSheets.map(sheet => (
+                                                        <option key={sheet} value={sheet}>{sheet === 'ALL' ? 'All Sheets (Campaigns)' : sheet}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <div className="flex items-center gap-2 bg-gray-50 p-2 rounded-xl border border-gray-200">
+                                                <Users size={14} className="text-gray-400 ml-2" />
+                                                <select 
+                                                    className="bg-transparent border-none text-sm font-bold text-gray-700 outline-none pr-4 cursor-pointer"
+                                                    value={roiInfluencerFilter}
+                                                    onChange={(e) => setRoiInfluencerFilter(e.target.value)}
+                                                >
+                                                    {uniqueInfluencers.map(inf => (
+                                                        <option key={inf} value={inf}>{inf === 'ALL' ? 'All Influencers' : inf}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
 
+                                    {/* KPI Cards */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                                        <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col">
+                                            <div className="flex justify-between items-start mb-4">
+                                                <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl"><Users size={20}/></div>
+                                            </div>
+                                            <p className="text-sm text-gray-500 font-bold mb-1">Total Reach</p>
+                                            <h3 className="text-3xl font-black text-gray-800">
+                                                {(roiTotalReach / 1000000).toFixed(2)}<span className="text-lg text-gray-400">M</span>
+                                            </h3>
+                                        </div>
+
+                                        <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col">
+                                            <div className="flex justify-between items-start mb-4">
+                                                <div className="p-3 bg-purple-50 text-purple-600 rounded-2xl"><Activity size={20}/></div>
+                                            </div>
+                                            <p className="text-sm text-gray-500 font-bold mb-1">Total Media Value</p>
+                                            <h3 className="text-3xl font-black text-gray-800">
+                                                ฿{formatCompactNumber(roiTotalMediaValue)}
+                                            </h3>
+                                        </div>
+
+                                        <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col relative overflow-hidden">
+                                            <div className="absolute top-0 right-0 w-24 h-24 bg-orange-500/10 rounded-full blur-2xl"></div>
+                                            <div className="flex justify-between items-start mb-4 relative z-10">
+                                                <div className="p-3 bg-orange-50 text-orange-600 rounded-2xl"><Zap size={20}/></div>
+                                            </div>
+                                            <p className="text-sm text-gray-500 font-bold mb-1 relative z-10">Campaign Efficiency</p>
+                                            <h3 className="text-3xl font-black text-gray-800 relative z-10">
+                                                {roiAvgEfficiency}<span className="text-lg text-gray-400">x</span>
+                                            </h3>
+                                        </div>
+
+                                        <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col relative overflow-hidden">
+                                            <div className="absolute top-0 right-0 w-24 h-24 bg-green-500/10 rounded-full blur-2xl"></div>
+                                            <div className="flex justify-between items-start mb-4 relative z-10">
+                                                <div className="p-3 bg-green-50 text-green-600 rounded-2xl"><DollarSign size={20}/></div>
+                                            </div>
+                                            <p className="text-sm text-gray-500 font-bold mb-1 relative z-10">Net Savings</p>
+                                            <h3 className="text-3xl font-black text-green-600 relative z-10">
+                                                +฿{formatCompactNumber(roiTotalSavings)}
+                                            </h3>
+                                        </div>
+                                    </div>
+
+                                    {/* Visualizer Chart */}
+                                    <div className="bg-white p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100">
+                                        <h3 className="text-lg font-black text-gray-800 mb-6 flex items-center gap-2">
+                                            <PieChartIcon className="text-orange-500"/> Media Value vs Spend by Influencer
+                                        </h3>
+                                        <div className="h-[400px] w-full">
+                                            {filteredROI.length > 0 ? (
+                                                <ResponsiveContainer width="100%" height="100%">
+                                                    <BarChart data={filteredROI} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9"/>
+                                                        <XAxis dataKey="influencer" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12, fontWeight: 600}} dy={10}/>
+                                                        <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dx={-10} tickFormatter={(val) => `฿${val/1000}k`}/>
+                                                        <RechartsTooltip 
+                                                            cursor={{fill: '#f8fafc'}}
+                                                            contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', fontWeight: 'bold' }}
+                                                        />
+                                                        <Legend wrapperStyle={{ paddingTop: '20px', fontWeight: 'bold', color: '#64748b' }}/>
+                                                        <Bar dataKey="mediaValue" name="Earned Media Value (฿)" fill="#f97316" radius={[6,6,0,0]} />
+                                                        <Bar dataKey="spend" name="Actual Spend (฿)" fill="#cbd5e1" radius={[6,6,0,0]} />
+                                                    </BarChart>
+                                                </ResponsiveContainer>
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center text-gray-400 font-bold">
+                                                    No data available for these filters.
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </>
+                            )}
                         </div>
                     )}
 
