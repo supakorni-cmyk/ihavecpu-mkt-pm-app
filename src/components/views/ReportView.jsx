@@ -16,10 +16,10 @@ import {
 } from 'lucide-react';
 
 import * as XLSX from 'xlsx';
-import * as pdfjsLib from 'pdfjs-dist';
+import * as pdfjsLib from 'pdfjs-dist/build/pdf';
 
-// Setup the PDF.js background worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+// Hardcode a stable CDN version so Vite doesn't crash trying to find the local worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js`;
 
 const ReportView = () => {
     // --- STATE ---
