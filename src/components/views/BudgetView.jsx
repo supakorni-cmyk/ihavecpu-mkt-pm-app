@@ -25,7 +25,8 @@ import {
   Users,      
   Target,     
   Zap,        
-  Eye
+  Eye,
+  Rocket
 } from 'lucide-react';
 
 import { BarChart, Bar, Legend, ResponsiveContainer, CartesianGrid, XAxis, YAxis, Tooltip as RechartsTooltip } from 'recharts';
