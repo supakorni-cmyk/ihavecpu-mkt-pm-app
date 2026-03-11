@@ -25,7 +25,6 @@ import {
   Users,      
   Target,     
   Zap,        
-  Eye,
   Rocket
 } from 'lucide-react';
 
