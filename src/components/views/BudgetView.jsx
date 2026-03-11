@@ -25,7 +25,7 @@ import {
   Users,      
   Target,     
   Zap,        
-  DollarSign  
+  Eye
 } from 'lucide-react';
 
 import { BarChart, Bar, Legend, ResponsiveContainer, CartesianGrid, XAxis, YAxis, Tooltip as RechartsTooltip } from 'recharts';
@@ -223,9 +223,14 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                     
                     // F = Index 5 (Cost/Spend)
                     const cost = cleanNum(row[5]) || 0;
+
+                    // H = Index 7 (CPV)
+                    const cpv = cleanNum(row[7]) || 0;
                     
                     // I = Index 8 (EMV/Media Value)
                     const emv = cleanNum(row[8]) || 0;
+
+                    
                     
                     const influencer = currentSheetName; 
                     
@@ -237,6 +242,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                             influencer: influencer,
                             platform: platform, 
                             reach: views,
+                            cpv: cpv,
                             mediaValue: emv,
                             spend: cost,
                             savings: emv - cost,
@@ -277,14 +283,15 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
     const roiTotalSpend = filteredROI.reduce((sum, item) => sum + item.spend, 0);
     const roiTotalSavings = filteredROI.reduce((sum, item) => sum + item.savings, 0);
     const roiAvgEfficiency = roiTotalSpend > 0 ? (roiTotalMediaValue / roiTotalSpend).toFixed(2) : 0;
+    const roiCPV = roiTotalSpend > 0 ? (roiTotalReach / roiTotalSpend).toFixed(2) : 0;
 
     // Calculate Monthly Breakdown for the new chart
     const monthlyRoiMap = {};
     filteredROI.forEach(item => {
         if (!monthlyRoiMap[item.month]) {
-            monthlyRoiMap[item.month] = { month: item.month, mediaValue: 0, spend: 0 };
+            monthlyRoiMap[item.month] = { month: item.month, cpv: 0, spend: 0 };
         }
-        monthlyRoiMap[item.month].mediaValue += item.mediaValue;
+        monthlyRoiMap[item.month].cpv += item.cpv;
         monthlyRoiMap[item.month].spend += item.spend;
     });
 
@@ -297,11 +304,11 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
         if (!influencerRoiMap[item.influencer]) {
             influencerRoiMap[item.influencer] = { 
                 influencer: item.influencer, 
-                mediaValue: 0, 
-                spend: 0 
+                cpv: 0, 
+                // spend: 0 
             };
         }
-        influencerRoiMap[item.influencer].mediaValue += item.mediaValue;
+        influencerRoiMap[item.influencer].cpv += item.cpv;
         influencerRoiMap[item.influencer].spend += item.spend;
     });
     
@@ -702,7 +709,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                                 <Target size={20} />
                                             </div>
                                             <div>
-                                                <h3 className="font-bold text-gray-800">Campaign ROAS Dashboard</h3>
+                                                <h3 className="font-bold text-gray-800">Influencer ROI Dashboard</h3>
                                                 <p className="text-xs text-gray-500">Filter by Influencer or Month to recalculate metrics</p>
                                             </div>
                                         </div>
@@ -741,9 +748,9 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                                         <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col">
                                             <div className="flex justify-between items-start mb-4">
-                                                <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl"><Users size={20}/></div>
+                                                <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl"><Eye size={20}/></div>
                                             </div>
-                                            <p className="text-sm text-gray-500 font-bold mb-1">Total Reach</p>
+                                            <p className="text-sm text-gray-500 font-bold mb-1">Total View</p>
                                             <h3 className="text-3xl font-black text-gray-800">
                                                 {(roiTotalReach / 1000000).toFixed(2)}<span className="text-lg text-gray-400">M</span>
                                             </h3>
@@ -751,33 +758,22 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
 
                                         <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col">
                                             <div className="flex justify-between items-start mb-4">
-                                                <div className="p-3 bg-purple-50 text-purple-600 rounded-2xl"><Activity size={20}/></div>
+                                                <div className="p-3 bg-purple-50 text-purple-600 rounded-2xl"><Tag size={20}/></div>
                                             </div>
-                                            <p className="text-sm text-gray-500 font-bold mb-1">Total Media Value</p>
+                                            <p className="text-sm text-gray-500 font-bold mb-1">Total Spend</p>
                                             <h3 className="text-3xl font-black text-gray-800">
-                                                ฿{formatCompactNumber(roiTotalMediaValue)}
+                                                {(roiTotalSpend / 1000000).toFixed(2)}<span className="text-lg text-gray-400">M</span>
                                             </h3>
                                         </div>
 
                                         <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col relative overflow-hidden">
                                             <div className="absolute top-0 right-0 w-24 h-24 bg-orange-500/10 rounded-full blur-2xl"></div>
                                             <div className="flex justify-between items-start mb-4 relative z-10">
-                                                <div className="p-3 bg-orange-50 text-orange-600 rounded-2xl"><Zap size={20}/></div>
+                                                <div className="p-3 bg-orange-50 text-orange-600 rounded-2xl"><Rocket size={20}/></div>
                                             </div>
-                                            <p className="text-sm text-gray-500 font-bold mb-1 relative z-10">Campaign Efficiency</p>
+                                            <p className="text-sm text-gray-500 font-bold mb-1 relative z-10">CPV</p>
                                             <h3 className="text-3xl font-black text-gray-800 relative z-10">
-                                                {roiAvgEfficiency}<span className="text-lg text-gray-400">x</span>
-                                            </h3>
-                                        </div>
-
-                                        <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col relative overflow-hidden">
-                                            <div className="absolute top-0 right-0 w-24 h-24 bg-green-500/10 rounded-full blur-2xl"></div>
-                                            <div className="flex justify-between items-start mb-4 relative z-10">
-                                                <div className="p-3 bg-green-50 text-green-600 rounded-2xl"><DollarSign size={20}/></div>
-                                            </div>
-                                            <p className="text-sm text-gray-500 font-bold mb-1 relative z-10">Net Savings</p>
-                                            <h3 className="text-3xl font-black text-green-600 relative z-10">
-                                                +฿{formatCompactNumber(roiTotalSavings)}
+                                                ฿{formatCompactNumber(roiCPV)}
                                             </h3>
                                         </div>
                                     </div>
@@ -786,7 +782,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                         {/* Main Visualizer Chart */}
                                         <div className="bg-white p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 flex flex-col h-[450px]">
                                             <h3 className="text-lg font-black text-gray-800 mb-6 flex items-center gap-2">
-                                                <PieChartIcon className="text-orange-500"/> Media Value vs Spend
+                                                <PieChartIcon className="text-orange-500"/> CPV
                                             </h3>
                                             <div className="flex-1 w-full min-h-[250px]">
                                             {/* 🟢 CHANGED data source to influencerROIBreakdown */}
@@ -801,8 +797,8 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                                                 contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', fontWeight: 'bold' }}
                                                             />
                                                             <Legend wrapperStyle={{ paddingTop: '20px', fontWeight: 'bold', color: '#64748b' }}/>
-                                                            <Bar dataKey="mediaValue" name="Earned Media Value (฿)" fill="#f97316" radius={[6,6,0,0]} />
-                                                            <Bar dataKey="spend" name="Actual Spend (฿)" fill="#cbd5e1" radius={[6,6,0,0]} />
+                                                            <Bar dataKey="cpv" name="Earned Media Value (฿)" fill="#f97316" radius={[6,6,0,0]} />
+                                                            {/* <Bar dataKey="spend" name="Actual Spend (฿)" fill="#cbd5e1" radius={[6,6,0,0]} /> */}
                                                         </BarChart>
                                                     </ResponsiveContainer>
                                                 ) : (
@@ -847,7 +843,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                     {/* Monthly Breakdown Chart */}
                                     <div className="bg-white p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 flex flex-col h-[450px] mt-8">
                                         <h3 className="text-lg font-black text-gray-800 mb-6 flex items-center gap-2">
-                                            <Calendar className="text-blue-500"/> Monthly Trend: Media Value vs Spend
+                                            <Calendar className="text-blue-500"/> Monthly Trend: CPV
                                         </h3>
                                         <div className="flex-1 w-full min-h-[250px]">
                                             {monthlyROIBreakdown.length > 0 ? (
@@ -861,8 +857,8 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                                             contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', fontWeight: 'bold' }}
                                                         />
                                                         <Legend wrapperStyle={{ paddingTop: '20px', fontWeight: 'bold', color: '#64748b' }}/>
-                                                        <Bar dataKey="mediaValue" name="Earned Media Value (฿)" fill="#3b82f6" radius={[6,6,0,0]} />
-                                                        <Bar dataKey="spend" name="Actual Spend (฿)" fill="#cbd5e1" radius={[6,6,0,0]} />
+                                                        <Bar dataKey="cpv" name="Earned Media Value (฿)" fill="#3b82f6" radius={[6,6,0,0]} />
+                                                        {/* <Bar dataKey="spend" name="Actual Spend (฿)" fill="#cbd5e1" radius={[6,6,0,0]} /> */}
                                                     </BarChart>
                                                 </ResponsiveContainer>
                                             ) : (
