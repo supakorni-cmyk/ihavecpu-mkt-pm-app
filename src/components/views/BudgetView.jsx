@@ -84,7 +84,6 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
 
     // --- GOOGLE SHEETS ROI STATE ---
     const [roiData, setRoiData] = useState([]);
-    const [m2n5Data, setM2n5Data] = useState([]); 
     const [isRoiLoading, setIsRoiLoading] = useState(false);
     const [roiError, setRoiError] = useState('');
     
@@ -134,49 +133,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                 
                 if (!rows || rows.length === 0) return;
 
-                // 🟢 BULLETPROOF EXTRACTION: Target L2:M5 (Skips empty template sheets!)
-                if (extractedM2N5.length === 0 && rows.length > 1 && rows[1] && rows[1][11]) {
-                    let tempExtraction = [];
-                    let totalFoundValue = 0; // Tracker to see if we actually found numbers
-                    
-                    for(let i = 1; i <= 4; i++) {
-                        if (rows[i]) {
-                            // Column L = Index 11 (Name)
-                            let nameCell = rows[i][11] ? String(rows[i][11]).trim() : "";
-                            
-                            // Find the Value: Scan Columns M, N, O, P
-                            let valCell = "0";
-                            for (let col = 12; col <= 15; col++) {
-                                if (rows[i][col] && String(rows[i][col]).trim() !== "") {
-                                    valCell = String(rows[i][col]).trim();
-                                    break; 
-                                }
-                            }
-                        
-                            if (nameCell) { 
-                                let multiplier = 1;
-                                if (valCell.toLowerCase().includes('m')) multiplier = 1000000;
-                                else if (valCell.toLowerCase().includes('k')) multiplier = 1000;
-
-                                let numericValue = parseFloat(valCell.replace(/[^0-9.-]+/g, "")) || 0;
-                                let finalValue = numericValue * multiplier;
-                                
-                                totalFoundValue += finalValue; // Add to our verifier
-                                
-                                tempExtraction.push({
-                                    name: nameCell, 
-                                    value: finalValue 
-                                });
-                            }
-                        }
-                    }
-                    
-                    // 🟢 THE FIX: ONLY save and stop looking if we actually found real numbers!
-                    // If the sheet just had empty 0s, this ignores it and moves to the next tab.
-                    if (totalFoundValue > 0) {
-                        extractedM2N5 = tempExtraction;
-                    }
-                }
+                
 
                 // Parse standard rows
                 rows.forEach((row, rowIdx) => {
@@ -257,7 +214,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
             }
 
             setRoiData(combinedData);
-            setM2n5Data(extractedM2N5);
+       
         } catch (err) {
             console.error("Sheet Fetch Error:", err);
             setRoiError(err.message);
@@ -284,6 +241,14 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
     const roiTotalSavings = filteredROI.reduce((sum, item) => sum + item.savings, 0);
     const roiAvgEfficiency = roiTotalSpend > 0 ? (roiTotalMediaValue / roiTotalSpend).toFixed(2) : 0;
     const roiCPV = roiTotalSpend > 0 ? (roiTotalSpend / roiTotalReach).toFixed(2) : 0;
+
+    // 🟢 NEW: DYNAMIC BREAKDOWN CHART DATA
+    // This perfectly replaces the static M2:N5 extraction and responds to all filters!
+    const dynamicBreakdownData = [
+        { name: "Total View", value: roiTotalReach },
+        { name: "Total Cost", value: roiTotalSpend },
+        { name: "Average CPV", value: parseFloat(roiCPV) }
+    ].filter(item => item.value > 0); // Only show bars that actually have data
 
     // Calculate Monthly Breakdown for the new chart
     const monthlyRoiMap = {};
@@ -782,7 +747,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                         {/* Main Visualizer Chart */}
                                         <div className="bg-white p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 flex flex-col h-[450px]">
                                             <h3 className="text-lg font-black text-gray-800 mb-6 flex items-center gap-2">
-                                                <PieChartIcon className="text-orange-500"/> CPV
+                                                <PieChartIcon className="text-orange-500"/> Average CPV
                                             </h3>
                                             <div className="flex-1 w-full min-h-[250px]">
                                             {/* 🟢 CHANGED data source to influencerROIBreakdown */}
@@ -809,8 +774,8 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                             </div>
                                         </div>
 
-                                        {/* Extra Visualizer from M2:N5 */}
-                                        {m2n5Data.length > 0 ? (
+                                        {/* Dynamic Visualizer */}
+                                        {dynamicBreakdownData.length > 0 ? (
                                             <div className="bg-white p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 flex flex-col h-[450px]">
                                                 <h3 className="text-lg font-black text-gray-800 mb-6 flex items-center gap-2">
                                                     <BarChart3 className="text-indigo-500"/> Breakdown
@@ -820,7 +785,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                                         <BarChart data={m2n5Data} layout="vertical" margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
                                                             <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9"/>
                                                             {/* Removed manual division, used auto-formatter */}
-                                                            <XAxis type="number" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} tickFormatter={(val) => formatCompactNumber(val)}/>
+                                                            <XAxis type="number" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} tickFormatter={(value) => formatCompactNumber(value)}/>
                                                             <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12, fontWeight: 600}} width={120}/>
                                                             <RechartsTooltip 
                                                                 cursor={{fill: '#f8fafc'}} 
