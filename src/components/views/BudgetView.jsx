@@ -784,7 +784,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                                           <BarChart data={dynamicBreakdownData} width="100%" height="100%" margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
                                                             <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9"/>
                                                             {/* Removed manual division, used auto-formatter */}
-                                                            <XAxis dataKey="influencer" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12, fontWeight: 600}} dy={10}/>
+                                                            <XAxis dataKey="influencerROIBreakdown.influencer" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12, fontWeight: 600}} dy={10}/>
                                                             <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dx={-10} tickFormatter={(value) => formatCompactNumber(value)}/>
                                                             <RechartsTooltip 
                                                                 cursor={{fill: '#f8fafc'}} 
