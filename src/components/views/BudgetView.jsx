@@ -747,17 +747,32 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                                     </p>
                                                 </div>
                                             ): roiCPV < 0.3 ? (
-                                                <h3 className="text-3xl font-black text-blue-500 relative z-10">
-                                                    `${roiCPV}+Very Good`
-                                                </h3>
+                                                <div>
+                                                    <h3 className="text-3xl font-black text-blue-600 relative z-10">
+                                                        {roiCPV}
+                                                    </h3>
+                                                    <p className="text-m font-black text-blue-600 relative z-10">
+                                                        Very Good
+                                                    </p>
+                                                </div>
                                             ) : roiCPV < 0.7 ? (
-                                                <h3 className="text-3xl font-black text-gray-500 relative z-10">
-                                                    `${roiCPV}+Standard`
-                                                </h3>
+                                                <div>
+                                                    <h3 className="text-3xl font-black text-gray-500 relative z-10">
+                                                        {roiCPV}
+                                                    </h3>
+                                                    <p className="text-m font-black text-gray-500 relative z-10">
+                                                        Standard
+                                                    </p>
+                                                </div>
                                             ) : (
-                                                <h3 className="text-3xl font-black text-red-500 relative z-10">
-                                                    `${roiCPV}+Underperform`
-                                                </h3>
+                                                    <div>
+                                                    <h3 className="text-3xl font-black text-red-600 relative z-10">
+                                                        {roiCPV}
+                                                    </h3>
+                                                    <p className="text-m font-black text-red-600 relative z-10">
+                                                        Underperform
+                                                    </p>
+                                                </div>
                                             )
                                         }   
                                         </div>
