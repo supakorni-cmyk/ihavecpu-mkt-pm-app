@@ -739,10 +739,10 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                             <p className="text-sm text-gray-500 font-bold mb-1 relative z-10">CPV</p>
                                             {roiCPV < 0.1 ? (
                                                 <div>
-                                                    <h3 className="text-3xl font-black text-green-500 relative z-10">
+                                                    <h3 className="text-3xl font-black text-green-600 relative z-10">
                                                         {roiCPV}
                                                     </h3>
-                                                    <p className="text-xl font-black text-green-500 relative z-10">
+                                                    <p className="text-ท font-black text-green-600 relative z-10">
                                                         Excellent
                                                     </p>
                                                 </div>
