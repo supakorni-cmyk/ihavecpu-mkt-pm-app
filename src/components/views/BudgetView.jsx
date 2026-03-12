@@ -849,7 +849,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                                         />
                                                         <Legend wrapperStyle={{ paddingTop: '20px', fontWeight: 'bold', color: '#64748b' }}/>
                                                         <Line dataKey="spend" name="Total Spend" stroke="#ff0000" />
-                                                        <Line dataKey="reach" name="Total View" stroke="#00ff40" />
+                                                        <Line dataKey="views" name="Total View" stroke="#00ff40" />
                                                         {/* <Bar dataKey="spend" name="Actual Spend (฿)" fill="#cbd5e1" radius={[6,6,0,0]} /> */}
                                                     </LineChart>
                                                 </ResponsiveContainer>
