@@ -819,6 +819,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                                         <RechartsTooltip 
                                                             cursor={{fill: '#f8fafc'}}
                                                             contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', fontWeight: 'bold' }}
+                                                            formatter={(value) => formatCompactNumber(value)}
                                                         />
                                                         <Legend wrapperStyle={{ paddingTop: '20px', fontWeight: 'bold', color: '#64748b' }}/>
                                                         <Bar dataKey="cpv" name="Average CPV" fill="#3b82f6" radius={[6,6,0,0]} />
@@ -835,7 +836,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                     {/* Monthly Breakdown LINE Chart */}
                                     <div className="bg-white p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 flex flex-col h-[450px] mt-8">
                                         <h3 className="text-lg font-black text-gray-800 mb-6 flex items-center gap-2">
-                                            <Calendar className="text-blue-500"/> Monthly Trend: CPV
+                                            <Calendar className="text-blue-500"/> Monthly Trend: Total View
                                         </h3>
                                         <div className="flex-1 w-full min-h-[250px]">
                                             {monthlyROIBreakdown.length > 0 ? (
@@ -848,9 +849,9 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                                         <RechartsTooltip 
                                                             cursor={{fill: '#f8fafc'}}
                                                             contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', fontWeight: 'bold' }}
+                                                            formatter={(value) => formatCompactNumber(value)}
                                                         />
                                                         <Legend wrapperStyle={{ paddingTop: '20px', fontWeight: 'bold', color: '#64748b' }}/>
-                                                        <Label position="top"/>
                                                         <Line dataKey="reach" name="Total View" stroke="#3b82f6" radius={[6,6,0,0]} />
                                                         {/* <Bar dataKey="spend" name="Actual Spend (฿)" fill="#cbd5e1" radius={[6,6,0,0]} /> */}
                                                     </LineChart>
