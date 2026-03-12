@@ -791,7 +791,8 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                                                 contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 15px rgba(0,0,0,0.1)', fontWeight: 'bold' }}
                                                                 formatter={(value) => formatCompactNumber(value)}
                                                             />
-                                                            <Bar dataKey="value" name="Value" fill="#8b5cf6" radius={[0,6,6,0]} barSize={24} />
+                                                            <Bar dataKey="spend" name="Total Spend" fill="#8b5cf6" radius={[0,6,6,0]} barSize={24} />
+                                                            <Bar dataKey="reach" name="Total Views" fill="#5cf676" radius={[0,6,6,0]} barSize={24} />
                                                         </BarChart>
                                                     </ResponsiveContainer>
                                                 </div>
