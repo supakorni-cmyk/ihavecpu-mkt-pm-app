@@ -785,7 +785,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                                             <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9"/>
                                                             {/* Removed manual division, used auto-formatter */}
                                                             <XAxis dataKey="influencer" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12, fontWeight: 600}} dy={10}/>
-                                                            <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dx={-10} tickFormatter={(val) => formatCompactNumber(val)}/>
+                                                            <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dx={-10} tickFormatter={(value) => formatCompactNumber(value)}/>
                                                             <RechartsTooltip 
                                                                 cursor={{fill: '#f8fafc'}} 
                                                                 contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 15px rgba(0,0,0,0.1)', fontWeight: 'bold' }}
