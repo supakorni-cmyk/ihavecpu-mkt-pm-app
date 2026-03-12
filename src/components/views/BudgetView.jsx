@@ -25,10 +25,11 @@ import {
   Users,      
   Target,     
   Zap,        
-  Rocket
+  Rocket,
+  PieChart
 } from 'lucide-react';
 
-import { BarChart, Bar, Legend, ResponsiveContainer, CartesianGrid, XAxis, YAxis, Tooltip as RechartsTooltip } from 'recharts';
+import { BarChart, Bar, Legend, ResponsiveContainer, CartesianGrid, XAxis, YAxis, Tooltip as RechartsTooltip, Pie, PieChart, LineChart } from 'recharts';
 
 import { BUDGET_CATEGORIES } from '../../utils/constants';
 import { analyzeFinancials } from '../../utils/aiService';
@@ -782,18 +783,19 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                                 </h3>
                                                 <div className="flex-1 w-full min-h-[250px]">
                                                     <ResponsiveContainer width="100%" height="100%" minHeight={250}>
-                                                        <BarChart data={dynamicBreakdownData} layout="vertical" margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
-                                                            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9"/>
-                                                            {/* Removed manual division, used auto-formatter */}
-                                                            <XAxis type="number" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} tickFormatter={(value) => formatCompactNumber(value)}/>
-                                                            <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12, fontWeight: 600}} width={120}/>
-                                                            <RechartsTooltip 
-                                                                cursor={{fill: '#f8fafc'}} 
-                                                                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 15px rgba(0,0,0,0.1)', fontWeight: 'bold' }}
-                                                                formatter={(value) => formatCompactNumber(value)}
+                                                        <PieChart data={dynamicBreakdownData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
+                                                            <Pie 
+                                                                innerRadius="80%"
+                                                                outerRadius="100%"
+                                                                // Corner radius is the rounded edge of each pie slice
+                                                                cornerRadius="50%"
+                                                                fill="#8884d8"
+                                                                // padding angle is the gap between each pie slice
+                                                                paddingAngle={5}
+                                                                dataKey="value"
+                                                                isAnimationActive={isAnimationActive}
                                                             />
-                                                            <Bar dataKey="value" name="Value" fill="#8b5cf6" radius={[0,6,6,0]} barSize={24} />
-                                                        </BarChart>
+                                                        </PieChart>
                                                     </ResponsiveContainer>
                                                 </div>
                                             </div>
