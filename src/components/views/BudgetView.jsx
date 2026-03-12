@@ -35,6 +35,9 @@ import { BUDGET_CATEGORIES } from '../../utils/constants';
 import { analyzeFinancials } from '../../utils/aiService';
 import aiAvatar from '../../assets/bot/avatar.png';
 
+// Influencer
+// import 9ARM from '../../assets/influencer/9arm.jpg';
+
 const TOTAL_BUDGET_CONST = 33000000;
 const BUDGET_STATUSES = ['Pending', 'Follow-up', 'Complete'];
 
@@ -42,7 +45,10 @@ const BUDGET_STATUSES = ['Pending', 'Follow-up', 'Complete'];
 // Add influencer names exactly as they appear in the Google Sheet. 
 // Use standard image URLs (Imgur, YouTube profile pic, Discord avatar, etc.)
 const CUSTOM_AVATARS = {
-    "9ARM": "../../assets/influencer/9arm.jpg", // Example URL
+    "9ARM": "https://yt3.googleusercontent.com/akMx9Hn1be32NzcpB9VovBgQTmgew0_yBhMGmk_Uj2gIdlEaM6158lA5r2NShIUTp-UT0URIYg=s900-c-k-c0x00ffffff-no-rj",
+    "Bayriffer": "https://fbi.dek-d.com/26/3343922/113007178?v=7.02",
+    "ลุงเอ": "https://yt3.googleusercontent.com/7qaDhYDzjPqCmfqK_6GAAMpBdlWJCExGvgnOB1jyr4ZFYNL_dC-aCtRpGMkP7pYS9aj43EFl=s900-c-k-c0x00ffffff-no-rj",
+    "มาลีสวยมาก": "https://yt3.googleusercontent.com/KjCKaYVLA1uvmObZsz1Z4iRkYX3PYrNWmk-5_Uy2Ycar-AdDe_f22ZYrFZ600LVDD3JPplw3mZQ=s900-c-k-c0x00ffffff-no-rj"
     // "Another Influencer": "https://your-image-link-here.jpg"
 };
 
