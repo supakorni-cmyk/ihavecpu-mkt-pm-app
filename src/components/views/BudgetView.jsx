@@ -26,6 +26,7 @@ import {
   Target,     
   Zap,        
   Rocket,
+  DollarSign
 } from 'lucide-react';
 
 import { BarChart, Bar, Legend, ResponsiveContainer, CartesianGrid, XAxis, YAxis, Tooltip as RechartsTooltip, Pie, PieChart, Line, LineChart, Label } from 'recharts';
@@ -36,6 +37,14 @@ import aiAvatar from '../../assets/bot/avatar.png';
 
 const TOTAL_BUDGET_CONST = 33000000;
 const BUDGET_STATUSES = ['Pending', 'Follow-up', 'Complete'];
+
+// 🟢 CUSTOM AVATAR DICTIONARY
+// Add influencer names exactly as they appear in the Google Sheet. 
+// Use standard image URLs (Imgur, YouTube profile pic, Discord avatar, etc.)
+const CUSTOM_AVATARS = {
+    "9ARM": "../../assets/influencer/9arm.jpg", // Example URL
+    // "Another Influencer": "https://your-image-link-here.jpg"
+};
 
 const AI_AVATAR = aiAvatar;
 
@@ -125,7 +134,6 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
             const batchData = await dataResponse.json();
             
             let combinedData = [];
-            let extractedM2N5 = [];
 
             batchData.valueRanges.forEach((rangeData, sheetIndex) => {
                 const currentSheetName = sheetNames[sheetIndex];
@@ -133,15 +141,12 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                 
                 if (!rows || rows.length === 0) return;
 
-                
-
                 // Parse standard rows
                 rows.forEach((row, rowIdx) => {
                     if (rowIdx === 0) return; // Skip Header
 
                     const cleanNum = (str) => parseFloat((str || "0").toString().replace(/[^0-9.-]+/g,""));
                     
-                    // 🟢 ULTIMATE DATE PARSER (Safely inside the loop)
                     let rawDate = row[0] ? String(row[0]).trim() : "";
                     let monthStr = "Unknown Date";
 
@@ -172,26 +177,13 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                         }
                     }
                     
-                    // B = Index 1 (Platform)
                     const platform = row[1] || "Unknown";
-                    
-                    // D = Index 3 (Views/Reach)
                     const views = cleanNum(row[3]) || 0;
-                    
-                    // F = Index 5 (Cost/Spend)
                     const cost = cleanNum(row[5]) || 0;
-
-                    // H = Index 7 (CPV)
                     const cpv = cleanNum(row[7]) || 0;
-                    
-                    // I = Index 8 (EMV/Media Value)
                     const emv = cleanNum(row[8]) || 0;
-
-                    
-                    
                     const influencer = currentSheetName; 
                     
-                    // Only push rows that actually have some numeric cost or EMV
                     if (emv > 0 || cost > 0 || views > 0) {
                         combinedData.push({
                             id: `${currentSheetName}-${rowIdx}`,
@@ -223,62 +215,70 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
         }
     };
 
-    // Filter Dropdown Options
     const uniqueInfluencers = ["ALL", ...new Set(roiData.map(d => d.influencer))];
     const uniqueMonths = ["ALL", ...new Set(roiData.map(d => d.month))];
 
-    // Computed Filtered Data
     const filteredROI = roiData.filter(item => {
         const matchInfluencer = roiInfluencerFilter === 'ALL' || item.influencer === roiInfluencerFilter;
         const matchMonth = roiMonthFilter === 'ALL' || item.month === roiMonthFilter;
         return matchInfluencer && matchMonth;
     });
 
-    // KPI Totals
     const roiTotalReach = filteredROI.reduce((sum, item) => sum + item.reach, 0);
     const roiTotalMediaValue = filteredROI.reduce((sum, item) => sum + item.mediaValue, 0);
     const roiTotalSpend = filteredROI.reduce((sum, item) => sum + item.spend, 0);
     const roiTotalSavings = filteredROI.reduce((sum, item) => sum + item.savings, 0);
     const roiAvgEfficiency = roiTotalSpend > 0 ? (roiTotalMediaValue / roiTotalSpend).toFixed(2) : 0;
-    const roiCPV = roiTotalSpend > 0 ? (roiTotalSpend / roiTotalReach).toFixed(2) : 0;
+    const roiCPV = roiTotalReach > 0 ? parseFloat((roiTotalSpend / roiTotalReach).toFixed(2)) : 0;
 
-    // 🟢 NEW: DYNAMIC BREAKDOWN CHART DATA
-    // This perfectly replaces the static M2:N5 extraction and responds to all filters!
     const dynamicBreakdownData = [
         { name: "Total View", value: roiTotalReach },
         { name: "Total Cost", value: roiTotalSpend }
-    ].filter(item => item.value > 0); // Only show bars that actually have data
+    ].filter(item => item.value > 0); 
 
-    // Calculate Monthly Breakdown for the new chart
     const monthlyRoiMap = {};
     filteredROI.forEach(item => {
         if (!monthlyRoiMap[item.month]) {
             monthlyRoiMap[item.month] = { month: item.month, cpv: 0, spend: 0, reach: 0 };
         }
-        monthlyRoiMap[item.month].cpv += item.cpv;
         monthlyRoiMap[item.month].spend += item.spend;
         monthlyRoiMap[item.month].reach += item.reach;
     });
 
     const monthOrder = { "Jan":1, "Feb":2, "Mar":3, "Apr":4, "May":5, "Jun":6, "Jul":7, "Aug":8, "Sep":9, "Oct":10, "Nov":11, "Dec":12 };
-    const monthlyROIBreakdown = Object.values(monthlyRoiMap).sort((a,b) => (monthOrder[a.month] || 99) - (monthOrder[b.month] || 99));
+    const monthlyROIBreakdown = Object.values(monthlyRoiMap).map(m => ({
+        ...m,
+        cpv: m.reach > 0 ? parseFloat((m.spend / m.reach).toFixed(2)) : 0
+    })).sort((a,b) => (monthOrder[a.month] || 99) - (monthOrder[b.month] || 99));
 
-    // 🟢 NEW: Group by Influencer for the Main Chart
+    // 🟢 NEW: Enhanced Group by Influencer logic (Calculates True CPV and Adds Avatars!)
     const influencerRoiMap = {};
     filteredROI.forEach(item => {
         if (!influencerRoiMap[item.influencer]) {
             influencerRoiMap[item.influencer] = { 
                 influencer: item.influencer, 
-                cpv: 0, 
-                // spend: 0 
+                spend: 0,
+                reach: 0,
+                mediaValue: 0
             };
         }
-        influencerRoiMap[item.influencer].cpv += item.cpv;
         influencerRoiMap[item.influencer].spend += item.spend;
+        influencerRoiMap[item.influencer].reach += item.reach;
+        influencerRoiMap[item.influencer].mediaValue += item.mediaValue;
     });
     
-    // Convert the map back into an array for the chart to read
-    const influencerROIBreakdown = Object.values(influencerRoiMap);
+    // Convert to Array, Calculate math, and generate dynamic avatar URL
+    const influencerROIBreakdown = Object.values(influencerRoiMap).map(inf => {
+        // CHECK FOR CUSTOM AVATAR FIRST, THEN FALLBACK TO INITIALS
+        const avatarUrl = CUSTOM_AVATARS[inf.influencer] || `https://ui-avatars.com/api/?name=${encodeURIComponent(inf.influencer)}&background=random&color=fff&size=128&bold=true`;
+        
+        return {
+            ...inf,
+            // True Average CPV = Total Spend / Total Reach
+            cpv: inf.reach > 0 ? parseFloat((inf.spend / inf.reach).toFixed(2)) : 0,
+            avatar: avatarUrl
+        };
+    }).sort((a, b) => b.reach - a.reach); // Sort leaderboard by most views
 
     // --- DATA PROCESSING ---
     const getMonthlyData = (type) => {
@@ -313,50 +313,28 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
             .slice(0, 10);
     };
 
-    // --- AGGREGATED DATA ---
     const incomeTrend = getMonthlyData('income');
     const spendingTrend = getMonthlyData('spending');
-    
     const incomeCategories = getCategoryData('income');
     const spendingCategories = getCategoryData('spending');
-    
     const topIncome = getTopTransactions('income');
     const topSpending = getTopTransactions('spending');
-
-    const filteredIncomeTransactions = useMemo(() => {
-        return transactions
-            .filter(t => t.type === 'income')
-            .filter(t => {
-                if (incomeCategoryFilter !== 'All' && t.category !== incomeCategoryFilter) return false;
-                if (incomeBrandFilter !== 'All' && t.brand !== incomeBrandFilter) return false;
-                if (incomeMonthFilter !== 'All') {
-                    const d = new Date(t.date);
-                    const monthStr = `${d.toLocaleString('default', { month: 'long' })} ${d.getFullYear()}`;
-                    if (monthStr !== incomeMonthFilter) return false;
-                }
-                return true;
-            })
-            .sort((a, b) => new Date(b.date) - new Date(a.date));
-    }, [transactions, incomeCategoryFilter, incomeBrandFilter, incomeMonthFilter]);
-
-    const allMonths = Array.from(new Set([...incomeTrend.map(d => d.date), ...spendingTrend.map(d => d.date)]))
-        .sort((a, b) => new Date(a) - new Date(b));
-    
-    const combinedData = allMonths.map(month => {
-        const inc = incomeTrend.find(d => d.date === month)?.value || 0;
-        const spd = spendingTrend.find(d => d.date === month)?.value || 0;
-        return { date: month, income: inc, spending: spd };
-    });
 
     const totalIncome = transactions.filter(t => t.type === 'income').reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
     const totalSpending = transactions.filter(t => t.type === 'spending').reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
     const netBalance = totalIncome - totalSpending;
     const budgetUsedPct = Math.min((totalSpending / TOTAL_BUDGET_CONST) * 100, 100).toFixed(1);
+    
+    const allMonths = Array.from(new Set([...incomeTrend.map(d => d.date), ...spendingTrend.map(d => d.date)])).sort((a, b) => new Date(a) - new Date(b));
+    const combinedData = allMonths.map(month => ({
+        date: month, 
+        income: incomeTrend.find(d => d.date === month)?.value || 0, 
+        spending: spendingTrend.find(d => d.date === month)?.value || 0
+    }));
 
     const filteredTransactions = transactions.filter(t => t.type === activeTab);
     const tabTotal = filteredTransactions.reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
 
-    // --- HANDLERS ---
     const handleAiSubmit = async (e) => { e.preventDefault(); if (!aiQuery.trim()) return; const questionToSend = aiQuery; setLastQuestion(questionToSend); setAiQuery(''); setAiResponse(''); setIsAiLoading(true); try { const result = await analyzeFinancials(questionToSend, transactions); setAiResponse(result || "Sorry, I couldn't analyze the data."); } catch (error) { setAiResponse("An error occurred while connecting to AI."); } finally { setIsAiLoading(false); } };
     const handleFileUpload = (e) => { const file = e.target.files[0]; if (file && file.size <= 1024 * 1024) { const reader = new FileReader(); reader.onloadend = () => setNewTransaction(prev => ({ ...prev, invoiceFile: reader.result })); reader.readAsDataURL(file); } else if(file) { alert("File too large (>1MB)"); } };
     const handleRemoveFile = () => { setNewTransaction(prev => ({ ...prev, invoiceFile: null })); const input = document.getElementById('addFile'); if(input) input.value = ''; };
@@ -472,9 +450,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                     
                     {/* --- OVERVIEW TAB --- */}
                     {activeTab === 'overview' && (
-                        
                         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700 pb-12 max-w-[1600px] mx-auto">
-                            
                             {/* --- KPI ROW --- */}
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                                 {/* Total Budget */}
@@ -563,7 +539,6 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
 
                             {/* --- PIE CHARTS (SIDE BY SIDE) --- */}
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                                {/* Income Breakdown */}
                                 <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 p-8 flex flex-col">
                                     <div className="mb-8 text-center">
                                         <h3 className="text-xl font-black text-gray-900">Income Distribution</h3>
@@ -573,8 +548,6 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                         <InteractivePieChart data={incomeCategories} type="income" />
                                     </div>
                                 </div>
-
-                                {/* Spending Breakdown */}
                                 <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 p-8 flex flex-col">
                                     <div className="mb-8 text-center">
                                         <h3 className="text-xl font-black text-gray-900">Spending Distribution</h3>
@@ -585,67 +558,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                     </div>
                                 </div>
                             </div>
-
-                            {/* --- DEEP DIVE ROW (Top Lists) --- */}
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                                {/* Top Income Sources */}
-                                <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 overflow-hidden flex flex-col">
-                                    <div className="px-8 py-6 border-b border-gray-100 flex justify-between items-center bg-white">
-                                        <h3 className="font-black text-gray-900 text-lg flex items-center gap-2"><TrendingUp size={20} className="text-green-500"/> Top Income Sources</h3>
-                                        <span className="text-[10px] font-black text-green-700 bg-green-50 border border-green-200 px-3 py-1.5 rounded-lg uppercase tracking-widest shadow-sm">Top 5</span>
-                                    </div>
-                                    <div className="p-4 flex-1 bg-gray-50/30">
-                                        {topIncome.slice(0, 5).map((t, idx) => (
-                                            <div key={idx} className="flex items-center justify-between p-4 hover:bg-white hover:shadow-md rounded-2xl transition-all duration-300 group cursor-default border border-transparent hover:border-gray-100 mb-2 last:mb-0" style={{ animationDelay: `${idx * 0.1}s` }}>
-                                                <div className="flex items-center gap-4 overflow-hidden">
-                                                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-50 to-green-100 border border-green-200/50 flex items-center justify-center text-green-600 font-bold shrink-0 shadow-sm group-hover:scale-110 transition-transform duration-300">
-                                                        {t.brand ? t.brand.charAt(0).toUpperCase() : <TrendingUp size={20}/>}
-                                                    </div>
-                                                    <div className="min-w-0">
-                                                        <p className="font-bold text-gray-900 text-base truncate group-hover:text-green-700 transition-colors">{t.brand || t.description || 'Unknown'}</p>
-                                                        <p className="text-xs text-gray-500 font-medium truncate mt-0.5">{t.category}</p>
-                                                    </div>
-                                                </div>
-                                                <div className="text-right shrink-0 ml-4">
-                                                    <p className="font-black text-green-600 text-base tracking-tight drop-shadow-sm">฿{formatCompactNumber(t.amount)}</p>
-                                                    <p className="text-[10px] font-bold text-gray-400 mt-1 uppercase tracking-wider">{new Date(t.date).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}</p>
-                                                </div>
-                                            </div>
-                                        ))}
-                                        {topIncome.length === 0 && <div className="p-12 text-center text-gray-400 font-medium">No income recorded yet</div>}
-                                    </div>
-                                </div>
-
-                                {/* Top Expenses */}
-                                <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 overflow-hidden flex flex-col">
-                                    <div className="px-8 py-6 border-b border-gray-100 flex justify-between items-center bg-white">
-                                        <h3 className="font-black text-gray-900 text-lg flex items-center gap-2"><TrendingDown size={20} className="text-red-500"/> Top Expenses</h3>
-                                        <span className="text-[10px] font-black text-red-700 bg-red-50 border border-red-200 px-3 py-1.5 rounded-lg uppercase tracking-widest shadow-sm">Top 5</span>
-                                    </div>
-                                    <div className="p-4 flex-1 bg-gray-50/30">
-                                        {topSpending.slice(0, 5).map((t, idx) => (
-                                            <div key={idx} className="flex items-center justify-between p-4 hover:bg-white hover:shadow-md rounded-2xl transition-all duration-300 group cursor-default border border-transparent hover:border-gray-100 mb-2 last:mb-0" style={{ animationDelay: `${idx * 0.1}s` }}>
-                                                <div className="flex items-center gap-4 overflow-hidden">
-                                                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-red-50 to-red-100 border border-red-200/50 flex items-center justify-center text-red-600 font-bold shrink-0 shadow-sm group-hover:scale-110 transition-transform duration-300">
-                                                        {t.brand ? t.brand.charAt(0).toUpperCase() : <TrendingDown size={20}/>}
-                                                    </div>
-                                                    <div className="min-w-0">
-                                                        <p className="font-bold text-gray-900 text-base truncate group-hover:text-red-700 transition-colors">{t.brand || t.description || 'Unknown'}</p>
-                                                        <p className="text-xs text-gray-500 font-medium truncate mt-0.5">{t.category}</p>
-                                                    </div>
-                                                </div>
-                                                <div className="text-right shrink-0 ml-4">
-                                                    <p className="font-black text-red-600 text-base tracking-tight drop-shadow-sm">฿{formatCompactNumber(t.amount)}</p>
-                                                    <p className="text-[10px] font-bold text-gray-400 mt-1 uppercase tracking-wider">{new Date(t.date).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}</p>
-                                                </div>
-                                            </div>
-                                        ))}
-                                        {topSpending.length === 0 && <div className="p-12 text-center text-gray-400 font-medium">No expenses recorded yet</div>}
-                                    </div>
-                                </div>
-                            </div>
                         </div>
-
                     )}
 
                     {/* --- INFLUENCER ROI TAB --- */}
@@ -680,7 +593,6 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                         </div>
                                         
                                         <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
-                                            {/* Influencer Filter */}
                                             <div className="flex items-center gap-2 bg-gray-50 p-2 rounded-xl border border-gray-200">
                                                 <Users size={14} className="text-gray-400 ml-2" />
                                                 <select 
@@ -693,7 +605,6 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                                     ))}
                                                 </select>
                                             </div>
-                                            {/* Date/Month Filter */}
                                             <div className="flex items-center gap-2 bg-gray-50 p-2 rounded-xl border border-gray-200">
                                                 <Calendar size={14} className="text-gray-400 ml-2" />
                                                 <select 
@@ -716,7 +627,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                                 <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl"><Eye size={20}/></div>
                                             </div>
                                             <p className="text-sm text-gray-500 font-bold mb-1">Total View</p>
-                                            <h3 className="text-3xl font-black text-gray-800">
+                                            <h3 className="text-3xl font-black text-gray-800" title={roiTotalReach}>
                                                 {(roiTotalReach / 1000000).toFixed(2)}<span className="text-lg text-gray-400">M</span>
                                             </h3>
                                         </div>
@@ -726,8 +637,8 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                                 <div className="p-3 bg-purple-50 text-purple-600 rounded-2xl"><Tag size={20}/></div>
                                             </div>
                                             <p className="text-sm text-gray-500 font-bold mb-1">Total Spend</p>
-                                            <h3 className="text-3xl font-black text-gray-800">
-                                                {(roiTotalSpend / 1000000).toFixed(2)}<span className="text-lg text-gray-400">M</span>
+                                            <h3 className="text-3xl font-black text-gray-800" title={`฿${formatAmount(roiTotalSpend)}`}>
+                                                ฿{formatCompactNumber(roiTotalSpend)}
                                             </h3>
                                         </div>
 
@@ -736,69 +647,102 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                             <div className="flex justify-between items-start mb-4 relative z-10">
                                                 <div className="p-3 bg-orange-50 text-orange-600 rounded-2xl"><Rocket size={20}/></div>
                                             </div>
-                                            <p className="text-sm text-gray-500 font-bold mb-1 relative z-10">CPV</p>
+                                            <p className="text-sm text-gray-500 font-bold mb-1 relative z-10">Overall CPV</p>
                                             {roiCPV < 0.1 ? (
                                                 <div>
                                                     <h3 className="text-3xl font-black text-green-600 relative z-10">
                                                         {roiCPV}
                                                     </h3>
-                                                    <p className="text-m font-black text-green-600 relative z-10">
-                                                        Excellent
-                                                    </p>
+                                                    <p className="text-m font-black text-green-600 relative z-10">Excellent</p>
                                                 </div>
                                             ): roiCPV < 0.3 ? (
                                                 <div>
                                                     <h3 className="text-3xl font-black text-blue-600 relative z-10">
                                                         {roiCPV}
                                                     </h3>
-                                                    <p className="text-m font-black text-blue-600 relative z-10">
-                                                        Very Good
-                                                    </p>
+                                                    <p className="text-m font-black text-blue-600 relative z-10">Very Good</p>
                                                 </div>
                                             ) : roiCPV < 0.7 ? (
                                                 <div>
                                                     <h3 className="text-3xl font-black text-gray-500 relative z-10">
                                                         {roiCPV}
                                                     </h3>
-                                                    <p className="text-m font-black text-gray-500 relative z-10">
-                                                        Standard
-                                                    </p>
+                                                    <p className="text-m font-black text-gray-500 relative z-10">Standard</p>
                                                 </div>
                                             ) : (
-                                                    <div>
+                                                <div>
                                                     <h3 className="text-3xl font-black text-red-600 relative z-10">
                                                         {roiCPV}
                                                     </h3>
-                                                    <p className="text-m font-black text-red-600 relative z-10">
-                                                        Underperform
-                                                    </p>
+                                                    <p className="text-m font-black text-red-600 relative z-10">Underperform</p>
                                                 </div>
-                                            )
-                                        }   
+                                            )}   
                                         </div>
                                     </div>
 
+                                    {/* 🟢 NEW: INFLUENCER AVATAR LEADERBOARD */}
+                                    {influencerROIBreakdown.length > 0 && (
+                                        <div className="bg-white p-6 md:p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 mt-6">
+                                            <div className="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
+                                                <h3 className="text-lg font-black text-gray-900 flex items-center gap-2">
+                                                    <Users className="text-indigo-500"/> Top Performing Influencers
+                                                </h3>
+                                                <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Ranked by Views</span>
+                                            </div>
+                                            
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                                                {influencerROIBreakdown.map((inf, idx) => (
+                                                    <div key={inf.influencer} className="bg-gray-50/50 p-4 rounded-2xl border border-gray-200 flex items-center gap-4 hover:shadow-md hover:-translate-y-0.5 hover:bg-white hover:border-indigo-100 transition-all group">
+                                                        {/* Avatar container with Rank Badge */}
+                                                        <div className="relative shrink-0">
+                                                            <img 
+                                                                src={inf.avatar} 
+                                                                alt={inf.influencer} 
+                                                                className="w-14 h-14 rounded-full object-cover border-2 border-white shadow-sm group-hover:scale-105 transition-transform" 
+                                                            />
+                                                            {idx < 3 && (
+                                                                <div className="absolute -top-2 -right-2 w-6 h-6 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center text-white text-[10px] font-black border-2 border-white shadow-sm z-10">
+                                                                    #{idx + 1}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <div className="min-w-0 flex-1">
+                                                            <h4 className="font-bold text-gray-900 truncate text-sm" title={inf.influencer}>{inf.influencer}</h4>
+                                                            <div className="flex flex-col mt-1 gap-1 text-[11px] text-gray-500 font-medium">
+                                                                <span className="flex items-center justify-between">
+                                                                    <span className="flex items-center gap-1"><Eye size={12}/> Views:</span>
+                                                                    <span className="font-bold text-gray-700">{formatCompactNumber(inf.reach)}</span>
+                                                                </span>
+                                                                <span className="flex items-center justify-between">
+                                                                    <span className="flex items-center gap-1 text-orange-500"><Rocket size={12}/> CPV:</span>
+                                                                    <span className="font-black text-orange-600">฿{inf.cpv}</span>
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
                                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                                        {/* Main Visualizer Chart */}
+                                        {/* Average CPV by Influencer */}
                                         <div className="bg-white p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 flex flex-col h-[450px]">
                                             <h3 className="text-lg font-black text-gray-800 mb-6 flex items-center gap-2">
-                                                <BarChart3 className="text-orange-500"/> Average CPV
+                                                <BarChart3 className="text-orange-500"/> Average CPV by Influencer
                                             </h3>
                                             <div className="flex-1 w-full min-h-[250px]">
-                                            {/* 🟢 CHANGED data source to influencerROIBreakdown */}
                                             {influencerROIBreakdown.length > 0 ? (
                                                 <ResponsiveContainer width="100%" height="100%" minHeight={250}>
                                                     <BarChart data={influencerROIBreakdown} width="100%" height="100%" margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                                                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9"/>
                                                             <XAxis dataKey="influencer" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12, fontWeight: 600}} dy={10}/>
-                                                            <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dx={-10} tickFormatter={(val) => `${val}`}/>
+                                                            <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dx={-10} tickFormatter={(val) => `฿${val}`}/>
                                                             <RechartsTooltip 
                                                                 cursor={{fill: '#f8fafc'}}
                                                                 contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', fontWeight: 'bold' }}
                                                             />
-                                                            <Legend wrapperStyle={{ paddingTop: '20px', fontWeight: 'bold', color: '#64748b' }}/>
-                                                            <Bar dataKey="cpv" name="CPV" fill="#f97316" radius={[6,6,0,0]} />
-                                                            {/* <Bar dataKey="spend" name="Actual Spend (฿)" fill="#cbd5e1" radius={[6,6,0,0]} /> */}
+                                                            <Bar dataKey="cpv" name="Avg CPV (฿)" fill="#f97316" radius={[6,6,0,0]} />
                                                     </BarChart>
                                                     </ResponsiveContainer>
                                                 ) : (
@@ -809,7 +753,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                             </div>
                                         </div>
 
-                                        {/* Dynamic Visualizer */}
+                                        {/* Dynamic Breakdown Visualizer */}
                                         {dynamicBreakdownData.length > 0 ? (
                                             <div className="bg-white p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 flex flex-col h-[450px]">
                                                 <h3 className="text-lg font-black text-gray-800 mb-6 flex items-center gap-2">
@@ -839,64 +783,61 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                         )}
                                     </div>
                                     
-                                    {/* Monthly Breakdown Chart */}
-                                    <div className="bg-white p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 flex flex-col h-[450px] mt-8">
-                                        <h3 className="text-lg font-black text-gray-800 mb-6 flex items-center gap-2">
-                                            <Rocket className="text-blue-500"/> Monthly Trend: CPV
-                                        </h3>
-                                        <div className="flex-1 w-full min-h-[250px]">
-                                            {monthlyROIBreakdown.length > 0 ? (
-                                                <ResponsiveContainer width="100%" height="100%" minHeight={250}>
-                                                    <BarChart data={monthlyROIBreakdown} width="100%" height="100%" margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9"/>
-                                                        <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12, fontWeight: 600}} dy={10}/>
-                                                        <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dx={-10} tickFormatter={(val) => formatCompactNumber(val)}/>
-                                                        <RechartsTooltip 
-                                                            cursor={{fill: '#f8fafc'}}
-                                                            contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', fontWeight: 'bold' }}
-                                                            formatter={(value) => formatCompactNumber(value)}
-                                                        />
-                                                        <Legend wrapperStyle={{ paddingTop: '20px', fontWeight: 'bold', color: '#64748b' }}/>
-                                                        <Bar dataKey="cpv" name="Average CPV" fill="#3b82f6" radius={[6,6,0,0]} />
-                                                        {/* <Bar dataKey="spend" name="Actual Spend (฿)" fill="#cbd5e1" radius={[6,6,0,0]} /> */}
-                                                    </BarChart>
-                                                </ResponsiveContainer>
-                                            ) : (
-                                                <div className="w-full h-full flex items-center justify-center text-gray-400 font-bold">
-                                                    No data available for these filters.
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                    {/* Monthly Breakdown LINE Chart */}
-                                    <div className="bg-white p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 flex flex-col h-[450px] mt-8">
-                                        <h3 className="text-lg font-black text-gray-800 mb-6 flex items-center gap-2">
-                                            <Eye className="text-green-500"/> Monthly Trend: Total View
-                                        </h3>
-                                        <div className="flex-1 w-full min-h-[250px]">
-                                            {monthlyROIBreakdown.length > 0 ? (
-                                                <ResponsiveContainer width="100%" height="100%" minHeight={250}>
+                                    {/* Monthly Charts Container */}
+                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                        {/* Monthly Trend: CPV */}
+                                        <div className="bg-white p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 flex flex-col h-[450px]">
+                                            <h3 className="text-lg font-black text-gray-800 mb-6 flex items-center gap-2">
+                                                <Rocket className="text-blue-500"/> Monthly Trend: CPV
+                                            </h3>
+                                            <div className="flex-1 w-full min-h-[250px]">
+                                                {monthlyROIBreakdown.length > 0 ? (
                                                     <ResponsiveContainer width="100%" height="100%" minHeight={250}>
-                                                    <LineChart data={monthlyROIBreakdown} width="100%" height="100%" margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9"/>
-                                                        <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12, fontWeight: 600}} dy={10}/>
-                                                        <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dx={-10} tickFormatter={(val) => formatCompactNumber(val)}/>
-                                                        <RechartsTooltip 
-                                                            cursor={{fill: '#f8fafc'}}
-                                                            contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', fontWeight: 'bold' }}
-                                                            formatter={(value) => formatCompactNumber(value)}
-                                                        />
-                                                        <Legend wrapperStyle={{ paddingTop: '20px', fontWeight: 'bold', color: '#64748b' }}/>
-                                                        <Line dataKey="reach" name="Total View" stroke="#00d169" radius={[6,6,0,0]} />
-                                                        {/* <Bar dataKey="spend" name="Actual Spend (฿)" fill="#cbd5e1" radius={[6,6,0,0]} /> */}
-                                                    </LineChart>
-                                                </ResponsiveContainer>
-                                                </ResponsiveContainer>
-                                            ) : (
-                                                <div className="w-full h-full flex items-center justify-center text-gray-400 font-bold">
-                                                    No data available for these filters.
-                                                </div>
-                                            )}
+                                                        <BarChart data={monthlyROIBreakdown} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9"/>
+                                                            <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12, fontWeight: 600}} dy={10}/>
+                                                            <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dx={-10} tickFormatter={(val) => `฿${val}`}/>
+                                                            <RechartsTooltip 
+                                                                cursor={{fill: '#f8fafc'}}
+                                                                contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', fontWeight: 'bold' }}
+                                                            />
+                                                            <Bar dataKey="cpv" name="Average CPV (฿)" fill="#3b82f6" radius={[6,6,0,0]} />
+                                                        </BarChart>
+                                                    </ResponsiveContainer>
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center text-gray-400 font-bold">
+                                                        No data available for these filters.
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Monthly Trend: Total View */}
+                                        <div className="bg-white p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 flex flex-col h-[450px]">
+                                            <h3 className="text-lg font-black text-gray-800 mb-6 flex items-center gap-2">
+                                                <Eye className="text-green-500"/> Monthly Trend: Total View
+                                            </h3>
+                                            <div className="flex-1 w-full min-h-[250px]">
+                                                {monthlyROIBreakdown.length > 0 ? (
+                                                    <ResponsiveContainer width="100%" height="100%" minHeight={250}>
+                                                        <LineChart data={monthlyROIBreakdown} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9"/>
+                                                            <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12, fontWeight: 600}} dy={10}/>
+                                                            <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dx={-10} tickFormatter={(val) => formatCompactNumber(val)}/>
+                                                            <RechartsTooltip 
+                                                                cursor={{fill: '#f8fafc'}}
+                                                                contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', fontWeight: 'bold' }}
+                                                                formatter={(value) => formatCompactNumber(value)}
+                                                            />
+                                                            <Line type="monotone" dataKey="reach" name="Total Views" stroke="#00d169" strokeWidth={4} activeDot={{ r: 8 }} />
+                                                        </LineChart>
+                                                    </ResponsiveContainer>
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center text-gray-400 font-bold">
+                                                        No data available for these filters.
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 </>
