@@ -737,9 +737,24 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                                 <div className="p-3 bg-orange-50 text-orange-600 rounded-2xl"><Rocket size={20}/></div>
                                             </div>
                                             <p className="text-sm text-gray-500 font-bold mb-1 relative z-10">CPV</p>
-                                            <h3 className="text-3xl font-black text-gray-800 relative z-10">
-                                                {roiCPV}
-                                            </h3>
+                                            {roiCPV < 0.1 ? (
+                                                <h3 className="text-3xl font-black text-green-800 relative z-10">
+                                                    `${roiCPV}+Excellent`
+                                                </h3>
+                                            ): roiCPV < 0.3 ? (
+                                                <h3 className="text-3xl font-black text-gray-800 relative z-10">
+                                                    `${roiCPV}+Very Good`
+                                                </h3>
+                                            ) : roiCPV < 0.7 ? (
+                                                <h3 className="text-3xl font-black text-gray-800 relative z-10">
+                                                    `${roiCPV}+Standard`
+                                                </h3>
+                                            ) : (
+                                                <h3 className="text-3xl font-black text-red-800 relative z-10">
+                                                    `${roiCPV}+Underperform`
+                                                </h3>
+                                            )
+                                        }   
                                         </div>
                                     </div>
 
