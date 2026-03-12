@@ -723,6 +723,10 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                                                     <span className="flex items-center gap-1 text-orange-500"><Rocket size={12}/> CPV:</span>
                                                                     <span className="font-black text-orange-600">฿{inf.cpv}</span>
                                                                 </span>
+                                                                <span className="flex items-center justify-between">
+                                                                    <span className="flex items-center gap-1"><Tag size={12}/> Spending</span>
+                                                                    <span className="font-bold text-gray-700">{formatCompactNumber(inf.spend)}</span>
+                                                                </span>
                                                             </div>
                                                         </div>
                                                     </div>
