@@ -752,7 +752,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                             {/* 🟢 CHANGED data source to influencerROIBreakdown */}
                                             {influencerROIBreakdown.length > 0 ? (
                                                 <ResponsiveContainer width="100%" height="100%" minHeight={250}>
-                                                    <BarChart data={influencerROIBreakdown} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                                                    <BarChart data={influencerROIBreakdown} width="100%" height="100%" margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                                                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9"/>
                                                             <XAxis dataKey="influencer" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12, fontWeight: 600}} dy={10}/>
                                                             <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dx={-10} tickFormatter={(val) => `${val}`}/>
@@ -781,7 +781,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                                 </h3>
                                                 <div className="flex-1 w-full min-h-[250px]">
                                                     <ResponsiveContainer width="100%" height="100%" minHeight={250}>
-                                                          <BarChart data={dynamicBreakdownData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
+                                                          <BarChart data={dynamicBreakdownData} width="100%" height="100%" margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
                                                             <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9"/>
                                                             {/* Removed manual division, used auto-formatter */}
                                                             <XAxis dataKey="influencer" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12, fontWeight: 600}} dy={10}/>
@@ -791,8 +791,8 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                                                 contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 15px rgba(0,0,0,0.1)', fontWeight: 'bold' }}
                                                                 formatter={(value) => formatCompactNumber(value)}
                                                             />
-                                                            <Bar dataKey="spend" name="Total Spend" fill="#8b5cf6" radius={[0,6,6,0]} barSize={24} />
-                                                            <Bar dataKey="reach" name="Total Views" fill="#5cf676" radius={[0,6,6,0]} barSize={24} />
+                                                            <Bar dataKey="roiTotalSpend" name="Total Spend" fill="#8b5cf6" radius={[0,6,6,0]} barSize={24} />
+                                                            <Bar dataKey="roiTotalReach" name="Total Views" fill="#5cf676" radius={[0,6,6,0]} barSize={24} />
                                                         </BarChart>
                                                     </ResponsiveContainer>
                                                 </div>
