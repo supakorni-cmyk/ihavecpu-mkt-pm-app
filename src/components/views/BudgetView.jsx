@@ -28,7 +28,7 @@ import {
   Rocket,
 } from 'lucide-react';
 
-import { BarChart, Bar, Legend, ResponsiveContainer, CartesianGrid, XAxis, YAxis, Tooltip as RechartsTooltip, Pie, PieChart, LineChart } from 'recharts';
+import { BarChart, Bar, Legend, ResponsiveContainer, CartesianGrid, XAxis, YAxis, Tooltip as RechartsTooltip, Pie, PieChart, Line, LineChart } from 'recharts';
 
 import { BUDGET_CATEGORIES } from '../../utils/constants';
 import { analyzeFinancials } from '../../utils/aiService';
@@ -811,7 +811,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                         <div className="flex-1 w-full min-h-[250px]">
                                             {monthlyROIBreakdown.length > 0 ? (
                                                 <ResponsiveContainer width="100%" height="100%" minHeight={250}>
-                                                    <BarChart data={monthlyROIBreakdown} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                                                    <BarChart data={monthlyROIBreakdown} width="100%" height="100%" margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                                                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9"/>
                                                         <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12, fontWeight: 600}} dy={10}/>
                                                         <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dx={-10} tickFormatter={(val) => `${val}`}/>
@@ -820,9 +820,38 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                                             contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', fontWeight: 'bold' }}
                                                         />
                                                         <Legend wrapperStyle={{ paddingTop: '20px', fontWeight: 'bold', color: '#64748b' }}/>
-                                                        <Bar dataKey="cpv" name="Earned Media Value (฿)" fill="#3b82f6" radius={[6,6,0,0]} />
+                                                        <Bar dataKey="cpv" name="Average CPV" fill="#3b82f6" radius={[6,6,0,0]} />
                                                         {/* <Bar dataKey="spend" name="Actual Spend (฿)" fill="#cbd5e1" radius={[6,6,0,0]} /> */}
                                                     </BarChart>
+                                                </ResponsiveContainer>
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center text-gray-400 font-bold">
+                                                    No data available for these filters.
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                    {/* Monthly Breakdown LINE Chart */}
+                                    <div className="bg-white p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 flex flex-col h-[450px] mt-8">
+                                        <h3 className="text-lg font-black text-gray-800 mb-6 flex items-center gap-2">
+                                            <Calendar className="text-blue-500"/> Monthly Trend: CPV
+                                        </h3>
+                                        <div className="flex-1 w-full min-h-[250px]">
+                                            {monthlyROIBreakdown.length > 0 ? (
+                                                <ResponsiveContainer width="100%" height="100%" minHeight={250}>
+                                                    <LineChart data={monthlyROIBreakdown} width="100%" height="100%" margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9"/>
+                                                        <XAxis dataKey="month" />
+                                                        <YAxis width="auto"/>
+                                                        <RechartsTooltip 
+                                                            cursor={{fill: '#f8fafc'}}
+                                                            contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', fontWeight: 'bold' }}
+                                                        />
+                                                        <Legend wrapperStyle={{ paddingTop: '20px', fontWeight: 'bold', color: '#64748b' }}/>
+                                                        <Bar dataKey="spend" name="Total Spend" stroke="#ff0000" />
+                                                        <Bar dataKey="reach" name="Total View" stroke="#00ff40" />
+                                                        {/* <Bar dataKey="spend" name="Actual Spend (฿)" fill="#cbd5e1" radius={[6,6,0,0]} /> */}
+                                                    </LineChart>
                                                 </ResponsiveContainer>
                                             ) : (
                                                 <div className="w-full h-full flex items-center justify-center text-gray-400 font-bold">
