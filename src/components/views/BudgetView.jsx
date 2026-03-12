@@ -782,18 +782,18 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                                 </h3>
                                                 <div className="flex-1 w-full min-h-[250px]">
                                                     <ResponsiveContainer width="100%" height="100%" minHeight={250}>
-                                                        <PieChart data={dynamicBreakdownData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
-                                                            <Pie 
-                                                                innerRadius="80%"
-                                                                outerRadius="100%"
-                                                                // Corner radius is the rounded edge of each pie slice
-                                                                cornerRadius="50%"
-                                                                fill="#8884d8"
-                                                                // padding angle is the gap between each pie slice
-                                                                paddingAngle={5}
-                                                                dataKey="value"
+                                                          <BarChart data={dynamicBreakdownData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
+                                                            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9"/>
+                                                            {/* Removed manual division, used auto-formatter */}
+                                                            <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}}/>
+                                                            <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12, fontWeight: 600}} width={120}/>
+                                                            <RechartsTooltip 
+                                                                cursor={{fill: '#f8fafc'}} 
+                                                                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 15px rgba(0,0,0,0.1)', fontWeight: 'bold' }}
+                                                                formatter={(value) => formatCompactNumber(value)}
                                                             />
-                                                        </PieChart>
+                                                            <Bar dataKey="value" name="Value" fill="#8b5cf6" radius={[0,6,6,0]} barSize={24} />
+                                                        </BarChart>
                                                     </ResponsiveContainer>
                                                 </div>
                                             </div>
@@ -816,7 +816,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                                     <BarChart data={monthlyROIBreakdown} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                                                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9"/>
                                                         <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12, fontWeight: 600}} dy={10}/>
-                                                        <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dx={-10} tickFormatter={(val) => `฿${val/1000}k`}/>
+                                                        <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dx={-10} tickFormatter={(val) => `${val}`}/>
                                                         <RechartsTooltip 
                                                             cursor={{fill: '#f8fafc'}}
                                                             contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', fontWeight: 'bold' }}
