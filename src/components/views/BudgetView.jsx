@@ -26,7 +26,6 @@ import {
   Target,     
   Zap,        
   Rocket,
-  PieChart
 } from 'lucide-react';
 
 import { BarChart, Bar, Legend, ResponsiveContainer, CartesianGrid, XAxis, YAxis, Tooltip as RechartsTooltip, Pie, PieChart, LineChart } from 'recharts';
