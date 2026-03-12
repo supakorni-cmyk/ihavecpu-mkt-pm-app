@@ -841,7 +841,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                             {monthlyROIBreakdown.length > 0 ? (
                                                 <ResponsiveContainer width="100%" height="100%" minHeight={250}>
                                                     <ResponsiveContainer width="100%" height="100%" minHeight={250}>
-                                                    <BarChart data={monthlyROIBreakdown} width="100%" height="100%" margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                                                    <LineChart data={monthlyROIBreakdown} width="100%" height="100%" margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                                                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9"/>
                                                         <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12, fontWeight: 600}} dy={10}/>
                                                         <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dx={-10} tickFormatter={(val) => formatCompactNumber(val)}/>
@@ -850,9 +850,9 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                                             contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', fontWeight: 'bold' }}
                                                         />
                                                         <Legend wrapperStyle={{ paddingTop: '20px', fontWeight: 'bold', color: '#64748b' }}/>
-                                                        <Bar dataKey="reach" name="Total View" fill="#3b82f6" radius={[6,6,0,0]} />
+                                                        <Line dataKey="reach" name="Total View" stroke="#3b82f6" radius={[6,6,0,0]} />
                                                         {/* <Bar dataKey="spend" name="Actual Spend (฿)" fill="#cbd5e1" radius={[6,6,0,0]} /> */}
-                                                    </BarChart>
+                                                    </LineChart>
                                                 </ResponsiveContainer>
                                                 </ResponsiveContainer>
                                             ) : (
