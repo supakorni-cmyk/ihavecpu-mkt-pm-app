@@ -28,7 +28,7 @@ import {
   Rocket,
 } from 'lucide-react';
 
-import { BarChart, Bar, Legend, ResponsiveContainer, CartesianGrid, XAxis, YAxis, Tooltip as RechartsTooltip, Pie, PieChart, Line, LineChart } from 'recharts';
+import { BarChart, Bar, Legend, ResponsiveContainer, CartesianGrid, XAxis, YAxis, Tooltip as RechartsTooltip, Pie, PieChart, Line, LineChart, Label } from 'recharts';
 
 import { BUDGET_CATEGORIES } from '../../utils/constants';
 import { analyzeFinancials } from '../../utils/aiService';
