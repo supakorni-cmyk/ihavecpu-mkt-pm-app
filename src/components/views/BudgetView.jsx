@@ -253,10 +253,11 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
     const monthlyRoiMap = {};
     filteredROI.forEach(item => {
         if (!monthlyRoiMap[item.month]) {
-            monthlyRoiMap[item.month] = { month: item.month, cpv: 0, spend: 0 };
+            monthlyRoiMap[item.month] = { month: item.month, cpv: 0, spend: 0, reach: 0 };
         }
         monthlyRoiMap[item.month].cpv += item.cpv;
         monthlyRoiMap[item.month].spend += item.spend;
+        monthlyRoiMap[item.month].reach += item.reach;
     });
 
     const monthOrder = { "Jan":1, "Feb":2, "Mar":3, "Apr":4, "May":5, "Jun":6, "Jul":7, "Aug":8, "Sep":9, "Oct":10, "Nov":11, "Dec":12 };
@@ -849,7 +850,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                                         />
                                                         <Legend wrapperStyle={{ paddingTop: '20px', fontWeight: 'bold', color: '#64748b' }}/>
                                                         <Line dataKey="spend" name="Total Spend" stroke="#ff0000" />
-                                                        <Line dataKey="views" name="Total View" stroke="#00ff40" />
+                                                        <Line dataKey="reach" name="Total View" stroke="#00ff40" />
                                                         {/* <Bar dataKey="spend" name="Actual Spend (฿)" fill="#cbd5e1" radius={[6,6,0,0]} /> */}
                                                     </LineChart>
                                                 </ResponsiveContainer>
