@@ -283,7 +283,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
     const roiTotalSpend = filteredROI.reduce((sum, item) => sum + item.spend, 0);
     const roiTotalSavings = filteredROI.reduce((sum, item) => sum + item.savings, 0);
     const roiAvgEfficiency = roiTotalSpend > 0 ? (roiTotalMediaValue / roiTotalSpend).toFixed(2) : 0;
-    const roiCPV = roiTotalSpend > 0 ? (roiTotalReach / roiTotalSpend).toFixed(2) : 0;
+    const roiCPV = roiTotalSpend > 0 ? (roiTotalSpend / roiTotalReach).toFixed(2) : 0;
 
     // Calculate Monthly Breakdown for the new chart
     const monthlyRoiMap = {};
@@ -690,7 +690,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                             {isRoiLoading ? (
                                 <div className="flex flex-col items-center justify-center py-32 text-indigo-500">
                                     <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mb-4"></div>
-                                    <p className="font-bold">Fetching Live Data from Google Sheets...</p>
+                                    <p className="font-bold">Fetching Live Data from Database...</p>
                                 </div>
                             ) : roiError ? (
                                 <div className="bg-red-50 text-red-600 p-6 rounded-2xl border border-red-100 flex items-start gap-4">
@@ -773,7 +773,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                             </div>
                                             <p className="text-sm text-gray-500 font-bold mb-1 relative z-10">CPV</p>
                                             <h3 className="text-3xl font-black text-gray-800 relative z-10">
-                                                ฿{formatCompactNumber(roiCPV)}
+                                                {formatCompactNumber(roiCPV)}
                                             </h3>
                                         </div>
                                     </div>
@@ -791,15 +791,15 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                                     <BarChart data={influencerROIBreakdown} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                                                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9"/>
                                                             <XAxis dataKey="influencer" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12, fontWeight: 600}} dy={10}/>
-                                                            <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dx={-10} tickFormatter={(val) => `฿${val/1000}k`}/>
+                                                            <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dx={-10} tickFormatter={(val) => `${val}`}/>
                                                             <RechartsTooltip 
                                                                 cursor={{fill: '#f8fafc'}}
                                                                 contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', fontWeight: 'bold' }}
                                                             />
                                                             <Legend wrapperStyle={{ paddingTop: '20px', fontWeight: 'bold', color: '#64748b' }}/>
-                                                            <Bar dataKey="cpv" name="Earned Media Value (฿)" fill="#f97316" radius={[6,6,0,0]} />
+                                                            <Bar dataKey="cpv" name="CPV" fill="#f97316" radius={[6,6,0,0]} />
                                                             {/* <Bar dataKey="spend" name="Actual Spend (฿)" fill="#cbd5e1" radius={[6,6,0,0]} /> */}
-                                                        </BarChart>
+                                                    </BarChart>
                                                     </ResponsiveContainer>
                                                 ) : (
                                                     <div className="w-full h-full flex items-center justify-center text-gray-400 font-bold">
