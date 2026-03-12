@@ -850,6 +850,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                                             contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', fontWeight: 'bold' }}
                                                         />
                                                         <Legend wrapperStyle={{ paddingTop: '20px', fontWeight: 'bold', color: '#64748b' }}/>
+                                                        <Label />
                                                         <Line dataKey="reach" name="Total View" stroke="#3b82f6" radius={[6,6,0,0]} />
                                                         {/* <Bar dataKey="spend" name="Actual Spend (฿)" fill="#cbd5e1" radius={[6,6,0,0]} /> */}
                                                     </LineChart>
