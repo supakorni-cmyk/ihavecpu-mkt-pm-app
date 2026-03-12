@@ -747,7 +747,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                         {/* Main Visualizer Chart */}
                                         <div className="bg-white p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 flex flex-col h-[450px]">
                                             <h3 className="text-lg font-black text-gray-800 mb-6 flex items-center gap-2">
-                                                <PieChartIcon className="text-orange-500"/> Average CPV
+                                                <BarChart3 className="text-orange-500"/> Average CPV
                                             </h3>
                                             <div className="flex-1 w-full min-h-[250px]">
                                             {/* 🟢 CHANGED data source to influencerROIBreakdown */}
@@ -852,7 +852,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                                             formatter={(value) => formatCompactNumber(value)}
                                                         />
                                                         <Legend wrapperStyle={{ paddingTop: '20px', fontWeight: 'bold', color: '#64748b' }}/>
-                                                        <Line dataKey="reach" name="Total View" stroke="#3b82f6" radius={[6,6,0,0]} />
+                                                        <Line dataKey="reach" name="Total View" stroke="#00d169" radius={[6,6,0,0]} />
                                                         {/* <Bar dataKey="spend" name="Actual Spend (฿)" fill="#cbd5e1" radius={[6,6,0,0]} /> */}
                                                     </LineChart>
                                                 </ResponsiveContainer>
