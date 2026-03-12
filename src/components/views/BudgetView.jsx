@@ -792,7 +792,6 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                                                 // padding angle is the gap between each pie slice
                                                                 paddingAngle={5}
                                                                 dataKey="value"
-                                                                isAnimationActive={isAnimationActive}
                                                             />
                                                         </PieChart>
                                                     </ResponsiveContainer>
