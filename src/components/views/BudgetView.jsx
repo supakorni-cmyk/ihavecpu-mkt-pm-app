@@ -807,7 +807,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                     {/* Monthly Breakdown Chart */}
                                     <div className="bg-white p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 flex flex-col h-[450px] mt-8">
                                         <h3 className="text-lg font-black text-gray-800 mb-6 flex items-center gap-2">
-                                            <Calendar className="text-blue-500"/> Monthly Trend: CPV
+                                            <Rocket className="text-blue-500"/> Monthly Trend: CPV
                                         </h3>
                                         <div className="flex-1 w-full min-h-[250px]">
                                             {monthlyROIBreakdown.length > 0 ? (
@@ -836,7 +836,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                     {/* Monthly Breakdown LINE Chart */}
                                     <div className="bg-white p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 flex flex-col h-[450px] mt-8">
                                         <h3 className="text-lg font-black text-gray-800 mb-6 flex items-center gap-2">
-                                            <Calendar className="text-blue-500"/> Monthly Trend: Total View
+                                            <Eye className="text-green-500"/> Monthly Trend: Total View
                                         </h3>
                                         <div className="flex-1 w-full min-h-[250px]">
                                             {monthlyROIBreakdown.length > 0 ? (
