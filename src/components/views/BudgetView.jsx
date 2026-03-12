@@ -782,7 +782,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                                 </h3>
                                                 <div className="flex-1 w-full min-h-[250px]">
                                                     <ResponsiveContainer width="100%" height="100%" minHeight={250}>
-                                                        <BarChart data={m2n5Data} layout="vertical" margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
+                                                        <BarChart data={dynamicBreakdownData} layout="vertical" margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
                                                             <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9"/>
                                                             {/* Removed manual division, used auto-formatter */}
                                                             <XAxis type="number" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} tickFormatter={(value) => formatCompactNumber(value)}/>
