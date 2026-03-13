@@ -1286,7 +1286,7 @@ const InteractivePieChart = ({ data, type = "spending" }) => {
                         onMouseLeave={() => setHoverIndex(null)}
                     >
                         <div className="flex items-center gap-3">
-                            <span className={`w-3 h-3 rounded shadow-sm transition-transform ${hoverIndex === i ? 'scale-125' : ''}`} style={{backgroundColor: colors[i % colors.length]}}></span>
+                            <span className={`w-3 h-3 rounded shadow-sm transition-transform ${hoverIndex === i ? 'scale-105' : ''}`} style={{backgroundColor: colors[i % colors.length]}}></span>
                             <span className={`text-sm truncate max-w-[150px] transition-colors ${hoverIndex === i ? 'font-bold text-gray-900' : 'font-medium text-gray-600'}`} title={d.name}>{d.name}</span>
                         </div>
                         <span className={`text-sm transition-colors ${hoverIndex === i ? 'font-black text-gray-900' : 'font-bold text-gray-400'}`}>฿{formatCompactNumber(d.value)}</span>
