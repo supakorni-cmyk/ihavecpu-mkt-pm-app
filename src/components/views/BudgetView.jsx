@@ -143,7 +143,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
             const apiKey = import.meta.env.VITE_YOUTUBE_API_KEY || import.meta.env.VITE_GEMINI_API_KEY;
             if (!apiKey) throw new Error("Missing API Key in .env file.");
 
-            const SPREADSHEET_ID = "1JwM6_EILqUNC6C0hJEgrIFsfE-xB3kTK1PVIwR-BsZM"; 
+            const SPREADSHEET_ID = "1K7HmBde2m-1XSrh6rXpOtdTXCmyKdbl4D1E4LhOklpk"; 
             
             const metaResponse = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}?fields=sheets.properties.title&key=${apiKey}`);
             if (!metaResponse.ok) {
