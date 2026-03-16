@@ -35,22 +35,46 @@ import { BUDGET_CATEGORIES } from '../../utils/constants';
 import { analyzeFinancials } from '../../utils/aiService';
 import aiAvatar from '../../assets/bot/avatar.png';
 
-// Influencer
-// import 9ARM from '../../assets/influencer/9arm.jpg';
-
 const TOTAL_BUDGET_CONST = 33000000;
 const BUDGET_STATUSES = ['Pending', 'Follow-up', 'Complete'];
 
 // 🟢 CUSTOM AVATAR DICTIONARY
-// Add influencer names exactly as they appear in the Google Sheet. 
-// Use standard image URLs (Imgur, YouTube profile pic, Discord avatar, etc.)
 const CUSTOM_AVATARS = {
     "9ARM": "https://yt3.googleusercontent.com/akMx9Hn1be32NzcpB9VovBgQTmgew0_yBhMGmk_Uj2gIdlEaM6158lA5r2NShIUTp-UT0URIYg=s900-c-k-c0x00ffffff-no-rj",
     "Bayriffer": "https://i1.sndcdn.com/artworks-000064671688-hq0zfp-t240x240.jpg",
+    "Extreme IT": "https://9conversations.co/wp-content/uploads/2022/04/nop-thumb-2-1024x684.jpg",
     "ลุงเอ": "https://yt3.googleusercontent.com/7qaDhYDzjPqCmfqK_6GAAMpBdlWJCExGvgnOB1jyr4ZFYNL_dC-aCtRpGMkP7pYS9aj43EFl=s900-c-k-c0x00ffffff-no-rj",
-    "มาลีสวยมาก": "https://yt3.googleusercontent.com/KjCKaYVLA1uvmObZsz1Z4iRkYX3PYrNWmk-5_Uy2Ycar-AdDe_f22ZYrFZ600LVDD3JPplw3mZQ=s900-c-k-c0x00ffffff-no-rj"
-    // "Another Influencer": "https://your-image-link-here.jpg"
+    "มาลีสวยมาก": "https://yt3.googleusercontent.com/KjCKaYVLA1uvmObZsz1Z4iRkYX3PYrNWmk-5_Uy2Ycar-AdDe_f22ZYrFZ600LVDD3JPplw3mZQ=s900-c-k-c0x00ffffff-no-rj",
+    "Edwin": "https://yt3.googleusercontent.com/y9WH6lUIDtybsJ2oc9IqdDF0JthGshw9AuujwZ2mYkXXQLAuDYhRytDA1ELakIoQ1ZzmlZaKvr0=s900-c-k-c0x00ffffff-no-rj",
+    "วรโชติ": "https://yt3.googleusercontent.com/fmGgxOV5OP6O3hjjscbYiJdcgEMLS-XhF9hCQ09ymLLY5wnoIApVStDVSk3jcQibLFk8R7ibb4g=s900-c-k-c0x00ffffff-no-rj",
+    "Jellyjane": "https://i.ytimg.com/vi/ZHBrGZqWMYI/oar2.jpg?sqp=-oaymwEYCJUDENAFSFqQAgHyq4qpAwcIARUAAIhC&rs=AOn4CLBPRhKclhGoYADMOVCxAjiGmdOJig&usqp=CCk",
 };
+
+// 🟢 NEW: INFLUENCER MONTHLY COST DICTIONARY
+// The code uses these numbers to calculate total spend and CPV automatically!
+const INFLUENCER_MONTHLY_COSTS = {
+    "9ARM": 100000,      // e.g. 50k THB per month
+    "Bayriffer": 95000, 
+    "Extreme IT": 250000,
+    "ลุงเอ": 20000,
+    "มาลีสวยมาก": 150000,
+    "Edwin": 40000,
+    "วรโชติ": 12000,
+    "Jellyjane": 30000,
+    "Default": 0    // Fallback if an influencer isn't listed above
+};
+
+// 🟢 NEW: PLATFORM COLORS
+// Automatically color-codes the charts and badges based on platform name
+const PLATFORM_COLORS = {
+    "YouTube": "#ff0000",
+    "TikTok": "#ff1180",
+    "Facebook": "#1877f2",
+    "Instagram": "#ff7221",
+    "X": "#000102",
+    "Twitch": "#910bff"
+};
+const getPlatformColor = (platform) => PLATFORM_COLORS[platform] || "#8b5cf6"; // Default purple
 
 const AI_AVATAR = aiAvatar;
 
@@ -119,7 +143,6 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
             const apiKey = import.meta.env.VITE_YOUTUBE_API_KEY || import.meta.env.VITE_GEMINI_API_KEY;
             if (!apiKey) throw new Error("Missing API Key in .env file.");
 
-            // ⚠️ YOUR GOOGLE SHEET ID GOES HERE ⚠️
             const SPREADSHEET_ID = "1JwM6_EILqUNC6C0hJEgrIFsfE-xB3kTK1PVIwR-BsZM"; 
             
             const metaResponse = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}?fields=sheets.properties.title&key=${apiKey}`);
@@ -147,7 +170,6 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                 
                 if (!rows || rows.length === 0) return;
 
-                // Parse standard rows
                 rows.forEach((row, rowIdx) => {
                     if (rowIdx === 0) return; // Skip Header
 
@@ -185,23 +207,18 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                     
                     const platform = row[1] || "Unknown";
                     const views = cleanNum(row[3]) || 0;
-                    const cost = cleanNum(row[5]) || 0;
-                    const cpv = cleanNum(row[7]) || 0;
                     const emv = cleanNum(row[8]) || 0;
                     const influencer = currentSheetName; 
                     
-                    if (emv > 0 || cost > 0 || views > 0) {
+                    // 🟢 COST AND CPV ARE NO LONGER EXTRACTED FROM THE SHEET!
+                    if (emv > 0 || views > 0) {
                         combinedData.push({
                             id: `${currentSheetName}-${rowIdx}`,
                             month: monthStr,
                             influencer: influencer,
                             platform: platform, 
                             reach: views,
-                            cpv: cpv,
-                            mediaValue: emv,
-                            spend: cost,
-                            savings: emv - cost,
-                            efficiency: cost > 0 ? parseFloat((emv / cost).toFixed(2)) : 0
+                            mediaValue: emv
                         });
                     }
                 });
@@ -230,11 +247,105 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
         return matchInfluencer && matchMonth;
     });
 
+    // 🟢 List of all unique platforms in the filtered data to draw the stacked bars dynamically
+    const uniquePlatforms = Array.from(new Set(filteredROI.map(d => d.platform)));
+
+    // 🟢 THE ADVANCED MATH ENGINE: Dynamically calculates Spend & CPV
+    
+    // 1. Group by Influencer for the Leaderboard & Influencer Charts
+    const influencerRoiMap = {};
+    filteredROI.forEach(item => {
+        if (!influencerRoiMap[item.influencer]) {
+            influencerRoiMap[item.influencer] = { 
+                influencer: item.influencer, 
+                reach: 0,
+                mediaValue: 0,
+                activeMonths: new Set(), // Tracks unique months posted
+                platforms: {} // Stores views split by platform
+            };
+        }
+        influencerRoiMap[item.influencer].reach += item.reach;
+        influencerRoiMap[item.influencer].mediaValue += item.mediaValue;
+        influencerRoiMap[item.influencer].activeMonths.add(item.month);
+
+        if (!influencerRoiMap[item.influencer].platforms[item.platform]) {
+            influencerRoiMap[item.influencer].platforms[item.platform] = 0;
+        }
+        influencerRoiMap[item.influencer].platforms[item.platform] += item.reach;
+    });
+    
+    // Map the Leaderboard Array
+    const influencerROIBreakdown = Object.values(influencerRoiMap).map(inf => {
+        // Calculate dynamic cost: (Fixed Monthly Cost * Number of months they were active in the filter)
+        const baseCost = INFLUENCER_MONTHLY_COSTS[inf.influencer] || INFLUENCER_MONTHLY_COSTS["Default"];
+        const totalCalculatedSpend = baseCost * inf.activeMonths.size;
+        
+        // Calculate true CPV on the fly
+        const calculatedCpv = inf.reach > 0 ? parseFloat((totalCalculatedSpend / inf.reach).toFixed(2)) : 0;
+        const avatarUrl = CUSTOM_AVATARS[inf.influencer] || `https://ui-avatars.com/api/?name=${encodeURIComponent(inf.influencer)}&background=random&color=fff&size=128&bold=true`;
+        
+        // Flatten the platforms so the Stacked Bar Chart can easily read them
+        const flatPlatforms = {};
+        for (const [plat, views] of Object.entries(inf.platforms)) {
+            flatPlatforms[plat] = views;
+        }
+
+        return {
+            ...inf,
+            ...flatPlatforms, // Spreads { YouTube: 1000, TikTok: 500 } directly
+            spend: totalCalculatedSpend,
+            cpv: calculatedCpv,
+            avatar: avatarUrl
+        };
+    }).sort((a, b) => b.reach - a.reach); 
+
+    // 2. Group by Month for the Trend Charts
+    const monthlyRoiMap = {};
+    filteredROI.forEach(item => {
+        if (!monthlyRoiMap[item.month]) {
+            monthlyRoiMap[item.month] = { 
+                month: item.month, 
+                reach: 0, 
+                activeInfluencers: new Set(),
+                platforms: {}
+            };
+        }
+        monthlyRoiMap[item.month].reach += item.reach;
+        monthlyRoiMap[item.month].activeInfluencers.add(item.influencer);
+
+        if (!monthlyRoiMap[item.month].platforms[item.platform]) {
+            monthlyRoiMap[item.month].platforms[item.platform] = 0;
+        }
+        monthlyRoiMap[item.month].platforms[item.platform] += item.reach;
+    });
+
+    const monthOrder = { "Jan":1, "Feb":2, "Mar":3, "Apr":4, "May":5, "Jun":6, "Jul":7, "Aug":8, "Sep":9, "Oct":10, "Nov":11, "Dec":12 };
+    
+    // Map the Monthly Array
+    const monthlyROIBreakdown = Object.values(monthlyRoiMap).map(m => {
+        // Dynamic monthly cost: Sum up the fixed costs of ALL influencers who posted this month
+        let monthlySpend = 0;
+        m.activeInfluencers.forEach(inf => {
+            monthlySpend += (INFLUENCER_MONTHLY_COSTS[inf] || INFLUENCER_MONTHLY_COSTS["Default"]);
+        });
+
+        const flatPlatforms = {};
+        for (const [plat, views] of Object.entries(m.platforms)) {
+            flatPlatforms[plat] = views;
+        }
+
+        return {
+            ...m,
+            ...flatPlatforms,
+            spend: monthlySpend,
+            cpv: m.reach > 0 ? parseFloat((monthlySpend / m.reach).toFixed(2)) : 0
+        };
+    }).sort((a,b) => (monthOrder[a.month] || 99) - (monthOrder[b.month] || 99));
+
+    // 3. Global Dashboard KPIs
     const roiTotalReach = filteredROI.reduce((sum, item) => sum + item.reach, 0);
-    const roiTotalMediaValue = filteredROI.reduce((sum, item) => sum + item.mediaValue, 0);
-    const roiTotalSpend = filteredROI.reduce((sum, item) => sum + item.spend, 0);
-    const roiTotalSavings = filteredROI.reduce((sum, item) => sum + item.savings, 0);
-    const roiAvgEfficiency = roiTotalSpend > 0 ? (roiTotalMediaValue / roiTotalSpend).toFixed(2) : 0;
+    // Total spend must be the sum of our code-calculated monthly spends!
+    const roiTotalSpend = monthlyROIBreakdown.reduce((sum, m) => sum + m.spend, 0);
     const roiCPV = roiTotalReach > 0 ? parseFloat((roiTotalSpend / roiTotalReach).toFixed(2)) : 0;
 
     const dynamicBreakdownData = [
@@ -242,49 +353,6 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
         { name: "Total Cost", value: roiTotalSpend }
     ].filter(item => item.value > 0); 
 
-    const monthlyRoiMap = {};
-    filteredROI.forEach(item => {
-        if (!monthlyRoiMap[item.month]) {
-            monthlyRoiMap[item.month] = { month: item.month, cpv: 0, spend: 0, reach: 0 };
-        }
-        monthlyRoiMap[item.month].spend += item.spend;
-        monthlyRoiMap[item.month].reach += item.reach;
-    });
-
-    const monthOrder = { "Jan":1, "Feb":2, "Mar":3, "Apr":4, "May":5, "Jun":6, "Jul":7, "Aug":8, "Sep":9, "Oct":10, "Nov":11, "Dec":12 };
-    const monthlyROIBreakdown = Object.values(monthlyRoiMap).map(m => ({
-        ...m,
-        cpv: m.reach > 0 ? parseFloat((m.spend / m.reach).toFixed(2)) : 0
-    })).sort((a,b) => (monthOrder[a.month] || 99) - (monthOrder[b.month] || 99));
-
-    // 🟢 NEW: Enhanced Group by Influencer logic (Calculates True CPV and Adds Avatars!)
-    const influencerRoiMap = {};
-    filteredROI.forEach(item => {
-        if (!influencerRoiMap[item.influencer]) {
-            influencerRoiMap[item.influencer] = { 
-                influencer: item.influencer, 
-                spend: 0,
-                reach: 0,
-                mediaValue: 0
-            };
-        }
-        influencerRoiMap[item.influencer].spend += item.spend;
-        influencerRoiMap[item.influencer].reach += item.reach;
-        influencerRoiMap[item.influencer].mediaValue += item.mediaValue;
-    });
-    
-    // Convert to Array, Calculate math, and generate dynamic avatar URL
-    const influencerROIBreakdown = Object.values(influencerRoiMap).map(inf => {
-        // CHECK FOR CUSTOM AVATAR FIRST, THEN FALLBACK TO INITIALS
-        const avatarUrl = CUSTOM_AVATARS[inf.influencer] || `https://ui-avatars.com/api/?name=${encodeURIComponent(inf.influencer)}&background=random&color=fff&size=128&bold=true`;
-        
-        return {
-            ...inf,
-            // True Average CPV = Total Spend / Total Reach
-            cpv: inf.reach > 0 ? parseFloat((inf.spend / inf.reach).toFixed(2)) : 0,
-            avatar: avatarUrl
-        };
-    }).sort((a, b) => b.reach - a.reach); // Sort leaderboard by most views
 
     // --- DATA PROCESSING ---
     const getMonthlyData = (type) => {
@@ -642,7 +710,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                             <div className="flex justify-between items-start mb-4">
                                                 <div className="p-3 bg-purple-50 text-purple-600 rounded-2xl"><Tag size={20}/></div>
                                             </div>
-                                            <p className="text-sm text-gray-500 font-bold mb-1">Total Spend</p>
+                                            <p className="text-sm text-gray-500 font-bold mb-1">Total Calculated Spend</p>
                                             <h3 className="text-3xl font-black text-gray-800" title={`฿${formatAmount(roiTotalSpend)}`}>
                                                 ฿{formatCompactNumber(roiTotalSpend)}
                                             </h3>
@@ -686,7 +754,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                         </div>
                                     </div>
 
-                                    {/* 🟢 NEW: INFLUENCER AVATAR LEADERBOARD */}
+                                    {/* 🟢 NEW: INFLUENCER AVATAR LEADERBOARD WITH PLATFORM PILLS */}
                                     {influencerROIBreakdown.length > 0 && (
                                         <div className="bg-white p-6 md:p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 mt-6">
                                             <div className="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
@@ -698,44 +766,61 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                             
                                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                                                 {influencerROIBreakdown.map((inf, idx) => (
-                                                    <div key={inf.influencer} className="bg-gray-50/50 p-4 rounded-2xl border border-gray-200 flex items-center gap-4 hover:shadow-md hover:-translate-y-0.5 hover:bg-white hover:border-indigo-100 transition-all group">
-                                                        {/* Avatar container with Rank Badge */}
-                                                        <div className="relative shrink-0">
-                                                            <img 
-                                                                src={inf.avatar} 
-                                                                alt={inf.influencer} 
-                                                                className="w-14 h-14 rounded-full object-cover border-2 border-white shadow-sm group-hover:scale-105 transition-transform" 
-                                                            />
-                                                            {idx < 3 && (
-                                                                <div className="absolute -top-2 -right-2 w-6 h-6 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center text-white text-[10px] font-black border-2 border-white shadow-sm z-10">
-                                                                    #{idx + 1}
+                                                    <div key={inf.influencer} className="bg-gray-50/50 p-4 rounded-2xl border border-gray-200 flex flex-col hover:shadow-md hover:-translate-y-0.5 hover:bg-white hover:border-indigo-100 transition-all group">
+                                                        
+                                                        {/* Top Row: Avatar & Global Stats */}
+                                                        <div className="flex items-center gap-4 mb-3">
+                                                            <div className="relative shrink-0">
+                                                                <img 
+                                                                    src={inf.avatar} 
+                                                                    alt={inf.influencer} 
+                                                                    className="w-14 h-14 rounded-full object-cover border-2 border-white shadow-sm group-hover:scale-105 transition-transform" 
+                                                                />
+                                                                {idx < 3 && (
+                                                                    <div className="absolute -top-2 -right-2 w-6 h-6 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center text-white text-[10px] font-black border-2 border-white shadow-sm z-10">
+                                                                        #{idx + 1}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                            <div className="min-w-0 flex-1">
+                                                                <h4 className="font-bold text-gray-900 truncate text-sm" title={inf.influencer}>{inf.influencer}</h4>
+                                                                <div className="flex flex-col mt-1 gap-0.5 text-[11px] text-gray-500 font-medium">
+                                                                    <span className="flex items-center justify-between">
+                                                                        <span className="flex items-center gap-1"><Eye size={12}/> Total:</span>
+                                                                        <span className="font-bold text-gray-700">{formatCompactNumber(inf.reach)}</span>
+                                                                    </span>
+                                                                    <span className="flex items-center justify-between">
+                                                                        <span className="flex items-center gap-1 text-orange-500"><Rocket size={12}/> CPV:</span>
+                                                                        <span className="font-black text-orange-600">฿{inf.cpv}</span>
+                                                                    </span>
                                                                 </div>
-                                                            )}
-                                                        </div>
-                                                        <div className="min-w-0 flex-1">
-                                                            <h4 className="font-bold text-gray-900 truncate text-sm" title={inf.influencer}>{inf.influencer}</h4>
-                                                            <div className="flex flex-col mt-1 gap-1 text-[11px] text-gray-500 font-medium">
-                                                                <span className="flex items-center justify-between">
-                                                                    <span className="flex items-center gap-1"><Eye size={12}/> Views:</span>
-                                                                    <span className="font-bold text-gray-700">{formatCompactNumber(inf.reach)}</span>
-                                                                </span>
-                                                                <span className="flex items-center justify-between">
-                                                                    <span className="flex items-center gap-1 text-orange-500"><Rocket size={12}/> CPV:</span>
-                                                                    <span className="font-black text-orange-600">฿{inf.cpv}</span>
-                                                                </span>
-                                                                <span className="flex items-center justify-between">
-                                                                    <span className="flex items-center gap-1"><Tag size={12}/> Spending</span>
-                                                                    <span className="font-bold text-gray-700">{formatCompactNumber(inf.spend)}</span>
-                                                                </span>
                                                             </div>
                                                         </div>
+
+                                                        {/* Bottom Row: Platform Breakdown Badges */}
+                                                        <div className="flex flex-wrap gap-1.5 pt-3 border-t border-gray-200/60">
+                                                            {uniquePlatforms.filter(plat => inf[plat] > 0).map(plat => (
+                                                                <span 
+                                                                    key={plat} 
+                                                                    className="text-[9px] font-black px-2 py-0.5 rounded-md tracking-wider uppercase border"
+                                                                    style={{ 
+                                                                        backgroundColor: `${getPlatformColor(plat)}10`, 
+                                                                        color: getPlatformColor(plat),
+                                                                        borderColor: `${getPlatformColor(plat)}25`
+                                                                    }}
+                                                                >
+                                                                    {plat}: {formatCompactNumber(inf[plat])}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+
                                                     </div>
                                                 ))}
                                             </div>
                                         </div>
                                     )}
 
-                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
                                         {/* Average CPV by Influencer */}
                                         <div className="bg-white p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 flex flex-col h-[450px]">
                                             <h3 className="text-lg font-black text-gray-800 mb-6 flex items-center gap-2">
@@ -792,9 +877,42 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                             </div>
                                         )}
                                     </div>
+
+                                    {/* 🟢 NEW: Stacked Bar Chart for Views by Platform per Influencer */}
+                                    <div className="bg-white p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 flex flex-col h-[450px] mt-8">
+                                        <h3 className="text-lg font-black text-gray-800 mb-6 flex items-center gap-2">
+                                            <BarChart3 className="text-orange-500"/> Views by Platform (Per Influencer)
+                                        </h3>
+                                        <div className="flex-1 w-full min-h-[250px]">
+                                        {influencerROIBreakdown.length > 0 ? (
+                                            <ResponsiveContainer width="100%" height="100%" minHeight={250}>
+                                                <BarChart data={influencerROIBreakdown} width="100%" height="100%" margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9"/>
+                                                        <XAxis dataKey="influencer" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12, fontWeight: 600}} dy={10}/>
+                                                        <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dx={-10} tickFormatter={(val) => formatCompactNumber(val)}/>
+                                                        <RechartsTooltip 
+                                                            cursor={{fill: '#f8fafc'}}
+                                                            contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', fontWeight: 'bold' }}
+                                                            formatter={(value) => formatCompactNumber(value)}
+                                                        />
+                                                        <Legend wrapperStyle={{ paddingTop: '20px', fontWeight: 'bold', color: '#64748b' }}/>
+                                                        
+                                                        {uniquePlatforms.map(plat => (
+                                                            <Bar key={plat} dataKey={plat} name={`${plat} Views`} stackId="a" fill={getPlatformColor(plat)} />
+                                                        ))}
+                                                        
+                                                </BarChart>
+                                                </ResponsiveContainer>
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center text-gray-400 font-bold">
+                                                    No data available for these filters.
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
                                     
                                     {/* Monthly Charts Container */}
-                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
                                         {/* Monthly Trend: CPV */}
                                         <div className="bg-white p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 flex flex-col h-[450px]">
                                             <h3 className="text-lg font-black text-gray-800 mb-6 flex items-center gap-2">
@@ -822,15 +940,15 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                             </div>
                                         </div>
 
-                                        {/* Monthly Trend: Total View */}
+                                        {/* 🟢 NEW: Stacked Bar Chart for Monthly Views Separated by Platform */}
                                         <div className="bg-white p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 flex flex-col h-[450px]">
                                             <h3 className="text-lg font-black text-gray-800 mb-6 flex items-center gap-2">
-                                                <Eye className="text-green-500"/> Monthly Trend: Total View
+                                                <Eye className="text-green-500"/> Monthly Total Views (By Platform)
                                             </h3>
                                             <div className="flex-1 w-full min-h-[250px]">
                                                 {monthlyROIBreakdown.length > 0 ? (
                                                     <ResponsiveContainer width="100%" height="100%" minHeight={250}>
-                                                        <LineChart data={monthlyROIBreakdown} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                                                        <BarChart data={monthlyROIBreakdown} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                                                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9"/>
                                                             <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12, fontWeight: 600}} dy={10}/>
                                                             <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dx={-10} tickFormatter={(val) => formatCompactNumber(val)}/>
@@ -839,8 +957,13 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                                                 contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', fontWeight: 'bold' }}
                                                                 formatter={(value) => formatCompactNumber(value)}
                                                             />
-                                                            <Line type="monotone" dataKey="reach" name="Total Views" stroke="#00d169" strokeWidth={4} activeDot={{ r: 8 }} />
-                                                        </LineChart>
+                                                            <Legend wrapperStyle={{ paddingTop: '20px', fontWeight: 'bold', color: '#64748b' }}/>
+                                                            
+                                                            {uniquePlatforms.map(plat => (
+                                                                <Bar key={plat} dataKey={plat} name={`${plat} Views`} stackId="a" fill={getPlatformColor(plat)} />
+                                                            ))}
+                                                            
+                                                        </BarChart>
                                                     </ResponsiveContainer>
                                                 ) : (
                                                     <div className="w-full h-full flex items-center justify-center text-gray-400 font-bold">
@@ -1139,72 +1262,33 @@ const InteractiveCombinedChart = ({ data }) => {
                     </linearGradient>
                 </defs>
 
-                {/* Grid Lines */}
-                {[0, 0.33, 0.66, 1].map(ratio => {
-                     const y = height - paddingY - (ratio * (height - 2 * paddingY));
-                     return <line key={ratio} x1={paddingX} y1={y} x2={width - paddingX} y2={y} stroke="#f1f5f9" strokeWidth="1" strokeDasharray={ratio === 0 ? "0" : "4 4"}/>
-                })}
-
-                {/* Area Polygons */}
                 <polygon points={`${incomePoints} ${width-paddingX},${height-paddingY} ${paddingX},${height-paddingY}`} fill="url(#incomeGrad)" className="transition-all duration-700"/>
                 <polygon points={`${spendingPoints} ${width-paddingX},${height-paddingY} ${paddingX},${height-paddingY}`} fill="url(#spendingGrad)" className="transition-all duration-700"/>
 
-                {/* Lines */}
                 <polyline fill="none" stroke="#16a34a" strokeWidth="3" points={incomePoints} strokeLinecap="round" strokeLinejoin="round" className="drop-shadow-sm"/>
                 <polyline fill="none" stroke="#dc2626" strokeWidth="3" points={spendingPoints} strokeLinecap="round" strokeLinejoin="round" className="drop-shadow-sm"/>
 
-                {/* X-Axis Labels & Hover Catchers */}
                 {data.map((d, i) => {
                     const x = (i / (data.length - 1 || 1)) * (width - 2 * paddingX) + paddingX;
                     const isHovered = hoverIndex === i;
                     return (
                         <g key={i}>
                              <text x={x} y={height - 10} textAnchor="middle" fontSize="12" fill={isHovered ? "#111827" : "#94a3b8"} fontWeight={isHovered ? "bold" : "500"} className="transition-colors">{d.date.split(' ')[0]}</text>
-                             
-                             {/* Tracking Line */}
-                             {isHovered && (
-                                <line x1={x} y1={paddingY} x2={x} y2={height - paddingY} stroke="#cbd5e1" strokeWidth="1.5" strokeDasharray="4 4" />
-                             )}
-
-                             {/* Data Points */}
+                             {isHovered && <line x1={x} y1={paddingY} x2={x} y2={height - paddingY} stroke="#cbd5e1" strokeWidth="1.5" strokeDasharray="4 4" />}
                              <circle cx={x} cy={incomeCoords[i].y} r={isHovered ? "6" : "3"} fill="#16a34a" stroke="white" strokeWidth={isHovered ? "2" : "0"} className="transition-all duration-200 shadow-xl"/>
                              <circle cx={x} cy={spendingCoords[i].y} r={isHovered ? "6" : "3"} fill="#dc2626" stroke="white" strokeWidth={isHovered ? "2" : "0"} className="transition-all duration-200 shadow-xl"/>
-                             
-                             {/* Invisible Hover Area */}
-                             <rect 
-                                x={x - ((width - 2*paddingX)/(data.length-1))/2} 
-                                y={0} 
-                                width={(width - 2*paddingX)/(data.length-1)} 
-                                height={height} 
-                                fill="transparent" 
-                                onMouseEnter={() => setHoverIndex(i)}
-                                onMouseLeave={() => setHoverIndex(null)}
-                                className="cursor-crosshair"
-                             />
+                             <rect x={x - ((width - 2*paddingX)/(data.length-1))/2} y={0} width={(width - 2*paddingX)/(data.length-1)} height={height} fill="transparent" onMouseEnter={() => setHoverIndex(i)} onMouseLeave={() => setHoverIndex(null)} className="cursor-crosshair" />
                         </g>
                     );
                 })}
             </svg>
 
-            {/* Interactive HTML Tooltip */}
             {hoverIndex !== null && (
-                <div 
-                    className="absolute bg-white/90 backdrop-blur-md shadow-2xl border border-gray-100 p-4 rounded-2xl pointer-events-none transform -translate-x-1/2 -translate-y-[110%] transition-all duration-100 ease-out z-20 min-w-[160px]"
-                    style={{ 
-                        left: `${(hoverIndex / (data.length - 1 || 1)) * 100 * (1 - (80/1000)) + 4}%`,
-                        top: `${Math.min(incomeCoords[hoverIndex].y, spendingCoords[hoverIndex].y) / height * 100}%` 
-                    }}
-                >
+                <div className="absolute bg-white/90 backdrop-blur-md shadow-2xl border border-gray-100 p-4 rounded-2xl pointer-events-none transform -translate-x-1/2 -translate-y-[110%] transition-all duration-100 ease-out z-20 min-w-[160px]" style={{ left: `${(hoverIndex / (data.length - 1 || 1)) * 100 * (1 - (80/1000)) + 4}%`, top: `${Math.min(incomeCoords[hoverIndex].y, spendingCoords[hoverIndex].y) / height * 100}%` }}>
                     <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 border-b border-gray-100 pb-2">{data[hoverIndex].date}</p>
                     <div className="space-y-2">
-                        <div className="flex justify-between items-center gap-4">
-                            <span className="text-sm font-bold text-gray-700 flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-green-500"></div> Income</span>
-                            <span className="text-sm font-black text-green-600">฿{formatCompactNumber(data[hoverIndex].income)}</span>
-                        </div>
-                        <div className="flex justify-between items-center gap-4">
-                            <span className="text-sm font-bold text-gray-700 flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-red-500"></div> Spending</span>
-                            <span className="text-sm font-black text-red-600">฿{formatCompactNumber(data[hoverIndex].spending)}</span>
-                        </div>
+                        <div className="flex justify-between items-center gap-4"><span className="text-sm font-bold text-gray-700 flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-green-500"></div> Income</span><span className="text-sm font-black text-green-600">฿{formatCompactNumber(data[hoverIndex].income)}</span></div>
+                        <div className="flex justify-between items-center gap-4"><span className="text-sm font-bold text-gray-700 flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-red-500"></div> Spending</span><span className="text-sm font-black text-red-600">฿{formatCompactNumber(data[hoverIndex].spending)}</span></div>
                     </div>
                 </div>
             )}
@@ -1220,7 +1304,6 @@ const InteractivePieChart = ({ data, type = "spending" }) => {
     const total = data.reduce((acc, cur) => acc + cur.value, 0);
     let currentAngle = 0;
     
-    // Dynamic color palettes
     const spendingColors = ['#ef4444', '#f59e0b', '#8b5cf6', '#ec4899', '#f43f5e', '#d946ef', '#f97316'];
     const incomeColors = ['#10b981', '#3b82f6', '#0ea5e9', '#14b8a6', '#06b6d4', '#34d399', '#2dd4bf'];
     const colors = type === 'income' ? incomeColors : spendingColors;
@@ -1232,7 +1315,6 @@ const InteractivePieChart = ({ data, type = "spending" }) => {
                     {data.map((d, i) => {
                         const sliceAngle = (d.value / total) * 360;
                         const isHovered = hoverIndex === i;
-                        // Math to scale out the hovered slice slightly
                         const scale = isHovered ? 1.05 : 1;
                         const translateOffset = isHovered ? 2 : 0;
                         const midAngle = currentAngle + (sliceAngle / 2);
@@ -1247,48 +1329,20 @@ const InteractivePieChart = ({ data, type = "spending" }) => {
                         const pathData = `M 50 50 L ${x1} ${y1} A 50 50 0 ${largeArc} 1 ${x2} ${y2} Z`;
                         
                         currentAngle += sliceAngle;
-                        return (
-                            <path 
-                                key={i} 
-                                d={pathData} 
-                                fill={colors[i % colors.length]} 
-                                stroke="white" 
-                                strokeWidth={isHovered ? "2" : "1"}
-                                className="transition-all duration-300 cursor-pointer origin-center"
-                                style={{ transform: `translate(${tx}px, ${ty}px) scale(${scale})` }}
-                                onMouseEnter={() => setHoverIndex(i)}
-                                onMouseLeave={() => setHoverIndex(null)}
-                            />
-                        );
+                        return <path key={i} d={pathData} fill={colors[i % colors.length]} stroke="white" strokeWidth={isHovered ? "2" : "1"} className="transition-all duration-300 cursor-pointer origin-center" style={{ transform: `translate(${tx}px, ${ty}px) scale(${scale})` }} onMouseEnter={() => setHoverIndex(i)} onMouseLeave={() => setHoverIndex(null)} />;
                     })}
-                    {/* Inner cutout for donut chart effect */}
                     <circle cx="50" cy="50" r="25" fill="white" className="drop-shadow-inner" />
                 </svg>
-                {/* Center Label */}
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                     {hoverIndex !== null ? (
-                        <>
-                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{((data[hoverIndex].value / total) * 100).toFixed(0)}%</span>
-                            <span className="text-sm font-black text-gray-800 tracking-tighter">฿{formatCompactNumber(data[hoverIndex].value)}</span>
-                        </>
-                    ) : (
-                        <span className="text-xs font-black text-gray-300 uppercase tracking-widest">Hover</span>
-                    )}
+                        <><span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{((data[hoverIndex].value / total) * 100).toFixed(0)}%</span><span className="text-sm font-black text-gray-800 tracking-tighter">฿{formatCompactNumber(data[hoverIndex].value)}</span></>
+                    ) : (<span className="text-xs font-black text-gray-300 uppercase tracking-widest">Hover</span>)}
                 </div>
             </div>
-
             <div className="w-full space-y-2 overflow-y-auto max-h-48 pr-2 custom-scrollbar">
                 {data.map((d, i) => (
-                    <div 
-                        key={i} 
-                        className={`flex justify-between items-center p-2 rounded-lg transition-all cursor-default ${hoverIndex === i ? 'bg-gray-50 scale-105' : 'hover:bg-gray-50/50'}`}
-                        onMouseEnter={() => setHoverIndex(i)}
-                        onMouseLeave={() => setHoverIndex(null)}
-                    >
-                        <div className="flex items-center gap-3">
-                            <span className={`w-3 h-3 rounded shadow-sm transition-transform ${hoverIndex === i ? 'scale-105' : ''}`} style={{backgroundColor: colors[i % colors.length]}}></span>
-                            <span className={`text-sm truncate max-w-[150px] transition-colors ${hoverIndex === i ? 'font-bold text-gray-900' : 'font-medium text-gray-600'}`} title={d.name}>{d.name}</span>
-                        </div>
+                    <div key={i} className={`flex justify-between items-center p-2 rounded-lg transition-all cursor-default ${hoverIndex === i ? 'bg-gray-50 scale-105' : 'hover:bg-gray-50/50'}`} onMouseEnter={() => setHoverIndex(i)} onMouseLeave={() => setHoverIndex(null)}>
+                        <div className="flex items-center gap-3"><span className={`w-3 h-3 rounded shadow-sm transition-transform ${hoverIndex === i ? 'scale-125' : ''}`} style={{backgroundColor: colors[i % colors.length]}}></span><span className={`text-sm truncate max-w-[150px] transition-colors ${hoverIndex === i ? 'font-bold text-gray-900' : 'font-medium text-gray-600'}`} title={d.name}>{d.name}</span></div>
                         <span className={`text-sm transition-colors ${hoverIndex === i ? 'font-black text-gray-900' : 'font-bold text-gray-400'}`}>฿{formatCompactNumber(d.value)}</span>
                     </div>
                 ))}
@@ -1296,8 +1350,6 @@ const InteractivePieChart = ({ data, type = "spending" }) => {
         </div>
     );
 };
-
-// --- TABLE CELL COMPONENT ---
 
 const EditableCell = ({ value, onSave, type = "text", options = null, className = "" }) => {
     const [isEditing, setIsEditing] = useState(false);
@@ -1309,27 +1361,17 @@ const EditableCell = ({ value, onSave, type = "text", options = null, className 
     const handleKeyDown = (e) => { if (e.key === 'Enter') e.target.blur(); };
 
     if (type === 'select' && options) { 
-        return ( 
-            <select value={localValue} onChange={(e) => { setLocalValue(e.target.value); onSave(e.target.value); }} className={`w-full bg-transparent outline-none focus:bg-white focus:ring-2 focus:ring-blue-200 rounded px-1 transition-all cursor-pointer appearance-none ${className}`}>
-                {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-            </select>
-        ); 
+        return <select value={localValue} onChange={(e) => { setLocalValue(e.target.value); onSave(e.target.value); }} className={`w-full bg-transparent outline-none focus:bg-white focus:ring-2 focus:ring-blue-200 rounded px-1 transition-all cursor-pointer appearance-none ${className}`}>{options.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select>; 
     }
     
     if (isEditing) { 
-        return (
-            <input type={type} value={localValue} onChange={(e) => setLocalValue(e.target.value)} onBlur={handleBlur} onKeyDown={handleKeyDown} autoFocus className={`w-full bg-white outline-none ring-2 ring-blue-200 rounded px-1 ${className}`} placeholder="-" />
-        ); 
+        return <input type={type} value={localValue} onChange={(e) => setLocalValue(e.target.value)} onBlur={handleBlur} onKeyDown={handleKeyDown} autoFocus className={`w-full bg-white outline-none ring-2 ring-blue-200 rounded px-1 ${className}`} placeholder="-" />; 
     }
     
     let displayValue = localValue;
     if (type === 'number' && localValue) { displayValue = formatAmount(localValue); }
     
-    return (
-        <div onClick={() => setIsEditing(true)} className={`w-full cursor-text rounded px-1 hover:bg-gray-100 min-h-[24px] flex items-center ${className}`} title="Click to edit">
-            {displayValue || "-"}
-        </div>
-    );
+    return <div onClick={() => setIsEditing(true)} className={`w-full cursor-text rounded px-1 hover:bg-gray-100 min-h-[24px] flex items-center ${className}`} title="Click to edit">{displayValue || "-"}</div>;
 };
 
 export default BudgetView;
