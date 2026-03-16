@@ -74,7 +74,14 @@ const PLATFORM_COLORS = {
     "X": "#000102",
     "Twitch": "#910bff"
 };
-const getPlatformColor = (platform) => PLATFORM_COLORS[platform] || "#8b5cf6"; // Default purple
+const getPlatformColor = (platform) => {
+    if (!platform) return "#8b5cf6"; // Default purple
+    
+    // Strip spaces and convert to lowercase (e.g. " YOUTUBE " becomes "youtube")
+    const cleanName = platform.trim().toLowerCase(); 
+    
+    return PLATFORM_COLORS[cleanName] || "#8b5cf6"; 
+};
 
 const AI_AVATAR = aiAvatar;
 
