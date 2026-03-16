@@ -64,23 +64,20 @@ const INFLUENCER_MONTHLY_COSTS = {
     "Default": 0    // Fallback if an influencer isn't listed above
 };
 
-// 🟢 NEW: PLATFORM COLORS
-// Automatically color-codes the charts and badges based on platform name
-const PLATFORM_COLORS = {
-    "YouTube": "#ff0000",
-    "TikTok": "#ff1180",
-    "Facebook": "#1877f2",
-    "Instagram": "#ff7221",
-    "X": "#000102",
-    "Twitch": "#910bff"
-};
-const getPlatformColor = (platform) => {
-    if (!platform) return "#8b5cf6"; // Default purple
+// 🟢 AGGRESSIVE PLATFORM COLOR MATCHER (Immune to spacing and hidden characters)
+const getPlatformColor = (rawPlatform) => {
+    if (!rawPlatform) return "#8b5cf6"; // Default purple
     
-    // Strip spaces and convert to lowercase (e.g. " YOUTUBE " becomes "youtube")
-    const cleanName = platform.trim().toLowerCase(); 
+    // Force to string and lowercase so we can search inside it safely
+    const p = String(rawPlatform).toLowerCase();
     
-    return PLATFORM_COLORS[cleanName] || "#8b5cf6"; 
+    if (p.includes("youtube") || p.includes("yt")) return "#ff0000";   // YouTube Red
+    if (p.includes("tiktok") || p.includes("tt")) return "#000000";    // TikTok Black
+    if (p.includes("facebook") || p.includes("fb")) return "#1877f2";  // Facebook Blue
+    if (p.includes("instagram") || p.includes("ig")) return "#e1306c"; // Instagram Pink
+    if (p.includes("twitter") || p.includes("x")) return "#1da1f2";    // Twitter/X Blue
+    
+    return "#8b5cf6"; // Default purple for anything else
 };
 
 const AI_AVATAR = aiAvatar;
