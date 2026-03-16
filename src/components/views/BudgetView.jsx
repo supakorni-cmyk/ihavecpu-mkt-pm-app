@@ -74,7 +74,7 @@ const PLATFORM_COLORS = {
     "X": "#000102",
     "Twitch": "#910bff"
 };
-const getPlatformColor = (platform) => PLATFORM_COLORS[platform] || "#8b5cf6"; // Default purple
+// const getPlatformColor = (platform) => PLATFORM_COLORS[platform] || "#8b5cf6"; // Default purple
 
 const AI_AVATAR = aiAvatar;
 
