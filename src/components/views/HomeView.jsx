@@ -38,7 +38,6 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
 
   // --- API DATA STATE ---
   const [weatherData, setWeatherData] = useState(null);
-  const [goldPrice, setGoldPrice] = useState(null);
   const [locationName, setLocationName] = useState("Locating..."); 
 
   // --- STATS LOGIC ---
@@ -76,80 +75,8 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
   const unreadCount = notifications.filter(n => !n.isRead).length;
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
 
-  // --- FETCH WEATHER & ACTUAL GOLD PRICE ---
+  // --- FETCH WEATHER ---
   useEffect(() => {
-      const fetchGold = async () => {
-          try {
-              // 🟢 Tier 1: Try thaigold.info (Official Thai Gold Traders Association) using a free CORS proxy
-              const thaigoldUrl = 'https://www.thaigold.info/RealTimeDataV2/gtdata_.txt';
-              const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(thaigoldUrl)}`;
-              
-              const res1 = await fetch(proxyUrl);
-              if (res1.ok) {
-                  const data1 = await res1.json();
-                  // The text file is an array of objects. We look for "ทองคำแท่ง" (Gold Bar)
-                  const goldBar = data1.find(item => item.name && (item.name.includes("แท่ง") || item.name.includes("Bar")));
-                  
-                  if (goldBar && goldBar.ask && goldBar.bid) {
-                      setGoldPrice({
-                          sell: parseInt(goldBar.ask.replace(/,/g, '')),
-                          buy: parseInt(goldBar.bid.replace(/,/g, '')),
-                          currency: "THB",
-                          unit: "1 Baht (15.24g)",
-                          isActual: true // Marks it as exact official data
-                      });
-                      return; // Exit early if successful
-                  }
-              }
-          } catch (error) {
-              console.warn("Tier 1 (thaigold.info) failed:", error);
-          }
-
-          try {
-              // 🟢 Tier 2: Fallback to chnwt API
-              const res2 = await fetch('https://api.chnwt.dev/thai-gold-api/latest');
-              if (res2.ok) {
-                  const data2 = await res2.json();
-                  if (data2.status === 'success' && data2.response?.price?.gold_bar) {
-                      setGoldPrice({
-                          sell: parseInt(data2.response.price.gold_bar.sell.replace(/,/g, '')),
-                          buy: parseInt(data2.response.price.gold_bar.buy.replace(/,/g, '')),
-                          currency: "THB",
-                          unit: "1 Baht (15.24g)",
-                          isActual: true
-                      });
-                      return;
-                  }
-              }
-          } catch (error) {
-              console.warn("Tier 2 (chnwt API) failed:", error);
-          }
-
-          try {
-              // 🟡 Tier 3: Last Resort - Calculation based on Real-Time USD to THB rate
-              const goldRes = await fetch("https://open.er-api.com/v6/latest/USD"); 
-              const fxJson = await goldRes.json();
-              const usdToThb = fxJson.rates.THB || 35.0; 
-
-              const mockGoldOzUsd = 2350; // Approximated global gold price
-              const thaiBahtWeightOz = 15.244 / 31.1035; 
-              const calculatedThbPrice = mockGoldOzUsd * usdToThb * thaiBahtWeightOz;
-              
-              // Standardize to nearest 50 THB (Thai format)
-              const basePrice = Math.floor((calculatedThbPrice * 1.03) / 50) * 50;
-              
-              setGoldPrice({
-                  sell: basePrice + 100,
-                  buy: basePrice,       
-                  currency: "THB",
-                  unit: "1 Baht (15.24g)",
-                  isActual: false // Flags it as an estimate
-              });
-          } catch (error) {
-              console.error("All Gold fetch methods failed", error);
-          }
-      };
-
       const fetchWeather = async (lat, lon, locName) => {
           try {
               const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&timezone=auto`);
@@ -163,8 +90,6 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
               setLocationName("Unknown Location");
           }
       };
-
-      fetchGold();
 
       if ("geolocation" in navigator) {
           navigator.geolocation.getCurrentPosition(
@@ -259,11 +184,11 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
         </div>
       </div>
 
-      {/* --- WIDGETS: WEATHER & GOLD PRICE --- */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
+      {/* --- WIDGETS: WEATHER --- */}
+      <div className="grid grid-cols-1 gap-6 mb-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
         
         {/* Weather Widget */}
-        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-2xl border border-blue-100 shadow-sm flex justify-between items-center relative overflow-hidden group h-full">
+        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-2xl border border-blue-100 shadow-sm flex justify-between items-center relative overflow-hidden group h-full max-w-2xl">
             <div className="absolute -right-6 -top-6 text-white opacity-50 group-hover:scale-110 transition-transform duration-700">
                 {weatherData ? getWeatherIcon(weatherData.weathercode) : <CloudRain size={120} />}
             </div>
@@ -285,51 +210,6 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
                         <div className="text-[10px] text-gray-400">Updated: {new Date(weatherData.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
                     </>
                 )}
-            </div>
-        </div>
-
-        {/* Gold Price Widget (Buy / Sell) */}
-        <div className="bg-gradient-to-br from-yellow-50 to-amber-50 p-6 rounded-2xl border border-yellow-100 shadow-sm flex justify-between items-center relative overflow-hidden group h-full">
-            <div className="absolute -right-6 -top-6 text-white opacity-50 group-hover:scale-110 transition-transform duration-700">
-                <TrendingUp size={120} className="text-yellow-400" />
-            </div>
-            <div className="relative z-10 w-full flex flex-col h-full justify-center">
-                
-                <div className="flex justify-between items-start mb-2">
-                    <h4 className="text-xs font-bold text-yellow-600 uppercase tracking-wider flex items-center gap-1">Today's Gold Price</h4>
-                    
-                    {goldPrice && goldPrice.isActual ? (
-                        <div className="inline-flex items-center gap-1.5 text-[10px] font-bold text-green-700 bg-green-100 border border-green-200 px-2 py-1 rounded-md shadow-sm">
-                            <CheckCircle2 size={10} /> Live Market
-                        </div>
-                    ) : (
-                        <div className="inline-flex items-center gap-1.5 text-[10px] font-bold text-yellow-700 bg-yellow-100 border border-yellow-300 px-2 py-1 rounded-md shadow-sm">
-                            Estimated
-                        </div>
-                    )}
-                </div>
-
-                <div className="flex items-center gap-6 mt-2">
-                    <div>
-                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-0.5">Sell (ขายออก)</p>
-                        <div className="text-3xl font-black text-gray-800 tracking-tighter">
-                            {goldPrice ? `฿${new Intl.NumberFormat('en-US').format(goldPrice.sell)}` : '฿--,--'}
-                        </div>
-                    </div>
-                    
-                    <div className="w-px h-10 bg-yellow-300"></div>
-                    
-                    <div>
-                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-0.5">Buy (รับซื้อ)</p>
-                        <div className="text-3xl font-black text-gray-800 tracking-tighter">
-                            {goldPrice ? `฿${new Intl.NumberFormat('en-US').format(goldPrice.buy)}` : '฿--,--'}
-                        </div>
-                    </div>
-                </div>
-
-                <p className="text-xs font-medium text-gray-500 mt-3">
-                    per {goldPrice ? goldPrice.unit : 'Baht Weight'} (96.5%)
-                </p>
             </div>
         </div>
 
