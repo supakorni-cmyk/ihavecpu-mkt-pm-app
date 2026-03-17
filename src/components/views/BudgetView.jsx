@@ -903,7 +903,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                                         <Legend wrapperStyle={{ paddingTop: '20px', fontWeight: 'bold', color: '#64748b' }}/>
                                                         
                                                         {uniquePlatforms.map(plat => (
-                                                            <Bar key={plat} dataKey={plat} name={`${plat} Views`} stackId="a" fill={getPlatformColor(plat)} radius={[6,6,0,0]} />
+                                                            <Bar key={plat} dataKey={plat} name={`${plat} Views`} stackId="a" fill={getPlatformColor(plat)} border={{ width: 8, color: '#ffffff' }} />
                                                         ))}
                                                         
                                                 </BarChart>
