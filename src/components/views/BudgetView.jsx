@@ -756,6 +756,16 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                                 </div>
                                             )}   
                                         </div>
+
+                                        <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col">
+                                            <div className="flex justify-between items-start mb-4">
+                                                <div className="p-3 bg-purple-50 text-green-600 rounded-2xl"><Smile size={20}/></div>
+                                            </div>
+                                            <p className="text-sm text-gray-500 font-bold mb-1">Total Influencers</p>
+                                            <h3 className="text-3xl font-black text-gray-800">
+                                                8
+                                            </h3>
+                                        </div>
                                     </div>
 
                                     {/* 🟢 NEW: INFLUENCER AVATAR LEADERBOARD WITH PLATFORM PILLS */}
