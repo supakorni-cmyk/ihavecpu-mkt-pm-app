@@ -72,7 +72,7 @@ const getPlatformColor = (rawPlatform) => {
     const p = String(rawPlatform).toLowerCase();
     
     if (p.includes("youtube") || p.includes("yt")) return "#ff1744";   // YouTube Red
-    if (p.includes("tiktok") || p.includes("tt")) return "#f73378";    // TikTok Black
+    if (p.includes("tiktok") || p.includes("tt")) return "#ed4b82";    // TikTok Black
     if (p.includes("facebook") || p.includes("fb")) return "#2979ff";  // Facebook Blue
     if (p.includes("instagram") || p.includes("ig")) return "#ff9100"; // Instagram Pink
     if (p.includes("twitch") || p.includes("x")) return "#d500f9";    // Twitter/X Blue
@@ -822,6 +822,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                                 ))}
                                             </div>
                                         </div>
+                                        
                                     )}
 
                                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
@@ -902,7 +903,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                                         <Legend wrapperStyle={{ paddingTop: '20px', fontWeight: 'bold', color: '#64748b' }}/>
                                                         
                                                         {uniquePlatforms.map(plat => (
-                                                            <Bar key={plat} dataKey={plat} name={`${plat} Views`} stackId="a" fill={getPlatformColor(plat)} radius={[0,6,6,0]} />
+                                                            <Bar key={plat} dataKey={plat} name={`${plat} Views`} stackId="a" fill={getPlatformColor(plat)} radius={[6,6,0,0]} />
                                                         ))}
                                                         
                                                 </BarChart>
@@ -964,7 +965,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                                             <Legend wrapperStyle={{ paddingTop: '20px', fontWeight: 'bold', color: '#64748b' }}/>
                                                             
                                                             {uniquePlatforms.map(plat => (
-                                                                <Bar key={plat} dataKey={plat} name={`${plat} Views`} stackId="a" fill={getPlatformColor(plat)} />
+                                                                <Bar key={plat} dataKey={plat} name={`${plat} Views`} stackId="a" fill={getPlatformColor(plat)} radius={[6,6,0,0]} />
                                                             ))}
                                                             
                                                         </BarChart>
