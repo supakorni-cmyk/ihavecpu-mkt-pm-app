@@ -71,11 +71,11 @@ const getPlatformColor = (rawPlatform) => {
     // Force to string and lowercase so we can search inside it safely
     const p = String(rawPlatform).toLowerCase();
     
-    if (p.includes("youtube") || p.includes("yt")) return "#ff0000";   // YouTube Red
-    if (p.includes("tiktok") || p.includes("tt")) return "#000000";    // TikTok Black
-    if (p.includes("facebook") || p.includes("fb")) return "#1877f2";  // Facebook Blue
-    if (p.includes("instagram") || p.includes("ig")) return "#e1306c"; // Instagram Pink
-    if (p.includes("twitter") || p.includes("x")) return "#1da1f2";    // Twitter/X Blue
+    if (p.includes("youtube") || p.includes("yt")) return "#aa2e25";   // YouTube Red
+    if (p.includes("tiktok") || p.includes("tt")) return "#f73378";    // TikTok Black
+    if (p.includes("facebook") || p.includes("fb")) return "#2979ff";  // Facebook Blue
+    if (p.includes("instagram") || p.includes("ig")) return "#ff9100"; // Instagram Pink
+    if (p.includes("twitch") || p.includes("x")) return "#d500f9";    // Twitter/X Blue
     
     return "#8b5cf6"; // Default purple for anything else
 };
