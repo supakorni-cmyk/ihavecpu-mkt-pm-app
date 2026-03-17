@@ -26,7 +26,8 @@ import {
   Target,     
   Zap,        
   Rocket,
-  DollarSign
+  DollarSign,
+  Smile
 } from 'lucide-react';
 
 import { BarChart, Bar, Legend, ResponsiveContainer, CartesianGrid, XAxis, YAxis, Tooltip as RechartsTooltip, Pie, PieChart, Line, LineChart, Label } from 'recharts';
