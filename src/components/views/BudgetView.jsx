@@ -71,7 +71,7 @@ const getPlatformColor = (rawPlatform) => {
     // Force to string and lowercase so we can search inside it safely
     const p = String(rawPlatform).toLowerCase();
     
-    if (p.includes("youtube") || p.includes("yt")) return "#ff1744";   // YouTube Red
+    if (p.includes("youtube") || p.includes("yt")) return "#f44336";   // YouTube Red
     if (p.includes("tiktok") || p.includes("tt")) return "#ed4b82";    // TikTok Black
     if (p.includes("facebook") || p.includes("fb")) return "#2979ff";  // Facebook Blue
     if (p.includes("instagram") || p.includes("ig")) return "#ff9100"; // Instagram Pink
