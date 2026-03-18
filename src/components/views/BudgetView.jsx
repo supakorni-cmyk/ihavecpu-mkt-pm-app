@@ -1297,73 +1297,56 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
 // --- ✨ PREMIUM INTERACTIVE CHARTS ✨ ---
 
 const InteractiveCombinedChart = ({ data }) => {
-    const [hoverIndex, setHoverIndex] = useState(null);
-
-    if (!data || data.length === 0) return <div className="h-full w-full flex items-center justify-center text-gray-400 font-medium">No data available to chart</div>;
-    
-    const height = 300; 
-    const width = 1000;
-    const paddingX = 40;
-    const paddingY = 40;
-    const maxVal = Math.max(...data.map(d => Math.max(d.income, d.spending))) * 1.1 || 100;
-    
-    const getCoordinates = (key) => data.map((d, i) => {
-        const x = (i / (data.length - 1 || 1)) * (width - 2 * paddingX) + paddingX;
-        const y = height - paddingY - ((d[key] / maxVal) * (height - 2 * paddingY));
-        return { x, y, value: d[key] };
-    });
-
-    const incomeCoords = getCoordinates('income');
-    const spendingCoords = getCoordinates('spending');
-    
-    const incomePoints = incomeCoords.map(c => `${c.x},${c.y}`).join(' ');
-    const spendingPoints = spendingCoords.map(c => `${c.x},${c.y}`).join(' ');
+   if (!data || data.length === 0) return <div className="h-full w-full flex items-center justify-center text-gray-400 font-medium">No data available to chart</div>;
 
     return (
-        <div className="w-full h-full relative group">
-            <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-visible" preserveAspectRatio="none">
-                <defs>
-                    <linearGradient id="incomeGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#16a34a" stopOpacity="0.2"/>
-                        <stop offset="100%" stopColor="#16a34a" stopOpacity="0"/>
-                    </linearGradient>
-                    <linearGradient id="spendingGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#dc2626" stopOpacity="0.2"/>
-                        <stop offset="100%" stopColor="#dc2626" stopOpacity="0"/>
-                    </linearGradient>
-                </defs>
-
-                <polygon points={`${incomePoints} ${width-paddingX},${height-paddingY} ${paddingX},${height-paddingY}`} fill="url(#incomeGrad)" className="transition-all duration-700"/>
-                <polygon points={`${spendingPoints} ${width-paddingX},${height-paddingY} ${paddingX},${height-paddingY}`} fill="url(#spendingGrad)" className="transition-all duration-700"/>
-
-                <polyline fill="none" stroke="#16a34a" strokeWidth="3" points={incomePoints} strokeLinecap="round" strokeLinejoin="round" className="drop-shadow-sm"/>
-                <polyline fill="none" stroke="#dc2626" strokeWidth="3" points={spendingPoints} strokeLinecap="round" strokeLinejoin="round" className="drop-shadow-sm"/>
-
-                {data.map((d, i) => {
-                    const x = (i / (data.length - 1 || 1)) * (width - 2 * paddingX) + paddingX;
-                    const isHovered = hoverIndex === i;
-                    return (
-                        <g key={i}>
-                             <text x={x} y={height - 10} textAnchor="middle" fontSize="12" fill={isHovered ? "#111827" : "#94a3b8"} fontWeight={isHovered ? "bold" : "500"} className="transition-colors">{d.date}</text>
-                             {isHovered && <line x1={x} y1={paddingY} x2={x} y2={height - paddingY} stroke="#cbd5e1" strokeWidth="1.5" strokeDasharray="4 4" />}
-                             <circle cx={x} cy={incomeCoords[i].y} r={isHovered ? "6" : "3"} fill="#16a34a" stroke="white" strokeWidth={isHovered ? "2" : "0"} className="transition-all duration-200 shadow-xl"/>
-                             <circle cx={x} cy={spendingCoords[i].y} r={isHovered ? "6" : "3"} fill="#dc2626" stroke="white" strokeWidth={isHovered ? "2" : "0"} className="transition-all duration-200 shadow-xl"/>
-                             <rect x={x - ((width - 2*paddingX)/(data.length-1))/2} y={0} width={(width - 2*paddingX)/(data.length-1)} height={height} fill="transparent" onMouseEnter={() => setHoverIndex(i)} onMouseLeave={() => setHoverIndex(null)} className="cursor-crosshair" />
-                        </g>
-                    );
-                })}
-            </svg>
-
-            {hoverIndex !== null && (
-                <div className="absolute bg-white/90 backdrop-blur-md shadow-2xl border border-gray-100 p-4 rounded-2xl pointer-events-none transform -translate-x-1/2 -translate-y-[110%] transition-all duration-100 ease-out z-20 min-w-[160px]" style={{ left: `${(hoverIndex / (data.length - 1 || 1)) * 100 * (1 - (80/1000)) + 4}%`, top: `${Math.min(incomeCoords[hoverIndex].y, spendingCoords[hoverIndex].y) / height * 100}%` }}>
-                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 border-b border-gray-100 pb-2">{data[hoverIndex].date}</p>
-                    <div className="space-y-2">
-                        <div className="flex justify-between items-center gap-4"><span className="text-sm font-bold text-gray-700 flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-green-500"></div> Income</span><span className="text-sm font-black text-green-600">฿{formatCompactNumber(data[hoverIndex].income)}</span></div>
-                        <div className="flex justify-between items-center gap-4"><span className="text-sm font-bold text-gray-700 flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-red-500"></div> Spending</span><span className="text-sm font-black text-red-600">฿{formatCompactNumber(data[hoverIndex].spending)}</span></div>
-                    </div>
-                </div>
-            )}
-        </div>
+        <ResponsiveContainer width="100%" height="100%" minHeight={300}>
+            <LineChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9"/>
+                <XAxis 
+                    dataKey="date" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{fill: '#64748b', fontSize: 12, fontWeight: 600}} 
+                    dy={10}
+                />
+                <YAxis 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{fill: '#64748b', fontSize: 12}} 
+                    dx={-10} 
+                    tickFormatter={(val) => `฿${formatCompactNumber(val)}`}
+                />
+                <RechartsTooltip 
+                    // Adds a sleek dashed line tracking your mouse
+                    cursor={{ stroke: '#cbd5e1', strokeWidth: 2, strokeDasharray: '4 4' }}
+                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', fontWeight: 'bold' }}
+                    formatter={(value) => `฿${formatCompactNumber(value)}`}
+                    labelStyle={{ color: '#94a3b8', marginBottom: '8px', textTransform: 'uppercase', fontSize: '10px', letterSpacing: '0.05em' }}
+                />
+                <Legend wrapperStyle={{ paddingTop: '20px', fontWeight: 'bold', color: '#64748b' }}/>
+                
+                {/* Sleek, curved lines with interactive hover dots */}
+                <Line 
+                    type="monotone" 
+                    dataKey="income" 
+                    name="Income (฿)" 
+                    stroke="#22c55e" 
+                    strokeWidth={4} 
+                    dot={{ r: 4, strokeWidth: 2 }}
+                    activeDot={{ r: 8, stroke: '#fff', strokeWidth: 3, shadow: '0 4px 10px rgba(0,0,0,0.2)' }} 
+                />
+                <Line 
+                    type="monotone" 
+                    dataKey="spending" 
+                    name="Spending (฿)" 
+                    stroke="#ef4444" 
+                    strokeWidth={4} 
+                    dot={{ r: 4, strokeWidth: 2 }}
+                    activeDot={{ r: 8, stroke: '#fff', strokeWidth: 3, shadow: '0 4px 10px rgba(0,0,0,0.2)' }} 
+                />
+            </LineChart>
+        </ResponsiveContainer>
     );
 };
 
@@ -1373,47 +1356,73 @@ const InteractivePieChart = ({ data, type = "spending" }) => {
     if (!data || data.length === 0) return <div className="h-full w-full flex items-center justify-center text-gray-400 font-medium">No data to display</div>;
     
     const total = data.reduce((acc, cur) => acc + cur.value, 0);
-    let currentAngle = 0;
     
+    // Dynamic color palettes
     const spendingColors = ['#ef4444', '#f59e0b', '#8b5cf6', '#ec4899', '#f43f5e', '#d946ef', '#f97316'];
     const incomeColors = ['#10b981', '#3b82f6', '#0ea5e9', '#14b8a6', '#06b6d4', '#34d399', '#2dd4bf'];
     const colors = type === 'income' ? incomeColors : spendingColors;
 
     return (
         <div className="flex flex-col items-center w-full">
+            {/* Recharts Donut Container */}
             <div className="w-48 h-48 relative mb-8">
-                <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90 drop-shadow-xl overflow-visible">
-                    {data.map((d, i) => {
-                        const sliceAngle = (d.value / total) * 360;
-                        const isHovered = hoverIndex === i;
-                        const scale = isHovered ? 1.05 : 1;
-                        const translateOffset = isHovered ? 2 : 0;
-                        const midAngle = currentAngle + (sliceAngle / 2);
-                        const tx = translateOffset * Math.cos(Math.PI * midAngle / 180);
-                        const ty = translateOffset * Math.sin(Math.PI * midAngle / 180);
-
-                        const x1 = 50 + 50 * Math.cos(Math.PI * currentAngle / 180);
-                        const y1 = 50 + 50 * Math.sin(Math.PI * currentAngle / 180);
-                        const x2 = 50 + 50 * Math.cos(Math.PI * (currentAngle + sliceAngle) / 180);
-                        const y2 = 50 + 50 * Math.sin(Math.PI * (currentAngle + sliceAngle) / 180);
-                        const largeArc = sliceAngle > 180 ? 1 : 0;
-                        const pathData = `M 50 50 L ${x1} ${y1} A 50 50 0 ${largeArc} 1 ${x2} ${y2} Z`;
-                        
-                        currentAngle += sliceAngle;
-                        return <path key={i} d={pathData} fill={colors[i % colors.length]} stroke="white" strokeWidth={isHovered ? "2" : "1"} className="transition-all duration-300 cursor-pointer origin-center" style={{ transform: `translate(${tx}px, ${ty}px) scale(${scale})` }} onMouseEnter={() => setHoverIndex(i)} onMouseLeave={() => setHoverIndex(null)} />;
-                    })}
-                    <circle cx="50" cy="50" r="25" fill="white" className="drop-shadow-inner" />
-                </svg>
+                <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                        <Pie
+                            data={data}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={55}
+                            outerRadius={80}
+                            paddingAngle={3}
+                            dataKey="value"
+                            onMouseEnter={(_, index) => setHoverIndex(index)}
+                            onMouseLeave={() => setHoverIndex(null)}
+                            stroke="none"
+                        >
+                            {data.map((entry, index) => (
+                                <Cell 
+                                    key={`cell-${index}`} 
+                                    fill={colors[index % colors.length]} 
+                                    style={{ 
+                                        outline: 'none',
+                                        // Sleek hover effect: dim unselected slices
+                                        opacity: hoverIndex === null || hoverIndex === index ? 1 : 0.3,
+                                        transition: 'opacity 0.3s ease',
+                                        cursor: 'pointer'
+                                    }}
+                                />
+                            ))}
+                        </Pie>
+                    </PieChart>
+                </ResponsiveContainer>
+                
+                {/* Dynamic Center Label */}
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                     {hoverIndex !== null ? (
-                        <><span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{((data[hoverIndex].value / total) * 100).toFixed(0)}%</span><span className="text-sm font-black text-gray-800 tracking-tighter">฿{formatCompactNumber(data[hoverIndex].value)}</span></>
-                    ) : (<span className="text-xs font-black text-gray-300 uppercase tracking-widest">Hover</span>)}
+                        <>
+                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{((data[hoverIndex].value / total) * 100).toFixed(0)}%</span>
+                            <span className="text-sm font-black text-gray-800 tracking-tighter">฿{formatCompactNumber(data[hoverIndex].value)}</span>
+                        </>
+                    ) : (
+                        <span className="text-xs font-black text-gray-300 uppercase tracking-widest">Hover</span>
+                    )}
                 </div>
             </div>
+
+            {/* Custom Interactive Legend */}
             <div className="w-full space-y-2 overflow-y-auto max-h-48 pr-2 custom-scrollbar">
                 {data.map((d, i) => (
-                    <div key={i} className={`flex justify-between items-center p-2 rounded-lg transition-all cursor-default ${hoverIndex === i ? 'bg-gray-50 scale-105' : 'hover:bg-gray-50/50'}`} onMouseEnter={() => setHoverIndex(i)} onMouseLeave={() => setHoverIndex(null)}>
-                        <div className="flex items-center gap-3"><span className={`w-3 h-3 rounded shadow-sm transition-transform ${hoverIndex === i ? 'scale-125' : ''}`} style={{backgroundColor: colors[i % colors.length]}}></span><span className={`text-sm truncate max-w-[150px] transition-colors ${hoverIndex === i ? 'font-bold text-gray-900' : 'font-medium text-gray-600'}`} title={d.name}>{d.name}</span></div>
+                    <div 
+                        key={i} 
+                        className={`flex justify-between items-center p-2 rounded-lg transition-all cursor-default ${hoverIndex === i ? 'bg-gray-50 scale-105' : 'hover:bg-gray-50/50'}`}
+                        onMouseEnter={() => setHoverIndex(i)}
+                        onMouseLeave={() => setHoverIndex(null)}
+                    >
+                        <div className="flex items-center gap-3">
+                            <span className={`w-3 h-3 rounded shadow-sm transition-transform ${hoverIndex === i ? 'scale-125' : ''}`} style={{backgroundColor: colors[i % colors.length]}}></span>
+                            <span className={`text-sm truncate max-w-[150px] transition-colors ${hoverIndex === i ? 'font-bold text-gray-900' : 'font-medium text-gray-600'}`} title={d.name}>{d.name}</span>
+                        </div>
                         <span className={`text-sm transition-colors ${hoverIndex === i ? 'font-black text-gray-900' : 'font-bold text-gray-400'}`}>฿{formatCompactNumber(d.value)}</span>
                     </div>
                 ))}
