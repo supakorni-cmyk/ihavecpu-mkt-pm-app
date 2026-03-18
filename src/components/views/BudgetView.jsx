@@ -123,6 +123,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
 
     // --- FILTER STATE ---
     const [overviewMonthFilter, setOverviewMonthFilter] = useState('ALL'); // 🟢 NEW OVERVIEW FILTER
+    const [overviewCategoryFilter, setOverviewCategoryFilter] = useState('ALL'); // 🟢 NEW CATEGORY FILTER
     const [incomeCategoryFilter, setIncomeCategoryFilter] = useState('All');
     const [incomeMonthFilter, setIncomeMonthFilter] = useState('All');
     const [incomeBrandFilter, setIncomeBrandFilter] = useState('All');
@@ -363,23 +364,41 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
     ].filter(item => item.value > 0); 
 
 
-    // --- 🟢 UPGRADED DATA PROCESSING ENGINE ---
+   // --- 🟢 UPGRADED DATA PROCESSING ENGINE ---
     
-    // 1. Generate unique months for the Overview dropdown
+    // 1. Generate unique months and categories for the Overview dropdowns
     const overviewUniqueMonths = ["ALL", ...Array.from(new Set(transactions.map(t => {
         const d = new Date(t.date);
         return `${d.toLocaleString('en-US', { month: 'short' })} ${d.getFullYear()}`;
     }))).sort((a, b) => new Date(a) - new Date(b))];
+    
+    const overviewUniqueCategories = ["ALL", ...Array.from(new Set(transactions.map(t => t.category || 'Uncategorized'))).sort()];
 
-    // 2. Filter transactions based on the selected month
+    // 2. Filter transactions based on the selected month AND category
     const filteredOverviewTransactions = useMemo(() => {
         return transactions.filter(t => {
-            if (overviewMonthFilter === 'ALL') return true;
-            const d = new Date(t.date);
-            const monthStr = `${d.toLocaleString('en-US', { month: 'short' })} ${d.getFullYear()}`;
-            return monthStr === overviewMonthFilter;
+            // Check Month
+            let matchMonth = true;
+            if (overviewMonthFilter !== 'ALL') {
+                const d = new Date(t.date);
+                const monthStr = `${d.toLocaleString('en-US', { month: 'short' })} ${d.getFullYear()}`;
+                matchMonth = monthStr === overviewMonthFilter;
+            }
+            
+            // Check Category
+            let matchCategory = true;
+            if (overviewCategoryFilter !== 'ALL') {
+                matchCategory = (t.category || 'Uncategorized') === overviewCategoryFilter;
+            }
+
+            return matchMonth && matchCategory;
         });
-    }, [transactions, overviewMonthFilter]);
+    }, [transactions, overviewMonthFilter, overviewCategoryFilter]);
+
+    // 2.5 A special filter just for the All-Time chart (Respects Category, ignores Month)
+    const categoryFilteredTransactions = useMemo(() => {
+        return transactions.filter(t => overviewCategoryFilter === 'ALL' || (t.category || 'Uncategorized') === overviewCategoryFilter);
+    }, [transactions, overviewCategoryFilter]);
 
     // 3. Dynamic Calculation Helpers
     const getMonthlyData = (type, dataset) => {
@@ -416,8 +435,8 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
 
     // 4. Calculate Data for UI
     // Trend chart ALWAYS uses raw 'transactions' so you can see the all-time trajectory
-    const incomeTrend = getMonthlyData('income', transactions);
-    const spendingTrend = getMonthlyData('spending', transactions);
+    const incomeTrend = getMonthlyData('income', categoryFilteredTransactions);
+    const spendingTrend = getMonthlyData('spending', categoryFilteredTransactions);
     
     // Everything else uses the dynamically filtered data!
     const incomeCategories = getCategoryData('income', filteredOverviewTransactions);
@@ -570,6 +589,21 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                 </div>
                                 
                                 <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
+                                    {/* 🟢 NEW: Category Filter */}
+                                    <div className="flex items-center gap-2 bg-gray-50 p-2 rounded-xl border border-gray-200">
+                                        <Tag size={14} className="text-gray-400 ml-2" />
+                                        <select 
+                                            className="bg-transparent border-none text-sm font-bold text-gray-700 outline-none pr-4 cursor-pointer max-w-[150px] truncate"
+                                            value={overviewCategoryFilter}
+                                            onChange={(e) => setOverviewCategoryFilter(e.target.value)}
+                                        >
+                                            {overviewUniqueCategories.map(cat => (
+                                                <option key={cat} value={cat}>{cat === 'ALL' ? 'All Categories' : cat}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    
+                                    {/* Month Filter */}
                                     <div className="flex items-center gap-2 bg-gray-50 p-2 rounded-xl border border-gray-200">
                                         <Calendar size={14} className="text-gray-400 ml-2" />
                                         <select 
