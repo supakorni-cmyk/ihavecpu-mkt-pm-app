@@ -27,7 +27,8 @@ import {
   Zap,        
   Rocket,
   DollarSign,
-  Smile
+  Smile,
+  Cell
 } from 'lucide-react';
 
 import { BarChart, Bar, Legend, ResponsiveContainer, CartesianGrid, XAxis, YAxis, Tooltip as RechartsTooltip, Pie, PieChart, Line, LineChart, Label } from 'recharts';
