@@ -741,9 +741,6 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                                 <td className="px-8 py-4 text-gray-900 uppercase text-xs tracking-widest">All-Time Total</td>
                                                 <td className="px-8 py-4 font-mono text-right text-green-600">฿{formatAmount(combinedData.reduce((acc, curr) => acc + curr.income, 0))}</td>
                                                 <td className="px-8 py-4 font-mono text-right text-red-600">฿{formatAmount(combinedData.reduce((acc, curr) => acc + curr.spending, 0))}</td>
-                                                <td className={`px-8 py-4 font-mono text-right ${combinedData.reduce((acc, curr) => acc + (curr.income - curr.spending), 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                                    ฿{formatAmount(combinedData.reduce((acc, curr) => acc + (curr.income - curr.spending), 0))}
-                                                </td>
                                             </tr>
                                         </tfoot>
                                     </table>
