@@ -122,6 +122,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
     const [previewFile, setPreviewFile] = useState(null);
 
     // --- FILTER STATE ---
+    const [overviewMonthFilter, setOverviewMonthFilter] = useState('ALL'); // 🟢 NEW OVERVIEW FILTER
     const [incomeCategoryFilter, setIncomeCategoryFilter] = useState('All');
     const [incomeMonthFilter, setIncomeMonthFilter] = useState('All');
     const [incomeBrandFilter, setIncomeBrandFilter] = useState('All');
@@ -362,12 +363,30 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
     ].filter(item => item.value > 0); 
 
 
-    // --- DATA PROCESSING ---
-    const getMonthlyData = (type) => {
+    // --- 🟢 UPGRADED DATA PROCESSING ENGINE ---
+    
+    // 1. Generate unique months for the Overview dropdown
+    const overviewUniqueMonths = ["ALL", ...Array.from(new Set(transactions.map(t => {
+        const d = new Date(t.date);
+        return `${d.toLocaleString('en-US', { month: 'short' })} ${d.getFullYear()}`;
+    }))).sort((a, b) => new Date(a) - new Date(b))];
+
+    // 2. Filter transactions based on the selected month
+    const filteredOverviewTransactions = useMemo(() => {
+        return transactions.filter(t => {
+            if (overviewMonthFilter === 'ALL') return true;
+            const d = new Date(t.date);
+            const monthStr = `${d.toLocaleString('en-US', { month: 'short' })} ${d.getFullYear()}`;
+            return monthStr === overviewMonthFilter;
+        });
+    }, [transactions, overviewMonthFilter]);
+
+    // 3. Dynamic Calculation Helpers
+    const getMonthlyData = (type, dataset) => {
         const data = {};
-        transactions.filter(t => t.type === type).forEach(t => {
+        dataset.filter(t => t.type === type).forEach(t => {
             const date = new Date(t.date);
-            const key = `${date.toLocaleString('default', { month: 'short' })} ${date.getFullYear()}`; 
+            const key = `${date.toLocaleString('en-US', { month: 'short' })} ${date.getFullYear()}`; 
             if (!data[key]) data[key] = { amount: 0, dateObj: date }; 
             data[key].amount += parseFloat(t.amount) || 0;
         });
@@ -376,9 +395,9 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
             .sort((a, b) => a.dateObj - b.dateObj);
     };
 
-    const getCategoryData = (type) => {
+    const getCategoryData = (type, dataset) => {
         const data = {};
-        transactions.filter(t => t.type === type).forEach(t => {
+        dataset.filter(t => t.type === type).forEach(t => {
             const cat = t.category || 'Uncategorized';
             if (!data[cat]) data[cat] = 0;
             data[cat] += parseFloat(t.amount) || 0;
@@ -388,24 +407,28 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
             .sort((a, b) => b.value - a.value);
     };
 
-    const getTopTransactions = (type) => {
-        return [...transactions]
+    const getTopTransactions = (type, dataset) => {
+        return [...dataset]
             .filter(t => t.type === type)
             .sort((a, b) => (parseFloat(b.amount) || 0) - (parseFloat(a.amount) || 0))
             .slice(0, 10);
     };
 
-    const incomeTrend = getMonthlyData('income');
-    const spendingTrend = getMonthlyData('spending');
-    const incomeCategories = getCategoryData('income');
-    const spendingCategories = getCategoryData('spending');
-    const topIncome = getTopTransactions('income');
-    const topSpending = getTopTransactions('spending');
+    // 4. Calculate Data for UI
+    // Trend chart ALWAYS uses raw 'transactions' so you can see the all-time trajectory
+    const incomeTrend = getMonthlyData('income', transactions);
+    const spendingTrend = getMonthlyData('spending', transactions);
+    
+    // Everything else uses the dynamically filtered data!
+    const incomeCategories = getCategoryData('income', filteredOverviewTransactions);
+    const spendingCategories = getCategoryData('spending', filteredOverviewTransactions);
+    const topIncome = getTopTransactions('income', filteredOverviewTransactions);
+    const topSpending = getTopTransactions('spending', filteredOverviewTransactions);
 
-    const totalIncome = transactions.filter(t => t.type === 'income').reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
-    const totalSpending = transactions.filter(t => t.type === 'spending').reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
-    const netBalance = totalIncome - totalSpending;
-    const budgetUsedPct = Math.min((totalSpending / TOTAL_BUDGET_CONST) * 100, 100).toFixed(1);
+    const overviewTotalIncome = filteredOverviewTransactions.filter(t => t.type === 'income').reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+    const overviewTotalSpending = filteredOverviewTransactions.filter(t => t.type === 'spending').reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+    const overviewNetBalance = overviewTotalIncome - overviewTotalSpending;
+    const overviewBudgetUsedPct = Math.min((overviewTotalSpending / TOTAL_BUDGET_CONST) * 100, 100).toFixed(1);
     
     const allMonths = Array.from(new Set([...incomeTrend.map(d => d.date), ...spendingTrend.map(d => d.date)])).sort((a, b) => new Date(a) - new Date(b));
     const combinedData = allMonths.map(month => ({
@@ -533,6 +556,35 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                     {/* --- OVERVIEW TAB --- */}
                     {activeTab === 'overview' && (
                         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700 pb-12 max-w-[1600px] mx-auto">
+                            
+                            {/* 🟢 NEW: Overview Filter Bar */}
+                            <div className="bg-white p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 flex flex-col md:flex-row gap-6 items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
+                                        <BarChart3 size={20} />
+                                    </div>
+                                    <div>
+                                        <h3 className="font-bold text-gray-800">Financial Dashboard</h3>
+                                        <p className="text-xs text-gray-500">Filter by Month to recalculate metrics</p>
+                                    </div>
+                                </div>
+                                
+                                <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
+                                    <div className="flex items-center gap-2 bg-gray-50 p-2 rounded-xl border border-gray-200">
+                                        <Calendar size={14} className="text-gray-400 ml-2" />
+                                        <select 
+                                            className="bg-transparent border-none text-sm font-bold text-gray-700 outline-none pr-4 cursor-pointer"
+                                            value={overviewMonthFilter}
+                                            onChange={(e) => setOverviewMonthFilter(e.target.value)}
+                                        >
+                                            {overviewUniqueMonths.map(month => (
+                                                <option key={month} value={month}>{month === 'ALL' ? 'All Time' : month}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
                             {/* --- KPI ROW --- */}
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                                 {/* Total Budget */}
@@ -547,11 +599,11 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                             ฿{formatCompactNumber(TOTAL_BUDGET_CONST)}
                                         </div>
                                         <div className="w-full bg-slate-800 rounded-full h-2 mt-4 mb-2 overflow-hidden shadow-inner">
-                                            <div className={`h-2 rounded-full transition-all duration-1000 ease-out ${budgetUsedPct > 90 ? 'bg-red-500' : 'bg-gradient-to-r from-blue-500 to-indigo-400'}`} style={{width: `${budgetUsedPct}%`}}></div>
+                                            <div className={`h-2 rounded-full transition-all duration-1000 ease-out ${overviewBudgetUsedPct > 90 ? 'bg-red-500' : 'bg-gradient-to-r from-blue-500 to-indigo-400'}`} style={{width: `${overviewBudgetUsedPct}%`}}></div>
                                         </div>
                                         <div className="flex justify-between text-[11px] text-slate-400 font-bold uppercase tracking-wider">
-                                            <span>{budgetUsedPct}% Used</span>
-                                            <span className="text-blue-300">฿{formatCompactNumber(TOTAL_BUDGET_CONST - totalSpending)} Left</span>
+                                            <span>{overviewBudgetUsedPct}% Used {overviewMonthFilter !== 'ALL' ? 'This Month' : ''}</span>
+                                            <span className="text-blue-300">฿{formatCompactNumber(TOTAL_BUDGET_CONST - overviewTotalSpending)} Left</span>
                                         </div>
                                     </div>
                                 </div>
@@ -564,10 +616,10 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                         <div className="p-2.5 bg-green-50 border border-green-100 rounded-xl text-green-600 group-hover:scale-110 group-hover:bg-green-100 transition-all duration-300"><TrendingUp size={20}/></div>
                                     </div>
                                     <div className="relative z-10">
-                                        <div className="text-4xl font-black text-gray-900 tracking-tighter" title={`฿${formatAmount(totalIncome)}`}>
-                                            ฿{formatCompactNumber(totalIncome)}
+                                        <div className="text-4xl font-black text-gray-900 tracking-tighter" title={`฿${formatAmount(overviewTotalIncome)}`}>
+                                            ฿{formatCompactNumber(overviewTotalIncome)}
                                         </div>
-                                        <p className="text-xs text-gray-400 mt-3 font-semibold flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-green-400"></span> Across {transactions.filter(t=>t.type==='income').length} transactions</p>
+                                        <p className="text-xs text-gray-400 mt-3 font-semibold flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-green-400"></span> Across {filteredOverviewTransactions.filter(t=>t.type==='income').length} transactions</p>
                                     </div>
                                 </div>
 
@@ -579,25 +631,25 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                         <div className="p-2.5 bg-red-50 border border-red-100 rounded-xl text-red-600 group-hover:scale-110 group-hover:bg-red-100 transition-all duration-300"><TrendingDown size={20}/></div>
                                     </div>
                                     <div className="relative z-10">
-                                        <div className="text-4xl font-black text-gray-900 tracking-tighter" title={`฿${formatAmount(totalSpending)}`}>
-                                            ฿{formatCompactNumber(totalSpending)}
+                                        <div className="text-4xl font-black text-gray-900 tracking-tighter" title={`฿${formatAmount(overviewTotalSpending)}`}>
+                                            ฿{formatCompactNumber(overviewTotalSpending)}
                                         </div>
-                                        <p className="text-xs text-gray-400 mt-3 font-semibold flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-red-400"></span> Across {transactions.filter(t=>t.type==='spending').length} transactions</p>
+                                        <p className="text-xs text-gray-400 mt-3 font-semibold flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-red-400"></span> Across {filteredOverviewTransactions.filter(t=>t.type==='spending').length} transactions</p>
                                     </div>
                                 </div>
 
                                 {/* Net Balance */}
-                                <div className={`p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col justify-between group hover:-translate-y-1 hover:shadow-xl transition-all duration-300 relative overflow-hidden ${netBalance >= 0 ? 'bg-gradient-to-br from-emerald-50 to-green-50 border border-green-200' : 'bg-gradient-to-br from-rose-50 to-red-50 border border-red-200'}`}>
-                                    <div className={`absolute -right-10 -bottom-10 w-40 h-40 rounded-full blur-3xl transition-opacity duration-700 ${netBalance >= 0 ? 'bg-green-400/20' : 'bg-red-400/20'}`}></div>
+                                <div className={`p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col justify-between group hover:-translate-y-1 hover:shadow-xl transition-all duration-300 relative overflow-hidden ${overviewNetBalance >= 0 ? 'bg-gradient-to-br from-emerald-50 to-green-50 border border-green-200' : 'bg-gradient-to-br from-rose-50 to-red-50 border border-red-200'}`}>
+                                    <div className={`absolute -right-10 -bottom-10 w-40 h-40 rounded-full blur-3xl transition-opacity duration-700 ${overviewNetBalance >= 0 ? 'bg-green-400/20' : 'bg-red-400/20'}`}></div>
                                     <div className="relative z-10 flex justify-between items-start mb-6">
-                                        <span className={`text-xs font-bold uppercase tracking-widest ${netBalance >= 0 ? 'text-green-700' : 'text-red-700'}`}>Net Balance</span>
-                                        <div className={`p-2.5 rounded-xl border bg-white/50 backdrop-blur-sm shadow-sm ${netBalance >= 0 ? 'text-green-600 border-green-200' : 'text-red-600 border-red-200'}`}><Activity size={20}/></div>
+                                        <span className={`text-xs font-bold uppercase tracking-widest ${overviewNetBalance >= 0 ? 'text-green-700' : 'text-red-700'}`}>Net Balance</span>
+                                        <div className={`p-2.5 rounded-xl border bg-white/50 backdrop-blur-sm shadow-sm ${overviewNetBalance >= 0 ? 'text-green-600 border-green-200' : 'text-red-600 border-red-200'}`}><Activity size={20}/></div>
                                     </div>
                                     <div className="relative z-10">
-                                        <div className={`text-4xl font-black tracking-tighter drop-shadow-sm ${netBalance >= 0 ? 'text-green-800' : 'text-red-800'}`} title={`฿${formatAmount(Math.abs(netBalance))}`}>
-                                            {netBalance >= 0 ? '+' : '-'}฿{formatCompactNumber(Math.abs(netBalance))}
+                                        <div className={`text-4xl font-black tracking-tighter drop-shadow-sm ${overviewNetBalance >= 0 ? 'text-green-800' : 'text-red-800'}`} title={`฿${formatAmount(Math.abs(overviewNetBalance))}`}>
+                                            {overviewNetBalance >= 0 ? '+' : '-'}฿{formatCompactNumber(Math.abs(overviewNetBalance))}
                                         </div>
-                                        <p className={`text-xs mt-3 font-bold uppercase tracking-wider ${netBalance >= 0 ? 'text-green-600/70' : 'text-red-600/70'}`}>Income vs Spending</p>
+                                        <p className={`text-xs mt-3 font-bold uppercase tracking-wider ${overviewNetBalance >= 0 ? 'text-green-600/70' : 'text-red-600/70'}`}>Income vs Spending</p>
                                     </div>
                                 </div>
                             </div>
@@ -606,8 +658,8 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                             <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 p-8 flex flex-col relative overflow-hidden w-full">
                                 <div className="flex justify-between items-center mb-8 relative z-10">
                                     <div>
-                                        <h3 className="text-xl font-black text-gray-900 flex items-center gap-2">Cash Flow Dynamics</h3>
-                                        <p className="text-sm text-gray-500 mt-1 font-medium">Monthly trajectory of income and expenses</p>
+                                        <h3 className="text-xl font-black text-gray-900 flex items-center gap-2">All-Time Cash Flow Dynamics</h3>
+                                        <p className="text-sm text-gray-500 mt-1 font-medium">Historical trajectory of income and expenses</p>
                                     </div>
                                     <div className="flex gap-4 text-xs font-bold bg-gray-50/80 backdrop-blur-md border border-gray-100 px-4 py-2 rounded-xl">
                                         <span className="text-green-600 flex items-center gap-2"><div className="w-3 h-3 rounded bg-gradient-to-br from-green-400 to-green-600 shadow-sm"></div> Income</span>
