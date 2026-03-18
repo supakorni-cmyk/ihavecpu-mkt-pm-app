@@ -178,8 +178,9 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                 rows.forEach((row, rowIdx) => {
                     if (rowIdx === 0) return; // Skip Header
 
-                    const cleanNum = (str) => parseFloat((str || "0").toString().replace(/[^0-9.-]+/g,""));
+                   const cleanNum = (str) => parseFloat((str || "0").toString().replace(/[^0-9.-]+/g,""));
                     
+                    // 🟢 UPDATED: Extracts Month and Year (e.g., "Jan 2024")
                     let rawDate = row[0] ? String(row[0]).trim() : "";
                     let monthStr = "Unknown Date";
 
@@ -188,22 +189,26 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                         if (match) {
                             let part1 = parseInt(match[1], 10);
                             let part2 = parseInt(match[2], 10);
+                            let part3 = parseInt(match[3], 10);
                             
                             let monthNum = part2; 
+                            // Identify the year correctly based on standard formats
+                            let yearNum = part3 > 1000 ? part3 : (part1 > 1000 ? part1 : new Date().getFullYear());
+
                             if (part1 > 1000) monthNum = part2; 
                             else if (part1 > 12) monthNum = part2; 
                             else if (part2 > 12) monthNum = part1; 
 
                             const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
                             if (monthNum >= 1 && monthNum <= 12) {
-                                monthStr = monthNames[monthNum - 1]; 
+                                monthStr = `${monthNames[monthNum - 1]} ${yearNum}`; 
                             } else {
                                 monthStr = rawDate; 
                             }
                         } else {
                             const dateObj = new Date(rawDate);
                             if (!isNaN(dateObj.getTime())) {
-                                monthStr = dateObj.toLocaleString('en-US', { month: 'short' });
+                                monthStr = `${dateObj.toLocaleString('en-US', { month: 'short' })} ${dateObj.getFullYear()}`;
                             } else {
                                 monthStr = rawDate; 
                             }
@@ -244,7 +249,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
     };
 
     const uniqueInfluencers = ["ALL", ...new Set(roiData.map(d => d.influencer))];
-    const uniqueMonths = ["ALL", ...new Set(roiData.map(d => d.month))];
+    const uniqueMonths = ["ALL", ...Array.from(new Set(roiData.map(d => d.month))).sort((a,b) => new Date(a) - new Date(b))];
 
     const filteredROI = roiData.filter(item => {
         const matchInfluencer = roiInfluencerFilter === 'ALL' || item.influencer === roiInfluencerFilter;
@@ -324,11 +329,9 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
         monthlyRoiMap[item.month].platforms[item.platform] += item.reach;
     });
 
-    const monthOrder = { "Jan":1, "Feb":2, "Mar":3, "Apr":4, "May":5, "Jun":6, "Jul":7, "Aug":8, "Sep":9, "Oct":10, "Nov":11, "Dec":12 };
     
-    // Map the Monthly Array
+    // 🟢 UPDATED: Use native Date sorting (You can delete the old monthOrder dictionary)
     const monthlyROIBreakdown = Object.values(monthlyRoiMap).map(m => {
-        // Dynamic monthly cost: Sum up the fixed costs of ALL influencers who posted this month
         let monthlySpend = 0;
         m.activeInfluencers.forEach(inf => {
             monthlySpend += (INFLUENCER_MONTHLY_COSTS[inf] || INFLUENCER_MONTHLY_COSTS["Default"]);
@@ -345,7 +348,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
             spend: monthlySpend,
             cpv: m.reach > 0 ? parseFloat((monthlySpend / m.reach).toFixed(2)) : 0
         };
-    }).sort((a,b) => (monthOrder[a.month] || 99) - (monthOrder[b.month] || 99));
+    }).sort((a, b) => new Date(a.month) - new Date(b.month)); // Native chronologic sorting!
 
     // 3. Global Dashboard KPIs
     const roiTotalReach = filteredROI.reduce((sum, item) => sum + item.reach, 0);
@@ -1289,7 +1292,7 @@ const InteractiveCombinedChart = ({ data }) => {
                     const isHovered = hoverIndex === i;
                     return (
                         <g key={i}>
-                             <text x={x} y={height - 10} textAnchor="middle" fontSize="12" fill={isHovered ? "#111827" : "#94a3b8"} fontWeight={isHovered ? "bold" : "500"} className="transition-colors">{d.date.split(' ')[0]}</text>
+                             <text x={x} y={height - 10} textAnchor="middle" fontSize="12" fill={isHovered ? "#111827" : "#94a3b8"} fontWeight={isHovered ? "bold" : "500"} className="transition-colors">{d.date}</text>
                              {isHovered && <line x1={x} y1={paddingY} x2={x} y2={height - paddingY} stroke="#cbd5e1" strokeWidth="1.5" strokeDasharray="4 4" />}
                              <circle cx={x} cy={incomeCoords[i].y} r={isHovered ? "6" : "3"} fill="#16a34a" stroke="white" strokeWidth={isHovered ? "2" : "0"} className="transition-all duration-200 shadow-xl"/>
                              <circle cx={x} cy={spendingCoords[i].y} r={isHovered ? "6" : "3"} fill="#dc2626" stroke="white" strokeWidth={isHovered ? "2" : "0"} className="transition-all duration-200 shadow-xl"/>
