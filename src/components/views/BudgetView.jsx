@@ -28,7 +28,6 @@ import {
   Rocket,
   DollarSign,
   Smile,
-  Cell
 } from 'lucide-react';
 
 import { BarChart, Bar, Legend, ResponsiveContainer, CartesianGrid, XAxis, YAxis, Tooltip as RechartsTooltip, Pie, PieChart, Line, LineChart, Label } from 'recharts';
@@ -1363,6 +1362,21 @@ const InteractivePieChart = ({ data, type = "spending" }) => {
     const incomeColors = ['#10b981', '#3b82f6', '#0ea5e9', '#14b8a6', '#06b6d4', '#34d399', '#2dd4bf'];
     const colors = type === 'income' ? incomeColors : spendingColors;
 
+    // 🟢 NEW: Inject the fill color directly into the data payload!
+    const pieData = data.map((entry, index) => {
+        const baseColor = colors[index % colors.length];
+        const isHovered = hoverIndex === index;
+        const isAnyHovered = hoverIndex !== null;
+
+        // Apply Hex Opacity (50 = ~30% opacity) if another slice is being hovered
+        const finalColor = (isAnyHovered && !isHovered) ? `${baseColor}50` : baseColor;
+
+        return {
+            ...entry,
+            fill: finalColor // Recharts automatically reads this property
+        };
+    });
+
     return (
         <div className="flex flex-col items-center w-full">
             {/* Recharts Donut Container */}
@@ -1370,7 +1384,7 @@ const InteractivePieChart = ({ data, type = "spending" }) => {
                 <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                         <Pie
-                            data={data}
+                            data={pieData} // 🟢 Pass our new dynamically colored data here
                             cx="50%"
                             cy="50%"
                             innerRadius={55}
@@ -1380,21 +1394,8 @@ const InteractivePieChart = ({ data, type = "spending" }) => {
                             onMouseEnter={(_, index) => setHoverIndex(index)}
                             onMouseLeave={() => setHoverIndex(null)}
                             stroke="none"
-                        >
-                            {data.map((entry, index) => (
-                                <Cell 
-                                    key={`cell-${index}`} 
-                                    fill={colors[index % colors.length]} 
-                                    style={{ 
-                                        outline: 'none',
-                                        // Sleek hover effect: dim unselected slices
-                                        opacity: hoverIndex === null || hoverIndex === index ? 1 : 0.3,
-                                        transition: 'opacity 0.3s ease',
-                                        cursor: 'pointer'
-                                    }}
-                                />
-                            ))}
-                        </Pie>
+                            style={{ outline: 'none', cursor: 'pointer', transition: 'all 0.3s ease' }}
+                        />
                     </PieChart>
                 </ResponsiveContainer>
                 
