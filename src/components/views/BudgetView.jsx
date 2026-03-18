@@ -427,7 +427,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
 
     const overviewTotalIncome = filteredOverviewTransactions.filter(t => t.type === 'income').reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
     const overviewTotalSpending = filteredOverviewTransactions.filter(t => t.type === 'spending').reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
-    const overviewNetBalance = overviewTotalIncome - overviewTotalSpending;
+    const overviewNetBalance = (TOTAL_BUDGET_CONST + overviewTotalIncome) - overviewTotalSpending;
     const overviewBudgetUsedPct = Math.min((overviewTotalSpending / TOTAL_BUDGET_CONST) * 100, 100).toFixed(1);
     
     const allMonths = Array.from(new Set([...incomeTrend.map(d => d.date), ...spendingTrend.map(d => d.date)])).sort((a, b) => new Date(a) - new Date(b));
