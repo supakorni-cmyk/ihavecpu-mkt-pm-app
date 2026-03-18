@@ -695,6 +695,68 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                         </div>
                     )}
 
+                    {/* --- 🟢 NEW: MONTHLY SUMMARY TABLE --- */}
+                            <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 overflow-hidden flex flex-col mt-8">
+                                <div className="px-8 py-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                                    <div>
+                                        <h3 className="font-black text-gray-900 text-lg flex items-center gap-2">
+                                            <Calendar size={20} className="text-indigo-500"/> Monthly Financial Summary
+                                        </h3>
+                                        <p className="text-xs text-gray-500 mt-1 font-medium">Detailed breakdown of income and spending per month</p>
+                                    </div>
+                                </div>
+                                <div className="overflow-x-auto custom-scrollbar">
+                                    <table className="w-full text-sm text-left">
+                                        <thead className="text-xs text-gray-500 uppercase bg-white font-bold border-b border-gray-200">
+                                            <tr>
+                                                <th className="px-8 py-5">Month</th>
+                                                <th className="px-8 py-5 text-right">Income Amount</th>
+                                                <th className="px-8 py-5 text-right">Spending Amount</th>
+                                                <th className="px-8 py-5 text-right">Net Balance</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100 bg-white">
+                                            {combinedData.length > 0 ? combinedData.map((row, idx) => {
+                                                const net = row.income - row.spending;
+                                                return (
+                                                    <tr key={idx} className="hover:bg-blue-50/30 transition-colors group">
+                                                        <td className="px-8 py-4 font-bold text-gray-700 whitespace-nowrap">
+                                                            {row.date}
+                                                        </td>
+                                                        <td className="px-8 py-4 font-mono font-bold text-right text-green-600 whitespace-nowrap">
+                                                            ฿{formatAmount(row.income)}
+                                                        </td>
+                                                        <td className="px-8 py-4 font-mono font-bold text-right text-red-600 whitespace-nowrap">
+                                                            ฿{formatAmount(row.spending)}
+                                                        </td>
+                                                        <td className={`px-8 py-4 font-mono font-bold text-right whitespace-nowrap ${net >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                            {net >= 0 ? '+' : ''}฿{formatAmount(net)}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            }) : (
+                                                <tr>
+                                                    <td colSpan="4" className="px-8 py-12 text-center text-gray-400 font-medium">
+                                                        No monthly data available. Add records to see them here.
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                        {/* Optional Table Footer for Grand Totals */}
+                                        <tfoot className="bg-gray-50 font-bold border-t-2 border-gray-200">
+                                            <tr>
+                                                <td className="px-8 py-4 text-gray-900 uppercase text-xs tracking-widest">All-Time Total</td>
+                                                <td className="px-8 py-4 font-mono text-right text-green-600">฿{formatAmount(combinedData.reduce((acc, curr) => acc + curr.income, 0))}</td>
+                                                <td className="px-8 py-4 font-mono text-right text-red-600">฿{formatAmount(combinedData.reduce((acc, curr) => acc + curr.spending, 0))}</td>
+                                                <td className={`px-8 py-4 font-mono text-right ${combinedData.reduce((acc, curr) => acc + (curr.income - curr.spending), 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                    ฿{formatAmount(combinedData.reduce((acc, curr) => acc + (curr.income - curr.spending), 0))}
+                                                </td>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+                            </div>
+
                     {/* --- INFLUENCER ROI TAB --- */}
                     {activeTab === 'influencer_roi' && (
                         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-[1600px] mx-auto pb-12">
