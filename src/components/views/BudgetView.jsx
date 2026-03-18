@@ -709,7 +709,6 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                                 <th className="px-8 py-5">Month</th>
                                                 <th className="px-8 py-5 text-right">Income Amount</th>
                                                 <th className="px-8 py-5 text-right">Spending Amount</th>
-                                                <th className="px-8 py-5 text-right">Net Balance</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-100 bg-white">
@@ -725,9 +724,6 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                                         </td>
                                                         <td className="px-8 py-4 font-mono font-bold text-right text-red-600 whitespace-nowrap">
                                                             ฿{formatAmount(row.spending)}
-                                                        </td>
-                                                        <td className={`px-8 py-4 font-mono font-bold text-right whitespace-nowrap ${net >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                                            {net >= 0 ? '+' : ''}฿{formatAmount(net)}
                                                         </td>
                                                     </tr>
                                                 );
