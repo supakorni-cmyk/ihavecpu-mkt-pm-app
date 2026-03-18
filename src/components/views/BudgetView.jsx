@@ -692,10 +692,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                    )}
-
-                    {/* --- 🟢 NEW: MONTHLY SUMMARY TABLE --- */}
+                             {/* --- 🟢 NEW: MONTHLY SUMMARY TABLE --- */}
                             <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 overflow-hidden flex flex-col mt-8">
                                 <div className="px-8 py-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
                                     <div>
@@ -756,6 +753,9 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                     </table>
                                 </div>
                             </div>
+                        </div>
+                    )}
+
 
                     {/* --- INFLUENCER ROI TAB --- */}
                     {activeTab === 'influencer_roi' && (
