@@ -28,6 +28,9 @@ import {
   Rocket,
   DollarSign,
   Smile,
+  ArrowUp,       // 🟢 ADD THIS
+  ArrowDown,     // 🟢 ADD THIS
+  ArrowUpDown
 } from 'lucide-react';
 
 import { BarChart, Bar, Legend, ResponsiveContainer, CartesianGrid, XAxis, YAxis, Tooltip as RechartsTooltip, Pie, PieChart, Line, LineChart, Label } from 'recharts';
@@ -129,6 +132,9 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
     const [incomeCategoryFilter, setIncomeCategoryFilter] = useState('All');
     const [incomeMonthFilter, setIncomeMonthFilter] = useState('All');
     const [incomeBrandFilter, setIncomeBrandFilter] = useState('All');
+
+    // 🟢 NEW: Sorting State (Defaults to newest dates first)
+    const [sortConfig, setSortConfig] = useState({ key: 'date', direction: 'desc' });
 
     // --- GOOGLE SHEETS ROI STATE ---
     const [roiData, setRoiData] = useState([]);
@@ -458,8 +464,55 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
         spending: spendingTrend.find(d => d.date === month)?.value || 0
     }));
 
-    const filteredTransactions = transactions.filter(t => t.type === activeTab);
+const filteredTransactions = transactions.filter(t => t.type === activeTab);
     const tabTotal = filteredTransactions.reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
+
+    // 🟢 NEW: Advanced Sorting Engine
+    const sortedTransactions = useMemo(() => {
+        let sortableItems = [...filteredTransactions];
+        if (sortConfig !== null) {
+            sortableItems.sort((a, b) => {
+                let aValue = a[sortConfig.key];
+                let bValue = b[sortConfig.key];
+
+                // Handle Number Sorting
+                if (sortConfig.key === 'amount') {
+                    aValue = parseFloat(aValue) || 0;
+                    bValue = parseFloat(bValue) || 0;
+                } 
+                // Handle Date Sorting
+                else if (sortConfig.key === 'date' || sortConfig.key === 'paymentDate') {
+                    aValue = new Date(aValue || 0).getTime();
+                    bValue = new Date(bValue || 0).getTime();
+                } 
+                // Handle Text Sorting (Case Insensitive)
+                else {
+                    aValue = (aValue || '').toString().toLowerCase();
+                    bValue = (bValue || '').toString().toLowerCase();
+                }
+
+                if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+                if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+        }
+        return sortableItems;
+    }, [filteredTransactions, sortConfig]);
+
+    const requestSort = (key) => {
+        let direction = 'asc';
+        if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
+        setSortConfig({ key, direction });
+    };
+
+    // Helper component for table headers
+    const SortIcon = ({ column }) => {
+        if (sortConfig.key !== column) return <ArrowUpDown size={14} className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity ml-1" />;
+        if (sortConfig.direction === 'asc') return <ArrowUp size={14} className="text-indigo-500 ml-1" />;
+        return <ArrowDown size={14} className="text-indigo-500 ml-1" />;
+    };
 
     const handleAiSubmit = async (e) => { e.preventDefault(); if (!aiQuery.trim()) return; const questionToSend = aiQuery; setLastQuestion(questionToSend); setAiQuery(''); setAiResponse(''); setIsAiLoading(true); try { const result = await analyzeFinancials(questionToSend, transactions); setAiResponse(result || "Sorry, I couldn't analyze the data."); } catch (error) { setAiResponse("An error occurred while connecting to AI."); } finally { setIsAiLoading(false); } };
     const handleFileUpload = (e) => { const file = e.target.files[0]; if (file && file.size <= 1024 * 1024) { const reader = new FileReader(); reader.onloadend = () => setNewTransaction(prev => ({ ...prev, invoiceFile: reader.result })); reader.readAsDataURL(file); } else if(file) { alert("File too large (>1MB)"); } };
@@ -1143,31 +1196,56 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
 {/* --- INCOME / SPENDING DATA TABLES --- */}
                     {(activeTab === 'income' || activeTab === 'spending') && (
                         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-x-auto custom-scrollbar relative">
-                            <table className="w-full text-sm text-left">
+<table className="w-full text-sm text-left">
                                 <thead className="text-xs text-gray-500 uppercase bg-gray-50 font-bold border-b border-gray-200 sticky top-0 z-20 shadow-sm">
                                     <tr className="whitespace-nowrap">
-                                        <th className="px-6 py-4">Date</th>
-                                        <th className="px-6 py-4">Brand</th>
-                                        <th className="px-6 py-4">Category</th>
-                                        <th className="px-6 py-4 w-64">Description</th>
-                                        <th className="px-6 py-4 text-right">Amount (THB)</th>
-                                        <th className="px-6 py-4">Company</th>
-                                        <th className="px-6 py-4 w-48">Email Subject</th>
-                                        <th className="px-6 py-4">Quotation</th>
-                                        <th className="px-6 py-4">Invoice</th>
-                                        <th className="px-6 py-4">Payment Date</th>
-                                        <th className="px-6 py-4 text-center">Status</th>
-                                        <th className="px-6 py-4">Slip</th>
-                                        <th className="px-6 py-4 w-48">Remark</th>
-                                        
-                                        {/* 🟢 FIXED: Sticky Header for Action Column */}
+                                        <th className="px-6 py-4 cursor-pointer hover:bg-gray-200 transition group select-none" onClick={() => requestSort('date')}>
+                                            <div className="flex items-center">Date <SortIcon column="date" /></div>
+                                        </th>
+                                        <th className="px-6 py-4 cursor-pointer hover:bg-gray-200 transition group select-none" onClick={() => requestSort('brand')}>
+                                            <div className="flex items-center">Brand <SortIcon column="brand" /></div>
+                                        </th>
+                                        <th className="px-6 py-4 cursor-pointer hover:bg-gray-200 transition group select-none" onClick={() => requestSort('category')}>
+                                            <div className="flex items-center">Category <SortIcon column="category" /></div>
+                                        </th>
+                                        <th className="px-6 py-4 w-64 cursor-pointer hover:bg-gray-200 transition group select-none" onClick={() => requestSort('description')}>
+                                            <div className="flex items-center">Description <SortIcon column="description" /></div>
+                                        </th>
+                                        <th className="px-6 py-4 text-right cursor-pointer hover:bg-gray-200 transition group select-none" onClick={() => requestSort('amount')}>
+                                            <div className="flex items-center justify-end">Amount (THB) <SortIcon column="amount" /></div>
+                                        </th>
+                                        <th className="px-6 py-4 cursor-pointer hover:bg-gray-200 transition group select-none" onClick={() => requestSort('company')}>
+                                            <div className="flex items-center">Company <SortIcon column="company" /></div>
+                                        </th>
+                                        <th className="px-6 py-4 w-48 cursor-pointer hover:bg-gray-200 transition group select-none" onClick={() => requestSort('emailSubject')}>
+                                            <div className="flex items-center">Email Subject <SortIcon column="emailSubject" /></div>
+                                        </th>
+                                        <th className="px-6 py-4 cursor-pointer hover:bg-gray-200 transition group select-none" onClick={() => requestSort('quotation')}>
+                                            <div className="flex items-center">Quotation <SortIcon column="quotation" /></div>
+                                        </th>
+                                        <th className="px-6 py-4 cursor-pointer hover:bg-gray-200 transition group select-none" onClick={() => requestSort('invoice')}>
+                                            <div className="flex items-center">Invoice <SortIcon column="invoice" /></div>
+                                        </th>
+                                        <th className="px-6 py-4 cursor-pointer hover:bg-gray-200 transition group select-none" onClick={() => requestSort('paymentDate')}>
+                                            <div className="flex items-center">Payment Date <SortIcon column="paymentDate" /></div>
+                                        </th>
+                                        <th className="px-6 py-4 text-center cursor-pointer hover:bg-gray-200 transition group select-none" onClick={() => requestSort('status')}>
+                                            <div className="flex items-center justify-center">Status <SortIcon column="status" /></div>
+                                        </th>
+                                        <th className="px-6 py-4 cursor-pointer hover:bg-gray-200 transition group select-none" onClick={() => requestSort('slip')}>
+                                            <div className="flex items-center">Slip <SortIcon column="slip" /></div>
+                                        </th>
+                                        <th className="px-6 py-4 w-48 cursor-pointer hover:bg-gray-200 transition group select-none" onClick={() => requestSort('remark')}>
+                                            <div className="flex items-center">Remark <SortIcon column="remark" /></div>
+                                        </th>
                                         <th className="px-6 py-4 text-center sticky right-0 bg-gray-50 z-30 shadow-[-4px_0_10px_rgba(0,0,0,0.05)] border-l border-gray-200">
                                             Action
                                         </th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
-                                    {filteredTransactions.map((t) => (
+                                    {/* 🟢 CHANGED: Now mapping over sortedTransactions! */}
+                                    {sortedTransactions.map((t) => (
                                         <tr 
                                             key={t.id} 
                                             onClick={() => setSelectedRowId(selectedRowId === t.id ? null : t.id)}
@@ -1208,7 +1286,6 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                             </td>
                                             <td className="px-4 py-4 italic text-gray-500 text-xs max-w-[12rem] truncate">{t.remark || "-"}</td>
                                             
-                                            {/* 🟢 FIXED: Sticky Action Cell that perfectly matches the row background */}
                                             <td className={`px-6 py-4 text-center sticky right-0 z-10 shadow-[-4px_0_10px_rgba(0,0,0,0.02)] border-l border-gray-100 transition-colors ${selectedRowId === t.id ? 'bg-blue-50' : 'bg-white group-hover:bg-gray-50'}`}>
                                                 {selectedRowId === t.id ? (
                                                     <div className="flex items-center justify-center gap-2 animate-in fade-in zoom-in duration-200">
@@ -1222,7 +1299,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                             </td>
                                         </tr>
                                     ))}
-                                    {filteredTransactions.length === 0 && <tr><td colSpan="14" className="px-6 py-12 text-center text-gray-400 font-medium bg-gray-50/50">No records found. Click "Add Record" to start tracking.</td></tr>}
+                                    {sortedTransactions.length === 0 && <tr><td colSpan="14" className="px-6 py-12 text-center text-gray-400 font-medium bg-gray-50/50">No records found. Click "Add Record" to start tracking.</td></tr>}
                                 </tbody>
                             </table>
                         </div>
