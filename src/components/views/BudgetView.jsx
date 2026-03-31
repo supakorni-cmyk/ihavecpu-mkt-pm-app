@@ -738,7 +738,7 @@ const filteredTransactions = transactions.filter(t => t.type === activeTab);
                                         <div className={`text-4xl font-black tracking-tighter drop-shadow-sm ${overviewNetBalance >= 0 ? 'text-green-800' : 'text-red-800'}`} title={`฿${formatAmount(Math.abs(overviewNetBalance))}`}>
                                             {overviewNetBalance >= 0 ? '+' : '-'}฿{formatCompactNumber(Math.abs(overviewNetBalance))}
                                         </div>
-                                        <p className={`text-xs mt-3 font-bold uppercase tracking-wider ${overviewNetBalance >= 0 ? 'text-green-600/70' : 'text-red-600/70'}`}>Income vs Spending</p>
+                                        <p className={`text-xs mt-3 font-bold uppercase tracking-wider ${overviewNetBalance >= 0 ? 'text-green-600/70' : 'text-red-600/70'}`}>Net Balance Overview</p>
                                     </div>
                                 </div>
                             </div>
