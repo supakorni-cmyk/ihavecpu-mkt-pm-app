@@ -97,7 +97,7 @@ const formatAmount = (num) => {
 const formatCompactNumber = (num) => {
     return new Intl.NumberFormat('en-US', {
         notation: "compact",
-        maximumFractionDigits: 1
+        maximumFractionDigits: 2
     }).format(num);
 };
 
