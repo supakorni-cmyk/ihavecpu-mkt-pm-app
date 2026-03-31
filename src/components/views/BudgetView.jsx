@@ -835,6 +835,96 @@ const filteredTransactions = transactions.filter(t => t.type === activeTab);
                                     </table>
                                 </div>
                             </div>
+                            {/* --- 🟢 NEW: TOP 10 INCOME & SPENDING TABLES --- */}
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
+                                
+                                {/* Top 10 Income Table */}
+                                <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 overflow-hidden flex flex-col">
+                                    <div className="px-6 py-5 border-b border-gray-100 bg-green-50/50 flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-2 bg-green-100 text-green-600 rounded-lg">
+                                                <TrendingUp size={18} />
+                                            </div>
+                                            <div>
+                                                <h3 className="font-black text-gray-900">Top 10 Income</h3>
+                                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Highest Revenue Sources</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="overflow-x-auto custom-scrollbar flex-1">
+                                        <table className="w-full text-sm text-left">
+                                            <thead className="text-xs text-gray-500 uppercase bg-white font-bold border-b border-gray-100">
+                                                <tr>
+                                                    <th className="px-6 py-4">Brand</th>
+                                                    <th className="px-6 py-4">Description</th>
+                                                    <th className="px-6 py-4 text-right">Amount (THB)</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-50 bg-white">
+                                                {topIncome.length > 0 ? topIncome.map((t, idx) => (
+                                                    <tr key={idx} className="hover:bg-green-50/30 transition-colors group">
+                                                        <td className="px-6 py-4 font-bold text-gray-800 whitespace-nowrap">{t.brand || "-"}</td>
+                                                        <td className="px-6 py-4 text-gray-500 truncate max-w-[12rem]" title={t.description}>{t.description || "-"}</td>
+                                                        <td className="px-6 py-4 font-mono font-black text-right text-green-600 whitespace-nowrap">
+                                                            ฿{formatAmount(t.amount)}
+                                                        </td>
+                                                    </tr>
+                                                )) : (
+                                                    <tr>
+                                                        <td colSpan="3" className="px-6 py-10 text-center text-gray-400 font-medium">
+                                                            No income records found for this filter.
+                                                        </td>
+                                                    </tr>
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                {/* Top 10 Spending Table */}
+                                <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 overflow-hidden flex flex-col">
+                                    <div className="px-6 py-5 border-b border-gray-100 bg-red-50/50 flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-2 bg-red-100 text-red-600 rounded-lg">
+                                                <TrendingDown size={18} />
+                                            </div>
+                                            <div>
+                                                <h3 className="font-black text-gray-900">Top 10 Spending</h3>
+                                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Highest Expenses</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="overflow-x-auto custom-scrollbar flex-1">
+                                        <table className="w-full text-sm text-left">
+                                            <thead className="text-xs text-gray-500 uppercase bg-white font-bold border-b border-gray-100">
+                                                <tr>
+                                                    <th className="px-6 py-4">Brand</th>
+                                                    <th className="px-6 py-4">Description</th>
+                                                    <th className="px-6 py-4 text-right">Amount (THB)</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-50 bg-white">
+                                                {topSpending.length > 0 ? topSpending.map((t, idx) => (
+                                                    <tr key={idx} className="hover:bg-red-50/30 transition-colors group">
+                                                        <td className="px-6 py-4 font-bold text-gray-800 whitespace-nowrap">{t.brand || "-"}</td>
+                                                        <td className="px-6 py-4 text-gray-500 truncate max-w-[12rem]" title={t.description}>{t.description || "-"}</td>
+                                                        <td className="px-6 py-4 font-mono font-black text-right text-red-600 whitespace-nowrap">
+                                                            ฿{formatAmount(t.amount)}
+                                                        </td>
+                                                    </tr>
+                                                )) : (
+                                                    <tr>
+                                                        <td colSpan="3" className="px-6 py-10 text-center text-gray-400 font-medium">
+                                                            No spending records found for this filter.
+                                                        </td>
+                                                    </tr>
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                
+                            </div>
                         </div>
                     )}
 
