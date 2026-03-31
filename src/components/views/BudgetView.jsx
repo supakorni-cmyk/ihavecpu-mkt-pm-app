@@ -1140,13 +1140,30 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                         </div>
                     )}
 
-                    {/* --- INCOME / SPENDING DATA TABLES --- */}
+{/* --- INCOME / SPENDING DATA TABLES --- */}
                     {(activeTab === 'income' || activeTab === 'spending') && (
-                        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-x-auto">
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-x-auto custom-scrollbar relative">
                             <table className="w-full text-sm text-left">
-                                <thead className="text-xs text-gray-500 uppercase bg-gray-50 font-bold border-b border-gray-200 sticky top-0 z-10 shadow-sm">
+                                <thead className="text-xs text-gray-500 uppercase bg-gray-50 font-bold border-b border-gray-200 sticky top-0 z-20 shadow-sm">
                                     <tr className="whitespace-nowrap">
-                                        <th className="px-6 py-4">Date</th><th className="px-6 py-4">Brand</th><th className="px-6 py-4">Category</th><th className="px-6 py-4 w-64">Description</th><th className="px-6 py-4 text-right">Amount (THB)</th><th className="px-6 py-4">Company</th><th className="px-6 py-4 w-48">Email Subject</th><th className="px-6 py-4">Quotation</th><th className="px-6 py-4">Invoice</th><th className="px-6 py-4">Payment Date</th><th className="px-6 py-4 text-center">Status</th><th className="px-6 py-4">Slip</th><th className="px-6 py-4 w-48">Remark</th><th className="px-6 py-4 text-center">Action</th>
+                                        <th className="px-6 py-4">Date</th>
+                                        <th className="px-6 py-4">Brand</th>
+                                        <th className="px-6 py-4">Category</th>
+                                        <th className="px-6 py-4 w-64">Description</th>
+                                        <th className="px-6 py-4 text-right">Amount (THB)</th>
+                                        <th className="px-6 py-4">Company</th>
+                                        <th className="px-6 py-4 w-48">Email Subject</th>
+                                        <th className="px-6 py-4">Quotation</th>
+                                        <th className="px-6 py-4">Invoice</th>
+                                        <th className="px-6 py-4">Payment Date</th>
+                                        <th className="px-6 py-4 text-center">Status</th>
+                                        <th className="px-6 py-4">Slip</th>
+                                        <th className="px-6 py-4 w-48">Remark</th>
+                                        
+                                        {/* 🟢 FIXED: Sticky Header for Action Column */}
+                                        <th className="px-6 py-4 text-center sticky right-0 bg-gray-50 z-30 shadow-[-4px_0_10px_rgba(0,0,0,0.05)] border-l border-gray-200">
+                                            Action
+                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
@@ -1154,7 +1171,7 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                         <tr 
                                             key={t.id} 
                                             onClick={() => setSelectedRowId(selectedRowId === t.id ? null : t.id)}
-                                            className={`transition-colors whitespace-nowrap cursor-pointer ${selectedRowId === t.id ? 'bg-blue-50/60 ring-1 ring-blue-100' : 'hover:bg-gray-50/50'}`}
+                                            className={`transition-colors whitespace-nowrap cursor-pointer group ${selectedRowId === t.id ? 'bg-blue-50 ring-1 ring-blue-100' : 'hover:bg-gray-50 bg-white'}`}
                                         >
                                             <td className="px-4 py-4">{t.date}</td>
                                             <td className="px-4 py-4 font-bold text-gray-700">{t.brand || "-"}</td>
@@ -1191,12 +1208,13 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                             </td>
                                             <td className="px-4 py-4 italic text-gray-500 text-xs max-w-[12rem] truncate">{t.remark || "-"}</td>
                                             
-                                            <td className="px-6 py-4 text-center">
+                                            {/* 🟢 FIXED: Sticky Action Cell that perfectly matches the row background */}
+                                            <td className={`px-6 py-4 text-center sticky right-0 z-10 shadow-[-4px_0_10px_rgba(0,0,0,0.02)] border-l border-gray-100 transition-colors ${selectedRowId === t.id ? 'bg-blue-50' : 'bg-white group-hover:bg-gray-50'}`}>
                                                 {selectedRowId === t.id ? (
                                                     <div className="flex items-center justify-center gap-2 animate-in fade-in zoom-in duration-200">
-                                                        <button onClick={(e) => { e.stopPropagation(); handleEditClick(t); }} className="text-blue-500 hover:text-blue-700 p-1.5 rounded-md hover:bg-blue-50 bg-blue-50/50" title="Edit"><Edit2 size={16} /></button>
-                                                        <button onClick={(e) => { e.stopPropagation(); handleDuplicate(t); }} className="text-indigo-500 hover:text-indigo-700 p-1.5 rounded-md hover:bg-indigo-50 bg-indigo-50/50" title="Duplicate"><Copy size={16} /></button>
-                                                        <button onClick={(e) => { e.stopPropagation(); onDelete(t.id); }} className="text-red-400 hover:text-red-600 p-1.5 rounded-md hover:bg-red-50 bg-red-50/50" title="Delete"><Trash2 size={16} /></button>
+                                                        <button onClick={(e) => { e.stopPropagation(); handleEditClick(t); }} className="text-blue-500 hover:text-blue-700 p-1.5 rounded-md hover:bg-blue-100 bg-white shadow-sm" title="Edit"><Edit2 size={16} /></button>
+                                                        <button onClick={(e) => { e.stopPropagation(); handleDuplicate(t); }} className="text-indigo-500 hover:text-indigo-700 p-1.5 rounded-md hover:bg-indigo-100 bg-white shadow-sm" title="Duplicate"><Copy size={16} /></button>
+                                                        <button onClick={(e) => { e.stopPropagation(); onDelete(t.id); }} className="text-red-500 hover:text-red-700 p-1.5 rounded-md hover:bg-red-100 bg-white shadow-sm" title="Delete"><Trash2 size={16} /></button>
                                                     </div>
                                                 ) : (
                                                     <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">Select</span>
