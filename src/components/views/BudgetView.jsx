@@ -1179,10 +1179,10 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                             </td>
                                             <td className="px-4 py-4"><EditableCell value={t.remark} className="italic text-gray-500 text-xs" onSave={(val) => onUpdate(t.id, { remark: val })} /></td>
                                             <td className="px-6 py-4 text-center">
-                                                <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition">
-                                                    <button onClick={() => handleEditClick(t)} className="text-blue-400 hover:text-blue-600 p-1.5 rounded-md hover:bg-blue-50" title="Edit"><Edit2 size={16} /></button>
-                                                    <button onClick={() => handleDuplicate(t)} className="text-indigo-400 hover:text-indigo-600 p-1.5 rounded-md hover:bg-indigo-50" title="Duplicate"><Copy size={16} /></button>
-                                                    <button onClick={() => onDelete(t.id)} className="text-gray-400 hover:text-red-500 p-1.5 rounded-md hover:bg-red-50" title="Delete"><Trash2 size={16} /></button>
+                                                <div className="flex items-center justify-center gap-2 transition">
+                                                    <button onClick={() => handleEditClick(t)} className="text-blue-500 hover:text-blue-700 p-1.5 rounded-md hover:bg-blue-50 bg-blue-50/50" title="Edit"><Edit2 size={16} /></button>
+                                                    <button onClick={() => handleDuplicate(t)} className="text-indigo-500 hover:text-indigo-700 p-1.5 rounded-md hover:bg-indigo-50 bg-indigo-50/50" title="Duplicate"><Copy size={16} /></button>
+                                                    <button onClick={() => onDelete(t.id)} className="text-red-400 hover:text-red-600 p-1.5 rounded-md hover:bg-red-50 bg-red-50/50" title="Delete"><Trash2 size={16} /></button>
                                                 </div>
                                             </td>
                                         </tr>
