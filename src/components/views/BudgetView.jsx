@@ -120,6 +120,8 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [editFormData, setEditFormData] = useState(null);
     const [previewFile, setPreviewFile] = useState(null);
+    // 🟢 NEW: Track which row is clicked to reveal actions
+    const [selectedRowId, setSelectedRowId] = useState(null);
 
     // --- FILTER STATE ---
     const [overviewMonthFilter, setOverviewMonthFilter] = useState('ALL'); // 🟢 NEW OVERVIEW FILTER
@@ -1149,41 +1151,56 @@ const BudgetView = ({ transactions, onAdd, onDelete, onUpdate }) => {
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
                                     {filteredTransactions.map((t) => (
-                                        <tr key={t.id} className="hover:bg-blue-50/30 transition-colors group whitespace-nowrap">
-                                            <td className="px-4 py-4"><EditableCell type="date" value={t.date} onSave={(val) => onUpdate(t.id, { date: val })} /></td>
-                                            <td className="px-4 py-4"><EditableCell value={t.brand} className="font-bold text-gray-700" onSave={(val) => onUpdate(t.id, { brand: val })} /></td>
-                                            <td className="px-4 py-4"><EditableCell type="select" options={BUDGET_CATEGORIES} value={t.category} onSave={(val) => onUpdate(t.id, { category: val })} /></td>
-                                            <td className="px-4 py-4"><EditableCell value={t.description} onSave={(val) => onUpdate(t.id, { description: val })} /></td>
-                                            <td className="px-4 py-4 text-right"><EditableCell type="number" value={t.amount} className={`font-mono font-bold text-right ${activeTab === 'income' ? 'text-green-600' : 'text-red-600'}`} onSave={(val) => onUpdate(t.id, { amount: val })} /></td>
-                                            <td className="px-4 py-4"><EditableCell value={t.company} onSave={(val) => onUpdate(t.id, { company: val })} /></td>
-                                            <td className="px-4 py-4"><EditableCell value={t.emailSubject} className="text-gray-600 truncate text-xs" onSave={(val) => onUpdate(t.id, { emailSubject: val })} /></td>
+                                        <tr 
+                                            key={t.id} 
+                                            onClick={() => setSelectedRowId(selectedRowId === t.id ? null : t.id)}
+                                            className={`transition-colors whitespace-nowrap cursor-pointer ${selectedRowId === t.id ? 'bg-blue-50/60 ring-1 ring-blue-100' : 'hover:bg-gray-50/50'}`}
+                                        >
+                                            <td className="px-4 py-4">{t.date}</td>
+                                            <td className="px-4 py-4 font-bold text-gray-700">{t.brand || "-"}</td>
+                                            <td className="px-4 py-4">{t.category || "-"}</td>
+                                            <td className="px-4 py-4 truncate max-w-[16rem]">{t.description || "-"}</td>
+                                            <td className={`px-4 py-4 font-mono font-bold text-right ${activeTab === 'income' ? 'text-green-600' : 'text-red-600'}`}>
+                                                {formatAmount(t.amount)}
+                                            </td>
+                                            <td className="px-4 py-4">{t.company || "-"}</td>
+                                            <td className="px-4 py-4 text-gray-600 truncate text-xs max-w-[12rem]">{t.emailSubject || "-"}</td>
                                             <td className="px-4 py-4">
                                                 <div className="flex items-center gap-2">
-                                                    <EditableCell value={t.quotation} className="font-mono text-xs w-20" onSave={(val) => onUpdate(t.id, { quotation: val })} />
-                                                    {t.qtFile && (<button onClick={() => setPreviewFile(t.qtFile)} className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-1 rounded transition" title="Preview"><Eye size={16} /></button>)}
+                                                    <span className="font-mono text-xs w-20 truncate">{t.quotation || "-"}</span>
+                                                    {t.qtFile && (<button onClick={(e) => { e.stopPropagation(); setPreviewFile(t.qtFile); }} className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-1 rounded transition" title="Preview"><Eye size={16} /></button>)}
                                                 </div>
                                             </td>
                                             <td className="px-4 py-4">
                                                 <div className="flex items-center gap-2">
-                                                    <EditableCell value={t.invoice} className="font-mono text-xs w-20" onSave={(val) => onUpdate(t.id, { invoice: val })} />
-                                                    {t.invoiceFile && (<button onClick={() => setPreviewFile(t.invoiceFile)} className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-1 rounded transition" title="Preview"><Eye size={16} /></button>)}
+                                                    <span className="font-mono text-xs w-20 truncate">{t.invoice || "-"}</span>
+                                                    {t.invoiceFile && (<button onClick={(e) => { e.stopPropagation(); setPreviewFile(t.invoiceFile); }} className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-1 rounded transition" title="Preview"><Eye size={16} /></button>)}
                                                 </div>
                                             </td>
-                                            <td className="px-4 py-4"><EditableCell type="date" value={t.paymentDate} onSave={(val) => onUpdate(t.id, { paymentDate: val })} /></td>
-                                            <td className="px-4 py-4 text-center"><EditableCell type="select" options={BUDGET_STATUSES} value={t.status} className={`rounded-full text-xs font-bold border px-2 py-1 ${t.status === 'Complete' ? 'bg-green-50 text-green-700 border-green-200' : t.status === 'Follow-up' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : 'bg-gray-50 text-gray-500 border-gray-200'}`} onSave={(val) => onUpdate(t.id, { status: val })} /></td>
+                                            <td className="px-4 py-4">{t.paymentDate || "-"}</td>
+                                            <td className="px-4 py-4 text-center">
+                                                <span className={`inline-block rounded-full text-xs font-bold border px-2 py-1 ${t.status === 'Complete' ? 'bg-green-50 text-green-700 border-green-200' : t.status === 'Follow-up' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : 'bg-gray-50 text-gray-500 border-gray-200'}`}>
+                                                    {t.status || "-"}
+                                                </span>
+                                            </td>
                                             <td className="px-4 py-4">
                                                 <div className="flex items-center gap-2">
-                                                    <EditableCell value={t.slip} className="font-mono text-xs w-20" onSave={(val) => onUpdate(t.id, { slip: val })} />
-                                                    {t.slipFile && (<button onClick={() => setPreviewFile(t.slipFile)} className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-1 rounded transition" title="Preview"><Eye size={16} /></button>)}
+                                                    <span className="font-mono text-xs w-20 truncate">{t.slip || "-"}</span>
+                                                    {t.slipFile && (<button onClick={(e) => { e.stopPropagation(); setPreviewFile(t.slipFile); }} className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-1 rounded transition" title="Preview"><Eye size={16} /></button>)}
                                                 </div>
                                             </td>
-                                            <td className="px-4 py-4"><EditableCell value={t.remark} className="italic text-gray-500 text-xs" onSave={(val) => onUpdate(t.id, { remark: val })} /></td>
+                                            <td className="px-4 py-4 italic text-gray-500 text-xs max-w-[12rem] truncate">{t.remark || "-"}</td>
+                                            
                                             <td className="px-6 py-4 text-center">
-                                                <div className="flex items-center justify-center gap-2 transition">
-                                                    <button onClick={() => handleEditClick(t)} className="text-blue-500 hover:text-blue-700 p-1.5 rounded-md hover:bg-blue-50 bg-blue-50/50" title="Edit"><Edit2 size={16} /></button>
-                                                    <button onClick={() => handleDuplicate(t)} className="text-indigo-500 hover:text-indigo-700 p-1.5 rounded-md hover:bg-indigo-50 bg-indigo-50/50" title="Duplicate"><Copy size={16} /></button>
-                                                    <button onClick={() => onDelete(t.id)} className="text-red-400 hover:text-red-600 p-1.5 rounded-md hover:bg-red-50 bg-red-50/50" title="Delete"><Trash2 size={16} /></button>
-                                                </div>
+                                                {selectedRowId === t.id ? (
+                                                    <div className="flex items-center justify-center gap-2 animate-in fade-in zoom-in duration-200">
+                                                        <button onClick={(e) => { e.stopPropagation(); handleEditClick(t); }} className="text-blue-500 hover:text-blue-700 p-1.5 rounded-md hover:bg-blue-50 bg-blue-50/50" title="Edit"><Edit2 size={16} /></button>
+                                                        <button onClick={(e) => { e.stopPropagation(); handleDuplicate(t); }} className="text-indigo-500 hover:text-indigo-700 p-1.5 rounded-md hover:bg-indigo-50 bg-indigo-50/50" title="Duplicate"><Copy size={16} /></button>
+                                                        <button onClick={(e) => { e.stopPropagation(); onDelete(t.id); }} className="text-red-400 hover:text-red-600 p-1.5 rounded-md hover:bg-red-50 bg-red-50/50" title="Delete"><Trash2 size={16} /></button>
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">Select</span>
+                                                )}
                                             </td>
                                         </tr>
                                     ))}
@@ -1520,29 +1537,6 @@ const InteractivePieChart = ({ data, type = "spending" }) => {
             </div>
         </div>
     );
-};
-
-const EditableCell = ({ value, onSave, type = "text", options = null, className = "" }) => {
-    const [isEditing, setIsEditing] = useState(false);
-    const [localValue, setLocalValue] = useState(value || "");
-
-    useEffect(() => { setLocalValue(value || ""); }, [value]);
-
-    const handleBlur = () => { setIsEditing(false); if (localValue !== value) { onSave(localValue); } };
-    const handleKeyDown = (e) => { if (e.key === 'Enter') e.target.blur(); };
-
-    if (type === 'select' && options) { 
-        return <select value={localValue} onChange={(e) => { setLocalValue(e.target.value); onSave(e.target.value); }} className={`w-full bg-transparent outline-none focus:bg-white focus:ring-2 focus:ring-blue-200 rounded px-1 transition-all cursor-pointer appearance-none ${className}`}>{options.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select>; 
-    }
-    
-    if (isEditing) { 
-        return <input type={type} value={localValue} onChange={(e) => setLocalValue(e.target.value)} onBlur={handleBlur} onKeyDown={handleKeyDown} autoFocus className={`w-full bg-white outline-none ring-2 ring-blue-200 rounded px-1 ${className}`} placeholder="-" />; 
-    }
-    
-    let displayValue = localValue;
-    if (type === 'number' && localValue) { displayValue = formatAmount(localValue); }
-    
-    return <div onClick={() => setIsEditing(true)} className={`w-full cursor-text rounded px-1 hover:bg-gray-100 min-h-[24px] flex items-center ${className}`} title="Click to edit">{displayValue || "-"}</div>;
 };
 
 export default BudgetView;
