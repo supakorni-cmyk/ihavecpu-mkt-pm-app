@@ -18,7 +18,7 @@ const APPROVERS = [
     'supakorn.i@ihavecpu.com', 
     'sophisa.p@ihavecpu.com', 
     'jittikorn.m@ihavecpu.com',
-    'suchada.t@ihavecpu.com'
+    'somruk.m@ihavecpu.com'
 ];
 
 const OTView = ({ records, onAdd, onDelete, onUpdateStatus, currentUser }) => {
