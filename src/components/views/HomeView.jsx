@@ -15,7 +15,7 @@ const SYSTEM_AVATARS = {
   jittikorn: '/avatars/pae.jpg', 
   supakorn: '/avatars/boom.jpg', 
   sophisa: '/avatars/yui.jpg', 
-  somruk: '/avatars/somruk.jpg', 
+  somruk: '/avatars/somruk.png', 
   nichapa: '/avatars/mod.jpg'
 };
 
