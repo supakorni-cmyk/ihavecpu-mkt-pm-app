@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 
 // --- CONSTANTS ---
-const EMPLOYEES = ['Pae', 'Boom', 'Yuiizzz', 'Somruk', 'Bum', 'Mham', 'Lemon', 'Guy'];
+const EMPLOYEES = ['Pae', 'Boom', 'Yuiizzz', 'Somruk', 'Bum', 'Manow', 'Guy', 'Pin', 'Khaofang'];
 const LEAVE_TYPES = ['Annual Leave', 'Sick Leave', 'Personal Leave', 'Unpaid Leave', 'Other'];
 
 // --- INDIVIDUAL QUOTAS (Randomized for demo) ---
