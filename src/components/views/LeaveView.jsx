@@ -21,9 +21,11 @@ const EMPLOYEE_QUOTAS = {
     'Yuiizzz':  { 'Annual Leave': 6,  'Sick Leave': 30, 'Personal Leave': 3 },
     'Somruk':   { 'Annual Leave': 6, 'Sick Leave': 30, 'Personal Leave': 3 },
     'Bum':      { 'Annual Leave': 6,  'Sick Leave': 30, 'Personal Leave': 3 },
-    'Mham':     { 'Annual Leave': 6, 'Sick Leave': 30, 'Personal Leave': 3 },
+    // 'Mham':     { 'Annual Leave': 6, 'Sick Leave': 30, 'Personal Leave': 3 },
     'Lemon':    { 'Annual Leave': 6,  'Sick Leave': 30, 'Personal Leave': 3 },
     'Guy':    { 'Annual Leave': 0,  'Sick Leave': 30, 'Personal Leave': 3 },
+    'Pin':    { 'Annual Leave': 6,  'Sick Leave': 30, 'Personal Leave': 3 },
+    'Khaofang':    { 'Annual Leave': 6,  'Sick Leave': 30, 'Personal Leave': 3 },
 };
 
 const WORK_DAY_HOURS = 8;
