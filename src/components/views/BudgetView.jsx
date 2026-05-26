@@ -50,7 +50,7 @@ const CUSTOM_AVATARS = {
     "ลุงเอ": "https://yt3.googleusercontent.com/7qaDhYDzjPqCmfqK_6GAAMpBdlWJCExGvgnOB1jyr4ZFYNL_dC-aCtRpGMkP7pYS9aj43EFl=s900-c-k-c0x00ffffff-no-rj",
     "มาลีสวยมาก": "https://yt3.googleusercontent.com/KjCKaYVLA1uvmObZsz1Z4iRkYX3PYrNWmk-5_Uy2Ycar-AdDe_f22ZYrFZ600LVDD3JPplw3mZQ=s900-c-k-c0x00ffffff-no-rj",
     "วรโชติ": "https://yt3.googleusercontent.com/fmGgxOV5OP6O3hjjscbYiJdcgEMLS-XhF9hCQ09ymLLY5wnoIApVStDVSk3jcQibLFk8R7ibb4g=s900-c-k-c0x00ffffff-no-rj",
-    "สินสมุทร": "https://cdn.onefc.com/wp-content/uploads/sites/5/2022/03/Web-pic-1920-1278-2022-03-25T200210.240.png",
+    "สินสมุทร": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTCmnNpvi92eImWwh7Xj50h3OkqmIE-2-vuTw&s",
 };
 
 // 🟢 NEW: INFLUENCER MONTHLY COST DICTIONARY
