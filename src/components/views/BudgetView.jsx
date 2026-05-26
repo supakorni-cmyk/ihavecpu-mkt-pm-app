@@ -49,9 +49,8 @@ const CUSTOM_AVATARS = {
     "Extreme IT": "https://9conversations.co/wp-content/uploads/2022/04/nop-thumb-2-1024x684.jpg",
     "ลุงเอ": "https://yt3.googleusercontent.com/7qaDhYDzjPqCmfqK_6GAAMpBdlWJCExGvgnOB1jyr4ZFYNL_dC-aCtRpGMkP7pYS9aj43EFl=s900-c-k-c0x00ffffff-no-rj",
     "มาลีสวยมาก": "https://yt3.googleusercontent.com/KjCKaYVLA1uvmObZsz1Z4iRkYX3PYrNWmk-5_Uy2Ycar-AdDe_f22ZYrFZ600LVDD3JPplw3mZQ=s900-c-k-c0x00ffffff-no-rj",
-    "Edwin": "https://yt3.googleusercontent.com/y9WH6lUIDtybsJ2oc9IqdDF0JthGshw9AuujwZ2mYkXXQLAuDYhRytDA1ELakIoQ1ZzmlZaKvr0=s900-c-k-c0x00ffffff-no-rj",
     "วรโชติ": "https://yt3.googleusercontent.com/fmGgxOV5OP6O3hjjscbYiJdcgEMLS-XhF9hCQ09ymLLY5wnoIApVStDVSk3jcQibLFk8R7ibb4g=s900-c-k-c0x00ffffff-no-rj",
-    "Jellyjane": "https://i.ytimg.com/vi/ZHBrGZqWMYI/oar2.jpg?sqp=-oaymwEYCJUDENAFSFqQAgHyq4qpAwcIARUAAIhC&rs=AOn4CLBPRhKclhGoYADMOVCxAjiGmdOJig&usqp=CCk",
+    "สินสมุทร": "https://cdn.onefc.com/wp-content/uploads/sites/5/2022/03/Web-pic-1920-1278-2022-03-25T200210.240.png",
 };
 
 // 🟢 NEW: INFLUENCER MONTHLY COST DICTIONARY
@@ -62,9 +61,8 @@ const INFLUENCER_MONTHLY_COSTS = {
     "Extreme IT": 250000,
     "ลุงเอ": 20000,
     "มาลีสวยมาก": 150000,
-    "Edwin": 40000,
     "วรโชติ": 12000,
-    "Jellyjane": 30000,
+    "สินสมุทร": 25000,
     "Default": 0    // Fallback if an influencer isn't listed above
 };
 
