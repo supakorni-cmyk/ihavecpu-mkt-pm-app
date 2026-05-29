@@ -12,6 +12,7 @@ import EditTaskModal from '../modals/EditTaskModal';
 
 // --- SYSTEM DEFAULT AVATARS ---
 const SYSTEM_AVATARS = {
+    panarin: '/avatars/bank.jpg',
   jittikorn: '/avatars/pae.jpg', 
   supakorn: '/avatars/boom.jpg', 
   sophisa: '/avatars/yui.jpg', 
@@ -21,6 +22,7 @@ const SYSTEM_AVATARS = {
 
 // --- TEAM CONFIGURATION ---
 const INITIAL_TEAM = [
+    { id: 6, name: 'แบงค์กี้', email: 'panarin.b@ihavecpu.com', role: 'Asst.CEO', avatar: SYSTEM_AVATARS.panarin}, 
   { id: 1, name: 'เป้ ไข่หมุน', email: 'jittikorn.m@ihavecpu.com', role: 'Marketing Manager', avatar: SYSTEM_AVATARS.jittikorn },
   { id: 2, name: 'SPARKIEZZ', email: 'supakorn.i@ihavecpu.com', role: 'Assistant Manager', avatar: SYSTEM_AVATARS.supakorn },
   { id: 3, name: 'อียุ้ยคนสวย', email: 'sophisa.p@ihavecpu.com', role: 'Assistant Manager', avatar: SYSTEM_AVATARS.sophisa },
