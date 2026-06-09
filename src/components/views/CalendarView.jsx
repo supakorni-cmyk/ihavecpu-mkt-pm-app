@@ -118,9 +118,33 @@ const CalendarView = ({ tasks, onAddTask, onUpdateTask, onDeleteTask }) => {
                         return (
                             <div key={dayNum} onClick={() => handleDateClick(currentDayDate)} className={`p-2 min-h-[100px] hover:bg-gray-50 transition-colors group flex flex-col cursor-pointer ${todayClass}`}>
                                 <div className="flex justify-between items-start mb-1"><span className={`w-7 h-7 flex items-center justify-center rounded-full text-sm font-bold ${isToday(currentDayDate) ? 'bg-blue-600 text-white shadow-md' : 'text-gray-700'}`}>{dayNum}</span></div>
-                                <div className="flex-1 flex flex-col gap-1 overflow-hidden">
+                                
+                                <div className="flex-1 flex flex-col gap-1.5 overflow-hidden">
                                     {dayTasks.map(task => (
-                                        <button key={task.id} onClick={(e) => handleTaskClick(e, task)} className={`text-left w-full px-2 py-1 rounded text-[10px] font-bold truncate transition-all border-l-2 shadow-sm hover:shadow-md hover:scale-[1.01] bg-white text-gray-700 ${getTagBorder(task)}`} title={`${task.title} (Leader: ${task.taskLeader || 'None'})`}>{task.title}</button>
+                                        <button 
+                                            key={task.id} 
+                                            onClick={(e) => handleTaskClick(e, task)} 
+                                            className={`text-left w-full px-2 py-1.5 rounded transition-all border-l-2 shadow-sm hover:shadow-md hover:scale-[1.02] bg-white text-gray-700 flex flex-col gap-1 group ${getTagBorder(task)}`}
+                                            title={`${task.title} (Leader: ${task.taskLeader || 'None'})`}
+                                        >
+                                            <span className="text-[10px] font-bold truncate w-full group-hover:text-blue-600 transition-colors">
+                                                {task.title}
+                                            </span>
+                                            
+                                            {/* 🟢 NEW: Meta Row for Leader & Status */}
+                                            <div className="flex items-center justify-between w-full opacity-80">
+                                                <div className="flex items-center gap-1 text-[9px] text-gray-500 font-medium truncate w-full pr-1">
+                                                    <User size={10} className="shrink-0" />
+                                                    <span className="truncate">{task.taskLeader || 'Unassigned'}</span>
+                                                </div>
+                                                <div className={`shrink-0 w-2 h-2 rounded-full ${
+                                                    task.status === 'on-process' ? 'bg-amber-400' :
+                                                    task.status === 'review' ? 'bg-purple-400' :
+                                                    task.status === 'done' || task.status === 'completed' ? 'bg-green-500' :
+                                                    'bg-gray-300'
+                                                }`} title={task.status || 'todo'} />
+                                            </div>
+                                        </button>
                                     ))}
                                 </div>
                             </div>
