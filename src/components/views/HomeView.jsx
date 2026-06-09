@@ -3,10 +3,17 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Heart, Calendar, CheckCircle2, Clock, ArrowRight, User, 
   Briefcase, Bell, CloudRain, Sun, Droplets, Wind, MapPin, 
-  Layers, ListTodo, ClipboardList, CheckSquare
+  Layers, ListTodo, ClipboardList, CheckSquare,
+  BarChart3, Table as TableIcon
 } from 'lucide-react';
-import { formatDate, TAG_COLORS } from '../../utils/constants';
 
+// 🟢 NEW: Import Recharts for the interactive visualization
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, 
+  Tooltip as RechartsTooltip, Legend, ResponsiveContainer 
+} from 'recharts';
+
+import { formatDate, TAG_COLORS } from '../../utils/constants';
 import TaskDetailModal from '../modals/TaskDetailModal';
 import EditTaskModal from '../modals/EditTaskModal';
 
@@ -40,6 +47,9 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
   const [weatherData, setWeatherData] = useState(null);
   const [locationName, setLocationName] = useState("Locating..."); 
 
+  // 🟢 NEW STATE: Toggle between Chart and Table view for the Matrix
+  const [matrixView, setMatrixView] = useState('chart'); 
+
   // --- STATS LOGIC ---
   const completedTasks = tasks.filter(t => { const s = (t.status || '').toLowerCase(); return s === 'completed' || s === 'done'; }).length;
   const pendingTasks = tasks.filter(t => { const s = (t.status || '').toLowerCase(); return s !== 'completed' && s !== 'done' && s !== 'canceled'; }).length;
@@ -64,9 +74,8 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
   const unreadCount = notifications.filter(n => !n.isRead).length;
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
 
-  // --- 🟢 ADVANCED DATA ENGINE: PROCESSING NEW WORKSPACE SECTIONS ---
+  // --- DATA ENGINE ---
   
-  // 1. Things to Do (Status: todo or on-process) Sorted chronologically by deadline date
   const todoAndOnProcessTasks = useMemo(() => {
     return tasks.filter(t => {
         const s = (t.status || '').toLowerCase();
@@ -78,7 +87,6 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
     });
   }, [tasks]);
 
-  // 2. Task Category Breakdown Aggregator
   const categoriesBreakdown = useMemo(() => {
     const breakdown = {};
     tasks.filter(t => t.status !== 'canceled').forEach(t => {
@@ -93,10 +101,10 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
         else if (s === 'review') breakdown[categoryName].review++;
         else if (s === 'done' || s === 'completed') breakdown[categoryName].done++;
     });
-    return Object.entries(breakdown).map(([name, stats]) => ({ name, ...stats }));
+    // Sort by highest volume first for better chart visualization
+    return Object.entries(breakdown).map(([name, stats]) => ({ name, ...stats })).sort((a, b) => b.total - a.total);
   }, [tasks]);
 
-  // 3. Team Roster Workload Pipeline Map
   const teamAssignedWorkload = useMemo(() => {
     return team.map(member => {
         const pendingLeaderTasks = tasks.filter(t => {
@@ -105,14 +113,10 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
             return isActive && t.taskLeader === member.name;
         }).sort((a, b) => new Date(a.deadline || 0) - new Date(b.deadline || 0));
 
-        return {
-            ...member,
-            assignedTasks: pendingLeaderTasks
-        };
+        return { ...member, assignedTasks: pendingLeaderTasks };
     });
   }, [tasks, team]);
 
-  // --- WEATHER FORECAST FETCH LIFE-CYCLE ---
   useEffect(() => {
       const fetchWeather = async (lat, lon, locName) => {
           try {
@@ -179,6 +183,32 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
       return 'bg-blue-50 text-blue-600';
   };
 
+  // 🟢 CUSTOM CHART TOOLTIP
+  const CustomChartTooltip = ({ active, payload, label }) => {
+      if (active && payload && payload.length) {
+          const total = payload.reduce((sum, entry) => sum + entry.value, 0);
+          return (
+              <div className="bg-white/95 backdrop-blur-md p-4 rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.1)] border border-gray-100 z-50 min-w-[180px]">
+                  <p className="font-black text-gray-800 mb-3 border-b border-gray-100 pb-2">{label}</p>
+                  {payload.map((entry, index) => (
+                      <div key={index} className="flex items-center justify-between gap-6 text-sm mb-1.5">
+                          <div className="flex items-center gap-2">
+                              <span className="w-3 h-3 rounded-full shadow-sm" style={{ backgroundColor: entry.color }}></span>
+                              <span className="text-gray-600 font-medium">{entry.name}</span>
+                          </div>
+                          <span className="font-black text-gray-900">{entry.value}</span>
+                      </div>
+                  ))}
+                  <div className="mt-3 pt-2 border-t border-gray-100 flex justify-between items-center text-sm bg-gray-50 -mx-4 -mb-4 p-3 rounded-b-xl">
+                      <span className="text-gray-500 font-bold uppercase tracking-wider text-xs">Total Volume</span>
+                      <span className="font-black text-indigo-600 text-lg leading-none">{total}</span>
+                  </div>
+              </div>
+          );
+      }
+      return null;
+  };
+
   return (
     <div className="flex flex-col h-full overflow-y-auto bg-gray-50 p-8 font-sans relative">
       {/* --- WELCOME HEADER --- */}
@@ -187,8 +217,6 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
             <div className="relative"><img src={displayAvatar} alt="Profile" className="w-16 h-16 rounded-full border-4 border-white shadow-md object-cover bg-white"/><div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div></div>
             <div><h1 className="text-3xl font-black text-gray-800 flex items-center gap-2">Welcome Back, {displayName.split(' ')[0]}! <span className="text-2xl animate-pulse">👋</span></h1><p className="text-gray-500 mt-1 font-medium">Wish you have a good {today}</p></div>
         </div>
-        
-        {/* NOTIFICATION BELL */}
         <div className="relative">
             <button onClick={() => setIsNotifOpen(!isNotifOpen)} className="p-3 bg-white rounded-full shadow-sm border border-gray-200 hover:bg-gray-100 transition relative"><Bell size={24} className="text-gray-600" />{unreadCount > 0 && <span className="absolute top-0 right-0 bg-red-500 text-white text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full shadow-sm border border-white">{unreadCount}</span>}</button>
             {isNotifOpen && (
@@ -207,7 +235,6 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
         </div>
       </div>
 
-      {/* --- THE TEAM --- */}
       <div className="mb-8">
         <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2"><User className="text-blue-600" size={20}/> THE TEAM</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
@@ -220,7 +247,6 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
         </div>
       </div>
 
-      {/* --- WIDGETS: WEATHER --- */}
       <div className="grid grid-cols-1 gap-6 mb-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
         <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-2xl border border-blue-100 shadow-sm flex justify-between items-center relative overflow-hidden group h-full max-w-2xl">
             <div className="absolute -right-6 -top-6 text-white opacity-50 group-hover:scale-110 transition-transform duration-700">{weatherData ? getWeatherIcon(weatherData.weathercode) : <CloudRain size={120} />}</div>
@@ -233,14 +259,13 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
         </div>
       </div>
 
-      {/* --- STATS GRID --- */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
         <div className="bg-indigo-600 text-white p-6 rounded-2xl shadow-lg shadow-indigo-200"><div className="flex justify-between items-start mb-4"><div className="p-2 bg-indigo-500/50 rounded-lg"><Briefcase size={24}/></div><span className="text-xs font-bold bg-indigo-500/50 px-2 py-1 rounded">Active</span></div><div className="text-4xl font-black mb-1">{pendingTasks}</div><div className="text-indigo-100 text-sm font-medium">Pending Tasks</div></div>
         <div className="bg-emerald-500 text-white p-6 rounded-2xl shadow-lg shadow-emerald-200"><div className="flex justify-between items-start mb-4"><div className="p-2 bg-emerald-400/50 rounded-lg"><CheckCircle2 size={24}/></div><span className="text-xs font-bold bg-emerald-400/50 px-2 py-1 rounded">Done</span></div><div className="text-4xl font-black mb-1">{completedTasks}</div><div className="text-emerald-50 text-sm font-medium">Completed Tasks</div></div>
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100"><div className="flex justify-between items-start mb-4"><div className="p-2 bg-pink-50 text-pink-500 rounded-lg"><Heart size={24}/></div></div><div className="text-4xl font-black mb-1 text-gray-800">{upcomingEvents.length}</div><div className="text-gray-400 text-sm font-medium">Upcoming Events</div></div>
       </div>
 
-      {/* --- 🟢 NEW WORKSPACE COMPONENT 1: THINGS TO DO --- */}
+      {/* --- THINGS TO DO --- */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 mb-8">
         <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
             <ListTodo className="text-indigo-600" size={20}/> Things to Do (To Do / On Process)
@@ -258,77 +283,111 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
                 </thead>
                 <tbody className="divide-y divide-gray-100 bg-white">
                     {todoAndOnProcessTasks.length > 0 ? todoAndOnProcessTasks.map(task => (
-                        <tr 
-                            key={task.id} 
-                            onClick={() => setSelectedTask(task)}
-                            className="hover:bg-indigo-50/20 transition-colors cursor-pointer group"
-                        >
-                            <td className="px-6 py-4 font-bold text-gray-800 max-w-[200px] truncate">{task.title}</td>
+                        <tr key={task.id} onClick={() => setSelectedTask(task)} className="hover:bg-indigo-50/20 transition-colors cursor-pointer group">
+                            <td className="px-6 py-4 font-bold text-gray-800 max-w-[200px] truncate group-hover:text-indigo-600 transition-colors">{task.title}</td>
                             <td className="px-6 py-4">
-                                <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${getTagTheme(task)}`}>
-                                    {task.tag || 'General'}
-                                </span>
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${getTagTheme(task)}`}>{task.tag || 'General'}</span>
                             </td>
                             <td className="px-6 py-4 text-gray-600 font-medium">{task.taskLeader || 'Unassigned'}</td>
                             <td className="px-6 py-4">
-                                <span className={`px-2.5 py-1 rounded-full text-xs font-bold border uppercase ${
-                                    task.status === 'on-process' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-gray-50 text-gray-500 border-gray-200'
-                                }`}>
+                                <span className={`px-2.5 py-1 rounded-full text-xs font-bold border uppercase ${task.status === 'on-process' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-gray-50 text-gray-500 border-gray-200'}`}>
                                     {task.status || 'todo'}
                                 </span>
                             </td>
-                            <td className="px-6 py-4 font-mono text-xs text-gray-500 font-bold">
-                                {task.deadline ? formatDate(task.deadline) : 'No time'}
-                            </td>
+                            <td className="px-6 py-4 font-mono text-xs text-gray-500 font-bold">{task.deadline ? formatDate(task.deadline) : 'No time'}</td>
                         </tr>
                     )) : (
-                        <tr>
-                            <td colSpan="5" className="px-6 py-10 text-center text-gray-400 italic">No tasks left in To Do or On Process!</td>
-                        </tr>
+                        <tr><td colSpan="5" className="px-6 py-10 text-center text-gray-400 italic">No tasks left in To Do or On Process!</td></tr>
                     )}
                 </tbody>
             </table>
         </div>
       </div>
 
-      {/* --- 🟢 NEW WORKSPACE COMPONENT 2: TASK CATEGORY MATRIX ANALYTICS --- */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 mb-8">
-        <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
-            <ClipboardList className="text-emerald-600" size={20}/> Task Categories Distribution Matrix
-        </h3>
-        <div className="overflow-x-auto custom-scrollbar">
-            <table className="w-full text-sm text-left">
-                <thead className="text-xs text-gray-400 uppercase bg-gray-50 border-b border-gray-100 font-bold">
-                    <tr>
-                        <th className="px-6 py-4">Category</th>
-                        <th className="px-6 py-4 text-center">To Do</th>
-                        <th className="px-6 py-4 text-center">On Process</th>
-                        <th className="px-6 py-4 text-center">Review</th>
-                        <th className="px-6 py-4 text-center">Completed</th>
-                        <th className="px-6 py-4 text-center bg-gray-100/50">Total Vol</th>
-                    </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 bg-white">
-                    {categoriesBreakdown.length > 0 ? categoriesBreakdown.map((cat, idx) => (
-                        <tr key={idx} className="hover:bg-gray-50/50 transition-colors">
-                            <td className="px-6 py-4 font-black text-gray-700">{cat.name}</td>
-                            <td className="px-6 py-4 text-center text-gray-500 font-medium">{cat.todo}</td>
-                            <td className="px-6 py-4 text-center text-amber-600 font-bold">{cat.onProcess}</td>
-                            <td className="px-6 py-4 text-center text-purple-600 font-bold">{cat.review}</td>
-                            <td className="px-6 py-4 text-center text-green-600 font-bold">{cat.done}</td>
-                            <td className="px-6 py-4 text-center font-black bg-gray-50/50 text-gray-900">{cat.total}</td>
-                        </tr>
-                    )) : (
-                        <tr>
-                            <td colSpan="6" className="px-6 py-10 text-center text-gray-400 italic">No project data registered.</td>
-                        </tr>
-                    )}
-                </tbody>
-            </table>
+      {/* --- 🟢 TASK CATEGORY MATRIX INTERACTIVE CHART --- */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 mb-8 relative">
+        <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4 border-b border-gray-100 pb-4">
+            <div>
+                <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                    <ClipboardList className="text-emerald-600" size={20}/> Task Categories Distribution Matrix
+                </h3>
+                <p className="text-xs text-gray-500 mt-1 font-medium">Visual breakdown of your projects by category and progression state.</p>
+            </div>
+            <div className="flex bg-gray-100 p-1 rounded-lg w-fit">
+                <button onClick={() => setMatrixView('chart')} className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 ${matrixView === 'chart' ? 'bg-white text-emerald-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+                    <BarChart3 size={14}/> Chart
+                </button>
+                <button onClick={() => setMatrixView('table')} className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 ${matrixView === 'table' ? 'bg-white text-emerald-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+                    <TableIcon size={14}/> Table
+                </button>
+            </div>
         </div>
+
+        {categoriesBreakdown.length > 0 ? (
+            matrixView === 'chart' ? (
+                <div className="h-[400px] w-full animate-in fade-in zoom-in-95 duration-300">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={categoriesBreakdown} margin={{ top: 20, right: 20, left: -20, bottom: 60 }}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9"/>
+                            <XAxis 
+                                dataKey="name" 
+                                axisLine={false} 
+                                tickLine={false} 
+                                tick={{fill: '#64748b', fontSize: 11, fontWeight: 700}} 
+                                dy={15} 
+                                interval={0} 
+                                angle={-25} 
+                                textAnchor="end" 
+                            />
+                            <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12, fontWeight: 600}} />
+                            <RechartsTooltip content={<CustomChartTooltip />} cursor={{fill: '#f8fafc'}} />
+                            <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '12px', fontWeight: 'bold', color: '#64748b' }} />
+                            
+                            {/* Stacked Bars representing Task Workflow Stages */}
+                            <Bar dataKey="todo" name="To Do" stackId="a" fill="#cbd5e1" maxBarSize={45} />
+                            <Bar dataKey="onProcess" name="On Process" stackId="a" fill="#f59e0b" maxBarSize={45} />
+                            <Bar dataKey="review" name="Review" stackId="a" fill="#a855f7" maxBarSize={45} />
+                            <Bar dataKey="done" name="Completed" stackId="a" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={45} />
+                        </BarChart>
+                    </ResponsiveContainer>
+                </div>
+            ) : (
+                <div className="overflow-x-auto custom-scrollbar animate-in fade-in zoom-in-95 duration-300">
+                    <table className="w-full text-sm text-left">
+                        <thead className="text-xs text-gray-400 uppercase bg-gray-50 border-b border-gray-100 font-bold">
+                            <tr>
+                                <th className="px-6 py-4">Category</th>
+                                <th className="px-6 py-4 text-center">To Do</th>
+                                <th className="px-6 py-4 text-center">On Process</th>
+                                <th className="px-6 py-4 text-center">Review</th>
+                                <th className="px-6 py-4 text-center">Completed</th>
+                                <th className="px-6 py-4 text-center bg-gray-100/50">Total Vol</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 bg-white">
+                            {categoriesBreakdown.map((cat, idx) => (
+                                <tr key={idx} className="hover:bg-gray-50/50 transition-colors">
+                                    <td className="px-6 py-4 font-black text-gray-700">{cat.name}</td>
+                                    <td className="px-6 py-4 text-center text-gray-500 font-medium">{cat.todo}</td>
+                                    <td className="px-6 py-4 text-center text-amber-600 font-bold">{cat.onProcess}</td>
+                                    <td className="px-6 py-4 text-center text-purple-600 font-bold">{cat.review}</td>
+                                    <td className="px-6 py-4 text-center text-green-600 font-bold">{cat.done}</td>
+                                    <td className="px-6 py-4 text-center font-black bg-gray-50/50 text-gray-900">{cat.total}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )
+        ) : (
+            <div className="py-16 flex flex-col items-center justify-center text-gray-400 italic">
+                <BarChart3 size={48} className="mb-4 text-gray-200" />
+                No project data registered yet.
+            </div>
+        )}
       </div>
 
-      {/* --- 🟢 NEW WORKSPACE COMPONENT 3: OPERATION WORKLOAD PIPELINE MAP --- */}
+      {/* --- OPERATION WORKLOAD PIPELINE MAP --- */}
       <div className="mb-8">
         <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
             <CheckSquare className="text-blue-600" size={20}/> Team Action Assignments
@@ -349,27 +408,17 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
                     
                     <div className="flex-1 overflow-y-auto custom-scrollbar pt-3 space-y-2">
                         {member.assignedTasks.length > 0 ? member.assignedTasks.map(task => (
-                            <div 
-                                key={task.id}
-                                onClick={() => setSelectedTask(task)}
-                                className="p-3 bg-gray-50 hover:bg-indigo-50/30 rounded-xl border border-gray-100/70 flex justify-between items-center group cursor-pointer transition-all"
-                            >
+                            <div key={task.id} onClick={() => setSelectedTask(task)} className="p-3 bg-gray-50 hover:bg-indigo-50/30 rounded-xl border border-gray-100/70 flex justify-between items-center group cursor-pointer transition-all">
                                 <div className="min-w-0 flex-1 pr-2">
                                     <p className="text-xs font-bold text-gray-700 truncate group-hover:text-indigo-600 transition-colors">{task.title}</p>
-                                    <p className="text-[10px] text-gray-400 mt-0.5 font-semibold">
-                                        {task.deadline ? `⏳ Due: ${new Date(task.deadline).toLocaleDateString()}` : 'No deadline'}
-                                    </p>
+                                    <p className="text-[10px] text-gray-400 mt-0.5 font-semibold">{task.deadline ? `⏳ Due: ${new Date(task.deadline).toLocaleDateString()}` : 'No deadline'}</p>
                                 </div>
-                                <span className={`text-[9px] font-black tracking-wider uppercase border px-2 py-0.5 rounded ${
-                                    task.status === 'on-process' ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-gray-100 text-gray-500 border-gray-200'
-                                }`}>
+                                <span className={`text-[9px] font-black tracking-wider uppercase border px-2 py-0.5 rounded ${task.status === 'on-process' ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-gray-100 text-gray-500 border-gray-200'}`}>
                                     {task.status || 'todo'}
                                 </span>
                             </div>
                         )) : (
-                            <div className="h-full flex items-center justify-center text-center text-gray-300 text-xs italic">
-                                All tasks completed! Clear pipeline 🌟
-                            </div>
+                            <div className="h-full flex items-center justify-center text-center text-gray-300 text-xs italic">All tasks completed! Clear pipeline 🌟</div>
                         )}
                     </div>
                 </div>
@@ -395,16 +444,13 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
                                 <span className="hidden sm:inline text-gray-300">|</span>
                                 <span className="flex items-center gap-1 font-semibold text-gray-600"><Clock size={12} className="text-gray-400"/> Deadline: <span className="text-gray-900 font-bold">{task.deadline ? formatDate(task.deadline) : 'No time'}</span></span>
                                 {task.location && (
-                                    <>
-                                        <span className="hidden sm:inline text-gray-300">|</span>
-                                        <span className="bg-gray-100 px-2 py-0.5 rounded text-gray-600 truncate max-w-[150px] font-medium">{task.location}</span>
-                                    </>
+                                    <><span className="hidden sm:inline text-gray-300">|</span><span className="bg-gray-100 px-2 py-0.5 rounded text-gray-600 truncate max-w-[150px] font-medium">{task.location}</span></>
                                 )}
                             </div>
                         </div>
                     </div>
                     <div className="flex items-center gap-3 self-end sm:self-auto shrink-0">
-                        <span className="text-[10px] font-bold tracking-wider uppercase bg-amber-50 text-amber-700 border border-amber-200 px-2.5 py-1 rounded-md">
+                        <span className={`text-[10px] font-bold tracking-wider uppercase border px-2.5 py-1 rounded-md ${task.status === 'on-process' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-gray-50 text-gray-500 border-gray-200'}`}>
                             Status: {task.status || 'todo'}
                         </span>
                         <div className="opacity-0 group-hover:opacity-100 transition text-gray-300"><ArrowRight size={20} /></div>
