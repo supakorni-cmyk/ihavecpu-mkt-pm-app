@@ -14,9 +14,13 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
     
     const [formQuestions, setFormQuestions] = useState(existingDoc?.formQuestions || []);
 
-    // 🟢 NEW: Native state for the Sheet Editor
-    const [sheetCols, setSheetCols] = useState(existingDoc?.sheetData?.columns || ['Column 1', 'Column 2', 'Column 3']);
-    const [sheetRows, setSheetRows] = useState(existingDoc?.sheetData?.tableData || [['', '', ''], ['', '', ''], ['', '', '']]);
+    /// 🟢 NEW: Native state for the Sheet Editor (Includes a failsafe to read from 'content' if the DB drops 'sheetData')
+    const parsedSheetFallback = existingDoc?.type === 'SHEET' && typeof existingDoc?.content === 'string' && existingDoc.content.startsWith('{') 
+        ? JSON.parse(existingDoc.content) 
+        : null;
+
+    const [sheetCols, setSheetCols] = useState(existingDoc?.sheetData?.columns || parsedSheetFallback?.columns || ['Column 1', 'Column 2', 'Column 3']);
+    const [sheetRows, setSheetRows] = useState(existingDoc?.sheetData?.tableData || parsedSheetFallback?.tableData || [['', '', ''], ['', '', ''], ['', '', '']]);
 
     const [showAiBar, setShowAiBar] = useState(false);
     const [aiPrompt, setAiPrompt] = useState('');
@@ -197,27 +201,33 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
 
    // --- HANDLE SAVE ---
     const handleSave = () => {
+        // 1. Auto-fill title
         const finalTitle = title.trim() || `Untitled ${type === 'SHEET' ? 'Sheet' : type === 'FORM' ? 'Form' : 'Document'}`; 
         
-        // 1. Build the base payload
+        // 2. Build the base payload
         const payload = {
             title: finalTitle, 
             type: type, 
-            linkedTaskId: linkedTaskId,
-            // 🟢 FORCE CONTENT TO EXIST SO THE PARENT ARRAY DOESN'T DROP IT!
-            content: type === 'DOC' ? (docEditorRef.current?.innerHTML || initialContent.current || '') : `Data for ${type}`
+            linkedTaskId: linkedTaskId
         };
 
-        // 2. Attach specific data payloads
-        if (type === 'SHEET') {
-            payload.sheetData = { 
+        // 3. STRICT PAYLOAD ISOLATION & DATABASE FAILSAFES
+        if (type === 'DOC') {
+            payload.content = docEditorRef.current?.innerHTML || initialContent.current || '';
+        } 
+        else if (type === 'SHEET') {
+            const sData = { 
                 columns: sheetCols, 
                 tableData: sheetRows,
                 colWidths: existingDoc?.sheetData?.colWidths || new Array(sheetCols.length).fill(150)
             };
+            payload.sheetData = sData;
+            // 🟢 FAILSAFE: We hide the sheet data as a string inside the 'content' column just in case your database schema rejects unknown properties!
+            payload.content = JSON.stringify(sData); 
         } 
         else if (type === 'FORM') {
             payload.formQuestions = formQuestions;
+            payload.content = "Form Data"; // Failsafe for DBs that require content
         }
 
         onSave(payload);
