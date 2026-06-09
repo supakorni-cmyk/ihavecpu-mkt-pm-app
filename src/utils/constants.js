@@ -3,6 +3,8 @@
 export const TAG_COLORS = { 
   'OVERVIEW + PLANING': 'bg-pink-100 text-pink-600', 
   'PROJECT': 'bg-purple-100 text-purple-600', 
+  'ARTWORK/PROMOTION': 'bg-cyan-100 text-cyan-600',
+  'ARTWORK/BRAND': 'bg-cyan-200 text-cyan-700',
   'REVIEW / IT': 'bg-blue-100 text-blue-600', 
   'REVIEW / OTHER': 'bg-blue-200 text-blue-700', 
   'OFFLINE EVENT': 'bg-yellow-100 text-yellow-600', 

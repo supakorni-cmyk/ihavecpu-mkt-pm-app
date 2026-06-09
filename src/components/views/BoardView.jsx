@@ -10,7 +10,7 @@ import EditTaskModal from '../modals/EditTaskModal';
 import RequirementSheetModal from '../modals/RequirementModal'; 
 import TaskDetailModal from '../modals/TaskDetailModal'; 
 
-const FILTER_CATEGORIES = ['All', 'OVERVIEW + PLANING', 'PROJECT','REVIEW / IT', 'REVIEW / OTHER', 'OFFLINE EVENT', 'GUEST SPEAKER', 'MEETING', 'EXPENSE', 'WEBSITE', 'INFLUENCER', 'ONLINE ADS', 'OFFLINE ADS'];
+const FILTER_CATEGORIES = ['All', 'OVERVIEW + PLANING', 'PROJECT','ARTWORK/PROMOTION', 'ARTWORK/BRAND', 'REVIEW / IT', 'REVIEW / OTHER', 'OFFLINE EVENT', 'GUEST SPEAKER', 'MEETING', 'EXPENSE', 'WEBSITE', 'INFLUENCER', 'ONLINE ADS', 'OFFLINE ADS'];
 
 const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTask }) => {
   const [isExportOpen, setIsExportOpen] = useState(false);
