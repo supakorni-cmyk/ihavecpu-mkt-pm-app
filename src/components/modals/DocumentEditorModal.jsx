@@ -193,13 +193,25 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
 
     // --- HANDLE SAVE ---
     const handleSave = () => {
-        if (!title.trim()) { alert("Please enter a title"); return; }
+        // 1. Auto-fill the title if the user leaves it blank so it never blocks the save
+        const finalTitle = title.trim() || `Untitled ${type === 'SHEET' ? 'Sheet' : type === 'FORM' ? 'Form' : 'Document'}`; 
+
+        // 2. Auto-generate column widths so the parent component doesn't crash when reading the sheet
+        const generatedColWidths = existingDoc?.sheetData?.colWidths || new Array(sheetCols.length).fill(150);
+
         const payload = {
-            title, type, linkedTaskId,
+            title: finalTitle, 
+            type, 
+            linkedTaskId,
             content: type === 'DOC' ? (docEditorRef.current?.innerHTML || initialContent.current) : null,
-            sheetData: type === 'SHEET' ? { columns: sheetCols, tableData: sheetRows } : null,
+            sheetData: type === 'SHEET' ? { 
+                columns: sheetCols, 
+                tableData: sheetRows,
+                colWidths: generatedColWidths 
+            } : null,
             formQuestions: type === 'FORM' ? formQuestions : null,
         };
+        
         onSave(payload);
     };
 
