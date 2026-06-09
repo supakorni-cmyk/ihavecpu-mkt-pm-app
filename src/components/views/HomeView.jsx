@@ -4,13 +4,12 @@ import {
   Heart, Calendar, CheckCircle2, Clock, ArrowRight, User, 
   Briefcase, Bell, CloudRain, Sun, Droplets, Wind, MapPin, 
   Layers, ListTodo, ClipboardList, CheckSquare,
-  BarChart3, Table as TableIcon
+  BarChart3, Table as TableIcon, PieChart as PieChartIcon
 } from 'lucide-react';
 
-// 🟢 NEW: Import Recharts for the interactive visualization
 import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, 
-  Tooltip as RechartsTooltip, Legend, ResponsiveContainer 
+  PieChart, Pie, Cell, Tooltip as RechartsTooltip, 
+  Legend, ResponsiveContainer 
 } from 'recharts';
 
 import { formatDate, TAG_COLORS } from '../../utils/constants';
@@ -37,6 +36,9 @@ const INITIAL_TEAM = [
     { id: 5, name: 'มดตะนอยร้อยแรงม้า', email: 'nichapa.w@ihavecpu.com', role: 'Marketing Coordinator', avatar: SYSTEM_AVATARS.nichapa}
 ];
 
+// Fallback color palette if a tag has no mapped color
+const PIE_COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#f97316', '#14b8a6', '#6366f1'];
+
 const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead, clearAllNotifications, users = [], onUpdateTask, onDeleteTask }) => {
   const [team] = useState(INITIAL_TEAM);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
@@ -47,7 +49,6 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
   const [weatherData, setWeatherData] = useState(null);
   const [locationName, setLocationName] = useState("Locating..."); 
 
-  // 🟢 NEW STATE: Toggle between Chart and Table view for the Matrix
   const [matrixView, setMatrixView] = useState('chart'); 
 
   // --- STATS LOGIC ---
@@ -76,17 +77,33 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
 
   // --- DATA ENGINE ---
   
-  const todoAndOnProcessTasks = useMemo(() => {
-    return tasks.filter(t => {
+  // 1. Tasks Grouped By Category
+  const activeTasksByCategory = useMemo(() => {
+    const grouped = {};
+    const activeTasks = tasks.filter(t => {
         const s = (t.status || '').toLowerCase();
-        return s === 'todo' || s === 'on-process';
-    }).sort((a, b) => {
-        const dateA = new Date(a.deadline || a.startDate || '9999-12-31T23:59:59.999Z');
-        const dateB = new Date(b.deadline || b.startDate || '9999-12-31T23:59:59.999Z');
-        return dateA - dateB;
+        return s !== 'canceled' && s !== 'done' && s !== 'completed';
     });
+
+    activeTasks.forEach(t => {
+        const cat = t.tag || 'General';
+        if (!grouped[cat]) grouped[cat] = [];
+        grouped[cat].push(t);
+    });
+
+    // Sort tasks inside each category by deadline
+    Object.keys(grouped).forEach(cat => {
+        grouped[cat].sort((a, b) => {
+            const dateA = new Date(a.deadline || a.startDate || '9999-12-31T23:59:59.999Z');
+            const dateB = new Date(b.deadline || b.startDate || '9999-12-31T23:59:59.999Z');
+            return dateA - dateB;
+        });
+    });
+
+    return grouped;
   }, [tasks]);
 
+  // 2. Category Breakdown Aggregator (For Chart)
   const categoriesBreakdown = useMemo(() => {
     const breakdown = {};
     tasks.filter(t => t.status !== 'canceled').forEach(t => {
@@ -101,10 +118,10 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
         else if (s === 'review') breakdown[categoryName].review++;
         else if (s === 'done' || s === 'completed') breakdown[categoryName].done++;
     });
-    // Sort by highest volume first for better chart visualization
     return Object.entries(breakdown).map(([name, stats]) => ({ name, ...stats })).sort((a, b) => b.total - a.total);
   }, [tasks]);
 
+  // 3. Team Roster Pipeline
   const teamAssignedWorkload = useMemo(() => {
     return team.map(member => {
         const pendingLeaderTasks = tasks.filter(t => {
@@ -117,6 +134,7 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
     });
   }, [tasks, team]);
 
+  // --- WEATHER FORECAST ---
   useEffect(() => {
       const fetchWeather = async (lat, lon, locName) => {
           try {
@@ -157,51 +175,60 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
       return "Cloudy";
   };
 
-  const getTagTheme = (task) => {
-      const tag = (task.tags && task.tags.length > 0) ? task.tags[0] : task.tag;
-      if (!tag) return 'bg-gray-100 text-gray-500';
+  // --- COLOR MAPPERS ---
+  const getSafeTagStyle = (tagStr) => {
+      if (!tagStr) return 'bg-gray-100 text-gray-500';
+      const theme = (TAG_COLORS[tagStr] || '').toLowerCase();
+      const name = tagStr.toLowerCase();
 
-      const theme = (TAG_COLORS[tag] || '').toLowerCase();
-      const name = tag.toLowerCase();
+      if (theme.includes('blue') || name.includes('plan')) return 'bg-blue-100 text-blue-700';
+      if (theme.includes('purple') || name.includes('project')) return 'bg-purple-100 text-purple-700';
+      if (theme.includes('green') || theme.includes('emerald') || name.includes('guest') || name.includes('speaker')) return 'bg-emerald-100 text-emerald-700';
+      if (theme.includes('red') || theme.includes('rose')) return 'bg-red-100 text-red-700';
+      if (theme.includes('yellow') || theme.includes('amber') || name.includes('meet')) return 'bg-yellow-100 text-yellow-700';
+      if (theme.includes('orange') || name.includes('event')) return 'bg-orange-100 text-orange-700';
+      if (theme.includes('pink') || name.includes('review')) return 'bg-pink-100 text-pink-700';
+      if (theme.includes('indigo')) return 'bg-indigo-100 text-indigo-700';
 
-      if (theme.includes('blue')) return 'bg-blue-100 text-blue-600';
-      if (theme.includes('purple')) return 'bg-purple-100 text-purple-600';
-      if (theme.includes('green') || theme.includes('emerald')) return 'bg-green-100 text-green-600';
-      if (theme.includes('red') || theme.includes('rose')) return 'bg-red-100 text-red-600';
-      if (theme.includes('yellow') || theme.includes('amber')) return 'bg-yellow-100 text-yellow-600';
-      if (theme.includes('orange')) return 'bg-orange-100 text-orange-600';
-      if (theme.includes('pink')) return 'bg-pink-100 text-pink-600';
-      if (theme.includes('indigo')) return 'bg-indigo-100 text-indigo-600';
-
-      if (name.includes('plan')) return 'bg-blue-100 text-blue-600';
-      if (name.includes('project')) return 'bg-purple-100 text-purple-600';
-      if (name.includes('review')) return 'bg-pink-100 text-pink-600';
-      if (name.includes('event')) return 'bg-orange-100 text-orange-600';
-      if (name.includes('guest') || name.includes('speaker')) return 'bg-emerald-100 text-emerald-600';
-      if (name.includes('meet')) return 'bg-yellow-100 text-yellow-600';
-
-      return 'bg-blue-50 text-blue-600';
+      return 'bg-gray-100 text-gray-600';
   };
 
-  // 🟢 CUSTOM CHART TOOLTIP
-  const CustomChartTooltip = ({ active, payload, label }) => {
+  const getHexColorForTag = (tagStr, fallbackIndex) => {
+      if (!tagStr) return PIE_COLORS[fallbackIndex % PIE_COLORS.length];
+      const theme = (TAG_COLORS[tagStr] || '').toLowerCase();
+      const name = tagStr.toLowerCase();
+
+      if (theme.includes('blue') || name.includes('plan')) return '#3b82f6';
+      if (theme.includes('purple') || name.includes('project')) return '#a855f7';
+      if (theme.includes('green') || theme.includes('emerald') || name.includes('guest') || name.includes('speaker')) return '#10b981';
+      if (theme.includes('red') || theme.includes('rose')) return '#ef4444';
+      if (theme.includes('yellow') || theme.includes('amber') || name.includes('meet')) return '#f59e0b';
+      if (theme.includes('orange') || name.includes('event')) return '#f97316';
+      if (theme.includes('pink') || name.includes('review')) return '#ec4899';
+      if (theme.includes('indigo')) return '#6366f1';
+
+      return PIE_COLORS[fallbackIndex % PIE_COLORS.length];
+  };
+
+  // 🟢 CUSTOM PIE CHART TOOLTIP
+  const CustomPieTooltip = ({ active, payload }) => {
       if (active && payload && payload.length) {
-          const total = payload.reduce((sum, entry) => sum + entry.value, 0);
+          const data = payload[0].payload;
           return (
-              <div className="bg-white/95 backdrop-blur-md p-4 rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.1)] border border-gray-100 z-50 min-w-[180px]">
-                  <p className="font-black text-gray-800 mb-3 border-b border-gray-100 pb-2">{label}</p>
-                  {payload.map((entry, index) => (
-                      <div key={index} className="flex items-center justify-between gap-6 text-sm mb-1.5">
-                          <div className="flex items-center gap-2">
-                              <span className="w-3 h-3 rounded-full shadow-sm" style={{ backgroundColor: entry.color }}></span>
-                              <span className="text-gray-600 font-medium">{entry.name}</span>
-                          </div>
-                          <span className="font-black text-gray-900">{entry.value}</span>
-                      </div>
-                  ))}
-                  <div className="mt-3 pt-2 border-t border-gray-100 flex justify-between items-center text-sm bg-gray-50 -mx-4 -mb-4 p-3 rounded-b-xl">
-                      <span className="text-gray-500 font-bold uppercase tracking-wider text-xs">Total Volume</span>
-                      <span className="font-black text-indigo-600 text-lg leading-none">{total}</span>
+              <div className="bg-white/95 backdrop-blur-md p-4 rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.1)] border border-gray-100 z-50 min-w-[200px]">
+                  <div className="flex items-center gap-2 mb-3 border-b border-gray-100 pb-2">
+                      <span className="w-3 h-3 rounded-full shadow-sm" style={{ backgroundColor: payload[0].color }}></span>
+                      <p className="font-black text-gray-800 uppercase tracking-wider text-xs">{data.name}</p>
+                  </div>
+                  <div className="space-y-1.5 text-sm">
+                      <div className="flex justify-between items-center text-gray-500"><span>To Do:</span> <span className="font-bold text-gray-700">{data.todo}</span></div>
+                      <div className="flex justify-between items-center text-amber-600"><span>On Process:</span> <span className="font-bold">{data.onProcess}</span></div>
+                      <div className="flex justify-between items-center text-purple-600"><span>Review:</span> <span className="font-bold">{data.review}</span></div>
+                      <div className="flex justify-between items-center text-green-600"><span>Completed:</span> <span className="font-bold">{data.done}</span></div>
+                  </div>
+                  <div className="mt-3 pt-3 border-t border-gray-100 flex justify-between items-center bg-gray-50 -mx-4 -mb-4 p-3 rounded-b-xl">
+                      <span className="text-gray-500 font-bold uppercase tracking-wider text-xs">Total</span>
+                      <span className="font-black text-indigo-600 text-lg leading-none">{data.total}</span>
                   </div>
               </div>
           );
@@ -211,7 +238,6 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
 
   return (
     <div className="flex flex-col h-full overflow-y-auto bg-gray-50 p-8 font-sans relative">
-      {/* --- WELCOME HEADER --- */}
       <div className="mb-10 flex justify-between items-start">
         <div className="flex items-center gap-5">
             <div className="relative"><img src={displayAvatar} alt="Profile" className="w-16 h-16 rounded-full border-4 border-white shadow-md object-cover bg-white"/><div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div></div>
@@ -265,57 +291,18 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100"><div className="flex justify-between items-start mb-4"><div className="p-2 bg-pink-50 text-pink-500 rounded-lg"><Heart size={24}/></div></div><div className="text-4xl font-black mb-1 text-gray-800">{upcomingEvents.length}</div><div className="text-gray-400 text-sm font-medium">Upcoming Events</div></div>
       </div>
 
-      {/* --- THINGS TO DO --- */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 mb-8">
-        <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
-            <ListTodo className="text-indigo-600" size={20}/> Things to Do (To Do / On Process)
-        </h3>
-        <div className="overflow-x-auto custom-scrollbar">
-            <table className="w-full text-sm text-left">
-                <thead className="text-xs text-gray-400 uppercase bg-gray-50 border-b border-gray-100 font-bold">
-                    <tr>
-                        <th className="px-6 py-4">Task</th>
-                        <th className="px-6 py-4">Category</th>
-                        <th className="px-6 py-4">Leader</th>
-                        <th className="px-6 py-4">Status</th>
-                        <th className="px-6 py-4">Deadline</th>
-                    </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 bg-white">
-                    {todoAndOnProcessTasks.length > 0 ? todoAndOnProcessTasks.map(task => (
-                        <tr key={task.id} onClick={() => setSelectedTask(task)} className="hover:bg-indigo-50/20 transition-colors cursor-pointer group">
-                            <td className="px-6 py-4 font-bold text-gray-800 max-w-[200px] truncate group-hover:text-indigo-600 transition-colors">{task.title}</td>
-                            <td className="px-6 py-4">
-                                <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${getTagTheme(task)}`}>{task.tag || 'General'}</span>
-                            </td>
-                            <td className="px-6 py-4 text-gray-600 font-medium">{task.taskLeader || 'Unassigned'}</td>
-                            <td className="px-6 py-4">
-                                <span className={`px-2.5 py-1 rounded-full text-xs font-bold border uppercase ${task.status === 'on-process' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-gray-50 text-gray-500 border-gray-200'}`}>
-                                    {task.status || 'todo'}
-                                </span>
-                            </td>
-                            <td className="px-6 py-4 font-mono text-xs text-gray-500 font-bold">{task.deadline ? formatDate(task.deadline) : 'No time'}</td>
-                        </tr>
-                    )) : (
-                        <tr><td colSpan="5" className="px-6 py-10 text-center text-gray-400 italic">No tasks left in To Do or On Process!</td></tr>
-                    )}
-                </tbody>
-            </table>
-        </div>
-      </div>
-
-      {/* --- 🟢 TASK CATEGORY MATRIX INTERACTIVE CHART --- */}
+      {/* --- 🟢 TASK CATEGORY MATRIX INTERACTIVE PIE CHART --- */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 mb-8 relative">
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4 border-b border-gray-100 pb-4">
             <div>
                 <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-                    <ClipboardList className="text-emerald-600" size={20}/> Task Categories Distribution Matrix
+                    <PieChartIcon className="text-emerald-600" size={20}/> Task Categories Distribution
                 </h3>
-                <p className="text-xs text-gray-500 mt-1 font-medium">Visual breakdown of your projects by category and progression state.</p>
+                <p className="text-xs text-gray-500 mt-1 font-medium">Visual breakdown of your active project categories.</p>
             </div>
             <div className="flex bg-gray-100 p-1 rounded-lg w-fit">
                 <button onClick={() => setMatrixView('chart')} className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 ${matrixView === 'chart' ? 'bg-white text-emerald-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
-                    <BarChart3 size={14}/> Chart
+                    <PieChartIcon size={14}/> Chart
                 </button>
                 <button onClick={() => setMatrixView('table')} className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 ${matrixView === 'table' ? 'bg-white text-emerald-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
                     <TableIcon size={14}/> Table
@@ -327,28 +314,29 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
             matrixView === 'chart' ? (
                 <div className="h-[400px] w-full animate-in fade-in zoom-in-95 duration-300">
                     <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={categoriesBreakdown} margin={{ top: 20, right: 20, left: -20, bottom: 60 }}>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9"/>
-                            <XAxis 
-                                dataKey="name" 
-                                axisLine={false} 
-                                tickLine={false} 
-                                tick={{fill: '#64748b', fontSize: 11, fontWeight: 700}} 
-                                dy={15} 
-                                interval={0} 
-                                angle={-25} 
-                                textAnchor="end" 
-                            />
-                            <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12, fontWeight: 600}} />
-                            <RechartsTooltip content={<CustomChartTooltip />} cursor={{fill: '#f8fafc'}} />
+                        <PieChart>
+                            <Pie
+                                data={categoriesBreakdown}
+                                cx="50%" cy="50%"
+                                innerRadius={80}
+                                outerRadius={130}
+                                paddingAngle={3}
+                                dataKey="total"
+                                nameKey="name"
+                                label={({name, percent}) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                                labelLine={false}
+                            >
+                                {categoriesBreakdown.map((entry, index) => (
+                                    <Cell 
+                                        key={`cell-${index}`} 
+                                        fill={getHexColorForTag(entry.name, index)} 
+                                        className="transition-all duration-300 hover:opacity-80 outline-none hover:scale-105" 
+                                    />
+                                ))}
+                            </Pie>
+                            <RechartsTooltip content={<CustomPieTooltip />} />
                             <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '12px', fontWeight: 'bold', color: '#64748b' }} />
-                            
-                            {/* Stacked Bars representing Task Workflow Stages */}
-                            <Bar dataKey="todo" name="To Do" stackId="a" fill="#cbd5e1" maxBarSize={45} />
-                            <Bar dataKey="onProcess" name="On Process" stackId="a" fill="#f59e0b" maxBarSize={45} />
-                            <Bar dataKey="review" name="Review" stackId="a" fill="#a855f7" maxBarSize={45} />
-                            <Bar dataKey="done" name="Completed" stackId="a" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={45} />
-                        </BarChart>
+                        </PieChart>
                     </ResponsiveContainer>
                 </div>
             ) : (
@@ -367,7 +355,9 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
                         <tbody className="divide-y divide-gray-100 bg-white">
                             {categoriesBreakdown.map((cat, idx) => (
                                 <tr key={idx} className="hover:bg-gray-50/50 transition-colors">
-                                    <td className="px-6 py-4 font-black text-gray-700">{cat.name}</td>
+                                    <td className="px-6 py-4 font-black text-gray-700">
+                                        <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase mr-2 ${getSafeTagStyle(cat.name)}`}>{cat.name}</span>
+                                    </td>
                                     <td className="px-6 py-4 text-center text-gray-500 font-medium">{cat.todo}</td>
                                     <td className="px-6 py-4 text-center text-amber-600 font-bold">{cat.onProcess}</td>
                                     <td className="px-6 py-4 text-center text-purple-600 font-bold">{cat.review}</td>
@@ -381,10 +371,76 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
             )
         ) : (
             <div className="py-16 flex flex-col items-center justify-center text-gray-400 italic">
-                <BarChart3 size={48} className="mb-4 text-gray-200" />
+                <PieChartIcon size={48} className="mb-4 text-gray-200" />
                 No project data registered yet.
             </div>
         )}
+      </div>
+
+      {/* --- 🟢 SEPARATED TASK TABLES BY CATEGORY --- */}
+      <div className="mb-8 space-y-6">
+          <div className="flex items-center gap-2 mb-2">
+            <ListTodo className="text-indigo-600" size={24}/>
+            <h3 className="text-xl font-black text-gray-800">Active Tasks by Category</h3>
+          </div>
+          
+          {Object.keys(activeTasksByCategory).length > 0 ? (
+              Object.entries(activeTasksByCategory).map(([category, catTasks]) => (
+                  <div key={category} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                      {/* Category Table Header */}
+                      <div className={`px-6 py-4 border-b border-gray-100 flex items-center justify-between ${getSafeTagStyle(category).replace('text-', 'bg-').replace('100', '50/50')}`}>
+                          <h4 className={`text-sm font-black uppercase tracking-widest ${getSafeTagStyle(category).split(' ')[1]}`}>
+                              {category}
+                          </h4>
+                          <span className="text-xs font-bold text-gray-500 bg-white px-2 py-0.5 rounded shadow-sm border border-gray-100">
+                              {catTasks.length} {catTasks.length === 1 ? 'Task' : 'Tasks'}
+                          </span>
+                      </div>
+                      
+                      {/* Sub-Table */}
+                      <div className="overflow-x-auto custom-scrollbar">
+                          <table className="w-full text-sm text-left">
+                              <thead className="text-[10px] text-gray-400 uppercase bg-gray-50/50 border-b border-gray-100 font-bold">
+                                  <tr>
+                                      <th className="px-6 py-3 w-1/2">Task</th>
+                                      <th className="px-6 py-3">Leader</th>
+                                      <th className="px-6 py-3">Status</th>
+                                      <th className="px-6 py-3 text-right">Deadline</th>
+                                  </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-50 bg-white">
+                                  {catTasks.map(task => (
+                                      <tr key={task.id} onClick={() => setSelectedTask(task)} className="hover:bg-indigo-50/20 transition-colors cursor-pointer group">
+                                          <td className="px-6 py-4 font-bold text-gray-800 truncate group-hover:text-indigo-600 transition-colors">
+                                              {task.title}
+                                          </td>
+                                          <td className="px-6 py-4 text-gray-600 text-xs font-medium">
+                                              <span className="flex items-center gap-1.5"><User size={12} className="text-gray-400"/> {task.taskLeader || 'Unassigned'}</span>
+                                          </td>
+                                          <td className="px-6 py-4">
+                                              <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase border ${
+                                                  task.status === 'on-process' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                                  task.status === 'review' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                                                  'bg-gray-50 text-gray-500 border-gray-200'
+                                              }`}>
+                                                  {task.status || 'todo'}
+                                              </span>
+                                          </td>
+                                          <td className="px-6 py-4 font-mono text-xs text-gray-500 font-bold text-right">
+                                              {task.deadline ? formatDate(task.deadline) : '-'}
+                                          </td>
+                                      </tr>
+                                  ))}
+                              </tbody>
+                          </table>
+                      </div>
+                  </div>
+              ))
+          ) : (
+              <div className="bg-white rounded-2xl p-10 text-center border border-gray-100 shadow-sm text-gray-400 italic">
+                  No active tasks to display!
+              </div>
+          )}
       </div>
 
       {/* --- OPERATION WORKLOAD PIPELINE MAP --- */}
@@ -433,7 +489,7 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
             {upcomingEvents.length > 0 ? upcomingEvents.slice(0, 5).map(task => (
                 <div key={task.id} onClick={() => setSelectedTask(task)} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 hover:bg-gray-50 rounded-xl transition border border-gray-50 hover:border-gray-200 group cursor-pointer gap-4">
                     <div className="flex items-center flex-1 min-w-0">
-                        <div className={`w-14 h-14 rounded-xl flex flex-col items-center justify-center font-bold shrink-0 mr-4 ${getTagTheme(task)}`}>
+                        <div className={`w-14 h-14 rounded-xl flex flex-col items-center justify-center font-bold shrink-0 mr-4 ${getSafeTagStyle(task.tag)}`}>
                             <span className="text-xs uppercase">{new Date(task.startDate || task.deadline).toLocaleString('default', { month: 'short' })}</span>
                             <span className="text-xl leading-none">{new Date(task.startDate || task.deadline).getDate()}</span>
                         </div>
