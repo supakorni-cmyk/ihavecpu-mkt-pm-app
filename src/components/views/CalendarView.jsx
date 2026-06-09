@@ -49,7 +49,6 @@ const CalendarView = ({ tasks, onAddTask, onUpdateTask, onDeleteTask }) => {
                dateObj.getFullYear() === today.getFullYear();
     };
 
-    // 🟢 FIXED: Shows ONLY on the Deadline Date (or Start Date if no Deadline exists)
     const getTasksForDate = (dateObj) => {
         const startOfDay = new Date(dateObj); 
         startOfDay.setHours(0,0,0,0);
@@ -58,23 +57,24 @@ const CalendarView = ({ tasks, onAddTask, onUpdateTask, onDeleteTask }) => {
         endOfDay.setHours(23,59,59,999);
 
         return activeTasks.filter(task => {
-            // Prefer deadline/dueDate, fallback to startDate/startTime if no deadline
             const targetDateStr = task.deadline || task.dueDate || task.startDate || task.startTime;
             if (!targetDateStr) return false;
             
             const targetDate = new Date(targetDateStr);
-            
-            // Check if this task's deadline falls exactly on this calendar day
             return targetDate >= startOfDay && targetDate <= endOfDay;
         });
     };
 
+    // 🟢 HELPER: Get Task Border Color from TAG_COLORS
+    const getTagBorder = (tag) => {
+        if (!tag || !TAG_COLORS[tag]) return 'border-gray-200';
+        return TAG_COLORS[tag].split(' ')[0].replace('bg-', 'border-').replace(/100|50/, '500');
+    };
+
     // --- INTERACTION HANDLERS ---
-    
-    // Click Empty Date -> Open Add Modal
     const handleDateClick = (date) => {
         const d = new Date(date);
-        d.setHours(9, 0, 0, 0); // Default to 9 AM
+        d.setHours(9, 0, 0, 0); 
         const offsetMs = d.getTimezoneOffset() * 60 * 1000;
         const localISOTime = new Date(d.getTime() - offsetMs).toISOString().slice(0, 16);
 
@@ -82,7 +82,6 @@ const CalendarView = ({ tasks, onAddTask, onUpdateTask, onDeleteTask }) => {
         setIsAddModalOpen(true);
     };
 
-    // Click Task -> Open Detail Modal
     const handleTaskClick = (e, task) => {
         e.stopPropagation(); 
         setSelectedTask(task);
@@ -207,7 +206,7 @@ const CalendarView = ({ tasks, onAddTask, onUpdateTask, onDeleteTask }) => {
                                 </div>
                                 <div className="flex-1 p-2 overflow-y-auto space-y-2 custom-scrollbar">
                                     {dayTasks.map(task => (
-                                        <div key={task.id} onClick={(e) => handleTaskClick(e, task)} className="bg-white border border-gray-200 rounded-lg p-2.5 shadow-sm hover:shadow-md hover:border-blue-300 transition-all cursor-pointer group">
+                                        <div key={task.id} onClick={(e) => handleTaskClick(e, task)} className={`bg-white border border-gray-200 border-l-4 ${getTagBorder(task.tag)} rounded-lg p-2.5 shadow-sm hover:shadow-md transition-all cursor-pointer group`}>
                                             <h4 className="font-bold text-xs text-gray-800 leading-tight mb-2 line-clamp-2 group-hover:text-blue-600">{task.title}</h4>
                                         </div>
                                     ))}
@@ -233,7 +232,7 @@ const CalendarView = ({ tasks, onAddTask, onUpdateTask, onDeleteTask }) => {
                 </div>
                 <div className="flex-1 overflow-y-auto p-6 space-y-3 bg-gray-50/50">
                     {dayTasks.map(task => (
-                        <div key={task.id} onClick={(e) => handleTaskClick(e, task)} className="flex items-center bg-white p-4 rounded-xl border border-gray-200 shadow-sm hover:shadow-md hover:border-blue-300 transition-all cursor-pointer group">
+                        <div key={task.id} onClick={(e) => handleTaskClick(e, task)} className={`flex items-center bg-white p-4 rounded-xl border border-gray-200 border-l-4 ${getTagBorder(task.tag)} shadow-sm hover:shadow-md transition-all cursor-pointer group`}>
                            <div className="w-16 flex flex-col items-center justify-center text-gray-400 border-r border-gray-100 pr-4 mr-4"><Clock size={20} className="mb-1 text-blue-500" /><span className="text-xs font-medium">All Day</span></div>
                            <div className="flex-1"><h4 className="text-lg font-bold text-gray-800 group-hover:text-blue-600 transition-colors">{task.title}</h4></div>
                         </div>
@@ -284,7 +283,6 @@ const CalendarView = ({ tasks, onAddTask, onUpdateTask, onDeleteTask }) => {
                 {viewMode === 'day' && renderDayView()}
             </div>
 
-            {/* 🟢 4. RENDER MODALS */}
             {isAddModalOpen && (
                 <AddTaskModal 
                     tasks={tasks}
@@ -294,7 +292,6 @@ const CalendarView = ({ tasks, onAddTask, onUpdateTask, onDeleteTask }) => {
                 />
             )}
 
-            {/* DETAIL MODAL (First Layer) */}
             {selectedTask && (
                 <TaskDetailModal 
                     task={selectedTask}
@@ -311,7 +308,6 @@ const CalendarView = ({ tasks, onAddTask, onUpdateTask, onDeleteTask }) => {
                 />
             )}
 
-            {/* EDIT MODAL (Second Layer) */}
             {editingTask && (
                 <EditTaskModal 
                     task={editingTask}

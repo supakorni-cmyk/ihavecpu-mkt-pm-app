@@ -21,7 +21,7 @@ import { COLUMNS, TAG_COLORS, formatDate } from '../../utils/constants';
 // --- IMPORT THE MODALS ---
 import EditTaskModal from '../modals/EditTaskModal';
 import RequirementSheetModal from '../modals/RequirementModal'; 
-import TaskDetailModal from '../modals/TaskDetailModal'; // 🟢 Added TaskDetailModal
+import TaskDetailModal from '../modals/TaskDetailModal'; 
 
 const FILTER_CATEGORIES = ['All', 'Planning', 'Project', 'Product Review', 'Event', 'Guest Speaker', 'Meeting'];
 
@@ -29,7 +29,6 @@ const FILTER_CATEGORIES = ['All', 'Planning', 'Project', 'Product Review', 'Even
 const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTask }) => {
   const [isExportOpen, setIsExportOpen] = useState(false);
   
-  // 🟢 Separate states for Viewing vs Editing
   const [selectedTask, setSelectedTask] = useState(null); 
   const [editingTask, setEditingTask] = useState(null);
   const [activeRequirement, setActiveRequirement] = useState(null);
@@ -88,7 +87,6 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
     onMoveTask(draggableId, destination.droppableId);
   };
 
-  // 🟢 Open Task Detail instead of Edit Modal
   const handleTaskClick = (taskId) => {
     const task = tasks.find(t => t.id === taskId);
     if (task) setSelectedTask(task);
@@ -187,7 +185,6 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
         <ExportEventModal tasks={tasks} onClose={() => setIsExportOpen(false)} />
       )}
 
-      {/* 🟢 Render Task Detail Modal First */}
       {selectedTask && (
         <TaskDetailModal 
             task={selectedTask}
@@ -202,7 +199,6 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
                 setSelectedTask(null);
             }}
             onSelectTask={(taskId) => {
-                // Allows jumping to a subtask directly from the detail view
                 const t = tasks.find(x => x.id === taskId);
                 if (t) setSelectedTask(t);
             }}
@@ -377,6 +373,10 @@ const TaskCard = ({ task, index, onClick, onDelete }) => {
       )); 
   };
 
+  // 🟢 HELPER: Determine main task color for the left border
+  const mainTag = (task.tags && task.tags.length > 0) ? task.tags[0] : task.tag;
+  const tagBorder = mainTag && TAG_COLORS[mainTag] ? TAG_COLORS[mainTag].split(' ')[0].replace('bg-', 'border-').replace(/100|50/, '400') : 'border-gray-200';
+
   return (
     <Draggable draggableId={task.id} index={index}>
         {(provided, snapshot) => (
@@ -386,8 +386,8 @@ const TaskCard = ({ task, index, onClick, onDelete }) => {
                 {...provided.dragHandleProps}
                 style={{ ...provided.draggableProps.style }}
                 onClick={() => onClick(task.id)} 
-                className={`bg-white p-4 rounded-xl border hover:border-indigo-300 transition-all group relative cursor-pointer
-                    ${snapshot.isDragging ? 'shadow-2xl rotate-2 ring-2 ring-indigo-500 z-50' : 'shadow-sm border-gray-100 hover:shadow-md'}
+                className={`bg-white p-4 rounded-xl border-y border-r border-l-4 ${tagBorder} transition-all group relative cursor-pointer
+                    ${snapshot.isDragging ? 'shadow-2xl rotate-2 ring-2 ring-indigo-500 z-50' : 'shadow-sm border-y-gray-100 border-r-gray-100 hover:shadow-md hover:border-r-indigo-100 hover:border-y-indigo-100'}
                 `}
             >
                 <div className="flex justify-between items-start mb-3">

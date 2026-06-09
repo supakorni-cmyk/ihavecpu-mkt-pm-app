@@ -4,7 +4,7 @@ import {
   Heart, Calendar, CheckCircle2, Clock, 
   ArrowRight, User, Briefcase, Bell, CloudRain, Sun, Droplets, Wind, TrendingUp, MapPin
 } from 'lucide-react';
-import { formatDate } from '../../utils/constants';
+import { formatDate, TAG_COLORS } from '../../utils/constants'; // 🟢 Added TAG_COLORS
 
 // 🟢 MODALS
 import TaskDetailModal from '../modals/TaskDetailModal';
@@ -231,28 +231,33 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
         </h3>
         
         <div className="space-y-4">
-            {upcomingEvents.length > 0 ? upcomingEvents.slice(0, 5).map(task => (
-                <div 
-                    key={task.id} 
-                    onClick={() => setSelectedTask(task)} 
-                    className="flex items-center p-4 hover:bg-gray-50 rounded-xl transition border border-gray-50 hover:border-gray-200 group cursor-pointer"
-                >
-                    <div className="w-14 h-14 bg-blue-50 rounded-xl flex flex-col items-center justify-center text-blue-600 font-bold shrink-0 mr-4">
-                        <span className="text-xs uppercase">{new Date(task.startDate || task.deadline).toLocaleString('default', { month: 'short' })}</span>
-                        <span className="text-xl leading-none">{new Date(task.startDate || task.deadline).getDate()}</span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                        <h4 className="font-bold text-gray-800 truncate">{task.title}</h4>
-                        <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
-                            <span className="flex items-center gap-1"><Clock size={12}/> {task.deadline ? formatDate(task.deadline) : 'No time'}</span>
-                            {task.location && <span className="bg-gray-100 px-2 py-0.5 rounded text-gray-600">{task.location}</span>}
+            {upcomingEvents.length > 0 ? upcomingEvents.slice(0, 5).map(task => {
+                // 🟢 Dynamically pull the theme color from TAG_COLORS based on the event tag
+                const tagTheme = (task.tag && TAG_COLORS[task.tag]) ? TAG_COLORS[task.tag] : 'bg-blue-50 text-blue-600';
+                
+                return (
+                    <div 
+                        key={task.id} 
+                        onClick={() => setSelectedTask(task)} 
+                        className="flex items-center p-4 hover:bg-gray-50 rounded-xl transition border border-gray-50 hover:border-gray-200 group cursor-pointer"
+                    >
+                        <div className={`w-14 h-14 rounded-xl flex flex-col items-center justify-center font-bold shrink-0 mr-4 ${tagTheme}`}>
+                            <span className="text-xs uppercase">{new Date(task.startDate || task.deadline).toLocaleString('default', { month: 'short' })}</span>
+                            <span className="text-xl leading-none">{new Date(task.startDate || task.deadline).getDate()}</span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <h4 className="font-bold text-gray-800 truncate">{task.title}</h4>
+                            <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
+                                <span className="flex items-center gap-1"><Clock size={12}/> {task.deadline ? formatDate(task.deadline) : 'No time'}</span>
+                                {task.location && <span className="bg-gray-100 px-2 py-0.5 rounded text-gray-600">{task.location}</span>}
+                            </div>
+                        </div>
+                        <div className="opacity-0 group-hover:opacity-100 transition text-gray-300">
+                            <ArrowRight size={20} />
                         </div>
                     </div>
-                    <div className="opacity-0 group-hover:opacity-100 transition text-gray-300">
-                        <ArrowRight size={20} />
-                    </div>
-                </div>
-            )) : (
+                );
+            }) : (
                 <div className="text-center py-10 text-gray-400">
                     <Calendar size={48} className="mx-auto mb-3 opacity-20"/>
                     <p>No upcoming events scheduled.</p>
