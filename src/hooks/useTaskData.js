@@ -407,6 +407,7 @@ export const useTaskData = (currentUser) => {
     const unsubTasks = onSnapshot(query(collection(db, "tasks"), orderBy("createdAt", "desc")), (snapshot) => {
         const loadedTasks = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
         setTasks(loadedTasks);
+        
         if (currentUser?.email && !snapshot.metadata.hasPendingWrites) {
             checkDeadlines(loadedTasks, currentUser);
         }
@@ -476,6 +477,7 @@ export const useTaskData = (currentUser) => {
     } catch (error) { console.error("Error adding task:", error); }
   };
 
+  // --- AUTOMATED UPDATE TASK ---
   const updateTask = async (id, updates) => {
     try {
         const oldTask = tasks.find(t => t.id === id);
@@ -483,6 +485,7 @@ export const useTaskData = (currentUser) => {
         
         const cleanedUpdates = cleanData(updates);
 
+        // 🤖 AUTOMATION 1: CASCADING DEADLINES
         if (oldTask.isMainTask && updates.deadline && oldTask.deadline && updates.deadline !== oldTask.deadline) {
             const oldTime = new Date(oldTask.deadline).getTime();
             const newTime = new Date(updates.deadline).getTime();
@@ -498,6 +501,7 @@ export const useTaskData = (currentUser) => {
             console.log(`⏱️ Shifted deadlines for ${subtasks.length} subtasks.`);
         }
 
+        // 🤖 AUTOMATION 2: REVIEW & APPROVAL HANDOFF
         if (updates.status === 'review' && oldTask.status !== 'review') {
             const mergedTask = { ...oldTask, ...updates };
             if (mergedTask.finalFile) {
@@ -505,16 +509,21 @@ export const useTaskData = (currentUser) => {
             }
         }
 
+        // 🟢 Update the actual document
         await updateDoc(doc(db, "tasks", id), cleanedUpdates);
         
+        // 🤖 AUTOMATION 3: SMART STATUS SYNC
         if (oldTask.parentTaskId && updates.status) {
             const parent = tasks.find(t => t.id === oldTask.parentTaskId);
             const siblings = tasks.filter(t => t.parentTaskId === oldTask.parentTaskId && t.id !== id);
             
             if (parent) {
-                if (updates.status === 'on-process' && parent.status === 'to do') {
-                    await updateDoc(doc(db, "tasks", parent.id), { status: 'on process' });
+                // 🟢 UPDATED: Changed identifier targeting from 'in-progress' to 'on-process'
+                if (updates.status === 'on-process' && parent.status === 'todo') {
+                    await updateDoc(doc(db, "tasks", parent.id), { status: 'on-process' });
                 }
+                
+                // Scenario B: If completing a subtask, check if ALL subtasks are done
                 if (updates.status === 'done' || updates.status === 'completed') {
                     const allSiblingsDone = siblings.every(s => s.status === 'done' || s.status === 'completed');
                     if (allSiblingsDone && parent.status !== 'done' && parent.status !== 'completed') {
@@ -525,6 +534,7 @@ export const useTaskData = (currentUser) => {
             }
         }
         
+        // Standard notification metrics
         const changedFields = [];
         if (updates.startTime && updates.startTime !== oldTask.startTime) changedFields.push("Start Time");
         if (updates.endTime && updates.endTime !== oldTask.endTime) changedFields.push("End Time");

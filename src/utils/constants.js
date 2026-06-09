@@ -17,7 +17,7 @@ export const TAG_COLORS = {
 
 export const COLUMNS = [
   { id: 'todo', title: 'To Do', color: 'text-gray-600 bg-gray-100' },
-  { id: 'on_process', title: 'On Process', color: 'text-blue-600 bg-blue-100' },
+  { id: 'on-process', title: 'On Process', color: 'text-amber-500 bg-amber-50' },
   { id: 'done', title: 'Done', color: 'text-green-600 bg-green-100' },
   // --- NEW COLUMN ---
   { id: 'canceled', title: 'Canceled', color: 'text-gray-400 bg-gray-200' } 
