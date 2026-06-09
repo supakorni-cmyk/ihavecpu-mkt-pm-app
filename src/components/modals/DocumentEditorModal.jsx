@@ -14,13 +14,17 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
     
     const [formQuestions, setFormQuestions] = useState(existingDoc?.formQuestions || []);
 
-    /// 🟢 NEW: Native state for the Sheet Editor (Includes a failsafe to read from 'content' if the DB drops 'sheetData')
-    const parsedSheetFallback = existingDoc?.type === 'SHEET' && typeof existingDoc?.content === 'string' && existingDoc.content.startsWith('{') 
-        ? JSON.parse(existingDoc.content) 
-        : null;
-
-    const [sheetCols, setSheetCols] = useState(existingDoc?.sheetData?.columns || parsedSheetFallback?.columns || ['Column 1', 'Column 2', 'Column 3']);
-    const [sheetRows, setSheetRows] = useState(existingDoc?.sheetData?.tableData || parsedSheetFallback?.tableData || [['', '', ''], ['', '', ''], ['', '', '']]);
+    // 🟢 NEW: Native state for the Sheet Editor
+    const [sheetCols, setSheetCols] = useState(existingDoc?.sheetData?.columns || ['Column 1', 'Column 2', 'Column 3']);
+    
+    // 🟢 FIREBASE FIX: Safely parse the tableData back into a 2D array when opening the modal
+    const [sheetRows, setSheetRows] = useState(() => {
+        const rawData = existingDoc?.sheetData?.tableData;
+        if (typeof rawData === 'string') {
+            return JSON.parse(rawData);
+        }
+        return rawData || [['', '', ''], ['', '', ''], ['', '', '']];
+    });
 
     const [showAiBar, setShowAiBar] = useState(false);
     const [aiPrompt, setAiPrompt] = useState('');
@@ -201,33 +205,29 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
 
    // --- HANDLE SAVE ---
     const handleSave = () => {
-        // 1. Auto-fill title
         const finalTitle = title.trim() || `Untitled ${type === 'SHEET' ? 'Sheet' : type === 'FORM' ? 'Form' : 'Document'}`; 
         
-        // 2. Build the base payload
         const payload = {
             title: finalTitle, 
             type: type, 
             linkedTaskId: linkedTaskId
         };
 
-        // 3. STRICT PAYLOAD ISOLATION & DATABASE FAILSAFES
         if (type === 'DOC') {
             payload.content = docEditorRef.current?.innerHTML || initialContent.current || '';
         } 
         else if (type === 'SHEET') {
-            const sData = { 
+            payload.sheetData = { 
                 columns: sheetCols, 
-                tableData: sheetRows,
+                // 🟢 FIREBASE FIX: Convert the 2D array into a string so Firestore doesn't panic and crash!
+                tableData: JSON.stringify(sheetRows), 
                 colWidths: existingDoc?.sheetData?.colWidths || new Array(sheetCols.length).fill(150)
             };
-            payload.sheetData = sData;
-            // 🟢 FAILSAFE: We hide the sheet data as a string inside the 'content' column just in case your database schema rejects unknown properties!
-            payload.content = JSON.stringify(sData); 
+            payload.content = "Spreadsheet Data"; // Safe placeholder
         } 
         else if (type === 'FORM') {
             payload.formQuestions = formQuestions;
-            payload.content = "Form Data"; // Failsafe for DBs that require content
+            payload.content = "Form Data"; // Safe placeholder
         }
 
         onSave(payload);
