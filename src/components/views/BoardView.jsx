@@ -2,42 +2,25 @@
 import React, { useState, useMemo } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { 
-  MoreHorizontal, 
-  Plus, 
-  Trash2, 
-  CheckSquare, 
-  Clock, 
-  Heart, 
-  FileText, 
-  X, 
-  Copy, 
-  MapPin,
-  Search, 
-  Filter,
-  XCircle 
+  MoreHorizontal, Plus, Trash2, CheckSquare, Clock, Heart, FileText, X, Copy, MapPin, Search, Filter, XCircle 
 } from 'lucide-react';
 import { COLUMNS, TAG_COLORS, formatDate } from '../../utils/constants';
 
-// --- IMPORT THE MODALS ---
 import EditTaskModal from '../modals/EditTaskModal';
 import RequirementSheetModal from '../modals/RequirementModal'; 
 import TaskDetailModal from '../modals/TaskDetailModal'; 
 
-const FILTER_CATEGORIES = ['All', 'Planning', 'Project', 'Product Review', 'Event', 'Guest Speaker', 'Meeting'];
+const FILTER_CATEGORIES = ['All', 'OVERVIEW + PLANING', 'PROJECT','REVIEW / IT', 'REVIEW / OTHER', 'OFFLINE EVENT', 'GUEST SPEAKER', 'MEETING', 'EXPENSE', 'WEBSITE', 'INFLUENCER', 'ONLINE ADS', 'OFFLINE ADS'];
 
-// --- MAIN COMPONENT ---
 const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTask }) => {
   const [isExportOpen, setIsExportOpen] = useState(false);
-  
   const [selectedTask, setSelectedTask] = useState(null); 
   const [editingTask, setEditingTask] = useState(null);
   const [activeRequirement, setActiveRequirement] = useState(null);
 
-  // --- FILTER STATE ---
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
 
-  // --- FILTERING LOGIC ---
   const filteredTasks = useMemo(() => {
     return tasks.filter(task => {
         const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase());
@@ -58,7 +41,6 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
 
   const isFiltered = searchQuery !== "" || selectedCategory !== "All";
 
-  // --- GROUPING LOGIC ---
   const tasksByColumn = useMemo(() => {
     const normalizeStatus = (status) => {
       if (!status || status === 'pending') return 'todo';
@@ -103,9 +85,7 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
 
   return (
     <div className="flex flex-col h-full w-full relative bg-gray-50">
-      {/* Header */}
       <header className="px-6 py-4 border-b border-gray-200 bg-white shadow-sm z-10 flex flex-col xl:flex-row justify-between xl:items-center gap-4">
-        
         <div className="flex items-center gap-4">
             <h2 className="text-2xl font-black text-gray-800 flex items-center gap-2 whitespace-nowrap">
             WE LOVE OUR JOB <Heart size={24} className="text-red-600 fill-red-600 animate-pulse" />
@@ -155,7 +135,6 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
           >
             <FileText size={16} /> <span className="hidden sm:inline">Export P.Pao</span>
           </button>
-
           <button 
             onClick={onAddTaskClick} 
             className="flex items-center gap-2 bg-gray-900 text-white px-5 py-2.5 rounded-full font-bold hover:bg-black transition shadow-lg shadow-gray-200 text-sm transform hover:scale-105 active:scale-95"
@@ -181,49 +160,28 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
         </div>
       </DragDropContext>
 
-      {isExportOpen && (
-        <ExportEventModal tasks={tasks} onClose={() => setIsExportOpen(false)} />
-      )}
-
+      {isExportOpen && <ExportEventModal tasks={tasks} onClose={() => setIsExportOpen(false)} />}
+      
       {selectedTask && (
         <TaskDetailModal 
-            task={selectedTask}
-            tasks={tasks}
-            onClose={() => setSelectedTask(null)}
-            onEdit={() => {
-                setEditingTask(selectedTask); 
-                setSelectedTask(null);        
-            }}
-            onDelete={() => {
-                if(onDeleteTask) onDeleteTask(selectedTask.id);
-                setSelectedTask(null);
-            }}
-            onSelectTask={(taskId) => {
-                const t = tasks.find(x => x.id === taskId);
-                if (t) setSelectedTask(t);
-            }}
+            task={selectedTask} tasks={tasks} onClose={() => setSelectedTask(null)}
+            onEdit={() => { setEditingTask(selectedTask); setSelectedTask(null); }}
+            onDelete={() => { if(onDeleteTask) onDeleteTask(selectedTask.id); setSelectedTask(null); }}
+            onSelectTask={(taskId) => { const t = tasks.find(x => x.id === taskId); if (t) setSelectedTask(t); }}
         />
       )}
 
       {editingTask && (
         <EditTaskModal 
-            task={editingTask}
-            tasks={tasks}
-            onClose={() => setEditingTask(null)}
-            onUpdate={(updatedData) => {
-                onUpdateTask(editingTask.id, updatedData);
-                setEditingTask(prev => ({ ...prev, ...updatedData }));
-                setEditingTask(null);
-            }}
+            task={editingTask} tasks={tasks} onClose={() => setEditingTask(null)}
+            onUpdate={(updatedData) => { onUpdateTask(editingTask.id, updatedData); setEditingTask(prev => ({ ...prev, ...updatedData })); setEditingTask(null); }}
             onOpenRequirement={handleOpenRequirement}
         />
       )}
 
       {activeRequirement && (
           <RequirementSheetModal 
-              task={activeRequirement.task}
-              requirement={activeRequirement.requirement}
-              onClose={() => setActiveRequirement(null)}
+              task={activeRequirement.task} requirement={activeRequirement.requirement} onClose={() => setActiveRequirement(null)}
               onUpdateTask={(updates) => {
                   onUpdateTask(activeRequirement.task.id, updates);
                   const updatedTask = { ...activeRequirement.task, ...updates };
@@ -237,77 +195,32 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
   );
 };
 
-// --- SUB-COMPONENTS ---
-
 const ExportEventModal = ({ tasks, onClose }) => {
-  const events = tasks.filter(t => {
-      const s = (t.status || '').toLowerCase();
-      return t.isPao === true && s !== 'canceled' && s !== 'done' && s !== 'completed';
-  });
-  
-  events.sort((a, b) => {
-      const dateA = new Date(a.startTime || a.deadline || 0);
-      const dateB = new Date(b.startTime || b.deadline || 0);
-      return dateA - dateB;
-  });
-  
-  const groupedData = events.reduce((acc, task) => { 
-      const d = new Date(task.startTime || task.deadline); 
-      const key = isNaN(d) ? 'No Date' : d.toLocaleString('default', { month: 'long', year: 'numeric' }); 
-      if (!acc[key]) acc[key] = []; 
-      acc[key].push(task); 
-      return acc; 
-  }, {});
-
-  const formatTime = (isoString) => {
-      if (!isoString) return "";
-      return new Date(isoString).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-  };
+  const events = tasks.filter(t => { const s = (t.status || '').toLowerCase(); return t.isPao === true && s !== 'canceled' && s !== 'done' && s !== 'completed'; });
+  events.sort((a, b) => { return new Date(a.startTime || a.deadline || 0) - new Date(b.startTime || b.deadline || 0); });
+  const groupedData = events.reduce((acc, task) => { const d = new Date(task.startTime || task.deadline); const key = isNaN(d) ? 'No Date' : d.toLocaleString('default', { month: 'long', year: 'numeric' }); if (!acc[key]) acc[key] = []; acc[key].push(task); return acc; }, {});
+  const formatTime = (isoString) => { if (!isoString) return ""; return new Date(isoString).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }); };
 
   const generateExportText = () => { 
       if (events.length === 0) return "No pending P.Pao events found."; 
       let text = "☀️🌈อัพเดทตารางงานพี่เปา⭐️⭐️\n\n"; 
-      
       Object.entries(groupedData).forEach(([month, monthTasks]) => { 
           text += `━━━━━━━━━━━━━━━━━━━━━━\n🗓️ ${month.toUpperCase()}\n━━━━━━━━━━━━━━━━━━━━━━\n`; 
-          
           monthTasks.forEach(t => { 
               const bestDate = t.startTime || t.deadline; 
               let dateStr = 'TBD'; 
-              if (bestDate) { 
-                  dateStr = new Date(bestDate).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-              } 
-              
+              if (bestDate) dateStr = new Date(bestDate).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
               let timeStr = "";
-              if (t.startTime) {
-                  timeStr = `⏰ ${formatTime(t.startTime)}`;
-                  if (t.endTime) timeStr += ` - ${formatTime(t.endTime)}`;
-              } else if (t.deadline) {
-                  timeStr = `⏰ Due: ${formatTime(t.deadline)}`;
-              }
-
-              text += `\n📅 ${dateStr}`;
-              if (timeStr) text += `\n${timeStr}`;
-              text += `\n📌 ${t.title}`;
-              
-              if (t.description && t.description.trim()) {
-                  text += `\n📝 ${t.description.trim()}`;
-              }
-              if (t.location && t.location.trim()) {
-                  text += `\n📍 ${t.location.trim()}`;
-              }
-              if (t.reference && t.reference.trim()) {
-                  text += `\n📋 Script: ${t.reference.trim()}`;
-              }
-              if (t.finalFile && t.finalFile.trim()) {
-                  text += `\n📂 Final File: ${t.finalFile.trim()}`;
-              }
-              
+              if (t.startTime) { timeStr = `⏰ ${formatTime(t.startTime)}`; if (t.endTime) timeStr += ` - ${formatTime(t.endTime)}`; } 
+              else if (t.deadline) { timeStr = `⏰ Due: ${formatTime(t.deadline)}`; }
+              text += `\n📅 ${dateStr}`; if (timeStr) text += `\n${timeStr}`; text += `\n📌 ${t.title}`;
+              if (t.description?.trim()) text += `\n📝 ${t.description.trim()}`;
+              if (t.location?.trim()) text += `\n📍 ${t.location.trim()}`;
+              if (t.reference?.trim()) text += `\n📋 Script: ${t.reference.trim()}`;
+              if (t.finalFile?.trim()) text += `\n📂 Final File: ${t.finalFile.trim()}`;
               text += `\n\n`; 
-          }); 
-          text += "\n"; 
-      }); 
-      return text; 
+          }); text += "\n"; 
+      }); return text; 
   };
 
   return (
@@ -333,21 +246,9 @@ const BoardColumn = ({ column, tasks, onTaskClick, onDeleteTask }) => {
 
       <Droppable droppableId={column.id}>
         {(provided, snapshot) => (
-            <div 
-                {...provided.droppableProps}
-                ref={provided.innerRef}
-                className={`flex-1 p-2 overflow-y-auto custom-scrollbar transition-colors rounded-b-2xl ${snapshot.isDraggingOver ? 'bg-indigo-50/50' : ''}`}
-            >
+            <div {...provided.droppableProps} ref={provided.innerRef} className={`flex-1 p-2 overflow-y-auto custom-scrollbar transition-colors rounded-b-2xl ${snapshot.isDraggingOver ? 'bg-indigo-50/50' : ''}`}>
                 <div className="flex flex-col gap-3 pb-2 min-h-[100px]">
-                    {tasks.map((task, index) => (
-                        <TaskCard 
-                            key={task.id} 
-                            task={task} 
-                            index={index} 
-                            onClick={onTaskClick} 
-                            onDelete={onDeleteTask} 
-                        />
-                    ))}
+                    {tasks.map((task, index) => <TaskCard key={task.id} task={task} index={index} onClick={onTaskClick} onDelete={onDeleteTask} />)}
                     {provided.placeholder}
                 </div>
             </div>
@@ -362,9 +263,7 @@ const TaskCard = ({ task, index, onClick, onDelete }) => {
   const completedReqs = reqs.filter(r => r.isDone).length;
   const progress = reqs.length > 0 ? (completedReqs / reqs.length) * 100 : 0;
   
-  const displayDate = task.startTime 
-    ? new Date(task.startTime).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute:'2-digit' }) 
-    : formatDate(task.deadline);
+  const displayDate = task.startTime ? new Date(task.startTime).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute:'2-digit' }) : formatDate(task.deadline);
   
   const renderTags = () => { 
       const tags = task.tags && task.tags.length > 0 ? task.tags : (task.tag ? [task.tag] : []); 
@@ -373,21 +272,33 @@ const TaskCard = ({ task, index, onClick, onDelete }) => {
       )); 
   };
 
-  /// 🟢 FIXED: Safe Tailwind color mapping so classes don't get purged
+  // 🟢 BULLETPROOF COLOR MAPPER
   const getTagBorder = () => {
-      const mainTag = (task.tags && task.tags.length > 0) ? task.tags[0] : task.tag;
-      const theme = mainTag && TAG_COLORS[mainTag] ? TAG_COLORS[mainTag] : '';
-      
-      if (theme.includes('blue')) return 'border-blue-400 hover:border-r-blue-100 hover:border-y-blue-100';
-      if (theme.includes('purple')) return 'border-purple-400 hover:border-r-purple-100 hover:border-y-purple-100';
-      if (theme.includes('green') || theme.includes('emerald')) return 'border-green-400 hover:border-r-green-100 hover:border-y-green-100';
-      if (theme.includes('red') || theme.includes('rose')) return 'border-red-400 hover:border-r-red-100 hover:border-y-red-100';
-      if (theme.includes('yellow') || theme.includes('amber')) return 'border-yellow-400 hover:border-r-yellow-100 hover:border-y-yellow-100';
-      if (theme.includes('orange')) return 'border-orange-400 hover:border-r-orange-100 hover:border-y-orange-100';
-      if (theme.includes('pink')) return 'border-pink-400 hover:border-r-pink-100 hover:border-y-pink-100';
-      if (theme.includes('indigo')) return 'border-indigo-400 hover:border-r-indigo-100 hover:border-y-indigo-100';
-      
-      return 'border-gray-200 hover:border-r-indigo-100 hover:border-y-indigo-100';
+      const tag = (task.tags && task.tags.length > 0) ? task.tags[0] : task.tag;
+      if (!tag) return 'border-gray-200 hover:border-gray-300';
+
+      const theme = (TAG_COLORS[tag] || '').toLowerCase();
+      const name = tag.toLowerCase();
+
+      // Check by Tailwind Theme
+      if (theme.includes('blue')) return 'border-blue-500 hover:border-blue-300';
+      if (theme.includes('purple')) return 'border-purple-500 hover:border-purple-300';
+      if (theme.includes('green') || theme.includes('emerald')) return 'border-green-500 hover:border-green-300';
+      if (theme.includes('red') || theme.includes('rose')) return 'border-red-500 hover:border-red-300';
+      if (theme.includes('yellow') || theme.includes('amber')) return 'border-yellow-500 hover:border-yellow-300';
+      if (theme.includes('orange')) return 'border-orange-500 hover:border-orange-300';
+      if (theme.includes('pink')) return 'border-pink-500 hover:border-pink-300';
+      if (theme.includes('indigo')) return 'border-indigo-500 hover:border-indigo-300';
+
+      // Check by Word (Failsafe)
+      if (name.includes('plan')) return 'border-blue-500 hover:border-blue-300';
+      if (name.includes('project')) return 'border-purple-500 hover:border-purple-300';
+      if (name.includes('review')) return 'border-pink-500 hover:border-pink-300';
+      if (name.includes('event')) return 'border-orange-500 hover:border-orange-300';
+      if (name.includes('guest') || name.includes('speaker')) return 'border-emerald-500 hover:border-emerald-300';
+      if (name.includes('meet')) return 'border-yellow-500 hover:border-yellow-300';
+
+      return 'border-gray-200 hover:border-gray-300';
   };
 
   return (
@@ -399,9 +310,8 @@ const TaskCard = ({ task, index, onClick, onDelete }) => {
                 {...provided.dragHandleProps}
                 style={{ ...provided.draggableProps.style }}
                 onClick={() => onClick(task.id)} 
-                // 🟢 FIXED: Apply the safe border colors here!
                 className={`bg-white p-4 rounded-xl border-y border-r border-l-4 transition-all group relative cursor-pointer
-                    ${snapshot.isDragging ? 'shadow-2xl rotate-2 ring-2 ring-indigo-500 z-50' : `shadow-sm hover:shadow-md ${getTagBorder()}`}
+                    ${snapshot.isDragging ? 'shadow-2xl rotate-2 ring-2 ring-indigo-500 z-50' : `shadow-sm ${getTagBorder()}`}
                 `}
             >
                 <div className="flex justify-between items-start mb-3">
