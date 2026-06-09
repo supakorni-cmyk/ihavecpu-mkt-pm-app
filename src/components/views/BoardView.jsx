@@ -265,14 +265,34 @@ const TaskCard = ({ task, index, onClick, onDelete }) => {
   
   const displayDate = task.startTime ? new Date(task.startTime).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute:'2-digit' }) : formatDate(task.deadline);
   
+  // 🟢 NEW: Bulletproof color mapper for the inner Tag Pills
+  const getSafeTagStyle = (tagStr) => {
+      if (!tagStr) return 'bg-gray-100 text-gray-500';
+      const theme = (TAG_COLORS[tagStr] || '').toLowerCase();
+      const name = tagStr.toLowerCase();
+
+      if (theme.includes('blue') || name.includes('plan')) return 'bg-blue-100 text-blue-700';
+      if (theme.includes('purple') || name.includes('project')) return 'bg-purple-100 text-purple-700';
+      if (theme.includes('green') || theme.includes('emerald') || name.includes('guest') || name.includes('speaker')) return 'bg-emerald-100 text-emerald-700';
+      if (theme.includes('red') || theme.includes('rose')) return 'bg-red-100 text-red-700';
+      if (theme.includes('yellow') || theme.includes('amber') || name.includes('meet')) return 'bg-yellow-100 text-yellow-700';
+      if (theme.includes('orange') || name.includes('event')) return 'bg-orange-100 text-orange-700';
+      if (theme.includes('pink') || name.includes('review')) return 'bg-pink-100 text-pink-700';
+      if (theme.includes('indigo')) return 'bg-indigo-100 text-indigo-700';
+
+      return 'bg-gray-100 text-gray-600';
+  };
+
   const renderTags = () => { 
       const tags = task.tags && task.tags.length > 0 ? task.tags : (task.tag ? [task.tag] : []); 
       return tags.map((tag, idx) => (
-        <span key={idx} className={`px-2.5 py-1 rounded-md text-[10px] font-bold tracking-wide uppercase mr-1 ${TAG_COLORS[tag] || 'bg-gray-100 text-gray-500'}`}>{tag}</span>
+        <span key={idx} className={`px-2.5 py-1 rounded-md text-[10px] font-bold tracking-wide uppercase mr-1 ${getSafeTagStyle(tag)}`}>
+            {tag}
+        </span>
       )); 
   };
 
-  // 🟢 BULLETPROOF COLOR MAPPER
+  // 🟢 Border color mapper
   const getTagBorder = () => {
       const tag = (task.tags && task.tags.length > 0) ? task.tags[0] : task.tag;
       if (!tag) return 'border-gray-200 hover:border-gray-300';
@@ -280,23 +300,14 @@ const TaskCard = ({ task, index, onClick, onDelete }) => {
       const theme = (TAG_COLORS[tag] || '').toLowerCase();
       const name = tag.toLowerCase();
 
-      // Check by Tailwind Theme
-      if (theme.includes('blue')) return 'border-blue-500 hover:border-blue-300';
-      if (theme.includes('purple')) return 'border-purple-500 hover:border-purple-300';
-      if (theme.includes('green') || theme.includes('emerald')) return 'border-green-500 hover:border-green-300';
+      if (theme.includes('blue') || name.includes('plan')) return 'border-blue-500 hover:border-blue-300';
+      if (theme.includes('purple') || name.includes('project')) return 'border-purple-500 hover:border-purple-300';
+      if (theme.includes('green') || theme.includes('emerald') || name.includes('guest') || name.includes('speaker')) return 'border-emerald-500 hover:border-emerald-300';
       if (theme.includes('red') || theme.includes('rose')) return 'border-red-500 hover:border-red-300';
-      if (theme.includes('yellow') || theme.includes('amber')) return 'border-yellow-500 hover:border-yellow-300';
-      if (theme.includes('orange')) return 'border-orange-500 hover:border-orange-300';
-      if (theme.includes('pink')) return 'border-pink-500 hover:border-pink-300';
+      if (theme.includes('yellow') || theme.includes('amber') || name.includes('meet')) return 'border-yellow-500 hover:border-yellow-300';
+      if (theme.includes('orange') || name.includes('event')) return 'border-orange-500 hover:border-orange-300';
+      if (theme.includes('pink') || name.includes('review')) return 'border-pink-500 hover:border-pink-300';
       if (theme.includes('indigo')) return 'border-indigo-500 hover:border-indigo-300';
-
-      // Check by Word (Failsafe)
-      if (name.includes('plan')) return 'border-blue-500 hover:border-blue-300';
-      if (name.includes('project')) return 'border-purple-500 hover:border-purple-300';
-      if (name.includes('review')) return 'border-pink-500 hover:border-pink-300';
-      if (name.includes('event')) return 'border-orange-500 hover:border-orange-300';
-      if (name.includes('guest') || name.includes('speaker')) return 'border-emerald-500 hover:border-emerald-300';
-      if (name.includes('meet')) return 'border-yellow-500 hover:border-yellow-300';
 
       return 'border-gray-200 hover:border-gray-300';
   };
