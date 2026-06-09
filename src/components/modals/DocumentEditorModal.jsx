@@ -1,209 +1,448 @@
-// src/components/views/DocumentView.jsx
-import React, { useState } from 'react';
+// src/components/modals/DocumentEditorModal.jsx
+import React, { useState, useRef } from 'react';
 import { 
-    FileText, 
-    Table, 
-    FileQuestion, 
-    Search, 
-    Plus, 
-    Trash2, 
-    Edit2, 
-    Clock,
-    FolderOpen
+    X, Save, FileText, Table, FileQuestion, Link as LinkIcon, 
+    Plus, Trash2, Bold, Italic, Underline, 
+    AlignLeft, AlignCenter, AlignRight, Type, Sparkles,
+    Image as ImageIcon, Download 
 } from 'lucide-react';
 
-import DocumentEditorModal from '../modals/DocumentEditorModal';
-
-const DocumentView = ({ documents = [], tasks = [], onAdd, onUpdate, onDelete }) => {
-    // --- STATE ---
-    const [searchTerm, setSearchTerm] = useState('');
-    const [filterType, setFilterType] = useState('ALL'); // 'ALL', 'DOC', 'SHEET', 'FORM'
+const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave }) => {
+    const [title, setTitle] = useState(existingDoc?.title || '');
+    const [type, setType] = useState(existingDoc?.type || initialType || 'DOC');
+    const [linkedTaskId, setLinkedTaskId] = useState(existingDoc?.linkedTaskId || '');
     
-    // Modal State
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [selectedDoc, setSelectedDoc] = useState(null);
-    const [initialType, setInitialType] = useState('DOC');
+    const [formQuestions, setFormQuestions] = useState(existingDoc?.formQuestions || []);
 
-    // --- FILTERING LOGIC ---
-    const filteredDocs = documents.filter(doc => {
-        const matchesSearch = doc.title?.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesType = filterType === 'ALL' || doc.type === filterType;
-        return matchesSearch && matchesType;
-    }).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)); // Newest first
+    // 🟢 NEW: Native state for the Sheet Editor
+    const [sheetCols, setSheetCols] = useState(existingDoc?.sheetData?.columns || ['Column 1', 'Column 2', 'Column 3']);
+    const [sheetRows, setSheetRows] = useState(existingDoc?.sheetData?.tableData || [['', '', ''], ['', '', ''], ['', '', '']]);
 
-    // --- HANDLERS ---
-    const handleCreateNew = (type) => {
-        setInitialType(type);
-        setSelectedDoc(null);
-        setIsModalOpen(true);
+    const [showAiBar, setShowAiBar] = useState(false);
+    const [aiPrompt, setAiPrompt] = useState('');
+    const [isGeneratingAi, setIsGeneratingAi] = useState(false);
+
+    const initialContent = useRef(existingDoc?.content || '');
+    const docEditorRef = useRef(null);
+    const fileInputRef = useRef(null); 
+
+    // --- FORM LOGIC ---
+    const addQuestion = () => setFormQuestions([...formQuestions, { id: Date.now(), text: '', type: 'text' }]);
+    const updateQuestion = (id, field, val) => setFormQuestions(prev => prev.map(q => q.id === id ? { ...q, [field]: val } : q));
+    const deleteQuestion = (id) => setFormQuestions(prev => prev.filter(q => q.id !== id));
+
+    // --- SHEET LOGIC ---
+    const addSheetRow = () => setSheetRows([...sheetRows, new Array(sheetCols.length).fill('')]);
+    const addSheetCol = () => {
+        setSheetCols([...sheetCols, `Column ${sheetCols.length + 1}`]);
+        setSheetRows(sheetRows.map(row => [...row, '']));
+    };
+    
+    // 🟢 FIXED: Safely copy the row so React registers your typing!
+    const updateSheetCell = (rIdx, cIdx, val) => {
+        const newRows = [...sheetRows];
+        newRows[rIdx] = [...newRows[rIdx]]; 
+        newRows[rIdx][cIdx] = val;
+        setSheetRows(newRows);
+    };
+    
+    const updateSheetCol = (cIdx, val) => {
+        const newCols = [...sheetCols];
+        newCols[cIdx] = val;
+        setSheetCols(newCols);
+    };
+    const deleteSheetRow = (rIdx) => setSheetRows(sheetRows.filter((_, i) => i !== rIdx));
+    const deleteSheetCol = (cIdx) => {
+        setSheetCols(sheetCols.filter((_, i) => i !== cIdx));
+        setSheetRows(sheetRows.map(row => row.filter((_, i) => i !== cIdx)));
     };
 
-    const handleEdit = (doc) => {
-        setSelectedDoc(doc);
-        setIsModalOpen(true);
+    // --- RICH TEXT FORMATTING ---
+    const execCmd = (command, value = null) => {
+        document.execCommand(command, false, value);
+        if (docEditorRef.current) docEditorRef.current.focus();
     };
 
-    const handleSaveDoc = (payload) => {
-        if (selectedDoc) {
-            onUpdate(selectedDoc.id, payload);
-        } else {
-            onAdd({ 
-                ...payload, 
-                id: Date.now().toString(), 
-                createdAt: new Date().toISOString() 
-            });
+    // --- IMAGE UPLOAD & PASTE LOGIC ---
+    const insertImageBase64 = (file) => {
+        if (!file || !file.type.startsWith('image/')) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            if (docEditorRef.current) {
+                docEditorRef.current.focus();
+                const imgHtml = `<img src="${e.target.result}" style="max-width: 100%; height: auto; border-radius: 8px; margin: 10px 0;" />`;
+                document.execCommand('insertHTML', false, imgHtml + '<br/>');
+                initialContent.current = docEditorRef.current.innerHTML;
+            }
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const handleImageUpload = (e) => {
+        const file = e.target.files[0];
+        insertImageBase64(file);
+        e.target.value = null; 
+    };
+
+    const handlePaste = (e) => {
+        const clipboardData = e.clipboardData || window.clipboardData;
+        if (!clipboardData) return;
+
+        const items = clipboardData.items;
+        for (let i = 0; i < items.length; i++) {
+            if (items[i].type.indexOf('image') !== -1) {
+                e.preventDefault(); 
+                const file = items[i].getAsFile();
+                insertImageBase64(file);
+                return;
+            }
         }
-        setIsModalOpen(false);
-        setSelectedDoc(null);
     };
 
-    // --- HELPER: TYPE RENDERERS ---
-    const getTypeConfig = (type) => {
-        switch (type) {
-            case 'DOC':
-                return { icon: FileText, color: 'text-blue-600', bg: 'bg-blue-100', label: 'Document' };
-            case 'SHEET':
-                return { icon: Table, color: 'text-green-600', bg: 'bg-green-100', label: 'Spreadsheet' };
-            case 'FORM':
-                return { icon: FileQuestion, color: 'text-purple-600', bg: 'bg-purple-100', label: 'Form' };
-            default:
-                return { icon: FileText, color: 'text-gray-600', bg: 'bg-gray-100', label: 'Unknown' };
+    // --- EXPORT TO DOC/WORD LOGIC ---
+    const handleExportDoc = () => {
+        const content = docEditorRef.current?.innerHTML || initialContent.current;
+        if (!content) return;
+
+        const header = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+        <head><meta charset='utf-8'><title>${title || 'Exported Document'}</title></head><body>`;
+        const footer = "</body></html>";
+        
+        const html = header + content + footer;
+        const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
+        const url = URL.createObjectURL(blob);
+        
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${title || 'Untitled_Document'}.doc`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    // --- GEMINI AI GENERATOR ---
+    const handleGenerateAi = async () => {
+        if (!aiPrompt.trim()) return;
+        setIsGeneratingAi(true);
+        
+        try {
+            const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+            if (!apiKey) {
+                alert("Missing Gemini API Key in .env file.");
+                setIsGeneratingAi(false);
+                return;
+            }
+
+            const promptText = `You are a professional copywriter and document assistant. Generate content based on the following request: "${aiPrompt}". 
+            Format your response STRICTLY as valid HTML (using <p>, <br>, <b>, <i>, <ul>, <li>, <h3> where appropriate) so it can be inserted directly into a rich text editor. 
+            DO NOT wrap your response in markdown code blocks like \`\`\`html.`;
+
+            const modelsToTry = ['gemini-2.5-flash', 'gemini-2.0-flash'];
+            let responseData = null;
+            let errorMessage = "";
+
+            for (const model of modelsToTry) {
+                try {
+                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] })
+                    });
+
+                    if (response.ok) {
+                        responseData = await response.json();
+                        break; 
+                    } else {
+                        const errorData = await response.json();
+                        errorMessage = errorData?.error?.message || `HTTP Error ${response.status}`;
+                    }
+                } catch (networkError) {
+                    throw new Error("Your browser blocked the connection. Please disable AdBlockers or VPNs.");
+                }
+            }
+
+            if (!responseData) throw new Error(`All models failed. Last Google error: ${errorMessage}`);
+            
+            if (responseData.candidates && responseData.candidates.length > 0) {
+                const candidate = responseData.candidates[0];
+                if (candidate.finishReason && candidate.finishReason !== 'STOP') throw new Error(`Generation stopped early. Reason: ${candidate.finishReason}`);
+
+                if (candidate.content && candidate.content.parts && candidate.content.parts[0].text) {
+                    let generatedHtml = candidate.content.parts[0].text;
+                    generatedHtml = generatedHtml.replace(/^```html/i, '').replace(/```$/i, '').trim();
+
+                    if (docEditorRef.current) {
+                        docEditorRef.current.focus();
+                        const selection = window.getSelection();
+                        const range = document.createRange();
+                        range.selectNodeContents(docEditorRef.current);
+                        range.collapse(false); 
+                        
+                        selection.removeAllRanges();
+                        selection.addRange(range);
+
+                        const currentHtml = docEditorRef.current.innerHTML.trim();
+                        const spacing = (currentHtml && currentHtml !== '<br>') ? '<br/><br/>' : '';
+                        
+                        document.execCommand('insertHTML', false, spacing + generatedHtml);
+                    }
+                    setAiPrompt('');
+                    setShowAiBar(false);
+                } else { throw new Error("Response is missing text content."); }
+            } else { throw new Error("No candidates returned from Gemini."); }
+        } catch (error) {
+            alert(`AI Error: ${error.message}`);
+        } finally { setIsGeneratingAi(false); }
+    };
+
+   // --- HANDLE SAVE ---
+    const handleSave = () => {
+        // 1. Auto-fill title
+        const finalTitle = title.trim() || `Untitled ${type === 'SHEET' ? 'Sheet' : type === 'FORM' ? 'Form' : 'Document'}`; 
+        
+        // 2. Build the base payload
+        const payload = {
+            title: finalTitle, 
+            type: type, 
+            linkedTaskId: linkedTaskId
+        };
+
+        // 3. STRICT PAYLOAD ISOLATION: Only send the exact data the parent expects for each type!
+        if (type === 'DOC') {
+            payload.content = docEditorRef.current?.innerHTML || initialContent.current || '';
+        } 
+        else if (type === 'SHEET') {
+            payload.sheetData = { 
+                columns: sheetCols, 
+                tableData: sheetRows,
+                colWidths: existingDoc?.sheetData?.colWidths || new Array(sheetCols.length).fill(150)
+            };
+        } 
+        else if (type === 'FORM') {
+            payload.formQuestions = formQuestions;
         }
+
+        onSave(payload);
     };
 
     return (
-        <div className="flex flex-col h-full bg-[#f8fafc] font-sans">
-            
-            {/* --- HEADER --- */}
-            <header className="px-8 py-6 border-b border-gray-100 bg-white/80 backdrop-blur-xl shadow-sm z-20 flex flex-col md:flex-row md:justify-between md:items-center gap-4 sticky top-0">
-                <div className="flex items-center gap-4">
-                    <div className="p-3 bg-gradient-to-br from-indigo-500 to-blue-600 text-white rounded-2xl shadow-inner">
-                        <FolderOpen size={24} />
-                    </div>
-                    <div>
-                        <h2 className="text-2xl font-black text-gray-900 tracking-tight">Workspace</h2>
-                        <p className="text-sm text-gray-500 font-medium mt-0.5">Manage your documents, sheets, and forms.</p>
-                    </div>
-                </div>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[80]" onClick={onClose}>
+            <div className="bg-white w-full max-w-4xl h-[85vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
                 
-                <div className="flex items-center gap-4">
-                    {/* Search Bar */}
-                    <div className="relative group">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-indigo-500 transition-colors" size={16} />
-                        <input 
-                            type="text" 
-                            placeholder="Search files..." 
-                            className="pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium outline-none focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all w-64"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
-                    </div>
-                    
-                    {/* Create New Button */}
-                    <button 
-                        onClick={() => handleCreateNew('DOC')} 
-                        className="bg-gray-900 hover:bg-black text-white px-6 py-2.5 rounded-xl font-bold shadow-lg shadow-gray-900/20 flex items-center gap-2 transition-all transform hover:-translate-y-0.5 hover:shadow-xl"
-                    >
-                        <Plus size={18} /> New File
-                    </button>
-                </div>
-            </header>
-
-            {/* --- BODY --- */}
-            <div className="flex-1 overflow-auto p-8 custom-scrollbar">
-                
-                {/* Filters */}
-                <div className="flex gap-2 mb-8 border-b border-gray-200 pb-4 overflow-x-auto custom-scrollbar">
-                    {['ALL', 'DOC', 'SHEET', 'FORM'].map(type => (
-                        <button 
-                            key={type} 
-                            onClick={() => setFilterType(type)}
-                            className={`px-6 py-2 rounded-lg font-bold text-sm transition-all whitespace-nowrap ${filterType === type ? 'bg-indigo-50 text-indigo-700 shadow-sm border border-indigo-100' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800'}`}
-                        >
-                            {type === 'ALL' ? 'All Files' : type === 'DOC' ? 'Documents' : type === 'SHEET' ? 'Spreadsheets' : 'Forms'}
-                        </button>
-                    ))}
-                </div>
-
-                {/* Grid */}
-                {filteredDocs.length > 0 ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                        {filteredDocs.map(doc => {
-                            const { icon: TypeIcon, color, bg, label } = getTypeConfig(doc.type);
-                            
-                            return (
-                                <div key={doc.id} className="bg-white rounded-2xl p-6 border border-gray-100 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgba(0,0,0,0.08)] hover:-translate-y-1 transition-all duration-300 group flex flex-col cursor-pointer" onClick={() => handleEdit(doc)}>
-                                    
-                                    <div className="flex justify-between items-start mb-4">
-                                        <div className={`p-3 rounded-xl ${bg} ${color}`}>
-                                            <TypeIcon size={24} />
-                                        </div>
-                                        
-                                        {/* Actions (Hidden until hover) */}
-                                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button onClick={(e) => { e.stopPropagation(); onDelete(doc.id); }} className="p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500 rounded-md transition" title="Delete">
-                                                <Trash2 size={16} />
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    <h3 className="font-bold text-gray-900 text-lg mb-1 truncate" title={doc.title}>
-                                        {doc.title || 'Untitled'}
-                                    </h3>
-                                    
-                                    <div className="flex items-center gap-2 text-xs font-bold text-gray-400 mb-6 uppercase tracking-widest">
-                                        <span className={color}>{label}</span>
-                                    </div>
-
-                                    <div className="mt-auto pt-4 border-t border-gray-50 flex items-center justify-between text-xs text-gray-400 font-medium">
-                                        <div className="flex items-center gap-1.5">
-                                            <Clock size={14} />
-                                            {doc.createdAt ? new Date(doc.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Just now'}
-                                        </div>
-                                        
-                                        {doc.linkedTaskId && (
-                                            <span className="bg-gray-100 px-2 py-1 rounded-md text-gray-500 truncate max-w-[100px]" title="Linked to task">
-                                                Linked
-                                            </span>
-                                        )}
+                {/* HEADER */}
+                <div className="px-6 py-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center shrink-0">
+                    <div className="flex items-center gap-4 flex-1">
+                        <div className="relative group">
+                            <div className={`p-2 rounded-lg cursor-pointer transition ${type === 'DOC' ? 'bg-blue-100 text-blue-600' : type === 'FORM' ? 'bg-purple-100 text-purple-600' : 'bg-green-100 text-green-600'}`}>
+                                {type === 'DOC' && <FileText size={24}/>}
+                                {type === 'FORM' && <FileQuestion size={24}/>}
+                                {type === 'SHEET' && <Table size={24}/>}
+                            </div>
+                            {!existingDoc && (
+                                <div className="absolute top-full left-0 pt-2 hidden group-hover:block w-40 z-50">
+                                    <div className="bg-white shadow-xl border border-gray-100 rounded-xl p-2">
+                                        <button onClick={() => setType('DOC')} className="flex items-center gap-2 p-2 hover:bg-gray-50 w-full text-left rounded-lg text-xs font-bold text-gray-600"><FileText size={14} className="text-blue-500"/> Document</button>
+                                        <button onClick={() => setType('SHEET')} className="flex items-center gap-2 p-2 hover:bg-gray-50 w-full text-left rounded-lg text-xs font-bold text-gray-600"><Table size={14} className="text-green-500"/> Sheet</button>
+                                        <button onClick={() => setType('FORM')} className="flex items-center gap-2 p-2 hover:bg-gray-50 w-full text-left rounded-lg text-xs font-bold text-gray-600"><FileQuestion size={14} className="text-purple-500"/> Form</button>
                                     </div>
                                 </div>
-                            );
-                        })}
-                    </div>
-                ) : (
-                    <div className="flex flex-col items-center justify-center py-20 px-4 border-2 border-dashed border-gray-200 rounded-3xl bg-gray-50/50">
-                        <div className="bg-white p-4 rounded-full shadow-sm mb-4">
-                            <FolderOpen size={48} className="text-gray-300" />
+                            )}
                         </div>
-                        <h3 className="text-lg font-black text-gray-800 mb-1">No files found</h3>
-                        <p className="text-sm text-gray-500 text-center max-w-md mb-6">
-                            {searchTerm ? `We couldn't find any ${filterType !== 'ALL' ? filterType.toLowerCase() : ''} files matching "${searchTerm}".` : "You haven't created any files yet. Get started by creating a new document, spreadsheet, or form."}
-                        </p>
-                        {!searchTerm && (
-                            <button onClick={() => handleCreateNew('DOC')} className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl font-bold transition-all shadow-md flex items-center gap-2">
-                                <Plus size={18} /> Create Your First File
-                            </button>
-                        )}
+                        <input type="text" placeholder="Untitled Document" className="text-xl font-bold bg-transparent outline-none w-full placeholder:text-gray-400" value={title} onChange={(e) => setTitle(e.target.value)} autoFocus={!existingDoc} />
                     </div>
-                )}
-            </div>
 
-            {/* --- MODAL INJECTION --- */}
-            {(isModalOpen || selectedDoc) && (
-                <DocumentEditorModal 
-                    existingDoc={selectedDoc}
-                    initialType={initialType}
-                    tasks={tasks}
-                    onClose={() => {
-                        setIsModalOpen(false);
-                        setSelectedDoc(null);
-                    }}
-                    onSave={handleSaveDoc}
-                />
-            )}
+                    <div className="flex items-center gap-3">
+                        <div className="relative">
+                            <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14}/>
+                            <select value={linkedTaskId} onChange={(e) => setLinkedTaskId(e.target.value)} className="pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-xs font-medium outline-none focus:border-blue-500 w-40 truncate">
+                                <option value="">Link to Task (Optional)</option>
+                                {tasks?.map(t => <option key={t.id} value={t.id}>{t.title}</option>)}
+                            </select>
+                        </div>
+                        <button onClick={handleSave} className="flex items-center gap-2 px-6 py-2 bg-gray-900 hover:bg-black text-white rounded-xl text-sm font-bold transition shadow-lg"><Save size={16}/> Save</button>
+                        <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition"><X size={20}/></button>
+                    </div>
+                </div>
+
+                {/* BODY CONTENT */}
+                <div className="flex-1 flex flex-col overflow-hidden bg-white">
+                    {/* --- DOCUMENT EDITOR --- */}
+                    {type === 'DOC' && (
+                        <>
+                            {/* TOOLBAR */}
+                            <div className="px-6 py-2 border-b border-gray-100 bg-white flex items-center justify-between shrink-0">
+                                <div className="flex items-center gap-1">
+                                    <button onMouseDown={(e) => {e.preventDefault(); execCmd('bold');}} className="p-1.5 hover:bg-gray-100 rounded text-gray-600 transition" title="Bold"><Bold size={16}/></button>
+                                    <button onMouseDown={(e) => {e.preventDefault(); execCmd('italic');}} className="p-1.5 hover:bg-gray-100 rounded text-gray-600 transition" title="Italic"><Italic size={16}/></button>
+                                    <button onMouseDown={(e) => {e.preventDefault(); execCmd('underline');}} className="p-1.5 hover:bg-gray-100 rounded text-gray-600 transition" title="Underline"><Underline size={16}/></button>
+                                    
+                                    <div className="h-4 w-px bg-gray-200 mx-2"></div>
+                                    
+                                    <button onMouseDown={(e) => {e.preventDefault(); execCmd('justifyLeft');}} className="p-1.5 hover:bg-gray-100 rounded text-gray-600 transition" title="Align Left"><AlignLeft size={16}/></button>
+                                    <button onMouseDown={(e) => {e.preventDefault(); execCmd('justifyCenter');}} className="p-1.5 hover:bg-gray-100 rounded text-gray-600 transition" title="Align Center"><AlignCenter size={16}/></button>
+                                    <button onMouseDown={(e) => {e.preventDefault(); execCmd('justifyRight');}} className="p-1.5 hover:bg-gray-100 rounded text-gray-600 transition" title="Align Right"><AlignRight size={16}/></button>
+                                    
+                                    <div className="h-4 w-px bg-gray-200 mx-2"></div>
+
+                                    {/* IMAGE UPLOAD & EXPORT */}
+                                    <button onClick={() => fileInputRef.current.click()} className="p-1.5 hover:bg-gray-100 rounded text-blue-600 transition" title="Insert Image">
+                                        <ImageIcon size={16}/>
+                                        <input type="file" accept="image/*" ref={fileInputRef} onChange={handleImageUpload} className="hidden" />
+                                    </button>
+                                    <button onClick={handleExportDoc} className="p-1.5 hover:bg-gray-100 rounded text-green-600 transition" title="Export to Doc">
+                                        <Download size={16}/>
+                                    </button>
+                                    
+                                    <div className="h-4 w-px bg-gray-200 mx-2"></div>
+                                    
+                                    <div className="flex items-center gap-1 group relative">
+                                        <Type size={14} className="text-gray-400 ml-1"/>
+                                        <select onChange={(e) => execCmd('fontSize', e.target.value)} className="text-xs bg-transparent outline-none cursor-pointer p-1 text-gray-600 font-medium" defaultValue="3">
+                                            <option value="1">Small</option>
+                                            <option value="3">Normal</option>
+                                            <option value="5">Large</option>
+                                            <option value="7">Huge</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <button onClick={() => setShowAiBar(!showAiBar)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${showAiBar ? 'bg-indigo-100 text-indigo-700' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'}`}>
+                                    <Sparkles size={14} /> AI Assist
+                                </button>
+                            </div>
+
+                            {/* AI PROMPT */}
+                            {showAiBar && (
+                                <div className="px-6 py-3 bg-indigo-50/50 border-b border-indigo-100 flex gap-2 items-center shrink-0 animate-in slide-in-from-top-1">
+                                    <Sparkles size={18} className="text-indigo-400 shrink-0"/>
+                                    <input type="text" placeholder="Tell Gemini what to write..." className="flex-1 bg-white border border-indigo-200 rounded-lg px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500/30 transition-all" value={aiPrompt} onChange={(e) => setAiPrompt(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleGenerateAi()} disabled={isGeneratingAi} autoFocus />
+                                    <button onClick={handleGenerateAi} disabled={!aiPrompt.trim() || isGeneratingAi} className={`px-5 py-2 rounded-lg text-xs font-bold text-white transition-all shadow-sm flex items-center gap-2 ${isGeneratingAi || !aiPrompt.trim() ? 'bg-indigo-300 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 active:scale-95'}`}>
+                                        {isGeneratingAi ? <><Sparkles size={14} className="animate-spin"/> Generating...</> : "Generate"}
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* EDITABLE AREA WITH PASTE LISTENER */}
+                            <div className="flex-1 overflow-y-auto p-8 cursor-text bg-gray-50/30" onClick={() => docEditorRef.current?.focus()}>
+                                <div 
+                                    ref={docEditorRef}
+                                    contentEditable
+                                    onPaste={handlePaste} 
+                                    onInput={(e) => { initialContent.current = e.target.innerHTML; }}
+                                    className="outline-none text-gray-800 leading-relaxed font-serif text-lg min-h-full max-w-4xl mx-auto bg-white p-12 shadow-sm border border-gray-100 empty:before:content-[attr(placeholder)] empty:before:text-gray-300"
+                                    placeholder="Start typing or paste an image here..."
+                                    dangerouslySetInnerHTML={{ __html: initialContent.current }}
+                                />
+                            </div>
+                        </>
+                    )}
+
+                    {/* --- 🟢 NEW: SPREADSHEET EDITOR --- */}
+                    {type === 'SHEET' && (
+                        <div className="flex-1 overflow-y-auto p-8 bg-gray-50/50 custom-scrollbar">
+                            <div className="max-w-5xl mx-auto space-y-6">
+                                <div className="bg-green-50 border-t-4 border-green-500 p-6 rounded-lg shadow-sm flex justify-between items-center">
+                                    <div>
+                                        <h2 className="text-2xl font-bold text-gray-800 mb-2">{title || "Untitled Sheet"}</h2>
+                                        <p className="text-sm text-gray-500">Edit columns and rows to structure your data.</p>
+                                    </div>
+                                    <div className="flex gap-3">
+                                        <button onClick={addSheetCol} className="flex items-center gap-1.5 px-4 py-2 bg-white border border-green-200 text-green-700 rounded-lg text-sm font-bold hover:bg-green-100 transition shadow-sm">
+                                            <Plus size={16}/> Add Column
+                                        </button>
+                                        <button onClick={addSheetRow} className="flex items-center gap-1.5 px-4 py-2 bg-white border border-green-200 text-green-700 rounded-lg text-sm font-bold hover:bg-green-100 transition shadow-sm">
+                                            <Plus size={16}/> Add Row
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto">
+                                    <table className="w-full text-sm text-left whitespace-nowrap">
+                                        <thead className="bg-gray-50 border-b border-gray-200">
+                                            <tr>
+                                                <th className="w-10 px-3 py-3 text-center text-gray-400 font-medium">#</th>
+                                                {sheetCols.map((col, cIdx) => (
+                                                    <th key={cIdx} className="px-4 py-3 group relative min-w-[150px]">
+                                                        <input 
+                                                            type="text" 
+                                                            value={col} 
+                                                            onChange={(e) => updateSheetCol(cIdx, e.target.value)} 
+                                                            className="bg-transparent font-bold text-gray-700 outline-none w-full border-b border-transparent focus:border-green-400 transition-colors" 
+                                                            placeholder={`Column ${cIdx + 1}`}
+                                                        />
+                                                        {sheetCols.length > 1 && (
+                                                            <button onClick={() => deleteSheetCol(cIdx)} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition bg-gray-50 pl-2">
+                                                                <Trash2 size={14}/>
+                                                            </button>
+                                                        )}
+                                                    </th>
+                                                ))}
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100">
+                                            {sheetRows.map((row, rIdx) => (
+                                                <tr key={rIdx} className="hover:bg-green-50/30 transition group">
+                                                    <td className="px-3 py-2 text-center border-r border-gray-100 relative">
+                                                        <span className="text-gray-400 text-xs group-hover:opacity-0 transition">{rIdx + 1}</span>
+                                                        {sheetRows.length > 1 && (
+                                                            <button onClick={() => deleteSheetRow(rIdx)} className="absolute inset-0 flex items-center justify-center text-red-400 opacity-0 group-hover:opacity-100 hover:text-red-600 hover:bg-red-50 transition w-full h-full">
+                                                                <Trash2 size={14}/>
+                                                            </button>
+                                                        )}
+                                                    </td>
+                                                    {row.map((cell, cIdx) => (
+                                                        <td key={cIdx} className="px-4 py-2 border-r border-gray-50 last:border-r-0">
+                                                            <input 
+                                                                type="text" 
+                                                                value={cell} 
+                                                                onChange={(e) => updateSheetCell(rIdx, cIdx, e.target.value)} 
+                                                                className="w-full bg-transparent outline-none focus:bg-white focus:ring-2 focus:ring-green-100 rounded px-2 py-1.5 transition" 
+                                                                placeholder="-" 
+                                                            />
+                                                        </td>
+                                                    ))}
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* --- FORM EDITOR --- */}
+                    {type === 'FORM' && (
+                        <div className="flex-1 overflow-y-auto p-8 bg-gray-50/50">
+                            <div className="max-w-2xl mx-auto space-y-6">
+                                <div className="bg-purple-50 border-t-4 border-purple-500 p-6 rounded-lg shadow-sm">
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-2">{title || "Untitled Form"}</h2>
+                                    <p className="text-sm text-gray-500">Add questions below.</p>
+                                </div>
+
+                                {formQuestions.map((q, idx) => (
+                                    <div key={q.id} className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm relative group">
+                                        <div className="flex gap-4 mb-4">
+                                            <input type="text" className="flex-1 bg-gray-50 border-b-2 border-gray-200 focus:border-purple-500 outline-none px-3 py-2 font-medium" placeholder="Question Text" value={q.text} onChange={(e) => updateQuestion(q.id, 'text', e.target.value)} />
+                                            <select className="bg-gray-50 border border-gray-200 rounded px-3 py-2 text-sm outline-none" value={q.type} onChange={(e) => updateQuestion(q.id, 'type', e.target.value)}>
+                                                <option value="text">Short Answer</option>
+                                                <option value="paragraph">Paragraph</option>
+                                                <option value="radio">Multiple Choice</option>
+                                                <option value="checkbox">Checkboxes</option>
+                                            </select>
+                                        </div>
+                                        <div className="p-4 bg-gray-50 rounded border border-dashed border-gray-300 text-xs text-gray-400 text-center">User input area preview ({q.type})</div>
+                                        <button onClick={() => deleteQuestion(q.id)} className="absolute top-4 right-4 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition"><Trash2 size={18} /></button>
+                                    </div>
+                                ))}
+
+                                <button onClick={addQuestion} className="w-full py-4 border-2 border-dashed border-gray-300 rounded-xl text-gray-400 font-bold hover:border-purple-400 hover:text-purple-600 hover:bg-purple-50 transition flex items-center justify-center gap-2"><Plus size={20}/> Add Question</button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
         </div>
     );
 };
 
-export default DocumentView;
+export default DocumentEditorModal;

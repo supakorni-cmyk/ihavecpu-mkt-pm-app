@@ -31,6 +31,7 @@ const DocumentView = ({ documents, tasks, onAdd, onUpdate, onDelete }) => {
 
   const getIcon = (type) => {
       switch(type) {
+          // 🟢 Ensure SHEET uses the Table icon
           case 'SHEET': return <Table className="text-green-600" size={24} />;
           case 'FORM': return <FileQuestion className="text-purple-600" size={24} />;
           case 'FOLDER': return <Folder className="text-yellow-500" size={24} fill="currentColor" />;
@@ -40,6 +41,7 @@ const DocumentView = ({ documents, tasks, onAdd, onUpdate, onDelete }) => {
 
   const getTypeLabel = (type) => {
       switch(type) {
+          // 🟢 Ensure SHEET shows the correct label
           case 'SHEET': return 'Spreadsheet';
           case 'FORM': return 'Form';
           case 'FOLDER': return 'Folder';
@@ -152,7 +154,6 @@ const DocumentView = ({ documents, tasks, onAdd, onUpdate, onDelete }) => {
                     <Upload size={16} /> Upload
                 </button>
 
-                {/* 🟢 NEW FOLDER BUTTON */}
                 <button 
                     onClick={handleCreateFolder}
                     className="bg-yellow-50 hover:bg-yellow-100 text-yellow-700 px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition border border-yellow-200"
@@ -210,24 +211,22 @@ const DocumentView = ({ documents, tasks, onAdd, onUpdate, onDelete }) => {
                 <div 
                     key={doc.id} 
                     onClick={() => {
-                        // 🟢 CLICK LOGIC: Folders navigate, files open the editor
                         if (isFolder) {
                             setCurrentFolder(doc.id);
-                            setSearch(''); // Clear search when navigating
+                            setSearch(''); 
                         } else {
                             setSelectedDoc(doc);
                         }
                     }}
-                    className={`bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition cursor-pointer group flex flex-col h-48 animate-in fade-in zoom-in-95 duration-300 ${isFolder ? 'hover:border-yellow-300' : 'hover:border-blue-200'}`}
+                    className={`bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition cursor-pointer group flex flex-col h-48 animate-in fade-in zoom-in-95 duration-300 ${isFolder ? 'hover:border-yellow-300' : doc.type === 'SHEET' ? 'hover:border-green-300' : doc.type === 'FORM' ? 'hover:border-purple-300' : 'hover:border-blue-200'}`}
                 >
                     <div className="flex justify-between items-start mb-3">
-                        <div className={`p-2 rounded-lg transition ${isFolder ? 'bg-yellow-50 group-hover:bg-yellow-100' : 'bg-gray-50 group-hover:bg-blue-50'}`}>
+                        <div className={`p-2 rounded-lg transition ${isFolder ? 'bg-yellow-50 group-hover:bg-yellow-100' : doc.type === 'SHEET' ? 'bg-green-50 group-hover:bg-green-100' : doc.type === 'FORM' ? 'bg-purple-50 group-hover:bg-purple-100' : 'bg-blue-50 group-hover:bg-blue-100'}`}>
                             {getIcon(doc.type)}
                         </div>
                         <button 
                             onClick={(e) => { 
                                 e.stopPropagation(); 
-                                // Optional: You might want to prevent deleting a folder if it has contents inside it later
                                 onDelete(doc.id); 
                             }}
                             className="text-gray-300 hover:text-red-500 transition opacity-0 group-hover:opacity-100"
@@ -252,7 +251,7 @@ const DocumentView = ({ documents, tasks, onAdd, onUpdate, onDelete }) => {
                         )}
                         <div className="flex items-center gap-1 text-[10px] text-gray-400">
                             <Calendar size={10} />
-                            {new Date(doc.createdAt).toLocaleDateString()}
+                            {doc.createdAt ? new Date(doc.createdAt).toLocaleDateString() : 'Just now'}
                         </div>
                     </div>
                 </div>
@@ -289,8 +288,7 @@ const DocumentView = ({ documents, tasks, onAdd, onUpdate, onDelete }) => {
                 if (selectedDoc) {
                     onUpdate(selectedDoc.id, data);
                 } else {
-                    // 🟢 Inject the current folder ID when creating a brand new document
-                    onAdd({ ...data, folderId: currentFolder });
+                    onAdd({ ...data, folderId: currentFolder, createdAt: new Date().toISOString() });
                 }
                 setCreateType(null); 
                 setSelectedDoc(null);
