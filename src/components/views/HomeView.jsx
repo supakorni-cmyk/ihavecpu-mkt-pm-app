@@ -77,7 +77,7 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
 
   // --- DATA ENGINE ---
   
-  // 1. Tasks Grouped By Category
+  // 1. Tasks Grouped By Category (CASE INSENSITIVE)
   const activeTasksByCategory = useMemo(() => {
     const grouped = {};
     const activeTasks = tasks.filter(t => {
@@ -86,7 +86,8 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
     });
 
     activeTasks.forEach(t => {
-        const cat = t.tag || 'General';
+        // 🟢 FIXED: Uppercase to group same words ignoring letter cases
+        const cat = (t.tag || 'General').trim().toUpperCase();
         if (!grouped[cat]) grouped[cat] = [];
         grouped[cat].push(t);
     });
@@ -103,11 +104,12 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
     return grouped;
   }, [tasks]);
 
-  // 2. Category Breakdown Aggregator (For Chart)
+  // 2. Category Breakdown Aggregator (CASE INSENSITIVE)
   const categoriesBreakdown = useMemo(() => {
     const breakdown = {};
     tasks.filter(t => t.status !== 'canceled').forEach(t => {
-        const categoryName = t.tag || 'General';
+        // 🟢 FIXED: Uppercase to group same words ignoring letter cases
+        const categoryName = (t.tag || 'General').trim().toUpperCase();
         if (!breakdown[categoryName]) {
             breakdown[categoryName] = { total: 0, todo: 0, onProcess: 0, review: 0, done: 0 };
         }
