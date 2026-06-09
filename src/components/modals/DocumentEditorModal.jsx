@@ -4,17 +4,19 @@ import {
     X, Save, FileText, Table, FileQuestion, Link as LinkIcon, 
     Plus, Trash2, Bold, Italic, Underline, 
     AlignLeft, AlignCenter, AlignRight, Type, Sparkles,
-    Image as ImageIcon, Download // 🟢 Added new icons
+    Image as ImageIcon, Download 
 } from 'lucide-react';
-import RequirementSheetModal from './RequirementModal'; 
 
 const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave }) => {
     const [title, setTitle] = useState(existingDoc?.title || '');
     const [type, setType] = useState(existingDoc?.type || initialType || 'DOC');
     const [linkedTaskId, setLinkedTaskId] = useState(existingDoc?.linkedTaskId || '');
     
-    const [sheetData, setSheetData] = useState(existingDoc?.sheetData || null); 
     const [formQuestions, setFormQuestions] = useState(existingDoc?.formQuestions || []);
+
+    // 🟢 NEW: Native state for the Sheet Editor
+    const [sheetCols, setSheetCols] = useState(existingDoc?.sheetData?.columns || ['Column 1', 'Column 2', 'Column 3']);
+    const [sheetRows, setSheetRows] = useState(existingDoc?.sheetData?.tableData || [['', '', ''], ['', '', ''], ['', '', '']]);
 
     const [showAiBar, setShowAiBar] = useState(false);
     const [aiPrompt, setAiPrompt] = useState('');
@@ -22,12 +24,34 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
 
     const initialContent = useRef(existingDoc?.content || '');
     const docEditorRef = useRef(null);
-    const fileInputRef = useRef(null); // 🟢 Ref for hidden image input
+    const fileInputRef = useRef(null); 
 
     // --- FORM LOGIC ---
     const addQuestion = () => setFormQuestions([...formQuestions, { id: Date.now(), text: '', type: 'text' }]);
     const updateQuestion = (id, field, val) => setFormQuestions(prev => prev.map(q => q.id === id ? { ...q, [field]: val } : q));
     const deleteQuestion = (id) => setFormQuestions(prev => prev.filter(q => q.id !== id));
+
+    // --- SHEET LOGIC ---
+    const addSheetRow = () => setSheetRows([...sheetRows, new Array(sheetCols.length).fill('')]);
+    const addSheetCol = () => {
+        setSheetCols([...sheetCols, `Column ${sheetCols.length + 1}`]);
+        setSheetRows(sheetRows.map(row => [...row, '']));
+    };
+    const updateSheetCell = (rIdx, cIdx, val) => {
+        const newRows = [...sheetRows];
+        newRows[rIdx][cIdx] = val;
+        setSheetRows(newRows);
+    };
+    const updateSheetCol = (cIdx, val) => {
+        const newCols = [...sheetCols];
+        newCols[cIdx] = val;
+        setSheetCols(newCols);
+    };
+    const deleteSheetRow = (rIdx) => setSheetRows(sheetRows.filter((_, i) => i !== rIdx));
+    const deleteSheetCol = (cIdx) => {
+        setSheetCols(sheetCols.filter((_, i) => i !== cIdx));
+        setSheetRows(sheetRows.map(row => row.filter((_, i) => i !== cIdx)));
+    };
 
     // --- RICH TEXT FORMATTING ---
     const execCmd = (command, value = null) => {
@@ -35,14 +59,13 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
         if (docEditorRef.current) docEditorRef.current.focus();
     };
 
-    // --- 🟢 IMAGE UPLOAD & PASTE LOGIC ---
+    // --- IMAGE UPLOAD & PASTE LOGIC ---
     const insertImageBase64 = (file) => {
         if (!file || !file.type.startsWith('image/')) return;
         const reader = new FileReader();
         reader.onload = (e) => {
             if (docEditorRef.current) {
                 docEditorRef.current.focus();
-                // Ensure the image fits nicely in the editor
                 const imgHtml = `<img src="${e.target.result}" style="max-width: 100%; height: auto; border-radius: 8px; margin: 10px 0;" />`;
                 document.execCommand('insertHTML', false, imgHtml + '<br/>');
                 initialContent.current = docEditorRef.current.innerHTML;
@@ -54,7 +77,7 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
     const handleImageUpload = (e) => {
         const file = e.target.files[0];
         insertImageBase64(file);
-        e.target.value = null; // reset input
+        e.target.value = null; 
     };
 
     const handlePaste = (e) => {
@@ -64,7 +87,7 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
         const items = clipboardData.items;
         for (let i = 0; i < items.length; i++) {
             if (items[i].type.indexOf('image') !== -1) {
-                e.preventDefault(); // Stop normal text paste
+                e.preventDefault(); 
                 const file = items[i].getAsFile();
                 insertImageBase64(file);
                 return;
@@ -72,7 +95,7 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
         }
     };
 
-    // --- 🟢 EXPORT TO DOC/WORD LOGIC ---
+    // --- EXPORT TO DOC/WORD LOGIC ---
     const handleExportDoc = () => {
         const content = docEditorRef.current?.innerHTML || initialContent.current;
         if (!content) return;
@@ -124,7 +147,6 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
 
                     if (response.ok) {
                         responseData = await response.json();
-                        console.log(`✅ Success using model: ${model}`);
                         break; 
                     } else {
                         const errorData = await response.json();
@@ -175,28 +197,11 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
         const payload = {
             title, type, linkedTaskId,
             content: type === 'DOC' ? (docEditorRef.current?.innerHTML || initialContent.current) : null,
-            sheetData: type === 'SHEET' ? sheetData : null,
+            sheetData: type === 'SHEET' ? { columns: sheetCols, tableData: sheetRows } : null,
             formQuestions: type === 'FORM' ? formQuestions : null,
         };
         onSave(payload);
     };
-
-    if (type === 'SHEET') {
-        const mockReq = { id: 'temp-sheet', title: title, ...(sheetData || {}) };
-        const mockTask = { requirements: [mockReq] };
-        return (
-            <RequirementSheetModal 
-                task={mockTask} requirement={mockReq} onClose={onClose}
-                onUpdateTask={(updatedTaskWrapper) => {
-                    const updatedReq = updatedTaskWrapper.requirements[0];
-                    onSave({
-                        title: title || updatedReq.title, type: 'SHEET', linkedTaskId,
-                        sheetData: { tableData: updatedReq.tableData, columns: updatedReq.columns, colWidths: updatedReq.colWidths }
-                    });
-                }}
-            />
-        );
-    }
 
     return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[80]" onClick={onClose}>
@@ -212,9 +217,7 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
                                 {type === 'SHEET' && <Table size={24}/>}
                             </div>
                             {!existingDoc && (
-                                /* 🟢 FIXED: Changed mt-2 to pt-2 to create an invisible hover bridge */
                                 <div className="absolute top-full left-0 pt-2 hidden group-hover:block w-40 z-50">
-                                    {/* 🟢 Moved the background, border, and shadow to this inner div */}
                                     <div className="bg-white shadow-xl border border-gray-100 rounded-xl p-2">
                                         <button onClick={() => setType('DOC')} className="flex items-center gap-2 p-2 hover:bg-gray-50 w-full text-left rounded-lg text-xs font-bold text-gray-600"><FileText size={14} className="text-blue-500"/> Document</button>
                                         <button onClick={() => setType('SHEET')} className="flex items-center gap-2 p-2 hover:bg-gray-50 w-full text-left rounded-lg text-xs font-bold text-gray-600"><Table size={14} className="text-green-500"/> Sheet</button>
@@ -231,7 +234,7 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
                             <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14}/>
                             <select value={linkedTaskId} onChange={(e) => setLinkedTaskId(e.target.value)} className="pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-xs font-medium outline-none focus:border-blue-500 w-40 truncate">
                                 <option value="">Link to Task (Optional)</option>
-                                {tasks.map(t => <option key={t.id} value={t.id}>{t.title}</option>)}
+                                {tasks?.map(t => <option key={t.id} value={t.id}>{t.title}</option>)}
                             </select>
                         </div>
                         <button onClick={handleSave} className="flex items-center gap-2 px-6 py-2 bg-gray-900 hover:bg-black text-white rounded-xl text-sm font-bold transition shadow-lg"><Save size={16}/> Save</button>
@@ -241,9 +244,10 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
 
                 {/* BODY CONTENT */}
                 <div className="flex-1 flex flex-col overflow-hidden bg-white">
+                    {/* --- DOCUMENT EDITOR --- */}
                     {type === 'DOC' && (
                         <>
-                            {/* 🟢 TOOLBAR */}
+                            {/* TOOLBAR */}
                             <div className="px-6 py-2 border-b border-gray-100 bg-white flex items-center justify-between shrink-0">
                                 <div className="flex items-center gap-1">
                                     <button onMouseDown={(e) => {e.preventDefault(); execCmd('bold');}} className="p-1.5 hover:bg-gray-100 rounded text-gray-600 transition" title="Bold"><Bold size={16}/></button>
@@ -258,7 +262,7 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
                                     
                                     <div className="h-4 w-px bg-gray-200 mx-2"></div>
 
-                                    {/* 🟢 IMAGE UPLOAD & EXPORT */}
+                                    {/* IMAGE UPLOAD & EXPORT */}
                                     <button onClick={() => fileInputRef.current.click()} className="p-1.5 hover:bg-gray-100 rounded text-blue-600 transition" title="Insert Image">
                                         <ImageIcon size={16}/>
                                         <input type="file" accept="image/*" ref={fileInputRef} onChange={handleImageUpload} className="hidden" />
@@ -296,12 +300,12 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
                                 </div>
                             )}
 
-                            {/* 🟢 EDITABLE AREA WITH PASTE LISTENER */}
+                            {/* EDITABLE AREA WITH PASTE LISTENER */}
                             <div className="flex-1 overflow-y-auto p-8 cursor-text bg-gray-50/30" onClick={() => docEditorRef.current?.focus()}>
                                 <div 
                                     ref={docEditorRef}
                                     contentEditable
-                                    onPaste={handlePaste} // 🟢 Handles Ctrl+V images
+                                    onPaste={handlePaste} 
                                     onInput={(e) => { initialContent.current = e.target.innerHTML; }}
                                     className="outline-none text-gray-800 leading-relaxed font-serif text-lg min-h-full max-w-4xl mx-auto bg-white p-12 shadow-sm border border-gray-100 empty:before:content-[attr(placeholder)] empty:before:text-gray-300"
                                     placeholder="Start typing or paste an image here..."
@@ -309,6 +313,79 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
                                 />
                             </div>
                         </>
+                    )}
+
+                    {/* --- 🟢 NEW: SPREADSHEET EDITOR --- */}
+                    {type === 'SHEET' && (
+                        <div className="flex-1 overflow-y-auto p-8 bg-gray-50/50 custom-scrollbar">
+                            <div className="max-w-5xl mx-auto space-y-6">
+                                <div className="bg-green-50 border-t-4 border-green-500 p-6 rounded-lg shadow-sm flex justify-between items-center">
+                                    <div>
+                                        <h2 className="text-2xl font-bold text-gray-800 mb-2">{title || "Untitled Sheet"}</h2>
+                                        <p className="text-sm text-gray-500">Edit columns and rows to structure your data.</p>
+                                    </div>
+                                    <div className="flex gap-3">
+                                        <button onClick={addSheetCol} className="flex items-center gap-1.5 px-4 py-2 bg-white border border-green-200 text-green-700 rounded-lg text-sm font-bold hover:bg-green-100 transition shadow-sm">
+                                            <Plus size={16}/> Add Column
+                                        </button>
+                                        <button onClick={addSheetRow} className="flex items-center gap-1.5 px-4 py-2 bg-white border border-green-200 text-green-700 rounded-lg text-sm font-bold hover:bg-green-100 transition shadow-sm">
+                                            <Plus size={16}/> Add Row
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto">
+                                    <table className="w-full text-sm text-left whitespace-nowrap">
+                                        <thead className="bg-gray-50 border-b border-gray-200">
+                                            <tr>
+                                                <th className="w-10 px-3 py-3 text-center text-gray-400 font-medium">#</th>
+                                                {sheetCols.map((col, cIdx) => (
+                                                    <th key={cIdx} className="px-4 py-3 group relative min-w-[150px]">
+                                                        <input 
+                                                            type="text" 
+                                                            value={col} 
+                                                            onChange={(e) => updateSheetCol(cIdx, e.target.value)} 
+                                                            className="bg-transparent font-bold text-gray-700 outline-none w-full border-b border-transparent focus:border-green-400 transition-colors" 
+                                                            placeholder={`Column ${cIdx + 1}`}
+                                                        />
+                                                        {sheetCols.length > 1 && (
+                                                            <button onClick={() => deleteSheetCol(cIdx)} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition bg-gray-50 pl-2">
+                                                                <Trash2 size={14}/>
+                                                            </button>
+                                                        )}
+                                                    </th>
+                                                ))}
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100">
+                                            {sheetRows.map((row, rIdx) => (
+                                                <tr key={rIdx} className="hover:bg-green-50/30 transition group">
+                                                    <td className="px-3 py-2 text-center border-r border-gray-100 relative">
+                                                        <span className="text-gray-400 text-xs group-hover:opacity-0 transition">{rIdx + 1}</span>
+                                                        {sheetRows.length > 1 && (
+                                                            <button onClick={() => deleteSheetRow(rIdx)} className="absolute inset-0 flex items-center justify-center text-red-400 opacity-0 group-hover:opacity-100 hover:text-red-600 hover:bg-red-50 transition w-full h-full">
+                                                                <Trash2 size={14}/>
+                                                            </button>
+                                                        )}
+                                                    </td>
+                                                    {row.map((cell, cIdx) => (
+                                                        <td key={cIdx} className="px-4 py-2 border-r border-gray-50 last:border-r-0">
+                                                            <input 
+                                                                type="text" 
+                                                                value={cell} 
+                                                                onChange={(e) => updateSheetCell(rIdx, cIdx, e.target.value)} 
+                                                                className="w-full bg-transparent outline-none focus:bg-white focus:ring-2 focus:ring-green-100 rounded px-2 py-1.5 transition" 
+                                                                placeholder="-" 
+                                                            />
+                                                        </td>
+                                                    ))}
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
                     )}
 
                     {/* --- FORM EDITOR --- */}
