@@ -1,18 +1,23 @@
 // src/utils/constants.js
 
 export const TAG_COLORS = { 
-  'Planning': 'bg-pink-100 text-pink-600', 
-  'Project': 'bg-purple-100 text-purple-600', 
-  'Product Review': 'bg-blue-100 text-blue-600', 
-  'Event': 'bg-yellow-100 text-yellow-600', 
-  'Guest Speaker': 'bg-green-100 text-green-600',
-  'Meeting': 'bg-orange-100 text-orange-600' 
+  'OVERVIEW + PLANING': 'bg-pink-100 text-pink-600', 
+  'PROJECT': 'bg-purple-100 text-purple-600', 
+  'REVIEW / IT': 'bg-blue-100 text-blue-600', 
+  'REVIEW / OTHER': 'bg-blue-200 text-blue-700', 
+  'OFFLINE EVENT': 'bg-yellow-100 text-yellow-600', 
+  'GUEST SPEAKER': 'bg-green-100 text-green-600',
+  'MEETING': 'bg-orange-100 text-orange-600',
+  'EXPENSE': 'bg-gray-100 text-gray-600', 
+  'WEBSITE': 'bg-teal-100 text-teal-600',
+  'INFLUENCER': 'bg-indigo-100 text-indigo-600',
+  'ONLINE ADS': 'bg-red-100 text-red-600',
+  'OFFLINE ADS': 'bg-red-200 text-red-700',
 };
 
 export const COLUMNS = [
   { id: 'todo', title: 'To Do', color: 'text-gray-600 bg-gray-100' },
-  { id: 'in_progress', title: 'In Progress', color: 'text-blue-600 bg-blue-100' },
-  { id: 'review', title: 'Review', color: 'text-purple-600 bg-purple-100' },
+  { id: 'on_process', title: 'On Process', color: 'text-blue-600 bg-blue-100' },
   { id: 'done', title: 'Done', color: 'text-green-600 bg-green-100' },
   // --- NEW COLUMN ---
   { id: 'canceled', title: 'Canceled', color: 'text-gray-400 bg-gray-200' } 
