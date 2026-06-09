@@ -13,21 +13,21 @@ import EditTaskModal from '../modals/EditTaskModal';
 // --- SYSTEM DEFAULT AVATARS ---
 const SYSTEM_AVATARS = {
     panarin: '/avatars/bank.jpg',
-  jittikorn: '/avatars/pae.jpg', 
-  supakorn: '/avatars/boom.jpg', 
-  sophisa: '/avatars/yui.jpg', 
-  somruk: '/avatars/somruk.png', 
-  nichapa: '/avatars/mod.jpg'
+    jittikorn: '/avatars/pae.jpg', 
+    supakorn: '/avatars/boom.jpg', 
+    sophisa: '/avatars/yui.jpg', 
+    somruk: '/avatars/somruk.png', 
+    nichapa: '/avatars/mod.jpg'
 };
 
 // --- TEAM CONFIGURATION ---
 const INITIAL_TEAM = [
     { id: 6, name: 'แบงค์กี้', email: 'panarin.b@ihavecpu.com', role: 'Asst.CEO', avatar: SYSTEM_AVATARS.panarin}, 
-  { id: 1, name: 'เป้ ไข่หมุน', email: 'jittikorn.m@ihavecpu.com', role: 'Marketing Manager', avatar: SYSTEM_AVATARS.jittikorn },
-  { id: 2, name: 'SPARKIEZZ', email: 'supakorn.i@ihavecpu.com', role: 'Assistant Manager', avatar: SYSTEM_AVATARS.supakorn },
-  { id: 3, name: 'อียุ้ยคนสวย', email: 'sophisa.p@ihavecpu.com', role: 'Assistant Manager', avatar: SYSTEM_AVATARS.sophisa },
-  { id: 4, name: 'สมรักษ์ คำสิงห์', email: 'somruk.m@ihavecpu.com', role: 'Graphic Head', avatar: SYSTEM_AVATARS.somruk },
-  { id: 5, name: 'มดตะนอยร้อยแรงม้า', email: 'nichapa.w@ihavecpu.com', role: 'Marketing Coordinator', avatar: SYSTEM_AVATARS.nichapa}
+    { id: 1, name: 'เป้ ไข่หมุน', email: 'jittikorn.m@ihavecpu.com', role: 'Marketing Manager', avatar: SYSTEM_AVATARS.jittikorn },
+    { id: 2, name: 'SPARKIEZZ', email: 'supakorn.i@ihavecpu.com', role: 'Assistant Manager', avatar: SYSTEM_AVATARS.supakorn },
+    { id: 3, name: 'อียุ้ยคนสวย', email: 'sophisa.p@ihavecpu.com', role: 'Assistant Manager', avatar: SYSTEM_AVATARS.sophisa },
+    { id: 4, name: 'สมรักษ์ คำสิงห์', email: 'somruk.m@ihavecpu.com', role: 'Graphic Head', avatar: SYSTEM_AVATARS.somruk },
+    { id: 5, name: 'มดตะนอยร้อยแรงม้า', email: 'nichapa.w@ihavecpu.com', role: 'Marketing Coordinator', avatar: SYSTEM_AVATARS.nichapa}
 ];
 
 const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead, clearAllNotifications, users = [], onUpdateTask, onDeleteTask }) => {
@@ -232,13 +232,14 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
         
         <div className="space-y-4">
             {upcomingEvents.length > 0 ? upcomingEvents.slice(0, 5).map(task => {
-                // 🟢 Dynamically pull the theme color from TAG_COLORS based on the event tag
-                const tagTheme = (task.tag && TAG_COLORS[task.tag]) ? TAG_COLORS[task.tag] : 'bg-blue-50 text-blue-600';
+                // 🟢 FIXED: Safely check both task.tags (array) and task.tag (string)
+                const mainTag = (task.tags && task.tags.length > 0) ? task.tags[0] : task.tag;
+                const tagTheme = (mainTag && TAG_COLORS[mainTag]) ? TAG_COLORS[mainTag] : 'bg-blue-50 text-blue-600';
                 
                 return (
                     <div 
                         key={task.id} 
-                        onClick={() => setSelectedTask(task)} 
+                        onClick={() => setSelectedTask(task)}
                         className="flex items-center p-4 hover:bg-gray-50 rounded-xl transition border border-gray-50 hover:border-gray-200 group cursor-pointer"
                     >
                         <div className={`w-14 h-14 rounded-xl flex flex-col items-center justify-center font-bold shrink-0 mr-4 ${tagTheme}`}>

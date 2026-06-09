@@ -373,9 +373,22 @@ const TaskCard = ({ task, index, onClick, onDelete }) => {
       )); 
   };
 
-  // 🟢 HELPER: Determine main task color for the left border
-  const mainTag = (task.tags && task.tags.length > 0) ? task.tags[0] : task.tag;
-  const tagBorder = mainTag && TAG_COLORS[mainTag] ? TAG_COLORS[mainTag].split(' ')[0].replace('bg-', 'border-').replace(/100|50/, '400') : 'border-gray-200';
+  /// 🟢 FIXED: Safe Tailwind color mapping so classes don't get purged
+  const getTagBorder = () => {
+      const mainTag = (task.tags && task.tags.length > 0) ? task.tags[0] : task.tag;
+      const theme = mainTag && TAG_COLORS[mainTag] ? TAG_COLORS[mainTag] : '';
+      
+      if (theme.includes('blue')) return 'border-blue-400 hover:border-r-blue-100 hover:border-y-blue-100';
+      if (theme.includes('purple')) return 'border-purple-400 hover:border-r-purple-100 hover:border-y-purple-100';
+      if (theme.includes('green') || theme.includes('emerald')) return 'border-green-400 hover:border-r-green-100 hover:border-y-green-100';
+      if (theme.includes('red') || theme.includes('rose')) return 'border-red-400 hover:border-r-red-100 hover:border-y-red-100';
+      if (theme.includes('yellow') || theme.includes('amber')) return 'border-yellow-400 hover:border-r-yellow-100 hover:border-y-yellow-100';
+      if (theme.includes('orange')) return 'border-orange-400 hover:border-r-orange-100 hover:border-y-orange-100';
+      if (theme.includes('pink')) return 'border-pink-400 hover:border-r-pink-100 hover:border-y-pink-100';
+      if (theme.includes('indigo')) return 'border-indigo-400 hover:border-r-indigo-100 hover:border-y-indigo-100';
+      
+      return 'border-gray-200 hover:border-r-indigo-100 hover:border-y-indigo-100';
+  };
 
   return (
     <Draggable draggableId={task.id} index={index}>
@@ -386,8 +399,9 @@ const TaskCard = ({ task, index, onClick, onDelete }) => {
                 {...provided.dragHandleProps}
                 style={{ ...provided.draggableProps.style }}
                 onClick={() => onClick(task.id)} 
-                className={`bg-white p-4 rounded-xl border-y border-r border-l-4 ${tagBorder} transition-all group relative cursor-pointer
-                    ${snapshot.isDragging ? 'shadow-2xl rotate-2 ring-2 ring-indigo-500 z-50' : 'shadow-sm border-y-gray-100 border-r-gray-100 hover:shadow-md hover:border-r-indigo-100 hover:border-y-indigo-100'}
+                // 🟢 FIXED: Apply the safe border colors here!
+                className={`bg-white p-4 rounded-xl border-y border-r border-l-4 transition-all group relative cursor-pointer
+                    ${snapshot.isDragging ? 'shadow-2xl rotate-2 ring-2 ring-indigo-500 z-50' : `shadow-sm hover:shadow-md ${getTagBorder()}`}
                 `}
             >
                 <div className="flex justify-between items-start mb-3">

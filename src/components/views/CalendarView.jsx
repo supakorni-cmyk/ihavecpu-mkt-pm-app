@@ -65,10 +65,21 @@ const CalendarView = ({ tasks, onAddTask, onUpdateTask, onDeleteTask }) => {
         });
     };
 
-    // 🟢 HELPER: Get Task Border Color from TAG_COLORS
-    const getTagBorder = (tag) => {
-        if (!tag || !TAG_COLORS[tag]) return 'border-gray-200';
-        return TAG_COLORS[tag].split(' ')[0].replace('bg-', 'border-').replace(/100|50/, '500');
+    /// 🟢 FIXED: Explicit string mapping for Tailwind JIT compiler
+    const getTagBorder = (task) => {
+        const tag = (task.tags && task.tags.length > 0) ? task.tags[0] : task.tag;
+        const theme = tag && TAG_COLORS[tag] ? TAG_COLORS[tag] : '';
+        
+        if (theme.includes('blue')) return 'border-blue-500';
+        if (theme.includes('purple')) return 'border-purple-500';
+        if (theme.includes('green') || theme.includes('emerald')) return 'border-green-500';
+        if (theme.includes('red') || theme.includes('rose')) return 'border-red-500';
+        if (theme.includes('yellow') || theme.includes('amber')) return 'border-yellow-500';
+        if (theme.includes('orange')) return 'border-orange-500';
+        if (theme.includes('pink')) return 'border-pink-500';
+        if (theme.includes('indigo')) return 'border-indigo-500';
+        
+        return 'border-gray-300';
     };
 
     // --- INTERACTION HANDLERS ---
@@ -168,7 +179,7 @@ const CalendarView = ({ tasks, onAddTask, onUpdateTask, onDeleteTask }) => {
                                         <button 
                                             key={task.id} 
                                             onClick={(e) => handleTaskClick(e, task)}
-                                            className={`text-left w-full px-2 py-1 rounded text-[10px] font-bold truncate transition-all border-l-2 shadow-sm hover:shadow-md hover:scale-[1.01] bg-white ${(TAG_COLORS[task.tag] || 'bg-gray-100').split(' ')[0].replace('bg-', 'border-').replace('100', '500')} text-gray-700`}
+                                            className={`text-left w-full px-2 py-1 rounded text-[10px] font-bold truncate transition-all border-l-2 shadow-sm hover:shadow-md hover:scale-[1.01] bg-white ${getTagBorder(task)} text-gray-700`}
                                         >
                                             {task.title}
                                         </button>
@@ -206,7 +217,7 @@ const CalendarView = ({ tasks, onAddTask, onUpdateTask, onDeleteTask }) => {
                                 </div>
                                 <div className="flex-1 p-2 overflow-y-auto space-y-2 custom-scrollbar">
                                     {dayTasks.map(task => (
-                                        <div key={task.id} onClick={(e) => handleTaskClick(e, task)} className={`bg-white border border-gray-200 border-l-4 ${getTagBorder(task.tag)} rounded-lg p-2.5 shadow-sm hover:shadow-md transition-all cursor-pointer group`}>
+                                        <div key={task.id} onClick={(e) => handleTaskClick(e, task)} className={`bg-white border border-gray-200 border-l-4 ${getTagBorder(task)} rounded-lg p-2.5 shadow-sm hover:shadow-md transition-all cursor-pointer group`}>
                                             <h4 className="font-bold text-xs text-gray-800 leading-tight mb-2 line-clamp-2 group-hover:text-blue-600">{task.title}</h4>
                                         </div>
                                     ))}
@@ -232,7 +243,7 @@ const CalendarView = ({ tasks, onAddTask, onUpdateTask, onDeleteTask }) => {
                 </div>
                 <div className="flex-1 overflow-y-auto p-6 space-y-3 bg-gray-50/50">
                     {dayTasks.map(task => (
-                        <div key={task.id} onClick={(e) => handleTaskClick(e, task)} className={`flex items-center bg-white p-4 rounded-xl border border-gray-200 border-l-4 ${getTagBorder(task.tag)} shadow-sm hover:shadow-md transition-all cursor-pointer group`}>
+                        <div key={task.id} onClick={(e) => handleTaskClick(e, task)} className={`flex items-center bg-white p-4 rounded-xl border border-gray-200 border-l-4 ${getTagBorder(task)} shadow-sm hover:shadow-md transition-all cursor-pointer group`}>
                            <div className="w-16 flex flex-col items-center justify-center text-gray-400 border-r border-gray-100 pr-4 mr-4"><Clock size={20} className="mb-1 text-blue-500" /><span className="text-xs font-medium">All Day</span></div>
                            <div className="flex-1"><h4 className="text-lg font-bold text-gray-800 group-hover:text-blue-600 transition-colors">{task.title}</h4></div>
                         </div>
