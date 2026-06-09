@@ -37,11 +37,15 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
         setSheetCols([...sheetCols, `Column ${sheetCols.length + 1}`]);
         setSheetRows(sheetRows.map(row => [...row, '']));
     };
+    
+    // 🟢 FIXED: Safely copy the row so React registers your typing!
     const updateSheetCell = (rIdx, cIdx, val) => {
         const newRows = [...sheetRows];
+        newRows[rIdx] = [...newRows[rIdx]]; 
         newRows[rIdx][cIdx] = val;
         setSheetRows(newRows);
     };
+    
     const updateSheetCol = (cIdx, val) => {
         const newCols = [...sheetCols];
         newCols[cIdx] = val;
@@ -191,25 +195,23 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
         } finally { setIsGeneratingAi(false); }
     };
 
-    // --- HANDLE SAVE ---
+   // --- HANDLE SAVE ---
     const handleSave = () => {
-        // 1. Auto-fill the title if the user leaves it blank so it never blocks the save
         const finalTitle = title.trim() || `Untitled ${type === 'SHEET' ? 'Sheet' : type === 'FORM' ? 'Form' : 'Document'}`; 
-
-        // 2. Auto-generate column widths so the parent component doesn't crash when reading the sheet
         const generatedColWidths = existingDoc?.sheetData?.colWidths || new Array(sheetCols.length).fill(150);
 
         const payload = {
             title: finalTitle, 
             type, 
             linkedTaskId,
-            content: type === 'DOC' ? (docEditorRef.current?.innerHTML || initialContent.current) : null,
+            // 🟢 FIXED: Always pass a string so the parent's file list doesn't crash trying to read a preview!
+            content: type === 'DOC' ? (docEditorRef.current?.innerHTML || initialContent.current || '') : (type === 'SHEET' ? 'Spreadsheet Data' : 'Form Data'),
             sheetData: type === 'SHEET' ? { 
                 columns: sheetCols, 
                 tableData: sheetRows,
                 colWidths: generatedColWidths 
             } : null,
-            formQuestions: type === 'FORM' ? formQuestions : null,
+            formQuestions: type === 'FORM' ? formQuestions : [],
         };
         
         onSave(payload);
