@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { 
-  MoreHorizontal, Plus, Trash2, CheckSquare, Clock, Heart, FileText, X, Copy, MapPin, Search, Filter, XCircle 
+  MoreHorizontal, Plus, Trash2, CheckSquare, Clock, Heart, FileText, X, Copy, MapPin, Search, Filter, XCircle, User
 } from 'lucide-react';
 import { COLUMNS, TAG_COLORS, formatDate } from '../../utils/constants';
 
@@ -265,7 +265,6 @@ const TaskCard = ({ task, index, onClick, onDelete }) => {
   
   const displayDate = task.startTime ? new Date(task.startTime).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute:'2-digit' }) : formatDate(task.deadline);
   
-  // 🟢 NEW: Bulletproof color mapper for the inner Tag Pills
   const getSafeTagStyle = (tagStr) => {
       if (!tagStr) return 'bg-gray-100 text-gray-500';
       const theme = (TAG_COLORS[tagStr] || '').toLowerCase();
@@ -292,7 +291,6 @@ const TaskCard = ({ task, index, onClick, onDelete }) => {
       )); 
   };
 
-  // 🟢 Border color mapper
   const getTagBorder = () => {
       const tag = (task.tags && task.tags.length > 0) ? task.tags[0] : task.tag;
       if (!tag) return 'border-gray-200 hover:border-gray-300';
@@ -302,7 +300,7 @@ const TaskCard = ({ task, index, onClick, onDelete }) => {
 
       if (theme.includes('blue') || name.includes('plan')) return 'border-blue-500 hover:border-blue-300';
       if (theme.includes('purple') || name.includes('project')) return 'border-purple-500 hover:border-purple-300';
-      if (theme.includes('green') || theme.includes('emerald') || name.includes('guest') || name.includes('speaker')) return 'border-emerald-500 hover:border-emerald-300';
+      if (theme.includes('green') || theme.includes('emerald') || name.includes('guest') || name.includes('speaker')) return 'border-green-500 hover:border-green-300';
       if (theme.includes('red') || theme.includes('rose')) return 'border-red-500 hover:border-red-300';
       if (theme.includes('yellow') || theme.includes('amber') || name.includes('meet')) return 'border-yellow-500 hover:border-yellow-300';
       if (theme.includes('orange') || name.includes('event')) return 'border-orange-500 hover:border-orange-300';
@@ -340,6 +338,12 @@ const TaskCard = ({ task, index, onClick, onDelete }) => {
                 
                 <h4 className="text-gray-800 font-semibold text-sm mb-2 leading-relaxed line-clamp-2">{task.title}</h4>
                 
+                {/* 🟢 NEW CARD ELEMENT: TASK LEADER SUB-INDICATOR */}
+                <div className="flex items-center gap-1.5 text-xs font-bold text-gray-500 mb-2">
+                    <User size={12} className="text-gray-400" />
+                    <span>Leader: <span className="text-gray-700">{task.taskLeader || 'Unassigned'}</span></span>
+                </div>
+
                 {task.location && (
                     <div className="flex items-center gap-1.5 text-xs text-indigo-500 mb-3 bg-indigo-50 w-fit px-2 py-1 rounded">
                         <MapPin size={12}/> <span className="truncate max-w-[200px]">{task.location}</span>
@@ -358,7 +362,7 @@ const TaskCard = ({ task, index, onClick, onDelete }) => {
                     </div>
                 )}
                 
-                <div className="flex items-center justify-between pt-3 border-t border-gray-50">
+                <div className="flex items-center justify-between pt-2 border-t border-gray-50">
                     <div className="flex items-center gap-1.5 text-gray-400 text-xs font-medium">
                         <Clock size={12} />
                         <span>{displayDate}</span>

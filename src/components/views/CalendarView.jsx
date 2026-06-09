@@ -1,6 +1,6 @@
 // src/components/views/CalendarView.jsx
 import React, { useState, useMemo } from 'react';
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Clock, Sparkles, X, Plus } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Clock, Sparkles, X, Plus, User } from 'lucide-react';
 import { TAG_COLORS } from '../../utils/constants';
 import { summarizeSchedule } from '../../utils/aiService';
 
@@ -44,7 +44,6 @@ const CalendarView = ({ tasks, onAddTask, onUpdateTask, onDeleteTask }) => {
         });
     };
 
-    // 🟢 BULLETPROOF COLOR MAPPER
     const getTagBorder = (task) => {
         const tag = (task.tags && task.tags.length > 0) ? task.tags[0] : task.tag;
         if (!tag) return 'border-gray-200';
@@ -52,7 +51,6 @@ const CalendarView = ({ tasks, onAddTask, onUpdateTask, onDeleteTask }) => {
         const theme = (TAG_COLORS[tag] || '').toLowerCase();
         const name = tag.toLowerCase();
 
-        // By Tailwind Theme
         if (theme.includes('blue')) return 'border-blue-500';
         if (theme.includes('purple')) return 'border-purple-500';
         if (theme.includes('green') || theme.includes('emerald')) return 'border-green-500';
@@ -62,7 +60,6 @@ const CalendarView = ({ tasks, onAddTask, onUpdateTask, onDeleteTask }) => {
         if (theme.includes('pink')) return 'border-pink-500';
         if (theme.includes('indigo')) return 'border-indigo-500';
 
-        // By Word Fallback
         if (name.includes('plan')) return 'border-blue-500';
         if (name.includes('project')) return 'border-purple-500';
         if (name.includes('review')) return 'border-pink-500';
@@ -123,7 +120,7 @@ const CalendarView = ({ tasks, onAddTask, onUpdateTask, onDeleteTask }) => {
                                 <div className="flex justify-between items-start mb-1"><span className={`w-7 h-7 flex items-center justify-center rounded-full text-sm font-bold ${isToday(currentDayDate) ? 'bg-blue-600 text-white shadow-md' : 'text-gray-700'}`}>{dayNum}</span></div>
                                 <div className="flex-1 flex flex-col gap-1 overflow-hidden">
                                     {dayTasks.map(task => (
-                                        <button key={task.id} onClick={(e) => handleTaskClick(e, task)} className={`text-left w-full px-2 py-1 rounded text-[10px] font-bold truncate transition-all border-l-2 shadow-sm hover:shadow-md hover:scale-[1.01] bg-white text-gray-700 ${getTagBorder(task)}`}>{task.title}</button>
+                                        <button key={task.id} onClick={(e) => handleTaskClick(e, task)} className={`text-left w-full px-2 py-1 rounded text-[10px] font-bold truncate transition-all border-l-2 shadow-sm hover:shadow-md hover:scale-[1.01] bg-white text-gray-700 ${getTagBorder(task)}`} title={`${task.title} (Leader: ${task.taskLeader || 'None'})`}>{task.title}</button>
                                     ))}
                                 </div>
                             </div>
@@ -151,7 +148,9 @@ const CalendarView = ({ tasks, onAddTask, onUpdateTask, onDeleteTask }) => {
                                 <div className="flex-1 p-2 overflow-y-auto space-y-2 custom-scrollbar">
                                     {dayTasks.map(task => (
                                         <div key={task.id} onClick={(e) => handleTaskClick(e, task)} className={`bg-white border-y border-r border-l-4 ${getTagBorder(task)} rounded-lg p-2.5 shadow-sm hover:shadow-md transition-all cursor-pointer group`}>
-                                            <h4 className="font-bold text-xs text-gray-800 leading-tight mb-2 line-clamp-2 group-hover:text-blue-600">{task.title}</h4>
+                                            <h4 className="font-bold text-xs text-gray-800 leading-tight mb-1 line-clamp-2 group-hover:text-blue-600">{task.title}</h4>
+                                            {/* 🟢 NEW SUB-INDICATOR DISPLAY */}
+                                            <p className="text-[9px] text-gray-500 font-bold truncate">👤 {task.taskLeader || 'Unassigned'}</p>
                                         </div>
                                     ))}
                                 </div>
@@ -175,7 +174,14 @@ const CalendarView = ({ tasks, onAddTask, onUpdateTask, onDeleteTask }) => {
                     {dayTasks.map(task => (
                         <div key={task.id} onClick={(e) => handleTaskClick(e, task)} className={`flex items-center bg-white p-4 rounded-xl border-y border-r border-l-4 ${getTagBorder(task)} shadow-sm hover:shadow-md transition-all cursor-pointer group`}>
                            <div className="w-16 flex flex-col items-center justify-center text-gray-400 border-r border-gray-100 pr-4 mr-4"><Clock size={20} className="mb-1 text-blue-500" /><span className="text-xs font-medium">All Day</span></div>
-                           <div className="flex-1"><h4 className="text-lg font-bold text-gray-800 group-hover:text-blue-600 transition-colors">{task.title}</h4></div>
+                           <div className="flex-1 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                               <h4 className="text-base font-bold text-gray-800 group-hover:text-blue-600 transition-colors">{task.title}</h4>
+                               {/* 🟢 NEW FIELD CONTAINER INFOLINE DISPLAY */}
+                               <div className="flex items-center gap-1.5 text-xs text-gray-500 bg-gray-100 px-2.5 py-1 rounded-md font-semibold self-start sm:self-auto">
+                                   <User size={12}/>
+                                   <span>Leader: {task.taskLeader || 'Unassigned'}</span>
+                               </div>
+                           </div>
                         </div>
                     ))}
                     <button onClick={() => handleDateClick(currentDate)} className="w-full py-4 border-2 border-dashed border-gray-300 rounded-xl text-gray-400 font-bold hover:border-blue-400 hover:text-blue-500 hover:bg-blue-50 transition flex items-center justify-center gap-2"><Plus size={20} /> Add Task for Today</button>
@@ -195,7 +201,7 @@ const CalendarView = ({ tasks, onAddTask, onUpdateTask, onDeleteTask }) => {
             )}
             <div className="flex-1 p-6 overflow-hidden flex flex-col">{viewMode === 'month' && renderMonthView()} {viewMode === 'week' && renderWeekView()} {viewMode === 'day' && renderDayView()}</div>
             {isAddModalOpen && <AddTaskModal tasks={tasks} onClose={() => setIsAddModalOpen(false)} onAdd={onAddTask} initialDate={selectedDateForNewTask} />}
-            {selectedTask && <TaskDetailModal task={selectedTask} tasks={tasks} onClose={() => setSelectedTask(null)} onEdit={() => { setEditingTask(selectedTask); setSelectedTask(null); }} onDelete={() => { if(onDeleteTask) onDeleteTask(selectedTask.id); setSelectedTask(null); }}/>}
+            {selectedTask && <TaskDetailModal task={selectedTask} tasks={tasks} onClose={() => setSelectedTask(null)} onEdit={() => { setEditingTask(selectedTask); setSelectedTask(null); }} onDelete={() => { if(onDeleteTask) onDeleteTask(selectedTask.id); setSelectedTask(null); }} onSelectTask={(id) => { const t = tasks.find(x => x.id === id); if(t) setSelectedTask(t); }} />}
             {editingTask && <EditTaskModal task={editingTask} tasks={tasks} onClose={() => setEditingTask(null)} onUpdate={(updates) => { onUpdateTask(editingTask.id, updates); setEditingTask(null); }} onDelete={() => { if(onDeleteTask) onDeleteTask(editingTask.id); setEditingTask(null); }} onOpenRequirement={() => {}} />}
         </div>
     );

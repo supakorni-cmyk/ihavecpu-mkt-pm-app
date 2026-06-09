@@ -125,22 +125,15 @@ export const useTaskData = (currentUser) => {
     };
     
     const startIso = task.startTime || task.startDate;
-    const endIso = task.endTime || task.endDate;
     const dueIso = task.deadline || task.dueDate;
 
-    let dateDisplay = "No Date";
-    let timeDisplay = "All Day";
-
-    if (startIso) {
-        dateDisplay = formatDateLine(startIso) || "Invalid Date";
-        timeDisplay = formatTime(startIso) || "TBD";
-        if (endIso) {
-            const endTime = formatTime(endIso);
-            if (endTime) timeDisplay += ` - ${endTime}`;
-        }
-    } else if (dueIso) {
+    let dateDisplay = "No Deadline Set";
+    if (dueIso) {
         dateDisplay = formatDateLine(dueIso) || "Invalid Date";
-        timeDisplay = `Due: ${formatTime(dueIso) || "TBD"}`;
+        const dueTime = formatTime(dueIso);
+        if (dueTime) dateDisplay += ` @ ${dueTime}`;
+    } else if (startIso) {
+        dateDisplay = formatDateLine(startIso) || "Invalid Date";
     }
 
     const refLink = getValidUrl(task.reference);
@@ -205,8 +198,10 @@ export const useTaskData = (currentUser) => {
                 contents: [
                     { type: "text", text: headerTitle, weight: "bold", size: "xxs", color: "#eb4d4b" },
                     { type: "text", text: task.title || "No Title", weight: "bold", size: "xl", color: "#ffffff", wrap: true, margin: "sm" },
-                    { type: "box", layout: "baseline", margin: "md", contents: [{ type: "text", text: "📅", size: "sm", flex: 1, color: "#9ca3af" }, { type: "text", text: dateDisplay, size: "sm", flex: 8, color: "#e5e7eb", weight: "bold" }] },
-                    { type: "box", layout: "baseline", margin: "sm", contents: [{ type: "text", text: "⏰", size: "sm", flex: 1, color: "#9ca3af" }, { type: "text", text: timeDisplay, size: "sm", flex: 8, color: "#9ca3af" }] },
+                    { type: "separator", margin: "md", color: "#374151" },
+                    { type: "box", layout: "baseline", margin: "md", contents: [{ type: "text", text: "👤", size: "sm", flex: 1, color: "#9ca3af" }, { type: "text", text: "Task Leader:", size: "sm", flex: 3, color: "#9ca3af" }, { type: "text", text: task.taskLeader || "Unassigned", size: "sm", flex: 6, color: "#e5e7eb", weight: "bold", wrap: true }] },
+                    { type: "box", layout: "baseline", margin: "sm", contents: [{ type: "text", text: "📊", size: "sm", flex: 1, color: "#9ca3af" }, { type: "text", text: "Task Status:", size: "sm", flex: 3, color: "#9ca3af" }, { type: "text", text: (task.status || "todo").toUpperCase(), size: "sm", flex: 6, color: "#f59e0b", weight: "bold" }] },
+                    { type: "box", layout: "baseline", margin: "sm", contents: [{ type: "text", text: "📅", size: "sm", flex: 1, color: "#9ca3af" }, { type: "text", text: "Deadline:", size: "sm", flex: 3, color: "#9ca3af" }, { type: "text", text: dateDisplay, size: "sm", flex: 6, color: "#e5e7eb", weight: "bold" }] },
                     (task.location && !locationLink) ? { type: "box", layout: "baseline", margin: "md", contents: [{ type: "text", text: "📍", size: "sm", flex: 1, color: "#9ca3af" }, { type: "text", text: task.location, size: "sm", flex: 8, color: "#9ca3af", wrap: true }] } : null,
                     { type: "separator", margin: "lg", color: "#374151" },
                     primaryButton,
@@ -256,21 +251,23 @@ export const useTaskData = (currentUser) => {
         const taskDeepLink = `${appUrl}?taskId=${task.id}`;
 
         const emailData = {
-            "Status": "⚠️ " + prefix.replace("🔥🔥", "").replace("🔥", "").trim(),
-            "Task": task.title,
+            "Alert Type": "⚠️ " + prefix.replace("🔥🔥", "").replace("🔥", "").trim(),
+            "Task Title": task.title,
+            "Task Leader": task.taskLeader || "Unassigned",
+            "Task Status": task.status || "todo",
             "Link": taskDeepLink
         };
         const startIso = task.startTime || task.startDate;
         const dueIso = task.deadline || task.dueDate;
         
         if (startIso) emailData["Start Date & Time"] = formatDateTime(startIso);
-        if (dueIso) emailData["Due Date & Time"] = formatDateTime(dueIso);
+        if (dueIso) emailData["Deadline"] = formatDateTime(dueIso);
         emailData["Details"] = task.description || "-";
 
         await sendEmailNotification(`${prefix}: ${task.title}`, emailData);
 
         await addDoc(collection(db, "notifications"), {
-            title: `${prefix}: ${task.title}`,
+            title: `${prefix}: ${task.title} (Leader: ${task.taskLeader || 'None'} | Deadline: ${dueIso ? new Date(dueIso).toLocaleDateString() : 'None'})`,
             taskId: task.id,
             userEmail: userEmail,
             isRead: false,
@@ -410,9 +407,6 @@ export const useTaskData = (currentUser) => {
     const unsubTasks = onSnapshot(query(collection(db, "tasks"), orderBy("createdAt", "desc")), (snapshot) => {
         const loadedTasks = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
         setTasks(loadedTasks);
-        
-        // 🟢 FIX: Only check deadlines if there are NO pending local writes.
-        // Transactions throw "failed-precondition" if they touch a document with pending local writes.
         if (currentUser?.email && !snapshot.metadata.hasPendingWrites) {
             checkDeadlines(loadedTasks, currentUser);
         }
@@ -472,11 +466,16 @@ export const useTaskData = (currentUser) => {
         });
         const docRef = await addDoc(collection(db, "tasks"), cleanedTask);
         const taskWithId = { ...cleanedTask, id: docRef.id };
-        await sendEmailNotification(`New Task: ${task.title}`, { "Task": task.title, "Details": task.description || "-" });
+        await sendEmailNotification(`New Task Assigned: ${task.title}`, { 
+            "Task Title": task.title, 
+            "Task Leader": task.taskLeader || "Unassigned",
+            "Deadline": task.deadline ? formatDateTime(task.deadline) : "None",
+            "Details": task.description || "-" 
+        });
         await sendLinePush(taskWithId, "🆕 New Task Created", "#1DB446");
     } catch (error) { console.error("Error adding task:", error); }
   };
-  // --- AUTOMATED UPDATE TASK ---
+
   const updateTask = async (id, updates) => {
     try {
         const oldTask = tasks.find(t => t.id === id);
@@ -484,12 +483,10 @@ export const useTaskData = (currentUser) => {
         
         const cleanedUpdates = cleanData(updates);
 
-        // 🤖 AUTOMATION 1: CASCADING DEADLINES
-        // If this is a Main Task and the deadline changed, shift all subtasks by the exact same amount!
         if (oldTask.isMainTask && updates.deadline && oldTask.deadline && updates.deadline !== oldTask.deadline) {
             const oldTime = new Date(oldTask.deadline).getTime();
             const newTime = new Date(updates.deadline).getTime();
-            const deltaMs = newTime - oldTime; // Time difference in milliseconds
+            const deltaMs = newTime - oldTime;
 
             const subtasks = tasks.filter(t => t.parentTaskId === id);
             subtasks.forEach(async (sub) => {
@@ -501,31 +498,23 @@ export const useTaskData = (currentUser) => {
             console.log(`⏱️ Shifted deadlines for ${subtasks.length} subtasks.`);
         }
 
-        // 🤖 AUTOMATION 2: REVIEW & APPROVAL HANDOFF
-        // If task moved to "review" and has a final file, alert the manager immediately!
         if (updates.status === 'review' && oldTask.status !== 'review') {
             const mergedTask = { ...oldTask, ...updates };
             if (mergedTask.finalFile) {
-                await sendLinePush(mergedTask, "👀 READY FOR REVIEW", "#F59E0B"); // Orange Alert
+                await sendLinePush(mergedTask, "👀 READY FOR REVIEW", "#F59E0B"); 
             }
         }
 
-        // 🟢 Update the actual document
         await updateDoc(doc(db, "tasks", id), cleanedUpdates);
         
-        // 🤖 AUTOMATION 3: SMART STATUS SYNC
-        // If this is a subtask, automatically update the parent project's status
         if (oldTask.parentTaskId && updates.status) {
             const parent = tasks.find(t => t.id === oldTask.parentTaskId);
             const siblings = tasks.filter(t => t.parentTaskId === oldTask.parentTaskId && t.id !== id);
             
             if (parent) {
-                // Scenario A: If moving subtask to In Progress, wake up the parent task
                 if (updates.status === 'in-progress' && parent.status === 'todo') {
                     await updateDoc(doc(db, "tasks", parent.id), { status: 'in-progress' });
                 }
-                
-                // Scenario B: If completing a subtask, check if ALL subtasks are done
                 if (updates.status === 'done' || updates.status === 'completed') {
                     const allSiblingsDone = siblings.every(s => s.status === 'done' || s.status === 'completed');
                     if (allSiblingsDone && parent.status !== 'done' && parent.status !== 'completed') {
@@ -536,11 +525,11 @@ export const useTaskData = (currentUser) => {
             }
         }
         
-        // Standard notification logic
         const changedFields = [];
         if (updates.startTime && updates.startTime !== oldTask.startTime) changedFields.push("Start Time");
         if (updates.endTime && updates.endTime !== oldTask.endTime) changedFields.push("End Time");
         if (updates.deadline && updates.deadline !== oldTask.deadline) changedFields.push("Due Date");
+        if (updates.taskLeader && updates.taskLeader !== oldTask.taskLeader) changedFields.push("Task Leader");
         
         if (changedFields.length > 0) {
             const mergedTask = { ...oldTask, ...updates }; 
@@ -550,6 +539,7 @@ export const useTaskData = (currentUser) => {
         console.error("FAILED to update task:", error); 
     }
   };
+
   const moveTask = async (taskId, newStatus) => { try { await updateDoc(doc(db, "tasks", taskId), { status: newStatus }); const task = tasks.find(t => t.id === taskId); const updatedTask = { ...task, status: newStatus }; if (newStatus === 'canceled') await sendLinePush(updatedTask, "🚫 Task Canceled", "#9CA3AF"); else await sendLinePush(updatedTask, "🔄 Status Updated", "#3B82F6"); } catch (error) { console.error("Error moving task:", error); } };
   const deleteTask = async (id) => { if(!confirm("Delete task?")) return; try { await deleteDoc(doc(db, "tasks", id)); } catch (error) { console.error(error); } };
 

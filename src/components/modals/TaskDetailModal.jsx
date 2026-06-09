@@ -1,17 +1,15 @@
 // src/components/modals/TaskDetailModal.jsx
-import React, { useState } from 'react'; // 🟢 Added useState
+import React, { useState } from 'react'; 
 import { 
-  X, Calendar, Clock, MapPin, Tag, 
+  X, Calendar, Clock, MapPin, Tag, User,
   FileText, Link as LinkIcon, ExternalLink, 
-  CheckSquare, Pencil, Trash2, Layers, CornerDownRight, BarChartHorizontal // 🟢 Added BarChartHorizontal
+  CheckSquare, Pencil, Trash2, Layers, CornerDownRight, BarChartHorizontal 
 } from 'lucide-react';
 import { TAG_COLORS, formatDate, COLUMNS } from '../../utils/constants';
 
-// 🟢 Import the new Gantt Chart Component
 import GanttChartModal from './GanttChartModal.jsx';
 
 export default function TaskDetailModal({ task, onClose, onEdit, onDelete, tasks = [], onSelectTask }) {
-  // 🟢 State for Gantt Modal
   const [showGantt, setShowGantt] = useState(false);
 
   if (!task) return null;
@@ -46,7 +44,6 @@ export default function TaskDetailModal({ task, onClose, onEdit, onDelete, tasks
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]" onClick={onClose}>
         <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
           
-          {/* --- HEADER --- */}
           <div className="relative">
               <div className={`h-32 w-full ${task.imageUrl ? '' : 'bg-gradient-to-r from-indigo-500 to-purple-600'}`}>
                   {task.imageUrl && <img src={task.imageUrl} alt="Cover" className="w-full h-full object-cover opacity-90"/>}
@@ -65,48 +62,59 @@ export default function TaskDetailModal({ task, onClose, onEdit, onDelete, tasks
               </div>
           </div>
 
-          {/* --- BODY --- */}
           <div className="px-8 pt-6 pb-4 overflow-y-auto custom-scrollbar flex-1">
-              
-              {/* Show Parent Task Reference if Subtask */}
               {parentTask && (
                   <div 
                       onClick={() => onSelectTask && onSelectTask(parentTask.id)}
                       className="mb-2 mt-2 flex items-center w-fit gap-1.5 text-xs font-medium text-gray-500 cursor-pointer hover:bg-gray-100 p-1.5 rounded transition"
-                      title="Click to view main task"
                   >
                       <CornerDownRight size={14} className="text-gray-400" />
                       Subtask of: <span className="text-indigo-600 font-bold underline decoration-indigo-300">{parentTask.title}</span>
                   </div>
               )}
 
-              {/* Title & Time */}
               <div className="mb-6 mt-2">
-                  <h2 className="text-2xl font-black text-gray-800 leading-tight mb-2">{task.title}</h2>
-                  <div className="flex flex-wrap gap-4 text-sm text-gray-500 font-medium">
-                      <div className="flex items-center gap-1.5"><Calendar size={16} className="text-indigo-500"/>{task.startDate ? new Date(task.startDate).toLocaleDateString('en-GB') : (task.deadline ? formatDate(task.deadline) : 'No Date')}</div>
+                  <h2 className="text-2xl font-black text-gray-800 leading-tight mb-4">{task.title}</h2>
+                  
+                  {/* 🟢 EXPANDED META GRID: TASK LEADER, TASK STATUS & DEADLINE */}
+                  <div className="bg-gray-50 p-4 rounded-xl border border-gray-200/60 grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-6 text-sm text-gray-600 font-semibold">
+                      <div className="flex items-center gap-2">
+                          <User size={16} className="text-blue-500 shrink-0"/>
+                          <span>Task Leader: <span className="text-gray-900 font-bold">{task.taskLeader || 'Unassigned'}</span></span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                          <Layers size={16} className="text-orange-500 shrink-0"/>
+                          <span>Task Status: <span className="text-gray-900 font-bold">{getStatusLabel(task.status)}</span></span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                          <Calendar size={16} className="text-indigo-500 shrink-0"/>
+                          <span>Deadline: <span className="text-gray-900 font-bold">{task.deadline ? formatDate(task.deadline) : (task.startDate ? new Date(task.startDate).toLocaleDateString('en-GB') : 'No Time Set')}</span></span>
+                      </div>
                       {task.startTime && (
-                          <div className="flex items-center gap-1.5"><Clock size={16} className="text-orange-500"/>{new Date(task.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}{task.endTime && ` - ${new Date(task.endTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`}</div>
+                          <div className="flex items-center gap-2">
+                              <Clock size={16} className="text-pink-500 shrink-0"/>
+                              <span>Time: <span className="text-gray-900 font-medium">{new Date(task.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}{task.endTime && ` - ${new Date(task.endTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`}</span></span>
+                          </div>
                       )}
                       {task.location && (
-                          <div className="flex items-center gap-1.5">
-                              <MapPin size={16} className="text-red-500"/>
-                              {isLocationUrl ? (
-                                  <button onClick={() => openLink(task.location)} className="text-blue-600 hover:text-blue-800 hover:underline transition truncate max-w-[200px] text-left" title={task.location}>{task.location}</button>
-                              ) : (<span>{task.location}</span>)}
+                          <div className="flex items-center gap-2 col-span-1 sm:col-span-2">
+                              <MapPin size={16} className="text-red-500 shrink-0"/>
+                              <span>Location: {' '}
+                                  {isLocationUrl ? (
+                                      <button onClick={() => openLink(task.location)} className="text-blue-600 hover:text-blue-800 hover:underline transition truncate max-w-[300px] text-left inline-block align-bottom font-bold" title={task.location}>{task.location}</button>
+                                  ) : (<span className="text-gray-900 font-bold">{task.location}</span>)}
+                              </span>
                           </div>
                       )}
                   </div>
               </div>
 
-              {/* Description */}
               {task.description && (
                   <div className="mb-6 p-4 bg-gray-50 rounded-xl border border-gray-100 text-gray-700 text-sm leading-relaxed whitespace-pre-line">
                       {task.description}
                   </div>
               )}
 
-              {/* Actionable Links */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
                   {task.reference && (
                       <button onClick={() => openLink(task.reference)} className="flex items-center gap-3 p-3 rounded-xl border border-blue-100 bg-blue-50/50 hover:bg-blue-100 transition text-left group">
@@ -124,7 +132,6 @@ export default function TaskDetailModal({ task, onClose, onEdit, onDelete, tasks
                   )}
               </div>
 
-              {/* Requirements Summary */}
               {reqs.length > 0 && (
                   <div className="mb-4">
                       <h4 className="font-bold text-gray-800 text-sm mb-3 flex items-center gap-2"><CheckSquare size={18} className="text-gray-400"/> Requirements ({completedReqs}/{reqs.length})</h4>
@@ -139,11 +146,8 @@ export default function TaskDetailModal({ task, onClose, onEdit, onDelete, tasks
                   </div>
               )}
 
-              {/* SUBTASKS LIST */}
               {task.isMainTask && (
                   <div className="mt-8 pt-6 border-t border-gray-100">
-                      
-                      {/* 🟢 MODIFIED HEADER: ADDED GANTT BUTTON */}
                       <div className="flex justify-between items-center mb-4">
                           <h4 className="font-bold text-gray-800 text-sm flex items-center gap-2">
                               <Layers size={18} className="text-indigo-500"/> Subtasks ({subtasks.length})
@@ -185,7 +189,6 @@ export default function TaskDetailModal({ task, onClose, onEdit, onDelete, tasks
               )}
           </div>
 
-          {/* FOOTER ACTIONS */}
           <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-3">
               <button 
                   onClick={() => { if(confirm("Are you sure you want to delete this task?")) { onDelete(); onClose(); } }}
@@ -200,13 +203,8 @@ export default function TaskDetailModal({ task, onClose, onEdit, onDelete, tasks
         </div>
       </div>
 
-      {/* 🟢 RENDER GANTT MODAL IF TRIGGERED */}
       {showGantt && (
-          <GanttChartModal 
-              mainTask={task} 
-              subtasks={subtasks} 
-              onClose={() => setShowGantt(false)} 
-          />
+          <GanttChartModal mainTask={task} subtasks={subtasks} onClose={() => setShowGantt(false)} />
       )}
     </>
   );

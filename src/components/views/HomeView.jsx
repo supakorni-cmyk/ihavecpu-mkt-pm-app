@@ -1,6 +1,6 @@
 // src/components/views/HomeView.jsx
 import React, { useState, useEffect } from 'react';
-import { Heart, Calendar, CheckCircle2, Clock, ArrowRight, User, Briefcase, Bell, CloudRain, Sun, Droplets, Wind, MapPin } from 'lucide-react';
+import { Heart, Calendar, CheckCircle2, Clock, ArrowRight, User, Briefcase, Bell, CloudRain, Sun, Droplets, Wind, MapPin, Layers } from 'lucide-react';
 import { formatDate, TAG_COLORS } from '../../utils/constants';
 
 import TaskDetailModal from '../modals/TaskDetailModal';
@@ -89,7 +89,6 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
       return "Cloudy";
   };
 
-  // 🟢 BULLETPROOF COLOR MAPPER
   const getTagTheme = (task) => {
       const tag = (task.tags && task.tags.length > 0) ? task.tags[0] : task.tag;
       if (!tag) return 'bg-gray-100 text-gray-500';
@@ -175,19 +174,37 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
         <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2"><Calendar className="text-orange-500" size={20}/> Upcoming Schedule</h3>
         <div className="space-y-4">
             {upcomingEvents.length > 0 ? upcomingEvents.slice(0, 5).map(task => (
-                <div key={task.id} onClick={() => setSelectedTask(task)} className="flex items-center p-4 hover:bg-gray-50 rounded-xl transition border border-gray-50 hover:border-gray-200 group cursor-pointer">
-                    <div className={`w-14 h-14 rounded-xl flex flex-col items-center justify-center font-bold shrink-0 mr-4 ${getTagTheme(task)}`}>
-                        <span className="text-xs uppercase">{new Date(task.startDate || task.deadline).toLocaleString('default', { month: 'short' })}</span>
-                        <span className="text-xl leading-none">{new Date(task.startDate || task.deadline).getDate()}</span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                        <h4 className="font-bold text-gray-800 truncate">{task.title}</h4>
-                        <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
-                            <span className="flex items-center gap-1"><Clock size={12}/> {task.deadline ? formatDate(task.deadline) : 'No time'}</span>
-                            {task.location && <span className="bg-gray-100 px-2 py-0.5 rounded text-gray-600">{task.location}</span>}
+                <div key={task.id} onClick={() => setSelectedTask(task)} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 hover:bg-gray-50 rounded-xl transition border border-gray-50 hover:border-gray-200 group cursor-pointer gap-4">
+                    <div className="flex items-center flex-1 min-w-0">
+                        <div className={`w-14 h-14 rounded-xl flex flex-col items-center justify-center font-bold shrink-0 mr-4 ${getTagTheme(task)}`}>
+                            <span className="text-xs uppercase">{new Date(task.startDate || task.deadline).toLocaleString('default', { month: 'short' })}</span>
+                            <span className="text-xl leading-none">{new Date(task.startDate || task.deadline).getDate()}</span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <h4 className="font-bold text-gray-800 truncate mb-1">{task.title}</h4>
+                            
+                            {/* 🟢 NEW DYNAMIC METADATA INFOBADGES IN ROW BLOCK */}
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
+                                <span className="flex items-center gap-1 font-semibold text-gray-600"><User size={12} className="text-gray-400"/> Task Leader: <span className="text-gray-900 font-bold">{task.taskLeader || 'Unassigned'}</span></span>
+                                <span className="hidden sm:inline text-gray-300">|</span>
+                                <span className="flex items-center gap-1 font-semibold text-gray-600"><Clock size={12} className="text-gray-400"/> Deadline: <span className="text-gray-900 font-bold">{task.deadline ? formatDate(task.deadline) : 'No time'}</span></span>
+                                {task.location && (
+                                    <>
+                                        <span className="hidden sm:inline text-gray-300">|</span>
+                                        <span className="bg-gray-100 px-2 py-0.5 rounded text-gray-600 truncate max-w-[150px] font-medium">{task.location}</span>
+                                    </>
+                                )}
+                            </div>
                         </div>
                     </div>
-                    <div className="opacity-0 group-hover:opacity-100 transition text-gray-300"><ArrowRight size={20} /></div>
+                    
+                    <div className="flex items-center gap-3 self-end sm:self-auto shrink-0">
+                        {/* 🟢 STATUS TAG PILL */}
+                        <span className="text-[10px] font-bold tracking-wider uppercase bg-amber-50 text-amber-700 border border-amber-200 px-2.5 py-1 rounded-md">
+                            Status: {task.status || 'todo'}
+                        </span>
+                        <div className="opacity-0 group-hover:opacity-100 transition text-gray-300"><ArrowRight size={20} /></div>
+                    </div>
                 </div>
             )) : (
                 <div className="text-center py-10 text-gray-400"><Calendar size={48} className="mx-auto mb-3 opacity-20"/><p>No upcoming events scheduled.</p></div>
@@ -209,7 +226,7 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
           </div>
       )}
 
-      {selectedTask && <TaskDetailModal task={selectedTask} tasks={tasks} onClose={() => setSelectedTask(null)} onEdit={() => { setEditingTask(selectedTask); setSelectedTask(null); }} onDelete={() => { if(onDeleteTask) onDeleteTask(selectedTask.id); setSelectedTask(null); }} />}
+      {selectedTask && <TaskDetailModal task={selectedTask} tasks={tasks} onClose={() => setSelectedTask(null)} onEdit={() => { setEditingTask(selectedTask); setSelectedTask(null); }} onDelete={() => { if(onDeleteTask) onDeleteTask(selectedTask.id); setSelectedTask(null); }} onSelectTask={(id) => { const t = tasks.find(x => x.id === id); if(t) setSelectedTask(t); }} />}
       {editingTask && <EditTaskModal task={editingTask} tasks={tasks} onClose={() => setEditingTask(null)} onUpdate={(updates) => { onUpdateTask(editingTask.id, updates); setEditingTask(null); }} onDelete={() => { if(onDeleteTask) onDeleteTask(editingTask.id); setEditingTask(null); }} onOpenRequirement={() => {}} />}
     </div>
   );
