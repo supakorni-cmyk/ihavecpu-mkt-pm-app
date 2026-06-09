@@ -3,35 +3,33 @@ import React, { useState, useRef } from 'react';
 import { 
   FileText, Table, FileQuestion, Search, 
   Trash2, Calendar, Link as LinkIcon, Upload, 
-  Folder, FolderPlus, ChevronLeft
+  Folder, FolderPlus, ChevronLeft, Plus
 } from 'lucide-react';
 import DocumentEditorModal from '../modals/DocumentEditorModal';
 
 const DocumentView = ({ documents, tasks, onAdd, onUpdate, onDelete }) => {
-  const [filter, setFilter] = useState('ALL'); // ALL, DOC, SHEET, FORM, FOLDER
+  const [filter, setFilter] = useState('ALL'); 
   const [search, setSearch] = useState('');
-  const [currentFolder, setCurrentFolder] = useState(null); // null = Root directory
+  const [currentFolder, setCurrentFolder] = useState(null); 
   
-  const [selectedDoc, setSelectedDoc] = useState(null); // For Editing
-  const [createType, setCreateType] = useState(null); // 'DOC', 'SHEET', 'FORM', or null
+  const [selectedDoc, setSelectedDoc] = useState(null); 
+  const [createType, setCreateType] = useState(null); 
   
   const fileInputRef = useRef(null);
 
   // --- FILTER & FOLDER LOGIC ---
   const filteredDocs = documents.filter(doc => {
-      // If the user is searching, ignore folders and show all matching files globally.
-      // Otherwise, only show files that belong to the current folder.
       const inCurrentFolder = search ? true : (doc.folderId || null) === currentFolder;
-      
       const matchesType = filter === 'ALL' || doc.type === filter || (filter === 'ALL' && doc.type === 'FOLDER');
-      const matchesSearch = doc.title.toLowerCase().includes(search.toLowerCase());
+      
+      // 🟢 FIXED: If a document has no title, this prevents a fatal React crash!
+      const matchesSearch = (doc.title || '').toLowerCase().includes((search || '').toLowerCase());
       
       return inCurrentFolder && matchesType && matchesSearch;
   });
 
   const getIcon = (type) => {
       switch(type) {
-          // 🟢 Ensure SHEET uses the Table icon
           case 'SHEET': return <Table className="text-green-600" size={24} />;
           case 'FORM': return <FileQuestion className="text-purple-600" size={24} />;
           case 'FOLDER': return <Folder className="text-yellow-500" size={24} fill="currentColor" />;
@@ -41,7 +39,6 @@ const DocumentView = ({ documents, tasks, onAdd, onUpdate, onDelete }) => {
 
   const getTypeLabel = (type) => {
       switch(type) {
-          // 🟢 Ensure SHEET shows the correct label
           case 'SHEET': return 'Spreadsheet';
           case 'FORM': return 'Form';
           case 'FOLDER': return 'Folder';
@@ -49,20 +46,18 @@ const DocumentView = ({ documents, tasks, onAdd, onUpdate, onDelete }) => {
       }
   };
 
-  // --- CREATE FOLDER HANDLER ---
   const handleCreateFolder = () => {
       const folderName = window.prompt('Enter folder name:');
       if (folderName && folderName.trim()) {
           onAdd({
               title: folderName.trim(),
               type: 'FOLDER',
-              folderId: currentFolder, // Put it inside the current folder
+              folderId: currentFolder, 
               createdAt: new Date().toISOString()
           });
       }
   };
 
-  // --- FILE UPLOAD HANDLER ---
   const handleUploadClick = () => {
       fileInputRef.current.click();
   };
@@ -74,7 +69,6 @@ const DocumentView = ({ documents, tasks, onAdd, onUpdate, onDelete }) => {
       let content = '';
       let title = file.name;
 
-      // Handle Text Files
       if (file.type === 'text/plain') {
           try {
               const text = await file.text();
@@ -84,7 +78,6 @@ const DocumentView = ({ documents, tasks, onAdd, onUpdate, onDelete }) => {
               content = "Error reading text file.";
           }
       } 
-      // Handle Binary Files (Create Visual Chip)
       else {
           const fileIconChar = file.name.endsWith('.pdf') ? '📄' : file.name.endsWith('.xlsx') ? '📊' : '📎';
           content = `
@@ -101,13 +94,12 @@ const DocumentView = ({ documents, tasks, onAdd, onUpdate, onDelete }) => {
           `;
       }
 
-      // Create the Document inside the current folder
       onAdd({
           title: title,
           type: 'DOC', 
           content: content,
           linkedTaskId: '',
-          folderId: currentFolder, // 🟢 Assign to current folder
+          folderId: currentFolder,
           createdAt: new Date().toISOString()
       });
       
@@ -158,20 +150,38 @@ const DocumentView = ({ documents, tasks, onAdd, onUpdate, onDelete }) => {
                     onClick={handleCreateFolder}
                     className="bg-yellow-50 hover:bg-yellow-100 text-yellow-700 px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition border border-yellow-200"
                 >
-                    <FolderPlus size={16} /> New Folder
+                    <FolderPlus size={16} /> Folder
                 </button>
 
-                <button 
-                    onClick={() => setCreateType('DOC')}
-                    className="bg-blue-50 hover:bg-blue-100 text-blue-600 px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition border border-blue-200"
-                >
-                    <FileText size={16} /> New Doc
-                </button>
+                {/* 🟢 NEW SHEET AND NEW FORM BUTTONS IN THE HEADER */}
+                <div className="flex gap-1 ml-2 bg-gray-100 p-1 rounded-xl">
+                    <button 
+                        onClick={() => setCreateType('DOC')}
+                        className="bg-white text-blue-600 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition shadow-sm hover:scale-105"
+                        title="New Document"
+                    >
+                        <FileText size={14} /> Doc
+                    </button>
+                    <button 
+                        onClick={() => setCreateType('SHEET')}
+                        className="bg-white text-green-600 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition shadow-sm hover:scale-105"
+                        title="New Spreadsheet"
+                    >
+                        <Table size={14} /> Sheet
+                    </button>
+                    <button 
+                        onClick={() => setCreateType('FORM')}
+                        className="bg-white text-purple-600 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition shadow-sm hover:scale-105"
+                        title="New Form"
+                    >
+                        <FileQuestion size={14} /> Form
+                    </button>
+                </div>
             </div>
         </div>
       </div>
 
-      {/* 🟢 BREADCRUMB NAVIGATION (Shows only when inside a folder) */}
+      {/* BREADCRUMB NAVIGATION */}
       {currentFolder && !search && (
           <div className="px-8 py-3 bg-gray-100/50 border-b border-gray-200 flex items-center gap-2 text-sm text-gray-600">
               <button 
@@ -235,7 +245,7 @@ const DocumentView = ({ documents, tasks, onAdd, onUpdate, onDelete }) => {
                         </button>
                     </div>
                     
-                    <h3 className="font-bold text-gray-800 mb-1 line-clamp-1">{doc.title}</h3>
+                    <h3 className="font-bold text-gray-800 mb-1 line-clamp-1">{doc.title || 'Untitled'}</h3>
                     <p className="text-xs text-gray-400 mb-4">{getTypeLabel(doc.type)}</p>
                     
                     <div className="mt-auto space-y-2">

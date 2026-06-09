@@ -197,21 +197,19 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
 
    // --- HANDLE SAVE ---
     const handleSave = () => {
-        // 1. Auto-fill title
         const finalTitle = title.trim() || `Untitled ${type === 'SHEET' ? 'Sheet' : type === 'FORM' ? 'Form' : 'Document'}`; 
         
-        // 2. Build the base payload
+        // 1. Build the base payload
         const payload = {
             title: finalTitle, 
             type: type, 
-            linkedTaskId: linkedTaskId
+            linkedTaskId: linkedTaskId,
+            // 🟢 FORCE CONTENT TO EXIST SO THE PARENT ARRAY DOESN'T DROP IT!
+            content: type === 'DOC' ? (docEditorRef.current?.innerHTML || initialContent.current || '') : `Data for ${type}`
         };
 
-        // 3. STRICT PAYLOAD ISOLATION: Only send the exact data the parent expects for each type!
-        if (type === 'DOC') {
-            payload.content = docEditorRef.current?.innerHTML || initialContent.current || '';
-        } 
-        else if (type === 'SHEET') {
+        // 2. Attach specific data payloads
+        if (type === 'SHEET') {
             payload.sheetData = { 
                 columns: sheetCols, 
                 tableData: sheetRows,
