@@ -512,8 +512,8 @@ export const useTaskData = (currentUser) => {
             const siblings = tasks.filter(t => t.parentTaskId === oldTask.parentTaskId && t.id !== id);
             
             if (parent) {
-                if (updates.status === 'in-progress' && parent.status === 'todo') {
-                    await updateDoc(doc(db, "tasks", parent.id), { status: 'in-progress' });
+                if (updates.status === 'on-process' && parent.status === 'to do') {
+                    await updateDoc(doc(db, "tasks", parent.id), { status: 'on process' });
                 }
                 if (updates.status === 'done' || updates.status === 'completed') {
                     const allSiblingsDone = siblings.every(s => s.status === 'done' || s.status === 'completed');
