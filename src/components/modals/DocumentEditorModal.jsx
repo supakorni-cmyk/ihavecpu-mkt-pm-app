@@ -211,7 +211,7 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
                                 {type === 'FORM' && <FileQuestion size={24}/>}
                             </div>
                             {!existingDoc && (
-                                <div className="absolute top-full left-0 mt-2 bg-white shadow-xl border border-gray-100 rounded-xl p-2 group-hover:block w-40 z-50">
+                                <div className="absolute top-full left-0 mt-2 bg-white shadow-xl border border-gray-100 rounded-xl p-2 list-item group-hover:block w-40 z-50">
                                     <button onClick={() => setType('DOC')} className="flex items-center gap-2 p-2 hover:bg-gray-50 w-full text-left rounded-lg text-xs font-bold text-gray-600"><FileText size={14} className="text-blue-500"/> Document</button>
                                     <button onClick={() => setType('SHEET')} className="flex items-center gap-2 p-2 hover:bg-gray-50 w-full text-left rounded-lg text-xs font-bold text-gray-600"><Table size={14} className="text-green-500"/> Sheet</button>
                                     <button onClick={() => setType('FORM')} className="flex items-center gap-2 p-2 hover:bg-gray-50 w-full text-left rounded-lg text-xs font-bold text-gray-600"><FileQuestion size={14} className="text-purple-500"/> Form</button>
