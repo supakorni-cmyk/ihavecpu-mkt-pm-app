@@ -197,23 +197,31 @@ const DocumentEditorModal = ({ existingDoc, initialType, tasks, onClose, onSave 
 
    // --- HANDLE SAVE ---
     const handleSave = () => {
+        // 1. Auto-fill title
         const finalTitle = title.trim() || `Untitled ${type === 'SHEET' ? 'Sheet' : type === 'FORM' ? 'Form' : 'Document'}`; 
-        const generatedColWidths = existingDoc?.sheetData?.colWidths || new Array(sheetCols.length).fill(150);
-
+        
+        // 2. Build the base payload
         const payload = {
             title: finalTitle, 
-            type, 
-            linkedTaskId,
-            // 🟢 FIXED: Always pass a string so the parent's file list doesn't crash trying to read a preview!
-            content: type === 'DOC' ? (docEditorRef.current?.innerHTML || initialContent.current || '') : (type === 'SHEET' ? 'Spreadsheet Data' : 'Form Data'),
-            sheetData: type === 'SHEET' ? { 
+            type: type, 
+            linkedTaskId: linkedTaskId
+        };
+
+        // 3. STRICT PAYLOAD ISOLATION: Only send the exact data the parent expects for each type!
+        if (type === 'DOC') {
+            payload.content = docEditorRef.current?.innerHTML || initialContent.current || '';
+        } 
+        else if (type === 'SHEET') {
+            payload.sheetData = { 
                 columns: sheetCols, 
                 tableData: sheetRows,
-                colWidths: generatedColWidths 
-            } : null,
-            formQuestions: type === 'FORM' ? formQuestions : [],
-        };
-        
+                colWidths: existingDoc?.sheetData?.colWidths || new Array(sheetCols.length).fill(150)
+            };
+        } 
+        else if (type === 'FORM') {
+            payload.formQuestions = formQuestions;
+        }
+
         onSave(payload);
     };
 
