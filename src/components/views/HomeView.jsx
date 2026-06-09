@@ -6,10 +6,11 @@ import { formatDate, TAG_COLORS } from '../../utils/constants';
 import TaskDetailModal from '../modals/TaskDetailModal';
 import EditTaskModal from '../modals/EditTaskModal';
 
-const SYSTEM_AVATARS = { panarin: '/avatars/bank.jpg', jittikorn: '/avatars/pae.jpg', supakorn: '/avatars/boom.jpg', sophisa: '/avatars/yui.jpg', somruk: '/avatars/somruk.png', nichapa: '/avatars/mod.jpg' };
+const SYSTEM_AVATARS = { panarin: '/avatars/bank.jpg', jittikorn: '/avatars/pae.jpg', sutharat:'/avatars/ahzumi.jpg', supakorn: '/avatars/boom.jpg', sophisa: '/avatars/yui.jpg', somruk: '/avatars/somruk.png', nichapa: '/avatars/mod.jpg' };
 const INITIAL_TEAM = [
     { id: 6, name: 'แบงค์กี้', email: 'panarin.b@ihavecpu.com', role: 'Asst.CEO', avatar: SYSTEM_AVATARS.panarin}, 
     { id: 1, name: 'เป้ ไข่หมุน', email: 'jittikorn.m@ihavecpu.com', role: 'Marketing Manager', avatar: SYSTEM_AVATARS.jittikorn },
+    { id: 7, name: 'AHZUMI', email: 'sutharat@ihavecpu.com', role:'Online Business Manager', avatar: SYSTEM_AVATARS.sutharat},
     { id: 2, name: 'SPARKIEZZ', email: 'supakorn.i@ihavecpu.com', role: 'Assistant Manager', avatar: SYSTEM_AVATARS.supakorn },
     { id: 3, name: 'อียุ้ยคนสวย', email: 'sophisa.p@ihavecpu.com', role: 'Assistant Manager', avatar: SYSTEM_AVATARS.sophisa },
     { id: 4, name: 'สมรักษ์ คำสิงห์', email: 'somruk.m@ihavecpu.com', role: 'Graphic Head', avatar: SYSTEM_AVATARS.somruk },
