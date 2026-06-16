@@ -75,33 +75,36 @@ app.post('/api/facebook-custom-links', async (req, res) => {
             }
 
             // 🟢 STEP 1: Fetch Basic Interactions
-            let basicDataUrl = `https://graph.facebook.com/v19.0/${graphApiId}?fields=message,created_time,shares,reactions.summary(total_count),comments.summary(total_count)&access_token=${FB_ACCESS_TOKEN}`;
+            let basicDataUrl = `https://graph.facebook.com/v19.0/${graphApiId}?fields=id,message,created_time,shares,reactions.summary(total_count),comments.summary(total_count)&access_token=${FB_ACCESS_TOKEN}`;
             let basicRes = await fetch(basicDataUrl);
             let basicData = await basicRes.json();
 
             if (basicData.error) {
-                basicDataUrl = `https://graph.facebook.com/v19.0/${extractedId}?fields=message,created_time,shares,reactions.summary(total_count),comments.summary(total_count)&access_token=${FB_ACCESS_TOKEN}`;
+                basicDataUrl = `https://graph.facebook.com/v19.0/${extractedId}?fields=id,message,created_time,shares,reactions.summary(total_count),comments.summary(total_count)&access_token=${FB_ACCESS_TOKEN}`;
                 basicRes = await fetch(basicDataUrl);
                 basicData = await basicRes.json();
             }
 
             if (basicData.error) return { url, error: basicData.error.message, metrics: null };
 
+            // 🟢 THE MAGIC KEY: Grab Facebook's official numeric ID from the basic response
+            const canonicalId = basicData.id;
+
             const totalReactions = basicData.reactions?.summary?.total_count || 0;
             const totalComments = basicData.comments?.summary?.total_count || 0;
             const totalShares = basicData.shares?.count || 0;
-            const totalClicks = basicData.clicks?.count || 0;
-            const fallbackEngagement = totalReactions + totalComments + totalShares + totalClicks;
+            const fallbackEngagement = totalReactions + totalComments + totalShares;
 
-// 🟢 STEP 2: The "Atomic" Insights Fetcher
+            // 🟢 STEP 2: Fetch Insights using the Canonical ID
             let reach = 0, impressions = 0, clicks = 0;
 
-            // --- ATTEMPT A: Fetch Impressions/Views ONLY ---
-            // This ensures one bad metric doesn't kill the main view count
+            // Exhaustive list of endpoints using the true numeric ID
             const impressionEndpoints = [
-                `https://graph.facebook.com/v19.0/${graphApiId}/insights?metric=post_impressions_unique,post_impressions&access_token=${FB_ACCESS_TOKEN}`, // Standard Post
-                `https://graph.facebook.com/v19.0/${graphApiId}/insights?metric=post_video_views&access_token=${FB_ACCESS_TOKEN}`, // Video with Page ID
-                `https://graph.facebook.com/v19.0/${extractedId}/insights?metric=post_video_views&access_token=${FB_ACCESS_TOKEN}` // Raw Video ID
+                `https://graph.facebook.com/v19.0/${canonicalId}/insights?metric=post_impressions_unique,post_impressions&access_token=${FB_ACCESS_TOKEN}`,
+                `https://graph.facebook.com/v19.0/${canonicalId}/insights?metric=post_video_views&access_token=${FB_ACCESS_TOKEN}`,
+                // Fallbacks just in case
+                `https://graph.facebook.com/v19.0/${graphApiId}/insights?metric=post_impressions_unique,post_impressions&access_token=${FB_ACCESS_TOKEN}`,
+                `https://graph.facebook.com/v19.0/${extractedId}/insights?metric=post_video_views&access_token=${FB_ACCESS_TOKEN}`
             ];
 
             for (const endpoint of impressionEndpoints) {
@@ -111,16 +114,15 @@ app.post('/api/facebook-custom-links', async (req, res) => {
                 if (!data.error && data.data && data.data.length > 0) {
                     const getM = (m) => data.data.find(x => x.name === m)?.values?.[0]?.value || 0;
                     impressions = getM('post_impressions') || getM('post_video_views') || 0;
-                    reach = getM('post_impressions_unique') || impressions; // Fallback Reach to Views for video objects
+                    reach = getM('post_impressions_unique') || impressions; 
                     break; // Success! Locked in impressions.
                 }
             }
 
-            // --- ATTEMPT B: Fetch Clicks ISOLATED ---
-            // We do this entirely separately so if it crashes, we don't lose impressions
+            // Fetch Clicks ISOLATED using the true numeric ID
             const clickEndpoints = [
-                `https://graph.facebook.com/v19.0/${graphApiId}/insights?metric=post_clicks_unique&access_token=${FB_ACCESS_TOKEN}`,
-                `https://graph.facebook.com/v19.0/${extractedId}/insights?metric=post_clicks_unique&access_token=${FB_ACCESS_TOKEN}`
+                `https://graph.facebook.com/v19.0/${canonicalId}/insights?metric=post_clicks_unique,post_clicks&access_token=${FB_ACCESS_TOKEN}`,
+                `https://graph.facebook.com/v19.0/${graphApiId}/insights?metric=post_clicks_unique,post_clicks&access_token=${FB_ACCESS_TOKEN}`
             ];
 
             for (const endpoint of clickEndpoints) {
@@ -128,20 +130,21 @@ app.post('/api/facebook-custom-links', async (req, res) => {
                 const data = await res.json();
                 
                 if (!data.error && data.data && data.data.length > 0) {
-                    clicks = data.data.find(x => x.name === 'post_clicks_unique')?.values?.[0]?.value || 0;
+                    clicks = data.data.find(x => x.name === 'post_clicks_unique')?.values?.[0]?.value || 
+                             data.data.find(x => x.name === 'post_clicks')?.values?.[0]?.value || 0;
                     break; // Success! Locked in clicks.
                 }
             }
 
             return {
-                id: basicData.id,
+                id: canonicalId, // Send the official ID back to the frontend
                 message: basicData.message || 'Video / Photo Post',
                 postedAt: basicData.created_time,
                 permalink: url,
                 metrics: {
                     reach,
                     impressions,
-                    engagement: fallbackEngagement + clicks, // Final accurate engagement total
+                    engagement: fallbackEngagement + clicks,
                     clicks,
                     reactions: totalReactions,
                     comments: totalComments,
