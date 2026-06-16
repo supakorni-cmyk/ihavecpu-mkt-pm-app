@@ -80,12 +80,22 @@ app.post('/api/facebook-custom-links', async (req, res) => {
                 graphApiId = `${CACHED_PAGE_ID}_${extractedId}`; 
             }
 
-            // Helper function to format the final data safely
+// 🟢 UPGRADED: Smart Formatter with Engagement Fallbacks
             const formatResult = (data, insightsData = null) => {
                 const getMetric = (metricName) => {
-                    if (!insightsData) return 0;
-                    return insightsData.find(m => m.name === metricName)?.values[0]?.value || 0;
+                    if (!insightsData || !Array.isArray(insightsData)) return 0;
+                    const metric = insightsData.find(m => m.name === metricName);
+                    return metric?.values?.[0]?.value || 0;
                 };
+
+                // Extract our exact totals using the new 'reactions' data
+                const totalReactions = data.reactions?.summary?.total_count || 0;
+                const totalComments = data.comments?.summary?.total_count || 0;
+                const totalShares = data.shares?.count || 0;
+
+                // If Facebook refuses to send the hidden 'post_engagements' insight, 
+                // we will manually calculate the total interactions ourselves as a fallback!
+                const fallbackEngagement = totalReactions + totalComments + totalShares;
 
                 return {
                     id: data.id,
@@ -93,21 +103,20 @@ app.post('/api/facebook-custom-links', async (req, res) => {
                     postedAt: data.created_time,
                     permalink: url,
                     metrics: {
-                        // 🟢 FIX: Map Reach to unique impressions, Impressions to total impressions
-                        reach: getMetric('post_views_unique') || 0,
-                        impressions: getMetric('post_views') || getMetric('post_video_views') || 0,
-                        engagement: getMetric('post_engagements') || 0,
+                        reach: getMetric('post_impressions_unique') || 0,
+                        impressions: getMetric('post_impressions') || getMetric('post_video_views') || 0,
+                        engagement: getMetric('post_engagements') || fallbackEngagement,
                         clicks: getMetric('post_clicks_unique') || 0,
-                        reactions: data.likes?.summary?.total_count || 0,
-                        comments: data.comments?.summary?.total_count || 0,
-                        shares: data.shares?.count || 0
+                        reactions: totalReactions, // Now counts Likes, Loves, Hahas, Wows, etc.
+                        comments: totalComments,
+                        shares: totalShares
                     }
                 };
             };
 
-            // ATTEMPT 1: Standard Post Metrics
-            // 🟢 FIX: Added 'post_impressions' to the requested metric list
-            const postUrl = `https://graph.facebook.com/v19.0/${graphApiId}?fields=message,created_time,shares,likes.summary(true),comments.summary(true),insights.metric(post_views_unique,post_views,post_engagements,post_clicks_unique)&access_token=${FB_ACCESS_TOKEN}`;
+            // ATTEMPT 1: Standard Post Metrics 
+            // 🟢 FIX: Replaced 'likes' with 'reactions' to capture all emoji interactions
+            const postUrl = `https://graph.facebook.com/v19.0/${graphApiId}?fields=message,created_time,shares,reactions.summary(total_count),comments.summary(total_count),insights.metric(post_impressions_unique,post_impressions,post_engagements,post_clicks_unique)&access_token=${FB_ACCESS_TOKEN}`;
             const postRes = await fetch(postUrl);
             const postData = await postRes.json();
 
@@ -115,9 +124,10 @@ app.post('/api/facebook-custom-links', async (req, res) => {
                 return formatResult(postData, postData.insights?.data);
             }
 
-            // ATTEMPT 2: Reel/Video Metrics (🟢 FIXED: Now correctly uses graphApiId)
+            // ATTEMPT 2: Reel/Video Metrics
+            // 🟢 FIX: Replaced 'likes' with 'reactions'
             if (postData.error) {
-                const videoUrl = `https://graph.facebook.com/v19.0/${graphApiId}?fields=message,created_time,shares,likes.summary(true),comments.summary(true),insights.metric(post_video_views)&access_token=${FB_ACCESS_TOKEN}`;
+                const videoUrl = `https://graph.facebook.com/v19.0/${graphApiId}?fields=message,created_time,shares,reactions.summary(total_count),comments.summary(total_count),insights.metric(post_video_views)&access_token=${FB_ACCESS_TOKEN}`;
                 const videoRes = await fetch(videoUrl);
                 const videoData = await videoRes.json();
 
@@ -125,9 +135,8 @@ app.post('/api/facebook-custom-links', async (req, res) => {
                     return formatResult(videoData, videoData.insights?.data);
                 }
 
-                // ATTEMPT 3: Ultimate Fallback (🟢 FIXED: Now correctly uses graphApiId)
-                // Just grab the basic data (likes/comments) and skip insights so the UI doesn't crash
-                const plainUrl = `https://graph.facebook.com/v19.0/${graphApiId}?fields=message,created_time,shares,likes.summary(true),comments.summary(true)&access_token=${FB_ACCESS_TOKEN}`;
+                // ATTEMPT 3: Ultimate Fallback 
+                const plainUrl = `https://graph.facebook.com/v19.0/${graphApiId}?fields=message,created_time,shares,reactions.summary(total_count),comments.summary(total_count)&access_token=${FB_ACCESS_TOKEN}`;
                 const plainRes = await fetch(plainUrl);
                 const plainData = await plainRes.json();
 
@@ -135,7 +144,6 @@ app.post('/api/facebook-custom-links', async (req, res) => {
                     return formatResult(plainData, null);
                 }
 
-                // If it STILL fails, print out Facebook's exact error reason
                 return { url, error: videoData.error.message || postData.error.message, metrics: null };
             }
         });
