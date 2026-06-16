@@ -26,22 +26,32 @@ const fetchWithTimeout = async (url, options = {}, timeout = 7000) => {
     }
 };
 
-// 🟢 1. The URL-Decoding Scraper (Upgraded with Mobile Basic Firewall Bypass)
+// 🟢 1. The URL-Decoding Scraper (Upgraded to Official Graph API Link Resolver)
 const resolveAndExtractId = async (inputUrl) => {
     try {
-        // 🧱 FIREWALL BYPASS: Route the request through Facebook's lightweight legacy mobile domain.
-        // This strips away the cloud data-center blocking rules and prevents ETIMEDOUT errors!
-        const mobileBasicUrl = inputUrl
-            .replace('www.facebook.com', 'mbasic.facebook.com')
-            .replace('facebook.com', 'mbasic.facebook.com');
+        // 🧱 THE CLOUD BYPASS: Ask the Facebook Graph API to inspect the shortlink for us.
+        // Since this request executes entirely inside Facebook's network framework,
+        // it completely circumvents data-center IP blocks and login walls!
+        const encodedUrl = encodeURIComponent(inputUrl);
+        const apiResolverUrl = `https://graph.facebook.com/v19.0/?id=${encodedUrl}&fields=og_object&access_token=${FB_ACCESS_TOKEN}`;
+        
+        const apiRes = await fetchWithTimeout(apiResolverUrl, {}, 5000);
+        const apiData = await apiRes.json();
+        
+        // If the Graph API successfully resolved its own shortlink, return the true internal ID
+        if (apiData.og_object && apiData.og_object.id) {
+            return apiData.og_object.id;
+        }
 
-        const manualRes = await fetchWithTimeout(mobileBasicUrl, {
+        // 🔍 Fallback 1: Extract directly from the text if it's already a regular unmasked URL
+        let match = inputUrl.match(/(?:posts\/|videos\/|reel\/|watch\/?\?v=|fbid=|story_fbid=|\/p\/)(pfbid[a-zA-Z0-9]+|\d{10,})/i);
+        if (match && match[1]) return match[1];
+
+        // 🔍 Fallback 2: Standard desktop redirect tracking header lookup
+        const manualRes = await fetchWithTimeout(inputUrl, {
             redirect: 'manual', 
-            headers: { 
-                'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Mobile Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
-            }
-        }, 6000);
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36' }
+        }, 5000);
         
         if (manualRes.status >= 300 && manualRes.status < 400) {
             const locationHeader = manualRes.headers.get('location');
@@ -51,22 +61,6 @@ const resolveAndExtractId = async (inputUrl) => {
                 if (match && match[1]) return match[1];
             }
         }
-
-        const curlRes = await fetchWithTimeout(mobileBasicUrl, {
-            redirect: 'follow',
-            headers: { 'User-Agent': 'curl/7.68.0' }
-        }, 6000);
-        
-        const decodedFinalUrl = decodeURIComponent(curlRes.url);
-        let match = decodedFinalUrl.match(/(?:posts\/|videos\/|reel\/|watch\/?\?v=|fbid=|story_fbid=|\/p\/)(pfbid[a-zA-Z0-9]+|\d{10,})/i);
-        if (match && match[1]) return match[1];
-
-        const html = await curlRes.text();
-        const decodedHtml = decodeURIComponent(html);
-        match = decodedHtml.match(/(?:posts\/|videos\/|reel\/|watch\/?\?v=|fbid=|story_fbid=|\/p\/)(pfbid[a-zA-Z0-9]+|\d{10,})/i) ||
-                html.match(/(?:top_level_post_id|story_fbid|post_id|video_id)":"?(pfbid[a-zA-Z0-9]+|\d{10,})"?/i);
-                
-        if (match && match[1]) return match[1];
 
         return null;
     } catch (error) {
