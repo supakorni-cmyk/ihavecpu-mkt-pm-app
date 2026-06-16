@@ -3,7 +3,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 
-// 🟢 FIX 1: Prioritize IPv4 routing to eliminate cloud network connection hangs
+// 🟢 FORCE IPv4 ROUTING: Prevents Node.js from running into connection timeout errors on Render
 const dns = require('dns');
 dns.setDefaultResultOrder('ipv4first');
 
@@ -14,9 +14,27 @@ app.use(express.json());
 const FB_ACCESS_TOKEN = process.env.FB_ACCESS_TOKEN;
 let CACHED_PAGE_ID = null;
 
-// 🔎 1. The URL-Decoding Scraper (Your unmodified local version)
+// 🔎 1. The URL-Decoding Scraper
 const resolveAndExtractId = async (inputUrl) => {
     try {
+        // 🟢 CLOUD BYPASS: Ask the Facebook Graph API to inspect the shortlink natively.
+        // Since this internal request bypasses public scraping rules, it circumvents 
+        // datacenter IP walls and login checks on Render.
+        try {
+            const encodedUrl = encodeURIComponent(inputUrl);
+            const apiRes = await fetch(`https://graph.facebook.com/v19.0/?id=${encodedUrl}&access_token=${FB_ACCESS_TOKEN}`);
+            const apiData = await apiRes.json();
+            
+            if (apiData.og_object && apiData.og_object.id) {
+                return apiData.og_object.id;
+            }
+            if (apiData.id && /^\d+$/.test(apiData.id)) {
+                return apiData.id;
+            }
+        } catch (apiErr) {
+            console.warn("Graph API link resolution failed, using fallback scraper routines:", apiErr.message);
+        }
+
         const manualRes = await fetch(inputUrl, {
             redirect: 'manual', 
             headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
@@ -62,105 +80,96 @@ app.post('/api/facebook-custom-links', async (req, res) => {
     }
 
     try {
-        // 🟢 FIX 2: Explicitly protect the profile identification fetch
         if (!CACHED_PAGE_ID) {
-            try {
-                const meRes = await fetch(`https://graph.facebook.com/v19.0/me?access_token=${FB_ACCESS_TOKEN}`);
-                const meData = await meRes.json();
-                if (meData.id) CACHED_PAGE_ID = meData.id;
-            } catch (meError) {
-                console.warn("Temporary check failure on token lookup, continuing with fallbacks:", meError.message);
-            }
+            const meRes = await fetch(`https://graph.facebook.com/v19.0/me?access_token=${FB_ACCESS_TOKEN}`);
+            const meData = await meRes.json();
+            if (meData.id) CACHED_PAGE_ID = meData.id;
         }
 
         const fetchPromises = links.map(async (url) => {
-            try {
-                let extractedId = await resolveAndExtractId(url);
-                
-                if (!extractedId) return { url, error: "Could not unmask Post ID.", metrics: null };
+            let extractedId = await resolveAndExtractId(url);
+            
+            if (!extractedId) return { url, error: "Could not unmask Post ID.", metrics: null };
 
-                let graphApiId = extractedId;
-                if (CACHED_PAGE_ID && !extractedId.startsWith(`${CACHED_PAGE_ID}_`)) {
-                    graphApiId = `${CACHED_PAGE_ID}_${extractedId}`; 
-                }
-
-                // STEP 1: Fetch Basic Interactions
-                let basicDataUrl = `https://graph.facebook.com/v19.0/${graphApiId}?fields=id,message,created_time,shares,reactions.summary(total_count),comments.summary(total_count)&access_token=${FB_ACCESS_TOKEN}`;
-                let basicRes = await fetch(basicDataUrl);
-                let basicData = await basicRes.json();
-
-                if (basicData.error) {
-                    basicDataUrl = `https://graph.facebook.com/v19.0/${extractedId}?fields=id,message,created_time,shares,reactions.summary(total_count),comments.summary(total_count)&access_token=${FB_ACCESS_TOKEN}`;
-                    basicRes = await fetch(basicDataUrl);
-                    basicData = await basicRes.json();
-                }
-
-                if (basicData.error) return { url, error: basicData.error.message, metrics: null };
-
-                const canonicalId = basicData.id;
-
-                const totalReactions = basicData.reactions?.summary?.total_count || 0;
-                const totalComments = basicData.comments?.summary?.total_count || 0;
-                const totalShares = basicData.shares?.count || 0;
-                const fallbackEngagement = totalReactions + totalComments + totalShares;
-
-                // STEP 2: Fetch Insights using the Canonical ID
-                let reach = 0, impressions = 0, clicks = 0;
-
-                const impressionEndpoints = [
-                    `https://graph.facebook.com/v19.0/${canonicalId}/insights?metric=post_impressions_unique,post_impressions&access_token=${FB_ACCESS_TOKEN}`,
-                    `https://graph.facebook.com/v19.0/${canonicalId}/insights?metric=post_video_views&access_token=${FB_ACCESS_TOKEN}`,
-                    `https://graph.facebook.com/v19.0/${graphApiId}/insights?metric=post_impressions_unique,post_impressions&access_token=${FB_ACCESS_TOKEN}`,
-                    `https://graph.facebook.com/v19.0/${extractedId}/insights?metric=post_video_views&access_token=${FB_ACCESS_TOKEN}`
-                ];
-
-                for (const endpoint of impressionEndpoints) {
-                    const res = await fetch(endpoint);
-                    const data = await res.json();
-                    
-                    if (!data.error && data.data && data.data.length > 0) {
-                        const getM = (m) => data.data.find(x => x.name === m)?.values?.[0]?.value || 0;
-                        impressions = getM('post_impressions') || getM('post_video_views') || 0;
-                        reach = getM('post_impressions_unique') || impressions; 
-                        break; 
-                    }
-                }
-
-                const clickEndpoints = [
-                    `https://graph.facebook.com/v19.0/${canonicalId}/insights?metric=post_clicks_unique,post_clicks&access_token=${FB_ACCESS_TOKEN}`,
-                    `https://graph.facebook.com/v19.0/${graphApiId}/insights?metric=post_clicks_unique,post_clicks&access_token=${FB_ACCESS_TOKEN}`
-                ];
-
-                for (const endpoint of clickEndpoints) {
-                    const res = await fetch(endpoint);
-                    const data = await res.json();
-                    
-                    if (!data.error && data.data && data.data.length > 0) {
-                        clicks = data.data.find(x => x.name === 'post_clicks_unique')?.values?.[0]?.value || 
-                                 data.data.find(x => x.name === 'post_clicks')?.values?.[0]?.value || 0;
-                        break; 
-                    }
-                }
-
-                return {
-                    id: canonicalId, 
-                    message: basicData.message || 'Video / Photo Post',
-                    postedAt: basicData.created_time,
-                    permalink: url,
-                    metrics: {
-                        reach,
-                        impressions,
-                        engagement: fallbackEngagement + clicks,
-                        clicks,
-                        reactions: totalReactions,
-                        comments: totalComments,
-                        shares: totalShares
-                    }
-                };
-            } catch (postError) {
-                // If an individual link experiences a connection drop, return the specific trace inline
-                return { url, error: `Network exception encountered: ${postError.message}`, metrics: null };
+            let graphApiId = extractedId;
+            if (CACHED_PAGE_ID && !extractedId.startsWith(`${CACHED_PAGE_ID}_`)) {
+                graphApiId = `${CACHED_PAGE_ID}_${extractedId}`; 
             }
+
+            // 🔎 STEP 1: Fetch Basic Interactions
+            let basicDataUrl = `https://graph.facebook.com/v19.0/${graphApiId}?fields=id,message,created_time,shares,reactions.summary(total_count),comments.summary(total_count)&access_token=${FB_ACCESS_TOKEN}`;
+            let basicRes = await fetch(basicDataUrl);
+            let basicData = await basicRes.json();
+
+            if (basicData.error) {
+                basicDataUrl = `https://graph.facebook.com/v19.0/${extractedId}?fields=id,message,created_time,shares,reactions.summary(total_count),comments.summary(total_count)&access_token=${FB_ACCESS_TOKEN}`;
+                basicRes = await fetch(basicDataUrl);
+                basicData = await basicRes.json();
+            }
+
+            if (basicData.error) return { url, error: basicData.error.message, metrics: null };
+
+            // 🔎 THE MAGIC KEY: Grab Facebook's official numeric ID from the basic response
+            const canonicalId = basicData.id;
+
+            const totalReactions = basicData.reactions?.summary?.total_count || 0;
+            const totalComments = basicData.comments?.summary?.total_count || 0;
+            const totalShares = basicData.shares?.count || 0;
+            const fallbackEngagement = totalReactions + totalComments + totalShares;
+
+            // 🔎 STEP 2: Fetch Insights using the Canonical ID
+            let reach = 0, impressions = 0, clicks = 0;
+
+            const impressionEndpoints = [
+                `https://graph.facebook.com/v19.0/${canonicalId}/insights?metric=post_impressions_unique,post_impressions&access_token=${FB_ACCESS_TOKEN}`,
+                `https://graph.facebook.com/v19.0/${canonicalId}/insights?metric=post_video_views&access_token=${FB_ACCESS_TOKEN}`,
+                `https://graph.facebook.com/v19.0/${graphApiId}/insights?metric=post_impressions_unique,post_impressions&access_token=${FB_ACCESS_TOKEN}`,
+                `https://graph.facebook.com/v19.0/${extractedId}/insights?metric=post_video_views&access_token=${FB_ACCESS_TOKEN}`
+            ];
+
+            for (const endpoint of impressionEndpoints) {
+                const res = await fetch(endpoint);
+                const data = await res.json();
+                
+                if (!data.error && data.data && data.data.length > 0) {
+                    const getM = (m) => data.data.find(x => x.name === m)?.values?.[0]?.value || 0;
+                    impressions = getM('post_impressions') || getM('post_video_views') || 0;
+                    reach = getM('post_impressions_unique') || impressions; 
+                    break; 
+                }
+            }
+
+            const clickEndpoints = [
+                `https://graph.facebook.com/v19.0/${canonicalId}/insights?metric=post_clicks_unique,post_clicks&access_token=${FB_ACCESS_TOKEN}`,
+                `https://graph.facebook.com/v19.0/${graphApiId}/insights?metric=post_clicks_unique,post_clicks&access_token=${FB_ACCESS_TOKEN}`
+            ];
+
+            for (const endpoint of clickEndpoints) {
+                const res = await fetch(endpoint);
+                const data = await res.json();
+                
+                if (!data.error && data.data && data.data.length > 0) {
+                    clicks = data.data.find(x => x.name === 'post_clicks_unique')?.values?.[0]?.value || 
+                             data.data.find(x => x.name === 'post_clicks')?.values?.[0]?.value || 0;
+                    break; 
+                }
+            }
+
+            return {
+                id: canonicalId, 
+                message: basicData.message || 'Video / Photo Post',
+                postedAt: basicData.created_time,
+                permalink: url,
+                metrics: {
+                    reach,
+                    impressions,
+                    engagement: fallbackEngagement + clicks,
+                    clicks,
+                    reactions: totalReactions,
+                    comments: totalComments,
+                    shares: totalShares
+                }
+            };
         });
 
         const results = await Promise.all(fetchPromises);
