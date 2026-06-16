@@ -45,14 +45,19 @@ const SocialAnalyticsView = () => {
                 body: JSON.stringify({ links: linkArray })
             });
             
-            if (!response.ok) throw new Error("Network response was not ok");
+            // 🟢 DYNAMIC ERROR PARSER: Extract the real JSON error from the server if it fails
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error || `Server responded with status ${response.status}`);
+            }
             
             const data = await response.json();
             setPosts(data);
-            setCurrentPage(1); // 🟢 Reset to page 1 every time we fetch new data
+            setCurrentPage(1); 
         } catch (error) {
             console.error("Failed to sync Facebook data:", error);
-            alert("Could not pull data. Ensure your Node.js backend is running and the URL is correct!");
+            // 🟢 DYNAMIC ALERT: Display the real error message instead of the old hardcoded text
+            alert(`Sync Failed: ${error.message}`);
         } finally {
             setIsSyncing(false);
         }
