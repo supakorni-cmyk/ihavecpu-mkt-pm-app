@@ -32,7 +32,7 @@ const resolveAndExtractId = async (inputUrl) => {
             realUrl = ogUrlMatch[1].replace(/&amp;/g, '&');
         }
 
-        // STRICT MATCH: Only accept 'pfbid...' or numbers that are at least 10 digits long
+        // STRICT MATCH: Accept 'pfbid...' or numbers that are at least 10 digits long
         const urlMatch = realUrl.match(/(?:posts\/|videos\/|reel\/|watch\/?\?v=|fbid=|story_fbid=|\/p\/)(pfbid[a-zA-Z0-9]+|\d{10,})/i);
         if (urlMatch && urlMatch[1]) return urlMatch[1];
 
@@ -66,9 +66,10 @@ app.post('/api/facebook-custom-links', async (req, res) => {
             
             if (!extractedId) return { url, error: "Could not unmask the true Post ID. Check if link is public.", metrics: null };
 
+            // 🟢 CRITICAL FIX: ALL IDs (both numeric AND pfbid) must be prefixed with the Page ID
             let graphApiId = extractedId;
-            if (/^\d+$/.test(extractedId) && CACHED_PAGE_ID) {
-                graphApiId = `${CACHED_PAGE_ID}_${extractedId}`; // Required PAGEID_POSTID format for numeric IDs
+            if (CACHED_PAGE_ID && !extractedId.startsWith(`${CACHED_PAGE_ID}_`)) {
+                graphApiId = `${CACHED_PAGE_ID}_${extractedId}`; 
             }
 
             // Helper function to format the final data safely
@@ -95,7 +96,6 @@ app.post('/api/facebook-custom-links', async (req, res) => {
                 };
             };
 
-            // 🟢 2. The Smart API Query Pivot
             // ATTEMPT 1: Treat it as a standard Post
             const postUrl = `https://graph.facebook.com/v19.0/${graphApiId}?fields=message,created_time,shares,likes.summary(true),comments.summary(true),insights.metric(post_impressions_unique,post_engagements,post_clicks_unique)&access_token=${FB_ACCESS_TOKEN}`;
             const postRes = await fetch(postUrl);
@@ -105,9 +105,9 @@ app.post('/api/facebook-custom-links', async (req, res) => {
                 return formatResult(postData, postData.insights?.data);
             }
 
-            // ATTEMPT 2: If it throws a #10 or #12 Error, it is a Reel/Video. Pivot to Video Metrics.
+            // ATTEMPT 2: If it throws an Error, it is a Reel/Video. Pivot to Video Metrics.
             if (postData.error) {
-                // Videos usually only accept the raw numeric ID, not the PAGEID_ prefix
+                // Videos usually only accept the raw extracted ID, not the PAGEID_ prefix
                 const videoUrl = `https://graph.facebook.com/v19.0/${extractedId}?fields=message,created_time,shares,likes.summary(true),comments.summary(true),insights.metric(post_video_views)&access_token=${FB_ACCESS_TOKEN}`;
                 const videoRes = await fetch(videoUrl);
                 const videoData = await videoRes.json();
@@ -116,7 +116,7 @@ app.post('/api/facebook-custom-links', async (req, res) => {
                     return formatResult(videoData, videoData.insights?.data);
                 }
 
-                // ATTEMPT 3: Ultimate Fallback (Grab basic data and Likes/Comments, ignore insights so it doesn't crash)
+                // ATTEMPT 3: Ultimate Fallback (Grab basic data and ignore insights so it doesn't crash)
                 const plainUrl = `https://graph.facebook.com/v19.0/${graphApiId}?fields=message,created_time,shares,likes.summary(true),comments.summary(true)&access_token=${FB_ACCESS_TOKEN}`;
                 const plainRes = await fetch(plainUrl);
                 const plainData = await plainRes.json();
@@ -125,7 +125,6 @@ app.post('/api/facebook-custom-links', async (req, res) => {
                     return formatResult(plainData, null);
                 }
 
-                // If all 3 attempts fail, return the specific Facebook error string
                 return { url, error: postData.error.message, metrics: null };
             }
         });
