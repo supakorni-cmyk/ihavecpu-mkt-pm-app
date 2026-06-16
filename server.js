@@ -10,10 +10,9 @@ app.use(express.json());
 const FB_ACCESS_TOKEN = process.env.FB_ACCESS_TOKEN;
 let CACHED_PAGE_ID = null;
 
-// 🟢 1. The Ultimate URL-Decoding Scraper
+// 🟢 1. The URL-Decoding Scraper
 const resolveAndExtractId = async (inputUrl) => {
     try {
-        // Attempt 1: The Fast Redirect Header Grabber
         const manualRes = await fetch(inputUrl, {
             redirect: 'manual', 
             headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
@@ -22,25 +21,21 @@ const resolveAndExtractId = async (inputUrl) => {
         if (manualRes.status >= 300 && manualRes.status < 400) {
             const locationHeader = manualRes.headers.get('location');
             if (locationHeader) {
-                // 🟢 CRITICAL: Decode the URL so '%2Fposts%2F' converts back to '/posts/'
                 const decodedLocation = decodeURIComponent(locationHeader);
                 const match = decodedLocation.match(/(?:posts\/|videos\/|reel\/|watch\/?\?v=|fbid=|story_fbid=|\/p\/)(pfbid[a-zA-Z0-9]+|\d{10,})/i);
                 if (match && match[1]) return match[1];
             }
         }
 
-        // Attempt 2: The Command-Line Follower (Bypasses JS walls)
         const curlRes = await fetch(inputUrl, {
             redirect: 'follow',
             headers: { 'User-Agent': 'curl/7.68.0' }
         });
         
-        // Decode the final destination URL
         const decodedFinalUrl = decodeURIComponent(curlRes.url);
         let match = decodedFinalUrl.match(/(?:posts\/|videos\/|reel\/|watch\/?\?v=|fbid=|story_fbid=|\/p\/)(pfbid[a-zA-Z0-9]+|\d{10,})/i);
         if (match && match[1]) return match[1];
 
-        // Attempt 3: Scrape the decoded HTML string as a last resort
         const html = await curlRes.text();
         const decodedHtml = decodeURIComponent(html);
         match = decodedHtml.match(/(?:posts\/|videos\/|reel\/|watch\/?\?v=|fbid=|story_fbid=|\/p\/)(pfbid[a-zA-Z0-9]+|\d{10,})/i) ||
@@ -72,19 +67,18 @@ app.post('/api/facebook-custom-links', async (req, res) => {
         const fetchPromises = links.map(async (url) => {
             let extractedId = await resolveAndExtractId(url);
             
-            if (!extractedId) return { url, error: "Could not unmask the true Post ID. Check if link is public.", metrics: null };
+            if (!extractedId) return { url, error: "Could not unmask Post ID.", metrics: null };
 
             let graphApiId = extractedId;
             if (CACHED_PAGE_ID && !extractedId.startsWith(`${CACHED_PAGE_ID}_`)) {
                 graphApiId = `${CACHED_PAGE_ID}_${extractedId}`; 
             }
 
-            // 🟢 STEP 1: Fetch Basic Data (Interactions) independently so it never fails
+            // 🟢 STEP 1: Fetch Basic Interactions
             let basicDataUrl = `https://graph.facebook.com/v19.0/${graphApiId}?fields=message,created_time,shares,reactions.summary(total_count),comments.summary(total_count)&access_token=${FB_ACCESS_TOKEN}`;
             let basicRes = await fetch(basicDataUrl);
             let basicData = await basicRes.json();
 
-            // If the PAGEID_POSTID format fails, try the pure extracted ID (Required for some Reels)
             if (basicData.error) {
                 basicDataUrl = `https://graph.facebook.com/v19.0/${extractedId}?fields=message,created_time,shares,reactions.summary(total_count),comments.summary(total_count)&access_token=${FB_ACCESS_TOKEN}`;
                 basicRes = await fetch(basicDataUrl);
@@ -98,49 +92,35 @@ app.post('/api/facebook-custom-links', async (req, res) => {
             const totalShares = basicData.shares?.count || 0;
             const fallbackEngagement = totalReactions + totalComments + totalShares;
 
-            // 🟢 STEP 2: Fetch Insights Decoupled
-            let reach = 0, impressions = 0, engagement = fallbackEngagement, clicks = 0;
+            // 🟢 STEP 2: The "Brute Force Waterfall" Insights Fetcher
+            let reach = 0, impressions = 0, clicks = 0;
 
-            // ATTEMPT A: Ask for Standard Post Insights
-            const postInsightsUrl = `https://graph.facebook.com/v19.0/${graphApiId}/insights?metric=post_impressions_unique,post_impressions,post_engagements,post_clicks_unique&access_token=${FB_ACCESS_TOKEN}`;
-            const postInsightsRes = await fetch(postInsightsUrl);
-            const postInsightsData = await postInsightsRes.json();
-
-            // CRITICAL FIX: Check if data actually exists (.length > 0). 
-            // If Facebook returns an empty array [], we MUST pivot to Video Insights!
-            if (!postInsightsData.error && postInsightsData.data && postInsightsData.data.length > 0) {
-                const getM = (m) => postInsightsData.data.find(x => x.name === m)?.values?.[0]?.value || 0;
-                reach = getM('post_impressions_unique');
-                impressions = getM('post_impressions');
-                clicks = getM('post_clicks_unique');
+            // We queue up the possible formats based on Facebook's strict rules
+            const endpointsToTry = [
+                // Attempt A: Standard Post (Photos, Links). Asks for impressions & clicks.
+                `https://graph.facebook.com/v19.0/${graphApiId}/insights?metric=post_impressions_unique,post_impressions,post_clicks_unique&access_token=${FB_ACCESS_TOKEN}`,
                 
-                // Real Engagement = API Total OR (Reactions + Comments + Shares + Clicks)
-                engagement = getM('post_engagements') || (fallbackEngagement + clicks);
-            } else {
-                // ATTEMPT B: It's a Reel/Video. Fetch Views AND Clicks.
-                const videoInsightsUrl = `https://graph.facebook.com/v19.0/${extractedId}/insights?metric=post_video_views,post_engagements,post_clicks_unique&access_token=${FB_ACCESS_TOKEN}`;
-                const videoInsightsRes = await fetch(videoInsightsUrl);
-                const videoInsightsData = await videoInsightsRes.json();
+                // Attempt B: Video/Reel (PAGE_ID format). Crucially, NO clicks requested here to prevent crashes.
+                `https://graph.facebook.com/v19.0/${graphApiId}/insights?metric=post_video_views&access_token=${FB_ACCESS_TOKEN}`,
+                
+                // Attempt C: Raw Video Node (RAW ID format). NO clicks requested.
+                `https://graph.facebook.com/v19.0/${extractedId}/insights?metric=post_video_views&access_token=${FB_ACCESS_TOKEN}`
+            ];
 
-                if (!videoInsightsData.error && videoInsightsData.data && videoInsightsData.data.length > 0) {
-                    const getM = (m) => videoInsightsData.data.find(x => x.name === m)?.values?.[0]?.value || 0;
+            // Loop through them sequentially until one works
+            for (const endpoint of endpointsToTry) {
+                const res = await fetch(endpoint);
+                const data = await res.json();
+
+                // If Facebook returns valid data, extract it and break out of the loop
+                if (!data.error && data.data && data.data.length > 0) {
+                    const getM = (m) => data.data.find(x => x.name === m)?.values?.[0]?.value || 0;
                     
-                    impressions = getM('post_video_views'); // Views = Impressions
-                    reach = impressions; // API often hides unique Viewers, so we mirror Views to Reach
+                    impressions = getM('post_impressions') || getM('post_video_views') || 0;
+                    reach = getM('post_impressions_unique') || impressions; // Fallback Reach to Views for video objects
                     clicks = getM('post_clicks_unique') || 0;
                     
-                    engagement = getM('post_engagements') || (fallbackEngagement + clicks);
-                } else {
-                    // ATTEMPT C: Minimal Video Insights
-                    // Sometimes asking for "clicks" on a Reel crashes the query. This is the ultimate safety net.
-                    const minVideoUrl = `https://graph.facebook.com/v19.0/${extractedId}/insights?metric=post_video_views&access_token=${FB_ACCESS_TOKEN}`;
-                    const minVideoRes = await fetch(minVideoUrl);
-                    const minVideoData = await minVideoRes.json();
-
-                    if (!minVideoData.error && minVideoData.data && minVideoData.data.length > 0) {
-                        impressions = minVideoData.data.find(x => x.name === 'post_video_views')?.values?.[0]?.value || 0;
-                        reach = impressions;
-                    }
+                    break; // Success! Stop trying other endpoints.
                 }
             }
 
@@ -152,7 +132,7 @@ app.post('/api/facebook-custom-links', async (req, res) => {
                 metrics: {
                     reach,
                     impressions,
-                    engagement,
+                    engagement: fallbackEngagement + clicks, // Final accurate engagement total
                     clicks,
                     reactions: totalReactions,
                     comments: totalComments,
