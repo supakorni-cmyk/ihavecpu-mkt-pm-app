@@ -94,8 +94,8 @@ app.post('/api/facebook-custom-links', async (req, res) => {
                     permalink: url,
                     metrics: {
                         // 🟢 FIX: Map Reach to unique impressions, Impressions to total impressions
-                        reach: getMetric('post_impressions_unique') || 0,
-                        impressions: getMetric('post_impressions') || getMetric('post_video_views') || 0,
+                        reach: getMetric('post_views_unique') || 0,
+                        impressions: getMetric('post_views') || getMetric('post_video_views') || 0,
                         engagement: getMetric('post_engagements') || 0,
                         clicks: getMetric('post_clicks_unique') || 0,
                         reactions: data.likes?.summary?.total_count || 0,
@@ -107,7 +107,7 @@ app.post('/api/facebook-custom-links', async (req, res) => {
 
             // ATTEMPT 1: Standard Post Metrics
             // 🟢 FIX: Added 'post_impressions' to the requested metric list
-            const postUrl = `https://graph.facebook.com/v19.0/${graphApiId}?fields=message,created_time,shares,likes.summary(true),comments.summary(true),insights.metric(post_impressions_unique,post_impressions,post_engagements,post_clicks_unique)&access_token=${FB_ACCESS_TOKEN}`;
+            const postUrl = `https://graph.facebook.com/v19.0/${graphApiId}?fields=message,created_time,shares,likes.summary(true),comments.summary(true),insights.metric(post_views_unique,post_views,post_engagements,post_clicks_unique)&access_token=${FB_ACCESS_TOKEN}`;
             const postRes = await fetch(postUrl);
             const postData = await postRes.json();
 
