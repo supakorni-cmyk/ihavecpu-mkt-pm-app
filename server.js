@@ -9,19 +9,28 @@ app.use(express.json());
 
 const FB_ACCESS_TOKEN = process.env.FB_ACCESS_TOKEN;
 
-// 🟢 UPGRADED: Resolves short links and catches alphanumeric 'pfbid' IDs
+// We will cache your Page ID here so we don't have to fetch it every single time
+let CACHED_PAGE_ID = null;
+
+// 🟢 UPGRADED: Resolves shortened links with a User-Agent, and parses Reels/Videos
 const resolveAndExtractId = async (inputUrl) => {
     try {
         let urlToParse = inputUrl;
 
-        // If it's a shortened share link, follow the redirect to get the canonical URL
+        // If it's a shortened share link, follow the redirect like a real browser
         if (inputUrl.includes('/share/')) {
-            const response = await fetch(inputUrl, { redirect: 'follow' });
+            const response = await fetch(inputUrl, { 
+                redirect: 'follow',
+                headers: {
+                    // Facebook blocks bots. This header tricks Facebook into giving us the real URL.
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                }
+            });
             urlToParse = response.url; 
         }
 
-        // Regex now catches /posts/, /videos/, fbid=, story_fbid= AND alphanumeric IDs
-        const match = urlToParse.match(/(?:posts\/|videos\/|fbid=|story_fbid=)([a-zA-Z0-9_]+)/);
+        // Expanded Regex to catch posts, Reels (/reel/), Watch (/watch/?v=), and photos (/p/)
+        const match = urlToParse.match(/(?:posts\/|videos\/|reel\/|watch\/\?v=|fbid=|story_fbid=|\/p\/)([a-zA-Z0-9_\-]+)/);
         return match ? match[1] : null;
     } catch (error) {
         console.error("URL Resolution Error:", error);
@@ -37,11 +46,23 @@ app.post('/api/facebook-custom-links', async (req, res) => {
     }
 
     try {
+        // 1. Fetch Page ID dynamically if we don't have it yet
+        if (!CACHED_PAGE_ID) {
+            const meRes = await fetch(`https://graph.facebook.com/v19.0/me?access_token=${FB_ACCESS_TOKEN}`);
+            const meData = await meRes.json();
+            if (meData.id) CACHED_PAGE_ID = meData.id;
+        }
+
+        // 2. Fetch all requested posts simultaneously
         const fetchPromises = links.map(async (url) => {
-            // 🟢 UPGRADED: Use the new async extractor
-            const postId = await resolveAndExtractId(url);
+            let postId = await resolveAndExtractId(url);
             
-            if (!postId) return { url, error: "Could not extract Post ID. Check if link is public.", metrics: null };
+            if (!postId) return { url, error: "Could not extract ID (Regex failed or link is private).", metrics: null };
+
+            // 🟢 CRITICAL FIX: If the ID is purely numbers, Facebook requires PAGEID_POSTID
+            if (/^\d+$/.test(postId) && CACHED_PAGE_ID) {
+                postId = `${CACHED_PAGE_ID}_${postId}`;
+            }
 
             // Securely query the Graph API
             const fbUrl = `https://graph.facebook.com/v19.0/${postId}?fields=message,created_time,insights.metric(post_impressions_unique,post_engagements,post_clicks_unique)&access_token=${FB_ACCESS_TOKEN}`;
