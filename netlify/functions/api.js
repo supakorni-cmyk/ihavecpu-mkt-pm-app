@@ -4,14 +4,20 @@ const cors = require('cors');
 const serverless = require('serverless-http');
 
 const app = express();
+
+// Open up CORS cleanly for serverless routing validation
 app.use(cors({ origin: '*' }));
 app.use(express.json());
 
 const FB_ACCESS_TOKEN = process.env.FB_ACCESS_TOKEN;
 let CACHED_PAGE_ID = null;
 
-// 🟢 FAIL-FAST TIMEOUT HELPER: Prevents individual requests from hanging and triggering a 502 timeout
-const fetchWithTimeout = async (url, options = {}, timeout = 2000) => {
+// Fail-fast timeout controller to prevent hitting Netlify's strict 10s function wall
+const fetchWithTimeout = async (url, options = {}, timeout = 2500) => {
+    // Fallback wrapper check for older Node environments
+    if (typeof fetch !== 'function') {
+        throw new Error("Node version mismatch on serverless environment. Please set NODE_VERSION to 20 in Netlify.");
+    }
     const controller = new AbortController();
     const id = setTimeout(() => controller.abort(), timeout);
     try {
@@ -24,14 +30,11 @@ const fetchWithTimeout = async (url, options = {}, timeout = 2000) => {
     }
 };
 
-// 🔎 URL-Decoding Scraper (Optimized with strict network budgets)
 const resolveAndExtractId = async (inputUrl) => {
     try {
-        // Step 1: Check if it's already an unmasked direct URL structure
         let match = inputUrl.match(/(?:posts\/|videos\/|reel\/|watch\/?\?v=|fbid=|story_fbid=|\/p\/)(pfbid[a-zA-Z0-9]+|\d{10,})/i);
         if (match && match[1]) return match[1];
 
-        // Step 2: Try a lightning-fast Graph API lookup
         try {
             const encodedUrl = encodeURIComponent(inputUrl);
             const apiRes = await fetchWithTimeout(`https://graph.facebook.com/v19.0/?id=${encodedUrl}&access_token=${FB_ACCESS_TOKEN}`, {}, 2000);
@@ -39,10 +42,9 @@ const resolveAndExtractId = async (inputUrl) => {
             if (apiData.og_object && apiData.og_object.id) return apiData.og_object.id;
             if (apiData.id && /^\d+$/.test(apiData.id)) return apiData.id;
         } catch (e) {
-            console.warn("API pre-check skipped or timed out.");
+            console.warn("API resolution skipped.");
         }
 
-        // Step 3: Manual redirect trace with a strict 2-second cutoff window
         const manualRes = await fetchWithTimeout(inputUrl, {
             redirect: 'manual', 
             headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }
@@ -56,38 +58,34 @@ const resolveAndExtractId = async (inputUrl) => {
                 if (match && match[1]) return match[1];
             }
         }
-
         return null;
     } catch (error) {
-        console.error("URL Resolution Error:", error.message);
         return null;
     }
 };
 
-// Catch-all route to process requests safely
+// Intercept wildcard POST routing explicitly
 app.post('*', async (req, res) => {
     const { links } = req.body;
-    
     if (!links || !Array.isArray(links)) {
         return res.status(400).json({ error: "Please provide an array of links." });
     }
 
     try {
-        if (!CACHED_PAGE_ID) {
+        if (!CACHED_PAGE_ID && FB_ACCESS_TOKEN) {
             try {
                 const meRes = await fetchWithTimeout(`https://graph.facebook.com/v19.0/me?access_token=${FB_ACCESS_TOKEN}`, {}, 2000);
                 const meData = await meRes.json();
                 if (meData.id) CACHED_PAGE_ID = meData.id;
             } catch (err) {
-                console.warn("Profile check skipped.");
+                console.warn("Profile fetch skipped.");
             }
         }
 
         const fetchPromises = links.map(async (url) => {
             try {
                 let extractedId = await resolveAndExtractId(url);
-                
-                if (!extractedId) return { url, error: "Could not unmask Post ID inside cloud network parameters.", metrics: null };
+                if (!extractedId) return { url, error: "Could not unmask Post ID inside cloud networks.", metrics: null };
 
                 let graphApiId = extractedId;
                 if (CACHED_PAGE_ID && !extractedId.startsWith(`${CACHED_PAGE_ID}_`)) {
@@ -164,7 +162,7 @@ app.post('*', async (req, res) => {
                     }
                 };
             } catch (postError) {
-                return { url, error: `Link processing took too long: ${postError.message}`, metrics: null };
+                return { url, error: `Link processing timeout: ${postError.message}`, metrics: null };
             }
         });
 
