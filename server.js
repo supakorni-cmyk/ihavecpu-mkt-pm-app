@@ -2,14 +2,17 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-
-// 🟢 FORCE IPv4 ROUTING: Eliminates data-center connection timeouts on cloud hosts
 const dns = require('dns');
-dns.setDefaultResultOrder('ipv4first');
+
+// 🟢 SAFE REBOOT OVERRIDE: Only apply IPv4 sorting if the running Node version supports it.
+// This prevents fatal startup crashes (502 errors) on older cloud containers.
+if (dns && typeof dns.setDefaultResultOrder === 'function') {
+    dns.setDefaultResultOrder('ipv4first');
+}
 
 const app = express();
 
-// 🟢 PERMISSIVE CORS FOR ROUTING: Allows your Netlify frontend to bypass preflight locks
+// 🟢 PERMISSIVE CORS: Open headers up completely for production cloud validation
 app.use(cors({
     origin: '*',
     methods: ['GET', 'POST', 'OPTIONS'],
@@ -21,12 +24,12 @@ app.use(express.json());
 const FB_ACCESS_TOKEN = process.env.FB_ACCESS_TOKEN;
 let CACHED_PAGE_ID = null;
 
-// 🟢 HEALTH CHECK: Gives Render an explicit path to ping to monitor deployment status
+// 🟢 HEALTH CHECK ROUTE: Tells Render your app is alive and functional
 app.get('/', (req, res) => {
-    res.send('Facebook Analytics Bridge is Online and Healthy!');
+    res.status(200).send('Facebook Analytics Bridge is Online and Healthy!');
 });
 
-// 🔎 1. The URL-Decoding Scraper (Your unmodified version)
+// 🔎 1. The URL-Decoding Scraper (Your working local backup engine)
 const resolveAndExtractId = async (inputUrl) => {
     try {
         try {
@@ -36,7 +39,7 @@ const resolveAndExtractId = async (inputUrl) => {
             if (apiData.og_object && apiData.og_object.id) return apiData.og_object.id;
             if (apiData.id && /^\d+$/.test(apiData.id)) return apiData.id;
         } catch (e) {
-            console.warn("Graph API pre-check bypassed, running scraper routines.");
+            console.warn("Graph API link parsing skipped, activating local scraper engines.");
         }
 
         const manualRes = await fetch(inputUrl, {
@@ -90,7 +93,7 @@ app.post('/api/facebook-custom-links', async (req, res) => {
                 const meData = await meRes.json();
                 if (meData.id) CACHED_PAGE_ID = meData.id;
             } catch (err) {
-                console.warn("Token validation step deferred to individual fallback routes.");
+                console.warn("Token profile lookup deferred directly to processing tasks.");
             }
         }
 
@@ -147,7 +150,7 @@ app.post('/api/facebook-custom-links', async (req, res) => {
                             break; 
                         }
                     } catch (e) {
-                        console.warn(`Bypassed slow analytics container endpoint: ${endpoint}`);
+                        console.warn(`Insights block bypassed for endpoint row target: ${endpoint}`);
                     }
                 }
 
@@ -167,7 +170,7 @@ app.post('/api/facebook-custom-links', async (req, res) => {
                             break; 
                         }
                     } catch (e) {
-                        console.warn(`Bypassed slow click container endpoint: ${endpoint}`);
+                        console.warn(`Click block bypassed for endpoint row target: ${endpoint}`);
                     }
                 }
 
@@ -187,7 +190,7 @@ app.post('/api/facebook-custom-links', async (req, res) => {
                     }
                 };
             } catch (postError) {
-                return { url, error: `Facebook link timeout: ${postError.message}`, metrics: null };
+                return { url, error: `Process tracking issue: ${postError.message}`, metrics: null };
             }
         });
 
@@ -195,9 +198,8 @@ app.post('/api/facebook-custom-links', async (req, res) => {
         res.json(results);
 
     } catch (error) {
-        console.error("Graph API Error:", error);
-        // 🟢 FIX: Return the raw internal engine string back to the browser network logs
-        res.status(500).json({ error: error.message || "Failed to fetch Facebook data" });
+        console.error("Global Endpoint Crash:", error);
+        res.status(500).json({ error: error.message || "Internal server tracking issue." });
     }
 });
 
