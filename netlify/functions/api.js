@@ -3,23 +3,19 @@ const express = require('express');
 const cors = require('cors');
 const serverless = require('serverless-http');
 
-// Force IPv4 routing to keep external connections stable
 const dns = require('dns');
 if (dns && typeof dns.setDefaultResultOrder === 'function') {
     dns.setDefaultResultOrder('ipv4first');
 }
 
 const app = express();
-
-// Since everything runs on the same Netlify domain now, we can use standard CORS
 app.use(cors({ origin: '*' }));
 app.use(express.json());
 
-// Netlify injects environment variables directly from your dashboard settings
 const FB_ACCESS_TOKEN = process.env.FB_ACCESS_TOKEN;
 let CACHED_PAGE_ID = null;
 
-// 🔎 URL-Decoding Scraper (Your unmodified working local version)
+// 🔎 URL-Decoding Scraper (Your unmodified working version)
 const resolveAndExtractId = async (inputUrl) => {
     try {
         try {
@@ -69,8 +65,10 @@ const resolveAndExtractId = async (inputUrl) => {
     }
 };
 
-// Netlify functions handle routing relative to their execution hook
-app.post('/api/facebook-custom-links', async (req, res) => {
+// 🟢 1. Create an isolated sub-router for your analytics endpoint
+const analyticsRouter = express.Router();
+
+analyticsRouter.post('/facebook-custom-links', async (req, res) => {
     const { links } = req.body;
     
     if (!links || !Array.isArray(links)) {
@@ -184,6 +182,9 @@ app.post('/api/facebook-custom-links', async (req, res) => {
     }
 });
 
-// ❌ Remove app.listen()
-// 🟢 Export via the serverless-http handler instead
+// 🟢 2. Mount the router on every possible endpoint format Netlify might forward
+app.use('/.netlify/functions/api', analyticsRouter);
+app.use('/api', analyticsRouter);
+app.use('/', analyticsRouter);
+
 module.exports.handler = serverless(app);
