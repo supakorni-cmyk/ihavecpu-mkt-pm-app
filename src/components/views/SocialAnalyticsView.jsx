@@ -166,7 +166,6 @@ const SocialAnalyticsView = () => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-50 bg-white">
-                                {/* 🟢 FIX: Map over currentPosts instead of posts */}
                                 {currentPosts.map((post, idx) => (
                                     <tr key={post.id || idx} className="hover:bg-blue-50/30 transition-colors group">
                                         {post.error ? (
@@ -174,7 +173,7 @@ const SocialAnalyticsView = () => {
                                                 <div className="flex items-center gap-3 text-red-500 font-medium">
                                                     <AlertCircle size={20} />
                                                     <div className="flex flex-col">
-                                                        <span>Error loading URL: <a href={post.url} target="_blank" rel="noreferrer" className="underline">{post.url}</a></span>
+                                                        <span>Error loading URL: <a href={post.url} target="_blank" rel="noreferrer" className="underline break-all">{post.url}</a></span>
                                                         <span className="text-xs text-red-400">{post.error}</span>
                                                     </div>
                                                 </div>
@@ -183,30 +182,30 @@ const SocialAnalyticsView = () => {
                                             <>
                                                 <td className="px-8 py-6">
                                                     <p className="text-base font-bold text-gray-800 line-clamp-2 mb-2 group-hover:text-blue-600 transition-colors">
-                                                        {post.message}
+                                                        {post.message || 'Facebook Post / Video'}
                                                     </p>
                                                     <div className="flex items-center gap-4 text-sm font-semibold text-gray-400">
-                                                        <span>{formatDate(post.postedAt)}</span>
+                                                        <span>{post.postedAt ? formatDate(post.postedAt) : 'Recent Post'}</span>
                                                         <a href={post.permalink} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-blue-500 hover:underline">
                                                             View Post <ExternalLink size={14} />
                                                         </a>
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-6 text-right font-black text-gray-700 text-lg">
-                                                    {post.metrics.reach.toLocaleString()}
+                                                    {(post.metrics?.reach ?? 0).toLocaleString()}
                                                 </td>
                                                 <td className="px-6 py-6 text-right font-black text-gray-700 text-lg">
-                                                    {post.metrics.impressions.toLocaleString()}
+                                                    {(post.metrics?.impressions ?? 0).toLocaleString()}
                                                 </td>
                                                 <td className="px-6 py-6">
                                                     <div className="flex items-center justify-center gap-4 text-sm font-bold text-gray-500">
-                                                        <span className="flex items-center gap-1.5 text-pink-600 bg-pink-50 px-2.5 py-1.5 rounded-md"><ThumbsUp size={16}/> {post.metrics.reactions}</span>
-                                                        <span className="flex items-center gap-1.5 text-indigo-600 bg-indigo-50 px-2.5 py-1.5 rounded-md"><MessageCircle size={16}/> {post.metrics.comments}</span>
-                                                        <span className="flex items-center gap-1.5 text-emerald-600 bg-emerald-50 px-2.5 py-1.5 rounded-md"><Share2 size={16}/> {post.metrics.shares}</span>
+                                                        <span className="flex items-center gap-1.5 text-pink-600 bg-pink-50 px-2.5 py-1.5 rounded-md"><ThumbsUp size={16}/> {post.metrics?.reactions ?? 0}</span>
+                                                        <span className="flex items-center gap-1.5 text-indigo-600 bg-indigo-50 px-2.5 py-1.5 rounded-md"><MessageCircle size={16}/> {post.metrics?.comments ?? 0}</span>
+                                                        <span className="flex items-center gap-1.5 text-emerald-600 bg-emerald-50 px-2.5 py-1.5 rounded-md"><Share2 size={16}/> {post.metrics?.shares ?? 0}</span>
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-6 text-center font-black text-amber-600 text-lg">
-                                                    {post.metrics.clicks.toLocaleString()}
+                                                    {(post.metrics?.clicks ?? 0).toLocaleString()}
                                                 </td>
                                             </>
                                         )}
@@ -216,7 +215,7 @@ const SocialAnalyticsView = () => {
                         </table>
                     </div>
 
-                    {/* 🟢 PAGINATION CONTROLS */}
+                    {/* PAGINATION CONTROLS */}
                     {totalPages > 1 && (
                         <div className="px-8 py-4 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
                             <button 
