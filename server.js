@@ -3,29 +3,25 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 
-// 🟢 PRODUCTION OVERRIDE: Prioritize IPv4 routing to eliminate Render's connection timeout loop bugs
+// 🟢 FORCE IPv4 ROUTING: Eliminates data-center connection timeouts on cloud hosts
 const dns = require('dns');
 dns.setDefaultResultOrder('ipv4first');
 
 const app = express();
 
-// 🟢 PRODUCTION CORS CLEARANCE: Explicitly allows your live Netlify domain to securely connect
-const corsOptions = {
-    origin: 'https://ihavecpu-marketing.netlify.app',
+// 🟢 PERMISSIVE CORS FOR ROUTING: Allows your Netlify frontend to bypass preflight locks
+app.use(cors({
+    origin: '*',
     methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: true,
-    optionsSuccessStatus: 200
-};
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions)); // Manually process preflight CORS tracking validation requests
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
 app.use(express.json());
 
 const FB_ACCESS_TOKEN = process.env.FB_ACCESS_TOKEN;
 let CACHED_PAGE_ID = null;
 
-// 🟢 HEALTH CHECK: Gives Render an explicit URL to monitor to keep the web service active
+// 🟢 HEALTH CHECK: Gives Render an explicit path to ping to monitor deployment status
 app.get('/', (req, res) => {
     res.send('Facebook Analytics Bridge is Online and Healthy!');
 });
@@ -33,7 +29,6 @@ app.get('/', (req, res) => {
 // 🔎 1. The URL-Decoding Scraper (Your unmodified version)
 const resolveAndExtractId = async (inputUrl) => {
     try {
-        // Cloud Optimization: Let the Graph API inspect its own shortlinks first to bypass proxy blocks
         try {
             const encodedUrl = encodeURIComponent(inputUrl);
             const apiRes = await fetch(`https://graph.facebook.com/v19.0/?id=${encodedUrl}&access_token=${FB_ACCESS_TOKEN}`);
@@ -41,7 +36,7 @@ const resolveAndExtractId = async (inputUrl) => {
             if (apiData.og_object && apiData.og_object.id) return apiData.og_object.id;
             if (apiData.id && /^\d+$/.test(apiData.id)) return apiData.id;
         } catch (e) {
-            console.warn("Graph API link extraction skipped, utilizing legacy HTML scraping engines.");
+            console.warn("Graph API pre-check bypassed, running scraper routines.");
         }
 
         const manualRes = await fetch(inputUrl, {
@@ -95,12 +90,11 @@ app.post('/api/facebook-custom-links', async (req, res) => {
                 const meData = await meRes.json();
                 if (meData.id) CACHED_PAGE_ID = meData.id;
             } catch (err) {
-                console.warn("Profile cache lookup failed due to network constraints, utilizing default tracking parameters.");
+                console.warn("Token validation step deferred to individual fallback routes.");
             }
         }
 
         const fetchPromises = links.map(async (url) => {
-            // 🟢 DEFENSIVE HOOK: Wrap each link evaluation loop to isolate tracking drops and preserve table rendering
             try {
                 let extractedId = await resolveAndExtractId(url);
                 
@@ -153,7 +147,7 @@ app.post('/api/facebook-custom-links', async (req, res) => {
                             break; 
                         }
                     } catch (e) {
-                        console.warn(`Insights tracking bypassed for endpoint: ${endpoint}`);
+                        console.warn(`Bypassed slow analytics container endpoint: ${endpoint}`);
                     }
                 }
 
@@ -173,7 +167,7 @@ app.post('/api/facebook-custom-links', async (req, res) => {
                             break; 
                         }
                     } catch (e) {
-                        console.warn(`Click analytics tracking bypassed for endpoint: ${endpoint}`);
+                        console.warn(`Bypassed slow click container endpoint: ${endpoint}`);
                     }
                 }
 
@@ -193,7 +187,7 @@ app.post('/api/facebook-custom-links', async (req, res) => {
                     }
                 };
             } catch (postError) {
-                return { url, error: `Facebook gateway timeout: ${postError.message}`, metrics: null };
+                return { url, error: `Facebook link timeout: ${postError.message}`, metrics: null };
             }
         });
 
@@ -202,7 +196,8 @@ app.post('/api/facebook-custom-links', async (req, res) => {
 
     } catch (error) {
         console.error("Graph API Error:", error);
-        res.status(500).json({ error: "Failed to fetch Facebook data" }); [cite: 33]
+        // 🟢 FIX: Return the raw internal engine string back to the browser network logs
+        res.status(500).json({ error: error.message || "Failed to fetch Facebook data" });
     }
 });
 
