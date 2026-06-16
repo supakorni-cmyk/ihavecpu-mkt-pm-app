@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { 
   Facebook, BarChart3, Users, Eye, 
   ThumbsUp, MessageCircle, Share2, MousePointerClick, RefreshCw, ExternalLink,
-  Link as LinkIcon, AlertCircle
+  Link as LinkIcon, AlertCircle, Heart
 } from 'lucide-react';
 import { formatDate } from '../../utils/constants';
 
