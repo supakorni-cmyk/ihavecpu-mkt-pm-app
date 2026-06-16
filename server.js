@@ -10,37 +10,39 @@ app.use(express.json());
 const FB_ACCESS_TOKEN = process.env.FB_ACCESS_TOKEN;
 let CACHED_PAGE_ID = null;
 
-// 🟢 1. The URL-Decoding Scraper
+// 🟢 1. The Mobile "Mask-Stripping" Scraper
 const resolveAndExtractId = async (inputUrl) => {
     try {
-        const manualRes = await fetch(inputUrl, {
-            redirect: 'manual', 
-            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
-        });
-        
-        if (manualRes.status >= 300 && manualRes.status < 400) {
-            const locationHeader = manualRes.headers.get('location');
-            if (locationHeader) {
-                const decodedLocation = decodeURIComponent(locationHeader);
-                const match = decodedLocation.match(/(?:posts\/|videos\/|reel\/|watch\/?\?v=|fbid=|story_fbid=|\/p\/)(pfbid[a-zA-Z0-9]+|\d{10,})/i);
-                if (match && match[1]) return match[1];
-            }
-        }
-
-        const curlRes = await fetch(inputUrl, {
+        // Pretend to be an iPhone. Facebook's mobile site (m.facebook) is much simpler
+        // and exposes the true numeric ID in the HTML, bypassing the pfbid mask!
+        const response = await fetch(inputUrl, {
             redirect: 'follow',
-            headers: { 'User-Agent': 'curl/7.68.0' }
+            headers: { 
+                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
+                'Accept-Language': 'en-US,en;q=0.9'
+            }
         });
         
-        const decodedFinalUrl = decodeURIComponent(curlRes.url);
-        let match = decodedFinalUrl.match(/(?:posts\/|videos\/|reel\/|watch\/?\?v=|fbid=|story_fbid=|\/p\/)(pfbid[a-zA-Z0-9]+|\d{10,})/i);
+        const html = await response.text();
+        const decodedFinalUrl = decodeURIComponent(response.url);
+
+        // 1. If the URL redirected to a clean numeric ID, grab it!
+        let match = decodedFinalUrl.match(/(?:posts\/|videos\/|reel\/|watch\/?\?v=|fbid=|story_fbid=|\/p\/)(\d{10,})/i);
         if (match && match[1]) return match[1];
 
-        const html = await curlRes.text();
-        const decodedHtml = decodeURIComponent(html);
-        match = decodedHtml.match(/(?:posts\/|videos\/|reel\/|watch\/?\?v=|fbid=|story_fbid=|\/p\/)(pfbid[a-zA-Z0-9]+|\d{10,})/i) ||
-                html.match(/(?:top_level_post_id|story_fbid|post_id|video_id)":"?(pfbid[a-zA-Z0-9]+|\d{10,})"?/i);
+        // 2. THE PFBID STRIPPER: Aggressively scrape the mobile HTML for the true numeric ID.
+        // This regex hunts for the raw numeric data embedded in the page's meta tags.
+        match = html.match(/(?:top_level_post_id|share_fbid|post_id|video_id|story_fbid|page_post_id|fbid[=:])"?[=:]?(\d{10,})"?/i) ||
+                html.match(/fb:\/\/(?:post|photo|video|page)\/(?:[^\/]+\/)?(\d{10,})/i) ||
+                html.match(/content="fb:\/\/[^\/]+\/(\d{10,})"/i) ||
+                html.match(/id="pagelet_og_article_(\d{10,})"/i) ||
+                html.match(/[&\?]fbid=(\d{10,})/i) ||
+                html.match(/[&\?]story_fbid=(\d{10,})/i);
                 
+        if (match && match[1]) return match[1];
+
+        // 3. Absolute fallback (if the post is fully locked/private)
+        match = decodedFinalUrl.match(/(?:posts\/|videos\/|reel\/|watch\/?\?v=|fbid=|story_fbid=|\/p\/)(pfbid[a-zA-Z0-9]+)/i);
         if (match && match[1]) return match[1];
 
         return null;
@@ -74,7 +76,8 @@ app.post('/api/facebook-custom-links', async (req, res) => {
                 graphApiId = `${CACHED_PAGE_ID}_${extractedId}`; 
             }
 
-            // 🟢 STEP 1: Fetch Basic Interactions (ADDED 'post_id' to fields)
+            // 🟢 STEP 1: Fetch Basic Interactions
+            // We now explicitly ask for 'post_id' in case Facebook provides a translated ID
             let basicDataUrl = `https://graph.facebook.com/v19.0/${graphApiId}?fields=id,post_id,message,created_time,shares,reactions.summary(total_count),comments.summary(total_count)&access_token=${FB_ACCESS_TOKEN}`;
             let basicRes = await fetch(basicDataUrl);
             let basicData = await basicRes.json();
@@ -87,26 +90,25 @@ app.post('/api/facebook-custom-links', async (req, res) => {
 
             if (basicData.error) return { url, error: basicData.error.message, metrics: null };
 
-            // 🟢 THE MAGIC KEY: Create a prioritized list of IDs to check.
-            // basicData.post_id is the holy grail for Photo links!
+            // Compile a list of verified numeric IDs to hunt for insights
             const idsToTry = [...new Set([
                 basicData.post_id, 
                 basicData.id,      
                 graphApiId,        
                 extractedId        
-            ].filter(Boolean))]; // Removes any null/undefined IDs
+            ].filter(Boolean))];
 
             const totalReactions = basicData.reactions?.summary?.total_count || 0;
             const totalComments = basicData.comments?.summary?.total_count || 0;
             const totalShares = basicData.shares?.count || 0;
             const fallbackEngagement = totalReactions + totalComments + totalShares;
 
-            // 🟢 STEP 2: Fetch Insights using the ID Waterfall
+            // 🟢 STEP 2: Fetch Insights Waterfall
             let reach = 0, impressions = 0, clicks = 0;
 
-            // --- ATTEMPT A: Fetch Impressions/Views ---
+            // Feed the true numeric IDs into the Insights endpoint
             for (const id of idsToTry) {
-                if (impressions > 0) break; // Stop looping if we found our impressions!
+                if (impressions > 0) break; 
 
                 const impressionEndpoints = [
                     `https://graph.facebook.com/v19.0/${id}/insights?metric=post_impressions_unique,post_impressions&access_token=${FB_ACCESS_TOKEN}`,
@@ -130,9 +132,8 @@ app.post('/api/facebook-custom-links', async (req, res) => {
                 }
             }
 
-            // --- ATTEMPT B: Fetch Clicks ISOLATED ---
             for (const id of idsToTry) {
-                if (clicks > 0) break; // Stop looping if we found our clicks!
+                if (clicks > 0) break; 
 
                 const clickEndpoints = [
                     `https://graph.facebook.com/v19.0/${id}/insights?metric=post_clicks_unique,post_clicks&access_token=${FB_ACCESS_TOKEN}`
@@ -154,8 +155,7 @@ app.post('/api/facebook-custom-links', async (req, res) => {
             }
 
             return {
-                // Send back the most accurate ID available
-                id: basicData.post_id || basicData.id || canonicalId, 
+                id: basicData.post_id || basicData.id, 
                 message: basicData.message || 'Video / Photo Post',
                 postedAt: basicData.created_time,
                 permalink: url,
