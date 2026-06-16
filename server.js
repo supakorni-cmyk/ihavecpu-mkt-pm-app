@@ -10,35 +10,38 @@ app.use(express.json());
 const FB_ACCESS_TOKEN = process.env.FB_ACCESS_TOKEN;
 let CACHED_PAGE_ID = null;
 
-// 🟢 1. The Invincible Mobile Scraper
+// 🟢 1. The Bot-Proof Redirect Header Scraper
 const resolveAndExtractId = async (inputUrl) => {
     try {
-        // Pretend to be an iPhone to force Facebook to serve clean, indexable HTML
+        // Instead of downloading the page, we tell the fetch request to STOP at the redirect
+        // and just tell us where Facebook *intended* to send us.
         const response = await fetch(inputUrl, {
-            redirect: 'follow',
+            redirect: 'manual', // DO NOT follow the redirect
             headers: {
-                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                'Accept-Language': 'en-US,en;q=0.9'
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
             }
         });
         
-        const html = await response.text();
-        let realUrl = response.url;
+        let realUrl = inputUrl;
 
-        // Extract the canonical URL Facebook hides in the header
-        const ogUrlMatch = html.match(/<meta property="og:url" content="([^"]+)"/i);
-        if (ogUrlMatch && ogUrlMatch[1]) {
-            realUrl = ogUrlMatch[1].replace(/&amp;/g, '&');
+        // If Facebook tries to redirect us (Status 301 or 302), grab the destination URL!
+        if (response.status >= 300 && response.status < 400) {
+            const locationHeader = response.headers.get('location');
+            if (locationHeader) {
+                realUrl = locationHeader;
+            }
+        } else if (response.status === 200) {
+            // Fallback if it didn't redirect, try to scrape the meta tag quickly
+            const html = await response.text();
+            const ogUrlMatch = html.match(/<meta property="og:url" content="([^"]+)"/i);
+            if (ogUrlMatch && ogUrlMatch[1]) {
+                realUrl = ogUrlMatch[1].replace(/&amp;/g, '&');
+            }
         }
 
-        // STRICT MATCH: Accept 'pfbid...' or numbers that are at least 10 digits long
+        // Now extract the ID from the unmasked, real URL
         const urlMatch = realUrl.match(/(?:posts\/|videos\/|reel\/|watch\/?\?v=|fbid=|story_fbid=|\/p\/)(pfbid[a-zA-Z0-9]+|\d{10,})/i);
         if (urlMatch && urlMatch[1]) return urlMatch[1];
-
-        // Backup: Scrape the raw JSON variables inside the page
-        const jsonMatch = html.match(/(?:top_level_post_id|story_fbid|post_id|video_id)":"?(pfbid[a-zA-Z0-9]+|\d{10,})"?/i);
-        if (jsonMatch && jsonMatch[1]) return jsonMatch[1];
 
         return null;
     } catch (error) {
