@@ -93,35 +93,43 @@ app.post('/api/facebook-custom-links', async (req, res) => {
             const totalClicks = basicData.clicks?.count || 0;
             const fallbackEngagement = totalReactions + totalComments + totalShares + totalClicks;
 
-            // 🟢 STEP 2: The "Brute Force Waterfall" Insights Fetcher
+// 🟢 STEP 2: The "Atomic" Insights Fetcher
             let reach = 0, impressions = 0, clicks = 0;
 
-            // We queue up the possible formats based on Facebook's strict rules
-            const endpointsToTry = [
-                // Attempt A: Standard Post (Photos, Links). Asks for impressions & clicks.
-                `https://graph.facebook.com/v19.0/${graphApiId}/insights?metric=post_impressions_unique,post_impressions,post_media_view&access_token=${FB_ACCESS_TOKEN}`,
-                
-                // Attempt B: Video/Reel (PAGE_ID format). Crucially, NO clicks requested here to prevent crashes.
-                `https://graph.facebook.com/v19.0/${graphApiId}/insights?metric=post_video_views&access_token=${FB_ACCESS_TOKEN}`,
-                
-                // Attempt C: Raw Video Node (RAW ID format). NO clicks requested.
-                `https://graph.facebook.com/v19.0/${extractedId}/insights?metric=post_video_views&access_token=${FB_ACCESS_TOKEN}`
+            // --- ATTEMPT A: Fetch Impressions/Views ONLY ---
+            // This ensures one bad metric doesn't kill the main view count
+            const impressionEndpoints = [
+                `https://graph.facebook.com/v19.0/${graphApiId}/insights?metric=post_impressions_unique,post_impressions&access_token=${FB_ACCESS_TOKEN}`, // Standard Post
+                `https://graph.facebook.com/v19.0/${graphApiId}/insights?metric=post_video_views&access_token=${FB_ACCESS_TOKEN}`, // Video with Page ID
+                `https://graph.facebook.com/v19.0/${extractedId}/insights?metric=post_video_views&access_token=${FB_ACCESS_TOKEN}` // Raw Video ID
             ];
 
-            // Loop through them sequentially until one works
-            for (const endpoint of endpointsToTry) {
+            for (const endpoint of impressionEndpoints) {
                 const res = await fetch(endpoint);
                 const data = await res.json();
-
-                // If Facebook returns valid data, extract it and break out of the loop
+                
                 if (!data.error && data.data && data.data.length > 0) {
                     const getM = (m) => data.data.find(x => x.name === m)?.values?.[0]?.value || 0;
-                    
-                    impressions = getM('post_impressions') || getM('post_media_view') || getM('post_video_views') || 0;
+                    impressions = getM('post_impressions') || getM('post_video_views') || 0;
                     reach = getM('post_impressions_unique') || impressions; // Fallback Reach to Views for video objects
-                    clicks = getM('post_clicks') || 0;
-                    
-                    break; // Success! Stop trying other endpoints.
+                    break; // Success! Locked in impressions.
+                }
+            }
+
+            // --- ATTEMPT B: Fetch Clicks ISOLATED ---
+            // We do this entirely separately so if it crashes, we don't lose impressions
+            const clickEndpoints = [
+                `https://graph.facebook.com/v19.0/${graphApiId}/insights?metric=post_clicks_unique&access_token=${FB_ACCESS_TOKEN}`,
+                `https://graph.facebook.com/v19.0/${extractedId}/insights?metric=post_clicks_unique&access_token=${FB_ACCESS_TOKEN}`
+            ];
+
+            for (const endpoint of clickEndpoints) {
+                const res = await fetch(endpoint);
+                const data = await res.json();
+                
+                if (!data.error && data.data && data.data.length > 0) {
+                    clicks = data.data.find(x => x.name === 'post_clicks_unique')?.values?.[0]?.value || 0;
+                    break; // Success! Locked in clicks.
                 }
             }
 
