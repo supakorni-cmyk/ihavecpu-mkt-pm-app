@@ -9,11 +9,24 @@ app.use(express.json());
 
 const FB_ACCESS_TOKEN = process.env.FB_ACCESS_TOKEN;
 
-// Helper to extract the hidden Post ID from typical Facebook URLs
-const extractPostId = (url) => {
-    // Matches patterns like /posts/12345, /videos/12345, or fbid=12345
-    const match = url.match(/(?:posts\/|videos\/|fbid=)([0-9]+)/);
-    return match ? match[1] : null;
+// 🟢 UPGRADED: Resolves short links and catches alphanumeric 'pfbid' IDs
+const resolveAndExtractId = async (inputUrl) => {
+    try {
+        let urlToParse = inputUrl;
+
+        // If it's a shortened share link, follow the redirect to get the canonical URL
+        if (inputUrl.includes('/share/')) {
+            const response = await fetch(inputUrl, { redirect: 'follow' });
+            urlToParse = response.url; 
+        }
+
+        // Regex now catches /posts/, /videos/, fbid=, story_fbid= AND alphanumeric IDs
+        const match = urlToParse.match(/(?:posts\/|videos\/|fbid=|story_fbid=)([a-zA-Z0-9_]+)/);
+        return match ? match[1] : null;
+    } catch (error) {
+        console.error("URL Resolution Error:", error);
+        return null;
+    }
 };
 
 app.post('/api/facebook-custom-links', async (req, res) => {
@@ -24,10 +37,11 @@ app.post('/api/facebook-custom-links', async (req, res) => {
     }
 
     try {
-        // Fetch all requested posts simultaneously
         const fetchPromises = links.map(async (url) => {
-            const postId = extractPostId(url);
-            if (!postId) return { url, error: "Could not extract Post ID from URL", metrics: null };
+            // 🟢 UPGRADED: Use the new async extractor
+            const postId = await resolveAndExtractId(url);
+            
+            if (!postId) return { url, error: "Could not extract Post ID. Check if link is public.", metrics: null };
 
             // Securely query the Graph API
             const fbUrl = `https://graph.facebook.com/v19.0/${postId}?fields=message,created_time,insights.metric(post_impressions_unique,post_engagements,post_clicks_unique)&access_token=${FB_ACCESS_TOKEN}`;
@@ -39,7 +53,6 @@ app.post('/api/facebook-custom-links', async (req, res) => {
 
             const insights = fbData.insights?.data || [];
             
-            // Helper to safely extract metric values
             const getMetric = (metricName) => {
                 const metric = insights.find(m => m.name === metricName);
                 return metric?.values[0]?.value || 0;
@@ -55,7 +68,6 @@ app.post('/api/facebook-custom-links', async (req, res) => {
                     impressions: getMetric('post_impressions_unique'),
                     engagement: getMetric('post_engagements'),
                     clicks: getMetric('post_clicks_unique'),
-                    // Basic reactions/comments are placeholders unless queried via separate edge endpoints
                     reactions: 0, 
                     comments: 0,  
                     shares: 0     
