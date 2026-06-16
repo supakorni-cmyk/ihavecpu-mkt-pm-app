@@ -3,7 +3,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 
-// 🟢 FIX 1: Force Node to use IPv4 first. This fixes Render's internalConnectMultiple timeout bug!
+// 🟢 FIX 1: Prioritize IPv4 routing to eliminate cloud network connection hangs
 const dns = require('dns');
 dns.setDefaultResultOrder('ipv4first');
 
@@ -14,7 +14,7 @@ app.use(express.json());
 const FB_ACCESS_TOKEN = process.env.FB_ACCESS_TOKEN;
 let CACHED_PAGE_ID = null;
 
-// 🔎 1. The URL-Decoding Scraper (Your unmodified version)
+// 🔎 1. The URL-Decoding Scraper (Your unmodified local version)
 const resolveAndExtractId = async (inputUrl) => {
     try {
         const manualRes = await fetch(inputUrl, {
@@ -62,14 +62,18 @@ app.post('/api/facebook-custom-links', async (req, res) => {
     }
 
     try {
+        // 🟢 FIX 2: Explicitly protect the profile identification fetch
         if (!CACHED_PAGE_ID) {
-            const meRes = await fetch(`https://graph.facebook.com/v19.0/me?access_token=${FB_ACCESS_TOKEN}`);
-            const meData = await meRes.json();
-            if (meData.id) CACHED_PAGE_ID = meData.id;
+            try {
+                const meRes = await fetch(`https://graph.facebook.com/v19.0/me?access_token=${FB_ACCESS_TOKEN}`);
+                const meData = await meRes.json();
+                if (meData.id) CACHED_PAGE_ID = meData.id;
+            } catch (meError) {
+                console.warn("Temporary check failure on token lookup, continuing with fallbacks:", meError.message);
+            }
         }
 
         const fetchPromises = links.map(async (url) => {
-            // 🟢 FIX 2: Wrap each link loop so a single error can't block all other posts from showing up!
             try {
                 let extractedId = await resolveAndExtractId(url);
                 
@@ -93,7 +97,6 @@ app.post('/api/facebook-custom-links', async (req, res) => {
 
                 if (basicData.error) return { url, error: basicData.error.message, metrics: null };
 
-                // THE MAGIC KEY: Grab Facebook's official numeric ID from the basic response
                 const canonicalId = basicData.id;
 
                 const totalReactions = basicData.reactions?.summary?.total_count || 0;
@@ -155,7 +158,8 @@ app.post('/api/facebook-custom-links', async (req, res) => {
                     }
                 };
             } catch (postError) {
-                return { url, error: `Network connection error: ${postError.message}`, metrics: null };
+                // If an individual link experiences a connection drop, return the specific trace inline
+                return { url, error: `Network exception encountered: ${postError.message}`, metrics: null };
             }
         });
 
