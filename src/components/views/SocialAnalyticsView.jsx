@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { 
   Facebook, BarChart3, Users, Eye, 
   ThumbsUp, MessageCircle, Share2, MousePointerClick, RefreshCw, ExternalLink,
-  Link as LinkIcon, AlertCircle, Heart
+  Link as LinkIcon, AlertCircle, Heart, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { formatDate } from '../../utils/constants';
 
@@ -14,23 +14,31 @@ const SocialAnalyticsView = () => {
     // State to hold the pasted links
     const [pastedLinks, setPastedLinks] = useState("");
 
-    // --- AGGREGATED STATS ---
-    // Safely filter out posts that failed to load before calculating totals
+    // --- PAGINATION STATE ---
+    const [currentPage, setCurrentPage] = useState(1);
+    const postsPerPage = 5;
+
+    // --- AGGREGATED STATS (Calculated from ALL posts) ---
     const validPosts = posts.filter(p => p.metrics !== null && !p.error);
     const totalReach = validPosts.reduce((sum, p) => sum + p.metrics.reach, 0);
     const totalImpressions = validPosts.reduce((sum, p) => sum + p.metrics.impressions, 0);
     const totalEngagement = validPosts.reduce((sum, p) => sum + p.metrics.engagement, 0);
     const totalClicks = validPosts.reduce((sum, p) => sum + p.metrics.clicks, 0);
 
+    // --- PAGINATION LOGIC ---
+    const indexOfLastPost = currentPage * postsPerPage;
+    const indexOfFirstPost = indexOfLastPost - postsPerPage;
+    // This slices the main array to only show the 5 posts for the current page
+    const currentPosts = posts.slice(indexOfFirstPost, indexOfLastPost);
+    const totalPages = Math.ceil(posts.length / postsPerPage);
+
     const handleSyncLinks = async () => {
         if (!pastedLinks.trim()) return alert("Please paste at least one Facebook link!");
         
-        // Split by new lines, remove empty spaces, and filter out blanks
         const linkArray = pastedLinks.split('\n').map(l => l.trim()).filter(l => l !== "");
         
         setIsSyncing(true);
         try {
-            // Make sure your backend server is running and accessible here
             const response = await fetch('http://localhost:3000/api/facebook-custom-links', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -41,6 +49,7 @@ const SocialAnalyticsView = () => {
             
             const data = await response.json();
             setPosts(data);
+            setCurrentPage(1); // 🟢 Reset to page 1 every time we fetch new data
         } catch (error) {
             console.error("Failed to sync Facebook data:", error);
             alert("Could not pull data. Ensure your Node.js backend is running and the URL is correct!");
@@ -88,7 +97,7 @@ const SocialAnalyticsView = () => {
                 </div>
             </div>
 
-            {/* KPI CARDS (Only show if we have successfully loaded valid posts) */}
+            {/* KPI CARDS */}
             {validPosts.length > 0 && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10 animate-in fade-in slide-in-from-bottom-2 duration-500">
                     <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-5">
@@ -140,6 +149,9 @@ const SocialAnalyticsView = () => {
                         <h3 className="text-xl font-black text-gray-800 flex items-center gap-2">
                             <BarChart3 className="text-blue-600" size={24}/> Synced Posts Performance
                         </h3>
+                        <span className="text-sm font-bold text-gray-500 bg-white px-3 py-1 rounded-full border border-gray-200 shadow-sm">
+                            Showing {indexOfFirstPost + 1}-{Math.min(indexOfLastPost, posts.length)} of {posts.length}
+                        </span>
                     </div>
                     
                     <div className="overflow-x-auto custom-scrollbar">
@@ -154,7 +166,8 @@ const SocialAnalyticsView = () => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-50 bg-white">
-                                {posts.map((post, idx) => (
+                                {/* 🟢 FIX: Map over currentPosts instead of posts */}
+                                {currentPosts.map((post, idx) => (
                                     <tr key={post.id || idx} className="hover:bg-blue-50/30 transition-colors group">
                                         {post.error ? (
                                             <td colSpan="5" className="px-8 py-6">
@@ -202,6 +215,31 @@ const SocialAnalyticsView = () => {
                             </tbody>
                         </table>
                     </div>
+
+                    {/* 🟢 PAGINATION CONTROLS */}
+                    {totalPages > 1 && (
+                        <div className="px-8 py-4 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
+                            <button 
+                                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                disabled={currentPage === 1}
+                                className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-bold text-gray-600 hover:bg-gray-100 hover:text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+                            >
+                                <ChevronLeft size={16} /> Previous
+                            </button>
+                            
+                            <span className="text-sm font-bold text-gray-500">
+                                Page <span className="text-blue-600">{currentPage}</span> of {totalPages}
+                            </span>
+                            
+                            <button 
+                                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                                disabled={currentPage === totalPages}
+                                className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-bold text-gray-600 hover:bg-gray-100 hover:text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+                            >
+                                Next <ChevronRight size={16} />
+                            </button>
+                        </div>
+                    )}
                 </div>
             )}
         </div>
