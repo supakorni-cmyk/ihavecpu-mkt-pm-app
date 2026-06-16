@@ -8,30 +8,38 @@ app.use(cors());
 app.use(express.json());
 
 const FB_ACCESS_TOKEN = process.env.FB_ACCESS_TOKEN;
-
-// We will cache your Page ID here so we don't have to fetch it every single time
 let CACHED_PAGE_ID = null;
 
-// 🟢 UPGRADED: Resolves shortened links with a User-Agent, and parses Reels/Videos
+// 🟢 UPGRADED: Fetches the Facebook HTML and scrapes the hidden numeric ID
 const resolveAndExtractId = async (inputUrl) => {
     try {
-        let urlToParse = inputUrl;
+        // Fetch the raw HTML of the Facebook page
+        const response = await fetch(inputUrl, {
+            headers: {
+                // Mimic a real browser so Facebook doesn't block the request
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept-Language': 'en-US,en;q=0.9'
+            }
+        });
+        const html = await response.text();
 
-        // If it's a shortened share link, follow the redirect like a real browser
-        if (inputUrl.includes('/share/')) {
-            const response = await fetch(inputUrl, { 
-                redirect: 'follow',
-                headers: {
-                    // Facebook blocks bots. This header tricks Facebook into giving us the real URL.
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-                }
-            });
-            urlToParse = response.url; 
+        // Scrape the true numeric ID from Facebook's internal script/meta tags
+        const idMatch = html.match(/"top_level_post_id":"([0-9]+)"/) ||
+                        html.match(/"story_fbid":"([0-9]+)"/) ||
+                        html.match(/fb:\/\/post\/([0-9]+)/) ||
+                        html.match(/fb:\/\/photo\/([0-9]+)/) ||
+                        html.match(/fb:\/\/video\/([0-9]+)/) ||
+                        html.match(/"post_id":"([0-9]+)"/);
+
+        if (idMatch && idMatch[1]) {
+            return idMatch[1]; // Found the pure numeric ID!
         }
 
-        // Expanded Regex to catch posts, Reels (/reel/), Watch (/watch/?v=), and photos (/p/)
-        const match = urlToParse.match(/(?:posts\/|videos\/|reel\/|watch\/\?v=|fbid=|story_fbid=|\/p\/)([a-zA-Z0-9_\-]+)/);
-        return match ? match[1] : null;
+        // Fallback: If it's already a clean numeric ID in the URL
+        const urlMatch = inputUrl.match(/(?:posts\/|videos\/|reel\/|fbid=|story_fbid=)([0-9]+)/);
+        if (urlMatch) return urlMatch[1];
+
+        return null;
     } catch (error) {
         console.error("URL Resolution Error:", error);
         return null;
@@ -55,17 +63,15 @@ app.post('/api/facebook-custom-links', async (req, res) => {
 
         // 2. Fetch all requested posts simultaneously
         const fetchPromises = links.map(async (url) => {
-            let postId = await resolveAndExtractId(url);
+            let numericId = await resolveAndExtractId(url);
             
-            if (!postId) return { url, error: "Could not extract ID (Regex failed or link is private).", metrics: null };
+            if (!numericId) return { url, error: "Could not scrape the numeric Post ID from the link.", metrics: null };
 
-            // 🟢 CRITICAL FIX: If the ID is purely numbers, Facebook requires PAGEID_POSTID
-            if (/^\d+$/.test(postId) && CACHED_PAGE_ID) {
-                postId = `${CACHED_PAGE_ID}_${postId}`;
-            }
+            // 🟢 CRITICAL: Format as PAGEID_POSTID (Strict API Requirement)
+            const graphApiId = CACHED_PAGE_ID ? `${CACHED_PAGE_ID}_${numericId}` : numericId;
 
-            // Securely query the Graph API
-            const fbUrl = `https://graph.facebook.com/v19.0/${postId}?fields=message,created_time,insights.metric(post_impressions_unique,post_engagements,post_clicks_unique)&access_token=${FB_ACCESS_TOKEN}`;
+            // Securely query the Graph API Insights
+            const fbUrl = `https://graph.facebook.com/v19.0/${graphApiId}?fields=message,created_time,insights.metric(post_impressions_unique,post_engagements,post_clicks_unique)&access_token=${FB_ACCESS_TOKEN}`;
             
             const response = await fetch(fbUrl);
             const fbData = await response.json();
