@@ -65,10 +65,10 @@ const resolveAndExtractId = async (inputUrl) => {
     }
 };
 
-// 🟢 1. Create an isolated sub-router for your analytics endpoint
-const analyticsRouter = express.Router();
-
-analyticsRouter.post('/facebook-custom-links', async (req, res) => {
+// 🟢 CATCH-ALL WILDCARD POST ROUTE
+// This intercepts ANY incoming POST request to this function, completely 
+// bypassing any serverless path prefix or trailing slash mismatch errors!
+app.post('*', async (req, res) => {
     const { links } = req.body;
     
     if (!links || !Array.isArray(links)) {
@@ -181,10 +181,5 @@ analyticsRouter.post('/facebook-custom-links', async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
-
-// 🟢 2. Mount the router on every possible endpoint format Netlify might forward
-app.use('/.netlify/functions/api', analyticsRouter);
-app.use('/api', analyticsRouter);
-app.use('/', analyticsRouter);
 
 module.exports.handler = serverless(app);
