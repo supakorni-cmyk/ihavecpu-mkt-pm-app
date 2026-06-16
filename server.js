@@ -90,7 +90,8 @@ app.post('/api/facebook-custom-links', async (req, res) => {
             const totalReactions = basicData.reactions?.summary?.total_count || 0;
             const totalComments = basicData.comments?.summary?.total_count || 0;
             const totalShares = basicData.shares?.count || 0;
-            const fallbackEngagement = totalReactions + totalComments + totalShares;
+            const totalClicks = basicData.clicks?.count || 0;
+            const fallbackEngagement = totalReactions + totalComments + totalShares + totalClicks;
 
             // 🟢 STEP 2: The "Brute Force Waterfall" Insights Fetcher
             let reach = 0, impressions = 0, clicks = 0;
@@ -98,7 +99,7 @@ app.post('/api/facebook-custom-links', async (req, res) => {
             // We queue up the possible formats based on Facebook's strict rules
             const endpointsToTry = [
                 // Attempt A: Standard Post (Photos, Links). Asks for impressions & clicks.
-                `https://graph.facebook.com/v19.0/${graphApiId}/insights?metric=post_impressions_unique,post_impressions,post_clicks_unique&access_token=${FB_ACCESS_TOKEN}`,
+                `https://graph.facebook.com/v19.0/${graphApiId}/insights?metric=post_impressions_unique,post_impressions,post_media_view&access_token=${FB_ACCESS_TOKEN}`,
                 
                 // Attempt B: Video/Reel (PAGE_ID format). Crucially, NO clicks requested here to prevent crashes.
                 `https://graph.facebook.com/v19.0/${graphApiId}/insights?metric=post_video_views&access_token=${FB_ACCESS_TOKEN}`,
@@ -116,9 +117,9 @@ app.post('/api/facebook-custom-links', async (req, res) => {
                 if (!data.error && data.data && data.data.length > 0) {
                     const getM = (m) => data.data.find(x => x.name === m)?.values?.[0]?.value || 0;
                     
-                    impressions = getM('post_impressions') || getM('post_video_views') || 0;
+                    impressions = getM('post_impressions') || getM('post_media_view') || getM('post_video_views') || 0;
                     reach = getM('post_impressions_unique') || impressions; // Fallback Reach to Views for video objects
-                    clicks = getM('post_clicks_unique') || 0;
+                    clicks = getM('post_clicks') || 0;
                     
                     break; // Success! Stop trying other endpoints.
                 }
