@@ -10,10 +10,9 @@ app.use(express.json());
 const FB_ACCESS_TOKEN = process.env.FB_ACCESS_TOKEN;
 let CACHED_PAGE_ID = null;
 
-// 🟢 THE RELIABLE SCRAPER: This cleanly expands the /share/ shortlinks
+// 🟢 THE RELIABLE SCRAPER
 const resolveAndExtractId = async (inputUrl) => {
     try {
-        // Attempt 1: The Fast Redirect Header Grabber
         const manualRes = await fetch(inputUrl, {
             redirect: 'manual', 
             headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
@@ -28,7 +27,6 @@ const resolveAndExtractId = async (inputUrl) => {
             }
         }
 
-        // Attempt 2: The Command-Line Follower
         const curlRes = await fetch(inputUrl, {
             redirect: 'follow',
             headers: { 'User-Agent': 'curl/7.68.0' }
@@ -38,7 +36,6 @@ const resolveAndExtractId = async (inputUrl) => {
         let match = decodedFinalUrl.match(/(?:posts\/|videos\/|reel\/|watch\/?\?v=|fbid=|story_fbid=|\/p\/)(pfbid[a-zA-Z0-9]+|\d{10,})/i);
         if (match && match[1]) return match[1];
 
-        // Attempt 3: Scrape the decoded HTML string
         const html = await curlRes.text();
         const decodedHtml = decodeURIComponent(html);
         match = decodedHtml.match(/(?:posts\/|videos\/|reel\/|watch\/?\?v=|fbid=|story_fbid=|\/p\/)(pfbid[a-zA-Z0-9]+|\d{10,})/i) ||
@@ -72,29 +69,39 @@ app.post('/api/facebook-custom-links', async (req, res) => {
             
             if (!extractedId) return { url, error: "Could not unmask Post ID.", metrics: null };
 
+            // 🟢 FIX 1: ONLY attach Page ID to purely numeric IDs. (Prevents Error #12)
             let graphApiId = extractedId;
-            if (CACHED_PAGE_ID && !extractedId.startsWith(`${CACHED_PAGE_ID}_`)) {
+            if (CACHED_PAGE_ID && /^\d+$/.test(extractedId)) {
                 graphApiId = `${CACHED_PAGE_ID}_${extractedId}`; 
             }
 
-            // 🟢 THE API WATERFALL
-            // Step 1: Fetch Basic Interactions AND the translated 'post_id'
-            let basicDataUrl = `https://graph.facebook.com/v19.0/${graphApiId}?fields=id,post_id,message,created_time,shares,reactions.summary(total_count),comments.summary(total_count)&access_token=${FB_ACCESS_TOKEN}`;
+            // 🟢 FIX 2: Safest possible fields (No 'message' or 'post_id') to prevent Error #100 on Reels
+            const safeFields = 'id,created_time,shares,reactions.summary(total_count),comments.summary(total_count)';
+            
+            let basicDataUrl = `https://graph.facebook.com/v19.0/${graphApiId}?fields=${safeFields}&access_token=${FB_ACCESS_TOKEN}`;
             let basicRes = await fetch(basicDataUrl);
             let basicData = await basicRes.json();
 
             if (basicData.error) {
-                basicDataUrl = `https://graph.facebook.com/v19.0/${extractedId}?fields=id,post_id,message,created_time,shares,reactions.summary(total_count),comments.summary(total_count)&access_token=${FB_ACCESS_TOKEN}`;
+                basicDataUrl = `https://graph.facebook.com/v19.0/${extractedId}?fields=${safeFields}&access_token=${FB_ACCESS_TOKEN}`;
                 basicRes = await fetch(basicDataUrl);
                 basicData = await basicRes.json();
             }
 
             if (basicData.error) return { url, error: basicData.error.message, metrics: null };
 
-            // Compile the translated numeric IDs to hunt for insights
+            // 🟢 THE MAGIC KEY: Facebook automatically translates pfbid into the numeric ID in the 'id' field!
+            const canonicalId = basicData.id;
+            
+            // Some canonical IDs come back as PAGEID_POSTID. We separate them just in case.
+            let cleanCanonical = canonicalId;
+            if (canonicalId && canonicalId.includes('_')) {
+                cleanCanonical = canonicalId.split('_')[1];
+            }
+
             const idsToTry = [...new Set([
-                basicData.post_id, // The translated numeric ID!
-                basicData.id,      
+                canonicalId,
+                cleanCanonical,      
                 graphApiId,        
                 extractedId        
             ].filter(Boolean))];
@@ -104,7 +111,7 @@ app.post('/api/facebook-custom-links', async (req, res) => {
             const totalShares = basicData.shares?.count || 0;
             const fallbackEngagement = totalReactions + totalComments + totalShares;
 
-            // Step 2: Fetch Insights 
+            // 🟢 STEP 2: Fetch Insights 
             let reach = 0, impressions = 0, clicks = 0;
 
             for (const id of idsToTry) {
@@ -155,8 +162,8 @@ app.post('/api/facebook-custom-links', async (req, res) => {
             }
 
             return {
-                id: basicData.post_id || basicData.id, 
-                message: basicData.message || 'Video / Photo Post',
+                id: canonicalId, 
+                message: 'Facebook Post / Video', // Safely generic since we removed 'message' from the query
                 postedAt: basicData.created_time,
                 permalink: url,
                 metrics: {
