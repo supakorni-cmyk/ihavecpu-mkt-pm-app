@@ -22,6 +22,7 @@ import SelfHealView from './components/views/SelfHealView';
 import ReportView from './components/views/ReportView';
 import OTView from './components/views/OtView';
 import DocumentView from './components/views/DocumentView';
+import SocialSummarizeView from './components/views/SocialSummarizeView';
 import VideoSummarizeView from './components/views/VideoSummarizeView';
 import MyEmailView from './components/views/MyEmailView';
 
@@ -148,6 +149,10 @@ export default function Dashboard() {
             onDelete={data.deleteTransaction} 
             onUpdate={data.updateTransaction}
           />
+        )}
+
+        {currentView === 'social-summarize' && (
+          <SocialSummarizeView />
         )}
 
         {currentView === 'video-summarize' && (
