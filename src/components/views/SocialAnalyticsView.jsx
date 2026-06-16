@@ -39,7 +39,7 @@ const SocialAnalyticsView = () => {
         
         setIsSyncing(true);
         try {
-            const response = await fetch('https://ihavecpu-mkt-pm-app.onrender.com/api/facebook-custom-links', {
+            const response = await fetch('/api/facebook-custom-links', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ links: linkArray })
