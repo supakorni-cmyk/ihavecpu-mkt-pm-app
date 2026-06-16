@@ -22,7 +22,7 @@ import SelfHealView from './components/views/SelfHealView';
 import ReportView from './components/views/ReportView';
 import OTView from './components/views/OtView';
 import DocumentView from './components/views/DocumentView';
-import SocialSummarizeView from './components/views/SocialSummarizeView';
+import SocialAnalyticsView from './components/views/SocialAnalyticsView';
 import VideoSummarizeView from './components/views/VideoSummarizeView';
 import MyEmailView from './components/views/MyEmailView';
 
