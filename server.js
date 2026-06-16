@@ -106,23 +106,41 @@ app.post('/api/facebook-custom-links', async (req, res) => {
             const postInsightsRes = await fetch(postInsightsUrl);
             const postInsightsData = await postInsightsRes.json();
 
-            if (!postInsightsData.error && postInsightsData.data) {
+            // CRITICAL FIX: Check if data actually exists (.length > 0). 
+            // If Facebook returns an empty array [], we MUST pivot to Video Insights!
+            if (!postInsightsData.error && postInsightsData.data && postInsightsData.data.length > 0) {
                 const getM = (m) => postInsightsData.data.find(x => x.name === m)?.values?.[0]?.value || 0;
                 reach = getM('post_impressions_unique');
                 impressions = getM('post_impressions');
-                engagement = getM('post_engagements') || fallbackEngagement;
                 clicks = getM('post_clicks_unique');
+                
+                // Real Engagement = API Total OR (Reactions + Comments + Shares + Clicks)
+                engagement = getM('post_engagements') || (fallbackEngagement + clicks);
             } else {
-                // ATTEMPT B: If it's a Reel/Video, pivot and ask specifically for Video Insights
-                const videoInsightsUrl = `https://graph.facebook.com/v19.0/${extractedId}/insights?metric=post_video_views&access_token=${FB_ACCESS_TOKEN}`;
+                // ATTEMPT B: It's a Reel/Video. Fetch Views AND Clicks.
+                const videoInsightsUrl = `https://graph.facebook.com/v19.0/${extractedId}/insights?metric=post_video_views,post_engagements,post_clicks_unique&access_token=${FB_ACCESS_TOKEN}`;
                 const videoInsightsRes = await fetch(videoInsightsUrl);
                 const videoInsightsData = await videoInsightsRes.json();
 
-                if (!videoInsightsData.error && videoInsightsData.data) {
+                if (!videoInsightsData.error && videoInsightsData.data && videoInsightsData.data.length > 0) {
                     const getM = (m) => videoInsightsData.data.find(x => x.name === m)?.values?.[0]?.value || 0;
-                    impressions = getM('post_video_views');
-                    // Note: Facebook API rarely provides unique reach for third-party videos, so we mirror impressions to prevent zeros
-                    reach = impressions; 
+                    
+                    impressions = getM('post_video_views'); // Views = Impressions
+                    reach = impressions; // API often hides unique Viewers, so we mirror Views to Reach
+                    clicks = getM('post_clicks_unique') || 0;
+                    
+                    engagement = getM('post_engagements') || (fallbackEngagement + clicks);
+                } else {
+                    // ATTEMPT C: Minimal Video Insights
+                    // Sometimes asking for "clicks" on a Reel crashes the query. This is the ultimate safety net.
+                    const minVideoUrl = `https://graph.facebook.com/v19.0/${extractedId}/insights?metric=post_video_views&access_token=${FB_ACCESS_TOKEN}`;
+                    const minVideoRes = await fetch(minVideoUrl);
+                    const minVideoData = await minVideoRes.json();
+
+                    if (!minVideoData.error && minVideoData.data && minVideoData.data.length > 0) {
+                        impressions = minVideoData.data.find(x => x.name === 'post_video_views')?.values?.[0]?.value || 0;
+                        reach = impressions;
+                    }
                 }
             }
 
