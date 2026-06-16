@@ -3,11 +3,6 @@ const express = require('express');
 const cors = require('cors');
 const serverless = require('serverless-http');
 
-const dns = require('dns');
-if (dns && typeof dns.setDefaultResultOrder === 'function') {
-    dns.setDefaultResultOrder('ipv4first');
-}
-
 const app = express();
 app.use(cors({ origin: '*' }));
 app.use(express.json());
@@ -15,23 +10,43 @@ app.use(express.json());
 const FB_ACCESS_TOKEN = process.env.FB_ACCESS_TOKEN;
 let CACHED_PAGE_ID = null;
 
-// 🔎 URL-Decoding Scraper (Your unmodified working version)
+// 🟢 FAIL-FAST TIMEOUT HELPER: Prevents individual requests from hanging and triggering a 502 timeout
+const fetchWithTimeout = async (url, options = {}, timeout = 2000) => {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeout);
+    try {
+        const response = await fetch(url, { ...options, signal: controller.signal });
+        clearTimeout(id);
+        return response;
+    } catch (error) {
+        clearTimeout(id);
+        throw error;
+    }
+};
+
+// 🔎 URL-Decoding Scraper (Optimized with strict network budgets)
 const resolveAndExtractId = async (inputUrl) => {
     try {
+        // Step 1: Check if it's already an unmasked direct URL structure
+        let match = inputUrl.match(/(?:posts\/|videos\/|reel\/|watch\/?\?v=|fbid=|story_fbid=|\/p\/)(pfbid[a-zA-Z0-9]+|\d{10,})/i);
+        if (match && match[1]) return match[1];
+
+        // Step 2: Try a lightning-fast Graph API lookup
         try {
             const encodedUrl = encodeURIComponent(inputUrl);
-            const apiRes = await fetch(`https://graph.facebook.com/v19.0/?id=${encodedUrl}&access_token=${FB_ACCESS_TOKEN}`);
+            const apiRes = await fetchWithTimeout(`https://graph.facebook.com/v19.0/?id=${encodedUrl}&access_token=${FB_ACCESS_TOKEN}`, {}, 2000);
             const apiData = await apiRes.json();
             if (apiData.og_object && apiData.og_object.id) return apiData.og_object.id;
             if (apiData.id && /^\d+$/.test(apiData.id)) return apiData.id;
         } catch (e) {
-            console.warn("Graph API pre-check skipped, running local engines.");
+            console.warn("API pre-check skipped or timed out.");
         }
 
-        const manualRes = await fetch(inputUrl, {
+        // Step 3: Manual redirect trace with a strict 2-second cutoff window
+        const manualRes = await fetchWithTimeout(inputUrl, {
             redirect: 'manual', 
-            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
-        });
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }
+        }, 2000);
         
         if (manualRes.status >= 300 && manualRes.status < 400) {
             const locationHeader = manualRes.headers.get('location');
@@ -42,32 +57,14 @@ const resolveAndExtractId = async (inputUrl) => {
             }
         }
 
-        const curlRes = await fetch(inputUrl, {
-            redirect: 'follow',
-            headers: { 'User-Agent': 'curl/7.68.0' }
-        });
-        
-        const decodedFinalUrl = decodeURIComponent(curlRes.url);
-        let match = decodedFinalUrl.match(/(?:posts\/|videos\/|reel\/|watch\/?\?v=|fbid=|story_fbid=|\/p\/)(pfbid[a-zA-Z0-9]+|\d{10,})/i);
-        if (match && match[1]) return match[1];
-
-        const html = await curlRes.text();
-        const decodedHtml = decodeURIComponent(html);
-        match = decodedHtml.match(/(?:posts\/|videos\/|reel\/|watch\/?\?v=|fbid=|story_fbid=|\/p\/)(pfbid[a-zA-Z0-9]+|\d{10,})/i) ||
-                html.match(/(?:top_level_post_id|story_fbid|post_id|video_id)":"?(pfbid[a-zA-Z0-9]+|\d{10,})"?/i);
-                
-        if (match && match[1]) return match[1];
-
         return null;
     } catch (error) {
-        console.error("URL Resolution Error:", error);
+        console.error("URL Resolution Error:", error.message);
         return null;
     }
 };
 
-// 🟢 CATCH-ALL WILDCARD POST ROUTE
-// This intercepts ANY incoming POST request to this function, completely 
-// bypassing any serverless path prefix or trailing slash mismatch errors!
+// Catch-all route to process requests safely
 app.post('*', async (req, res) => {
     const { links } = req.body;
     
@@ -78,11 +75,11 @@ app.post('*', async (req, res) => {
     try {
         if (!CACHED_PAGE_ID) {
             try {
-                const meRes = await fetch(`https://graph.facebook.com/v19.0/me?access_token=${FB_ACCESS_TOKEN}`);
+                const meRes = await fetchWithTimeout(`https://graph.facebook.com/v19.0/me?access_token=${FB_ACCESS_TOKEN}`, {}, 2000);
                 const meData = await meRes.json();
                 if (meData.id) CACHED_PAGE_ID = meData.id;
             } catch (err) {
-                console.warn("Profile check skipped, continuing with routines.");
+                console.warn("Profile check skipped.");
             }
         }
 
@@ -90,7 +87,7 @@ app.post('*', async (req, res) => {
             try {
                 let extractedId = await resolveAndExtractId(url);
                 
-                if (!extractedId) return { url, error: "Could not unmask Post ID.", metrics: null };
+                if (!extractedId) return { url, error: "Could not unmask Post ID inside cloud network parameters.", metrics: null };
 
                 let graphApiId = extractedId;
                 if (CACHED_PAGE_ID && !extractedId.startsWith(`${CACHED_PAGE_ID}_`)) {
@@ -98,12 +95,12 @@ app.post('*', async (req, res) => {
                 }
 
                 let basicDataUrl = `https://graph.facebook.com/v19.0/${graphApiId}?fields=id,message,created_time,shares,reactions.summary(total_count),comments.summary(total_count)&access_token=${FB_ACCESS_TOKEN}`;
-                let basicRes = await fetch(basicDataUrl);
+                let basicRes = await fetchWithTimeout(basicDataUrl, {}, 2000);
                 let basicData = await basicRes.json();
 
                 if (basicData.error) {
                     basicDataUrl = `https://graph.facebook.com/v19.0/${extractedId}?fields=id,message,created_time,shares,reactions.summary(total_count),comments.summary(total_count)&access_token=${FB_ACCESS_TOKEN}`;
-                    basicRes = await fetch(basicDataUrl);
+                    basicRes = await fetchWithTimeout(basicDataUrl, {}, 2000);
                     basicData = await basicRes.json();
                 }
 
@@ -119,14 +116,12 @@ app.post('*', async (req, res) => {
 
                 const impressionEndpoints = [
                     `https://graph.facebook.com/v19.0/${canonicalId}/insights?metric=post_impressions_unique,post_impressions&access_token=${FB_ACCESS_TOKEN}`,
-                    `https://graph.facebook.com/v19.0/${canonicalId}/insights?metric=post_video_views&access_token=${FB_ACCESS_TOKEN}`,
-                    `https://graph.facebook.com/v19.0/${graphApiId}/insights?metric=post_impressions_unique,post_impressions&access_token=${FB_ACCESS_TOKEN}`,
-                    `https://graph.facebook.com/v19.0/${extractedId}/insights?metric=post_video_views&access_token=${FB_ACCESS_TOKEN}`
+                    `https://graph.facebook.com/v19.0/${canonicalId}/insights?metric=post_video_views&access_token=${FB_ACCESS_TOKEN}`
                 ];
 
                 for (const endpoint of impressionEndpoints) {
                     try {
-                        const res = await fetch(endpoint);
+                        const res = await fetchWithTimeout(endpoint, {}, 1500);
                         const data = await res.json();
                         if (!data.error && data.data && data.data.length > 0) {
                             const getM = (m) => data.data.find(x => x.name === m)?.values?.[0]?.value || 0;
@@ -138,13 +133,12 @@ app.post('*', async (req, res) => {
                 }
 
                 const clickEndpoints = [
-                    `https://graph.facebook.com/v19.0/${canonicalId}/insights?metric=post_clicks_unique,post_clicks&access_token=${FB_ACCESS_TOKEN}`,
-                    `https://graph.facebook.com/v19.0/${graphApiId}/insights?metric=post_clicks_unique,post_clicks&access_token=${FB_ACCESS_TOKEN}`
+                    `https://graph.facebook.com/v19.0/${canonicalId}/insights?metric=post_clicks_unique,post_clicks&access_token=${FB_ACCESS_TOKEN}`
                 ];
 
                 for (const endpoint of clickEndpoints) {
                     try {
-                        const res = await fetch(endpoint);
+                        const res = await fetchWithTimeout(endpoint, {}, 1500);
                         const data = await res.json();
                         if (!data.error && data.data && data.data.length > 0) {
                             clicks = data.data.find(x => x.name === 'post_clicks_unique')?.values?.[0]?.value || 
@@ -170,7 +164,7 @@ app.post('*', async (req, res) => {
                     }
                 };
             } catch (postError) {
-                return { url, error: `Connection problem: ${postError.message}`, metrics: null };
+                return { url, error: `Link processing took too long: ${postError.message}`, metrics: null };
             }
         });
 
