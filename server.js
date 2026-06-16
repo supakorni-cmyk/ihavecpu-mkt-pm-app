@@ -74,78 +74,73 @@ app.post('/api/facebook-custom-links', async (req, res) => {
             
             if (!extractedId) return { url, error: "Could not unmask the true Post ID. Check if link is public.", metrics: null };
 
-            // 🟢 STRICT FORMATTING: Ensure the Page ID is firmly attached to EVERY request
             let graphApiId = extractedId;
             if (CACHED_PAGE_ID && !extractedId.startsWith(`${CACHED_PAGE_ID}_`)) {
                 graphApiId = `${CACHED_PAGE_ID}_${extractedId}`; 
             }
 
-// 🟢 UPGRADED: Smart Formatter with Engagement Fallbacks
-            const formatResult = (data, insightsData = null) => {
-                const getMetric = (metricName) => {
-                    if (!insightsData || !Array.isArray(insightsData)) return 0;
-                    const metric = insightsData.find(m => m.name === metricName);
-                    return metric?.values?.[0]?.value || 0;
-                };
+            // 🟢 STEP 1: Fetch Basic Data (Interactions) independently so it never fails
+            let basicDataUrl = `https://graph.facebook.com/v19.0/${graphApiId}?fields=message,created_time,shares,reactions.summary(total_count),comments.summary(total_count)&access_token=${FB_ACCESS_TOKEN}`;
+            let basicRes = await fetch(basicDataUrl);
+            let basicData = await basicRes.json();
 
-                // Extract our exact totals using the new 'reactions' data
-                const totalReactions = data.reactions?.summary?.total_count || 0;
-                const totalComments = data.comments?.summary?.total_count || 0;
-                const totalShares = data.shares?.count || 0;
+            // If the PAGEID_POSTID format fails, try the pure extracted ID (Required for some Reels)
+            if (basicData.error) {
+                basicDataUrl = `https://graph.facebook.com/v19.0/${extractedId}?fields=message,created_time,shares,reactions.summary(total_count),comments.summary(total_count)&access_token=${FB_ACCESS_TOKEN}`;
+                basicRes = await fetch(basicDataUrl);
+                basicData = await basicRes.json();
+            }
 
-                // If Facebook refuses to send the hidden 'post_engagements' insight, 
-                // we will manually calculate the total interactions ourselves as a fallback!
-                const fallbackEngagement = totalReactions + totalComments + totalShares;
+            if (basicData.error) return { url, error: basicData.error.message, metrics: null };
 
-                return {
-                    id: data.id,
-                    message: data.message || 'Video / Photo Post',
-                    postedAt: data.created_time,
-                    permalink: url,
-                    metrics: {
-                        reach: getMetric('post_impressions_unique') || 0,
-                        impressions: getMetric('post_impressions') || getMetric('post_video_views') || 0,
-                        engagement: getMetric('post_engagements') || fallbackEngagement,
-                        clicks: getMetric('post_clicks_unique') || 0,
-                        reactions: totalReactions, // Now counts Likes, Loves, Hahas, Wows, etc.
-                        comments: totalComments,
-                        shares: totalShares
-                    }
-                };
+            const totalReactions = basicData.reactions?.summary?.total_count || 0;
+            const totalComments = basicData.comments?.summary?.total_count || 0;
+            const totalShares = basicData.shares?.count || 0;
+            const fallbackEngagement = totalReactions + totalComments + totalShares;
+
+            // 🟢 STEP 2: Fetch Insights Decoupled
+            let reach = 0, impressions = 0, engagement = fallbackEngagement, clicks = 0;
+
+            // ATTEMPT A: Ask for Standard Post Insights
+            const postInsightsUrl = `https://graph.facebook.com/v19.0/${graphApiId}/insights?metric=post_impressions_unique,post_impressions,post_engagements,post_clicks_unique&access_token=${FB_ACCESS_TOKEN}`;
+            const postInsightsRes = await fetch(postInsightsUrl);
+            const postInsightsData = await postInsightsRes.json();
+
+            if (!postInsightsData.error && postInsightsData.data) {
+                const getM = (m) => postInsightsData.data.find(x => x.name === m)?.values?.[0]?.value || 0;
+                reach = getM('post_impressions_unique');
+                impressions = getM('post_impressions');
+                engagement = getM('post_engagements') || fallbackEngagement;
+                clicks = getM('post_clicks_unique');
+            } else {
+                // ATTEMPT B: If it's a Reel/Video, pivot and ask specifically for Video Insights
+                const videoInsightsUrl = `https://graph.facebook.com/v19.0/${extractedId}/insights?metric=post_video_views&access_token=${FB_ACCESS_TOKEN}`;
+                const videoInsightsRes = await fetch(videoInsightsUrl);
+                const videoInsightsData = await videoInsightsRes.json();
+
+                if (!videoInsightsData.error && videoInsightsData.data) {
+                    const getM = (m) => videoInsightsData.data.find(x => x.name === m)?.values?.[0]?.value || 0;
+                    impressions = getM('post_video_views');
+                    // Note: Facebook API rarely provides unique reach for third-party videos, so we mirror impressions to prevent zeros
+                    reach = impressions; 
+                }
+            }
+
+            return {
+                id: basicData.id,
+                message: basicData.message || 'Video / Photo Post',
+                postedAt: basicData.created_time,
+                permalink: url,
+                metrics: {
+                    reach,
+                    impressions,
+                    engagement,
+                    clicks,
+                    reactions: totalReactions,
+                    comments: totalComments,
+                    shares: totalShares
+                }
             };
-
-            // ATTEMPT 1: Standard Post Metrics 
-            // 🟢 FIX: Replaced 'likes' with 'reactions' to capture all emoji interactions
-            const postUrl = `https://graph.facebook.com/v19.0/${graphApiId}?fields=message,created_time,shares,reactions.summary(total_count),comments.summary(total_count),insights.metric(post_impressions_unique,post_impressions,post_engagements,post_clicks_unique)&access_token=${FB_ACCESS_TOKEN}`;
-            const postRes = await fetch(postUrl);
-            const postData = await postRes.json();
-
-            if (!postData.error) {
-                return formatResult(postData, postData.insights?.data);
-            }
-
-            // ATTEMPT 2: Reel/Video Metrics
-            // 🟢 FIX: Replaced 'likes' with 'reactions'
-            if (postData.error) {
-                const videoUrl = `https://graph.facebook.com/v19.0/${graphApiId}?fields=message,created_time,shares,reactions.summary(total_count),comments.summary(total_count),insights.metric(post_video_views)&access_token=${FB_ACCESS_TOKEN}`;
-                const videoRes = await fetch(videoUrl);
-                const videoData = await videoRes.json();
-
-                if (!videoData.error) {
-                    return formatResult(videoData, videoData.insights?.data);
-                }
-
-                // ATTEMPT 3: Ultimate Fallback 
-                const plainUrl = `https://graph.facebook.com/v19.0/${graphApiId}?fields=message,created_time,shares,reactions.summary(total_count),comments.summary(total_count)&access_token=${FB_ACCESS_TOKEN}`;
-                const plainRes = await fetch(plainUrl);
-                const plainData = await plainRes.json();
-
-                if (!plainData.error) {
-                    return formatResult(plainData, null);
-                }
-
-                return { url, error: videoData.error.message || postData.error.message, metrics: null };
-            }
         });
 
         const results = await Promise.all(fetchPromises);
