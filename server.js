@@ -10,38 +10,43 @@ app.use(express.json());
 const FB_ACCESS_TOKEN = process.env.FB_ACCESS_TOKEN;
 let CACHED_PAGE_ID = null;
 
-// 🟢 1. The Bot-Proof Redirect Header Scraper
+// 🟢 1. The Ultimate URL-Decoding Scraper
 const resolveAndExtractId = async (inputUrl) => {
     try {
-        // Instead of downloading the page, we tell the fetch request to STOP at the redirect
-        // and just tell us where Facebook *intended* to send us.
-        const response = await fetch(inputUrl, {
-            redirect: 'manual', // DO NOT follow the redirect
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-            }
+        // Attempt 1: The Fast Redirect Header Grabber
+        const manualRes = await fetch(inputUrl, {
+            redirect: 'manual', 
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
         });
         
-        let realUrl = inputUrl;
-
-        // If Facebook tries to redirect us (Status 301 or 302), grab the destination URL!
-        if (response.status >= 300 && response.status < 400) {
-            const locationHeader = response.headers.get('location');
+        if (manualRes.status >= 300 && manualRes.status < 400) {
+            const locationHeader = manualRes.headers.get('location');
             if (locationHeader) {
-                realUrl = locationHeader;
-            }
-        } else if (response.status === 200) {
-            // Fallback if it didn't redirect, try to scrape the meta tag quickly
-            const html = await response.text();
-            const ogUrlMatch = html.match(/<meta property="og:url" content="([^"]+)"/i);
-            if (ogUrlMatch && ogUrlMatch[1]) {
-                realUrl = ogUrlMatch[1].replace(/&amp;/g, '&');
+                // 🟢 CRITICAL: Decode the URL so '%2Fposts%2F' converts back to '/posts/'
+                const decodedLocation = decodeURIComponent(locationHeader);
+                const match = decodedLocation.match(/(?:posts\/|videos\/|reel\/|watch\/?\?v=|fbid=|story_fbid=|\/p\/)(pfbid[a-zA-Z0-9]+|\d{10,})/i);
+                if (match && match[1]) return match[1];
             }
         }
 
-        // Now extract the ID from the unmasked, real URL
-        const urlMatch = realUrl.match(/(?:posts\/|videos\/|reel\/|watch\/?\?v=|fbid=|story_fbid=|\/p\/)(pfbid[a-zA-Z0-9]+|\d{10,})/i);
-        if (urlMatch && urlMatch[1]) return urlMatch[1];
+        // Attempt 2: The Command-Line Follower (Bypasses JS walls)
+        const curlRes = await fetch(inputUrl, {
+            redirect: 'follow',
+            headers: { 'User-Agent': 'curl/7.68.0' }
+        });
+        
+        // Decode the final destination URL
+        const decodedFinalUrl = decodeURIComponent(curlRes.url);
+        let match = decodedFinalUrl.match(/(?:posts\/|videos\/|reel\/|watch\/?\?v=|fbid=|story_fbid=|\/p\/)(pfbid[a-zA-Z0-9]+|\d{10,})/i);
+        if (match && match[1]) return match[1];
+
+        // Attempt 3: Scrape the decoded HTML string as a last resort
+        const html = await curlRes.text();
+        const decodedHtml = decodeURIComponent(html);
+        match = decodedHtml.match(/(?:posts\/|videos\/|reel\/|watch\/?\?v=|fbid=|story_fbid=|\/p\/)(pfbid[a-zA-Z0-9]+|\d{10,})/i) ||
+                html.match(/(?:top_level_post_id|story_fbid|post_id|video_id)":"?(pfbid[a-zA-Z0-9]+|\d{10,})"?/i);
+                
+        if (match && match[1]) return match[1];
 
         return null;
     } catch (error) {
