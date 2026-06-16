@@ -152,7 +152,7 @@ export default function Dashboard() {
         )}
 
         {currentView === 'social-summarize' && (
-          <SocialSummarizeView />
+          <SocialAnalyticsView />
         )}
 
         {currentView === 'video-summarize' && (
