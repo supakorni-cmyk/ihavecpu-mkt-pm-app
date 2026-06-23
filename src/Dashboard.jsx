@@ -25,12 +25,14 @@ import DocumentView from './components/views/DocumentView';
 import SocialAnalyticsView from './components/views/SocialAnalyticsView';
 import VideoSummarizeView from './components/views/VideoSummarizeView';
 import MyEmailView from './components/views/MyEmailView';
+import FacebookPostTrackerViews from './components/views/FacebookPostTrackerViews';
 
 // Modals
 import AddTaskModal from './components/modals/AddTaskModal';
 import EditTaskModal from './components/modals/EditTaskModal';
 import RequirementSheetModal from './components/modals/RequirementModal';
 import TaskDetailModal from './components/modals/TaskDetailModal'; // 🟢 IMPORTED
+import FacebookPostTrackerViews from './components/views/FacebookPostTrackerViews';
 
 export default function Dashboard() {
   const { currentUser, logout } = useAuth();
@@ -153,6 +155,10 @@ export default function Dashboard() {
 
         {currentView === 'social-summarize' && (
           <SocialAnalyticsView />
+        )}
+
+        {currentView === 'fb-tracker' && (
+          <FacebookPostTrackerViews />
         )}
 
         {currentView === 'video-summarize' && (

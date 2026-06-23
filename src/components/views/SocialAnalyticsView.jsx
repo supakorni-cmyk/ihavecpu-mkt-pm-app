@@ -1,261 +1,145 @@
 // src/components/views/SocialAnalyticsView.jsx
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 
 export default function SocialAnalyticsView() {
-    const [pastedLinks, setPastedLinks] = useState('');
-    const [posts, setPosts] = useState([]);
-    const [isSyncing, setIsSyncing] = useState(false);
-    
-    // Search & Pagination State
-    const [searchTerm, setSearchTerm] = useState('');
-    const [currentPage, setCurrentPage] = useState(1);
-    const postsPerPage = 5;
+    // Current time fixed context (June 2026 reference synchronization)
+    const formattedDateString = "วันนี้ 6:00 น.";
 
-    // 🟢 CORE API SYNC CONNECTION
-    const handleSyncLinks = async () => {
-        if (!pastedLinks.trim()) return alert("Please paste at least one Facebook link!");
-        
-        const linkArray = pastedLinks.split('\n').map(l => l.trim()).filter(l => l !== "");
-        
-        setIsSyncing(true);
-        try {
-            const response = await fetch('/.netlify/functions/api', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ links: linkArray })
-            });
-            
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.error || `Server responded with status ${response.status}`);
-            }
-            
-            const data = await response.json();
-            setPosts(data);
-            setCurrentPage(1); 
-        } catch (error) {
-            console.error("Failed to sync Facebook data:", error);
-            alert(`Sync Failed: ${error.message}`);
-        } finally {
-            setIsSyncing(false);
-        }
+    // Mock dataset representing high-impact content metrics from the design view
+    const [topContent, setTopContent] = useState([
+        { id: 1, hook: "คุณต้องมี content dashboard...", views: "187K", growth: "+312%", actionTaken: false },
+        { id: 2, hook: "เลิกใช้แอป Notes ทำ content ได้แล้ว", views: "94K", growth: "+201%", actionTaken: false },
+        { id: 3, hook: "สร้างคำสั่ง /script ยังไง", views: "52K", growth: "+148%", actionTaken: false },
+        { id: 4, hook: "creators ส่วนใหญ่คิด content ไม่ออก", views: "38K", growth: "+92%", actionTaken: false }
+    ]);
+
+    const handleActionClick = (id) => {
+        setTopContent(prev => prev.map(item => 
+            item.id === id ? { ...item, actionTaken: !item.actionTaken } : item
+        ));
     };
-
-    // 🟢 DYNAMIC SEARCH FILTER
-    // Filters posts locally in real-time by message content or link text
-    const filteredPosts = useMemo(() => {
-        return posts.filter(post => {
-            const content = (post.message || '').toLowerCase();
-            const url = (post.permalink || '').toLowerCase();
-            const query = searchTerm.toLowerCase();
-            return content.includes(query) || url.includes(query);
-        });
-    }, [posts, searchTerm]);
-
-    // 🟢 LIVE METRIC AGGREGATIONS
-    // Recalculates summary blocks on the fly based on filtered results
-    const totals = useMemo(() => {
-        return filteredPosts.reduce((acc, post) => {
-            if (post.metrics) {
-                acc.reach += post.metrics.reach || 0;
-                acc.impressions += post.metrics.impressions || 0;
-                acc.engagement += post.metrics.engagement || 0;
-                acc.clicks += post.metrics.clicks || 0;
-            }
-            return acc;
-        }, { reach: 0, impressions: 0, engagement: 0, clicks: 0 });
-    }, [filteredPosts]);
-
-    // 🟢 GOOGLE SHEETS COMPATIBLE EXPORT ENGINE
-    const handleExportToSheets = () => {
-        if (filteredPosts.length === 0) return alert("No data available to export!");
-
-        // Define clean tabular column headers
-        const headers = ["Post Content", "Link", "Posted At", "Reach", "Impressions", "Engagement", "Link Clicks", "Reactions", "Comments", "Shares"];
-        
-        // Format rows and escape quote characters safely
-        const csvRows = filteredPosts.map(post => {
-            const safeMessage = (post.message || 'Video / Photo Post').replace(/"/g, '""');
-            const safeUrl = (post.permalink || '').replace(/"/g, '""');
-            const date = post.postedAt ? new Date(post.postedAt).toLocaleDateString() : 'N/A';
-            
-            return [
-                `"${safeMessage}"`,
-                `"${safeUrl}"`,
-                `"${date}"`,
-                post.metrics?.reach || 0,
-                post.metrics?.impressions || 0,
-                post.metrics?.engagement || 0,
-                post.metrics?.clicks || 0,
-                post.metrics?.reactions || 0,
-                post.metrics?.comments || 0,
-                post.metrics?.shares || 0
-            ].join(',');
-        });
-
-        // Combine arrays with a UTF-8 Byte Order Mark (BOM) to support regional text characters natively
-        const csvContent = "\uFEFF" + [headers.join(','), ...csvRows].join('\n');
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        
-        const link = document.createElement("a");
-        link.setAttribute("href", url);
-        link.setAttribute("download", `FB_Analytics_Export_${new Date().toISOString().slice(0,10)}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    };
-
-    // 🟢 PAGINATION SPLITTING CALCULATOR
-    const indexOfLastPost = currentPage * postsPerPage;
-    const indexOfFirstPost = indexOfLastPost - postsPerPage;
-    const currentPosts = filteredPosts.slice(indexOfFirstPost, indexOfLastPost);
-    const totalPages = Math.ceil(filteredPosts.length / postsPerPage) || 1;
 
     return (
-        <div className="p-6 bg-gray-50 min-h-screen overflow-y-auto">
-            {/* Header Layout Component */}
-            <div className="mb-6">
-                <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                    🔵 Custom Post Tracker
-                </h1>
-                <p className="text-gray-500 text-sm">Paste specific Facebook post links to track their performance metrics natively.</p>
-            </div>
-
-            {/* Link Input Dashboard Card */}
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-6 flex gap-4 items-start">
-                <div className="flex-1">
-                    <label className="block text-xs font-bold text-blue-600 mb-2 tracking-wider uppercase">
-                        🔗 Paste Facebook Links (One Per Line)
-                    </label>
-                    <textarea
-                        rows={4}
-                        className="w-full border border-gray-200 rounded-lg p-3 text-sm focus:outline-none focus:border-blue-500 font-mono"
-                        placeholder="https://www.facebook.com/yourpage/posts/..."
-                        value={pastedLinks}
-                        onChange={(e) => setPastedLinks(e.target.value)}
-                    />
-                </div>
-                <button
-                    onClick={handleSyncLinks}
-                    disabled={isSyncing}
-                    className="mt-6 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg text-sm flex flex-col items-center justify-center gap-1 transition shadow-sm disabled:opacity-50 min-w-[140px]"
-                >
-                    <span>{isSyncing ? 'Pulling Data...' : 'Fetch Analytics'}</span>
-                </button>
-            </div>
-
-            {/* Upper Performance Aggregate Statistics Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
-                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-1">Total Reach</span>
-                    <span className="text-2xl font-black text-gray-800">{totals.reach.toLocaleString()}</span>
-                </div>
-                <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
-                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-1">Impressions</span>
-                    <span className="text-2xl font-black text-gray-800">{totals.impressions.toLocaleString()}</span>
-                </div>
-                <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
-                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-1">Engagement</span>
-                    <span className="text-2xl font-black text-gray-800">{totals.engagement.toLocaleString()}</span>
-                </div>
-                <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
-                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-1">Link Clicks</span>
-                    <span className="text-2xl font-black text-gray-800">{totals.clicks.toLocaleString()}</span>
-                </div>
-            </div>
-
-            {/* Interactive Data Control Strip */}
-            <div className="bg-white border border-gray-100 rounded-t-xl p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                <div className="flex items-center gap-2">
-                    <h2 className="text-base font-bold text-gray-800">Synced Posts Performance</h2>
-                    <span className="bg-gray-100 text-gray-600 text-xs font-semibold px-2 py-0.5 rounded-full">
-                        Showing {filteredPosts.length > 0 ? indexOfFirstPost + 1 : 0}-{Math.min(indexOfLastPost, filteredPosts.length)} of {filteredPosts.length}
-                    </span>
-                </div>
-                
-                {/* 🟢 SEARCH BOX & EXPORT UTILITIES COMPONENT LAYOUT */}
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                    <input
-                        type="text"
-                        placeholder="Search text or links..."
-                        className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 w-full sm:w-64"
-                        value={searchTerm}
-                        onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-                    />
-                    <button
-                        onClick={handleExportToSheets}
-                        className="bg-green-600 hover:bg-green-700 text-white font-semibold px-4 py-2 rounded-lg text-sm transition flex items-center justify-center gap-2 shadow-sm"
-                    >
-                        📊 Export to Sheets / CSV
+        <div className="min-h-screen bg-[#FDFBF9] p-8 text-slate-800 font-sans selection:bg-orange-100">
+            
+            {/* ✦ TOP NAVIGATION BAR COMPONENT */}
+            <div className="max-w-5xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-2">
+                <div className="flex items-start gap-3">
+                    <button className="p-2.5 bg-white hover:bg-slate-50 border border-slate-200/70 rounded-xl transition shadow-sm mt-0.5">
+                        <svg className="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                        </svg>
                     </button>
+                    <div>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-orange-500 font-bold text-lg">✦</span>
+                            <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">Content OS</h1>
+                            <span className="text-slate-400 text-xs font-medium px-1.5 py-0.5 border border-slate-200 bg-slate-50/50 rounded-md">by Claude COWORK</span>
+                        </div>
+                        <p className="text-xs text-emerald-600 font-bold mt-1 flex items-center gap-1.5">
+                            <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                            อัปเดตล่าสุดโดย Claude · {formattedDateString}
+                        </p>
+                    </div>
+                </div>
+
+                <button className="self-start md:self-auto bg-[#FDF1EB] hover:bg-[#FCE4D6] text-[#E06639] font-bold text-xs px-4 py-2.5 rounded-xl transition flex items-center gap-1.5 border border-[#FADCD0] tracking-wide">
+                    <span className="text-base font-medium leading-none">+</span> สร้าง REEL
+                </button>
+            </div>
+
+            {/* SUBTITLE */}
+            <div className="max-w-5xl mx-auto mb-8">
+                <p className="text-sm font-semibold text-slate-500 pl-12">ดูว่าคอนเทนต์ไหนเวิร์ค ไม่เวิร์ค แล้วรู้ว่าควรทำอะไรต่อ</p>
+            </div>
+
+            {/* ✦ REVENUE & PERFORMANCE INDICATORS GRID (3 CARDS) */}
+            <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
+                
+                {/* CARD 1: VIEWS */}
+                <div className="bg-white p-5 border border-slate-100 rounded-2xl shadow-sm hover:shadow-md/50 transition">
+                    <div className="text-[10px] font-bold text-slate-400 tracking-widest uppercase mb-1.5">VIEWS · 7D</div>
+                    <div className="text-3xl font-black text-slate-900 tracking-tight mb-2">287.4K</div>
+                    <div className="flex items-center justify-between mt-3">
+                        {/* Native Vector Sparkline Rendering */}
+                        <svg className="w-32 h-6" viewBox="0 0 100 20">
+                            <path d="M0,18 Q15,16 30,15 T60,11 T90,5 L100,2" fill="none" stroke="#E06639" strokeWidth="2" strokeLinecap="round" />
+                        </svg>
+                        <span className="text-xs font-bold text-orange-500 bg-orange-50/70 px-2 py-0.5 rounded-lg">+162%</span>
+                    </div>
+                </div>
+
+                {/* CARD 2: SAVES */}
+                <div className="bg-white p-5 border border-slate-100 rounded-2xl shadow-sm hover:shadow-md/50 transition">
+                    <div className="text-[10px] font-bold text-slate-400 tracking-widest uppercase mb-1.5">SAVES · 7D</div>
+                    <div className="text-3xl font-black text-slate-900 tracking-tight mb-2">4,812</div>
+                    <div className="flex items-center justify-between mt-3">
+                        <svg className="w-32 h-6" viewBox="0 0 100 20">
+                            <path d="M0,18 Q20,17 40,14 T70,11 T90,6 L100,3" fill="none" stroke="rgb(16,185,129)" strokeWidth="2" strokeLinecap="round" />
+                        </svg>
+                        <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-lg">+71%</span>
+                    </div>
+                </div>
+
+                {/* CARD 3: PROFILE VISITS */}
+                <div className="bg-white p-5 border border-slate-100 rounded-2xl shadow-sm hover:shadow-md/50 transition">
+                    <div className="text-[10px] font-bold text-slate-400 tracking-widest uppercase mb-1.5">เข้าชม PROFILE</div>
+                    <div className="text-3xl font-black text-slate-900 tracking-tight mb-2">12.6K</div>
+                    <div className="flex items-center justify-between mt-3">
+                        <svg className="w-32 h-6" viewBox="0 0 100 20">
+                            <path d="M0,18 Q25,17 50,15 T75,12 T90,8 L100,5" fill="none" stroke="#E06639" strokeWidth="2" strokeLinecap="round" />
+                        </svg>
+                        <span className="text-xs font-bold text-orange-500 bg-orange-50/70 px-2 py-0.5 rounded-lg">+44%</span>
+                    </div>
                 </div>
             </div>
 
-            {/* Bounded Scroll Container to Prevent Pagination Clipping */}
-            <div className="bg-white border-x border-gray-100 overflow-x-auto overflow-y-auto max-h-[calc(100vh-380px)]">
-                <table className="min-w-full divide-y divide-gray-100 text-sm">
-                    <thead className="bg-gray-50 text-gray-500 font-bold text-xs uppercase tracking-wider sticky top-0 z-10">
-                        <tr>
-                            <th className="px-6 py-3 text-left">Post Content</th>
-                            <th className="px-6 py-3 text-center">Reach</th>
-                            <th className="px-6 py-3 text-center">Impressions</th>
-                            <th className="px-6 py-3 text-center">Interactions</th>
-                            <th className="px-6 py-3 text-center">Clicks</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100 text-gray-700">
-                        {currentPosts.map((post, i) => (
-                            <tr key={i} className="hover:bg-gray-50/50 transition">
-                                <td className="px-6 py-4 max-w-md">
-                                    <div className="font-semibold text-gray-900 line-clamp-2 mb-1">{post.message || 'Video / Photo Post'}</div>
-                                    <div className="text-xs text-gray-400 flex items-center gap-2">
-                                        <span>{post.postedAt ? new Date(post.postedAt).toLocaleDateString() : 'Date N/A'}</span>
-                                        <a href={post.permalink} target="_blank" rel="noreferrer" className="text-blue-500 hover:underline font-medium">View Post ↗</a>
-                                    </div>
-                                    {post.error && <div className="text-xs text-red-500 font-medium mt-1">⚠️ {post.error}</div>}
-                                </td>
-                                <td className="px-6 py-4 text-center font-bold text-gray-900">{(post.metrics?.reach || 0).toLocaleString()}</td>
-                                <td className="px-6 py-4 text-center font-bold text-gray-900">{(post.metrics?.impressions || 0).toLocaleString()}</td>
-                                <td className="px-6 py-4">
-                                    <div className="flex items-center justify-center gap-2 text-xs font-semibold">
-                                        <span className="bg-pink-50 text-pink-600 px-2 py-1 rounded-md">👍 {post.metrics?.reactions || 0}</span>
-                                        <span className="bg-blue-50 text-blue-600 px-2 py-1 rounded-md">💬 {post.metrics?.comments || 0}</span>
-                                        <span className="bg-green-50 text-green-600 px-2 py-1 rounded-md">🔄 {post.metrics?.shares || 0}</span>
-                                    </div>
-                                </td>
-                                <td className="px-6 py-4 text-center font-bold text-amber-600">{(post.metrics?.clicks || 0).toLocaleString()}</td>
-                            </tr>
-                        ))}
-                        {filteredPosts.length === 0 && (
-                            <tr>
-                                <td colSpan={5} className="px-6 py-12 text-center text-gray-400 font-medium">No synced record tracking profiles match your criteria.</td>
-                            </tr>
-                        )}
-                    </tbody>
-                </table>
+            {/* ✦ MAIN ANALYTICAL REEL BOARD */}
+            <div className="max-w-5xl mx-auto bg-white border border-slate-100 rounded-2xl shadow-sm p-6">
+                
+                {/* Header Information Strip */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-100 pb-5 mb-5">
+                    <div>
+                        <h2 className="text-base font-black text-slate-900 tracking-tight">Top 5 คอนเทนต์มาแรง · 7 วันล่าสุด</h2>
+                        <p className="text-xs font-bold text-orange-400 mt-1 flex items-center gap-1">
+                            <span className="text-sm">✦</span> Claude หา reel ที่ทะลุค่ามัธยฐาน 30 วันเกิน 2 เท่า แล้วบอกว่าอะไรทำให้มันปัง
+                        </p>
+                    </div>
+                    <div className="self-start sm:self-auto bg-[#FEF4EF] text-[#D85C2E] text-[11px] font-extrabold px-3 py-1.5 rounded-xl border border-[#FCE1D4] tracking-wide">
+                        ชนะค่าเฉลี่ย 2 เท่าขึ้นไป
+                    </div>
+                </div>
+
+                {/* Content Evaluation List Rows */}
+                <div className="divide-y divide-slate-100/80">
+                    {topContent.map((item, index) => (
+                        <div key={item.id} className="flex items-center justify-between py-4 first:pt-1 last:pb-1 group hover:bg-slate-50/40 px-2 -mx-2 rounded-xl transition">
+                            <div className="pr-4">
+                                <div className="font-bold text-slate-800 text-[14px] leading-snug mb-1 group-hover:text-slate-900 transition">
+                                    "{item.hook}"
+                                </div>
+                                <div className="text-xs font-bold text-[#D85C2E] flex items-center gap-1">
+                                    <span>{item.views} วิว</span>
+                                    <span className="text-slate-300 font-normal">·</span>
+                                    <span className="bg-orange-50 px-1.5 py-0.5 rounded text-[10px]">{item.growth}</span>
+                                </div>
+                            </div>
+
+                            <button
+                                onClick={() => handleActionClick(item.id)}
+                                className={`text-xs font-bold px-4 py-2 rounded-xl transition border shrink-0 tracking-wide ${
+                                    item.actionTaken 
+                                    ? 'bg-slate-900 text-white border-slate-900' 
+                                    : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200 shadow-sm'
+                                }`}
+                            >
+                                {item.actionTaken ? '✓ บันทึกแผนแล้ว' : 'ทำแนวนี้อีก'}
+                            </button>
+                        </div>
+                    ))}
+                </div>
             </div>
 
-            {/* Anchored Persistent Pagination Panel */}
-            <div className="bg-white border border-gray-100 rounded-b-xl px-4 py-3 flex items-center justify-between">
-                <button
-                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                    disabled={currentPage === 1}
-                    className="border border-gray-200 rounded-lg px-4 py-2 text-xs font-bold text-gray-600 hover:bg-gray-50 transition disabled:opacity-40"
-                >
-                    ❮ Previous
-                </button>
-                <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">
-                    Page <span className="text-blue-600">{currentPage}</span> of {totalPages}
-                </span>
-                <button
-                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                    disabled={currentPage === totalPages}
-                    className="border border-gray-200 rounded-lg px-4 py-2 text-xs font-bold text-gray-600 hover:bg-gray-50 transition disabled:opacity-40"
-                >
-                    Next ❯
-                </button>
-            </div>
         </div>
     );
 }
