@@ -50,6 +50,13 @@ export default function SocialAnalyticsView() {
         return processedPosts.slice(0, 5);
     }, [processedPosts]);
 
+    // 🟢 CHRONONLOGICAL ENGINE: Extract the absolute 5 newest posts published on your page
+    const latest5Posts = useMemo(() => {
+        return [...posts]
+            .sort((a, b) => new Date(b.postedAt) - new Date(a.postedAt))
+            .slice(0, 5);
+    }, [posts]);
+
     // Calculate baseline average views of the entire dataset
     const averageViews = useMemo(() => {
         if (posts.length === 0) return 0;
@@ -194,14 +201,13 @@ export default function SocialAnalyticsView() {
             </div>
 
             {/* ✦ DYNAMIC LEADERBOARD BOARD (TOP 5 DEEP PERFORMANCE) */}
-            <div className="max-w-3xl mx-auto bg-white border border-slate-100 rounded-2xl shadow-sm p-5 sm:p-6">
+            <div className="max-w-3xl mx-auto bg-white border border-slate-100 rounded-2xl shadow-sm p-5 sm:p-6 mb-6">
                 
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 pb-4 mb-4">
                     <div>
                         <h2 className="text-sm font-black text-slate-900 tracking-tight">Top 5 Trending Content · Last 7 Days</h2>
                     </div>
                     
-                    {/* 🟢 FIXED: REAL LIVE CALCULATED INDICATOR REPLACED HARCODED TEXT */}
                     <div className="bg-[#FEF4EF] text-[#D85C2E] text-[10px] font-black px-2.5 py-1 rounded-xl border border-[#FCE1D4] tracking-wider whitespace-nowrap align-middle self-start sm:self-auto uppercase">
                         {posts2xAboveAvgCount} Posts ≥ 2x Avg
                     </div>
@@ -251,6 +257,61 @@ export default function SocialAnalyticsView() {
                     )}
                 </div>
             </div>
+
+            {/* ✦ 🟢 NEW CONTAINER SECTION: 5 LATEST POSTS ON PAGE */}
+            <div className="max-w-3xl mx-auto bg-white border border-slate-100 rounded-2xl shadow-sm p-5 sm:p-6">
+                
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 pb-4 mb-4">
+                    <div>
+                        <h2 className="text-sm font-black text-slate-900 tracking-tight">5 Latest Posts on Page</h2>
+                        <p className="text-[11px] font-bold text-slate-400 mt-0.5">✦ Chronological timeline showing your most recently published updates and immediate results</p>
+                    </div>
+                    <div className="bg-slate-100 text-slate-600 text-[10px] font-black px-2.5 py-1 rounded-xl border border-slate-200 tracking-wider whitespace-nowrap align-middle self-start sm:self-auto uppercase">
+                        Timeline Order
+                    </div>
+                </div>
+
+                <div className="divide-y divide-slate-100">
+                    {latest5Posts.map((post, index) => {
+                        const viewsRaw = post.metrics?.impressions || 0;
+                        const formattedViews = viewsRaw >= 1000000 ? `${(viewsRaw / 1000000).toFixed(1)}M` : viewsRaw >= 1000 ? `${(viewsRaw / 1000).toFixed(1)}K` : viewsRaw;
+                        
+                        const dateString = post.postedAt ? new Date(post.postedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : 'Date N/A';
+                        const isPlanned = savedPlans[`latest_${post.id}`] || false;
+
+                        return (
+                            <div key={index} className="flex items-center justify-between py-4 first:pt-1 last:pb-1 group hover:bg-slate-50/50 px-2 -mx-2 rounded-xl transition duration-150">
+                                <div className="pr-4 min-w-0 flex-1">
+                                    <div className="font-bold text-slate-700 text-[13px] leading-snug mb-1.5 line-clamp-2">
+                                        {post.message ? `"${post.message}"` : '"Image or Video Multimedia Post from Page"'}
+                                    </div>
+                                    
+                                    <div className="text-[11px] font-bold text-slate-400 flex items-center gap-2 flex-wrap">
+                                        <span className="text-[#D85C2E] bg-orange-50/50 px-1.5 py-0.5 rounded text-[10px] font-extrabold">{formattedViews} Views</span>
+                                        <span className="text-slate-300 font-normal">·</span>
+                                        <span className="font-semibold text-slate-500">Published: {dateString}</span>
+                                        <span className="text-slate-200">|</span>
+                                        <a href={post.permalink} target="_blank" rel="noreferrer" className="text-blue-500 hover:underline font-semibold">View Post ↗</a>
+                                    </div>
+                                </div>
+                                <button 
+                                    onClick={() => setSavedPlans(p => ({...p, [`latest_${post.id}`]: !isPlanned}))} 
+                                    className={`text-[11px] font-black px-4 py-2 rounded-xl transition border shrink-0 tracking-wide ${isPlanned ? 'bg-slate-900 text-white border-slate-900' : 'bg-white hover:bg-slate-50 text-slate-600 border-slate-200 shadow-sm'}`}
+                                >
+                                    {isPlanned ? '✓ Saved' : 'Track Plan'}
+                                </button>
+                            </div>
+                        );
+                    })}
+
+                    {posts.length === 0 && !isSyncing && (
+                        <div className="py-12 text-center text-slate-400 text-xs font-semibold">
+                            No chronological timeline logs loaded yet.
+                        </div>
+                    )}
+                </div>
+            </div>
+
         </div>
     );
 }
