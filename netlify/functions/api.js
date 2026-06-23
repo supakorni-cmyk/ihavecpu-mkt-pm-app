@@ -66,11 +66,12 @@ const chunkArray = (array, size) => {
     return chunks;
 };
 
-// 🟢 INSIGHTS PARSER HELPER: Updated with modern Meta API Metrics for Photo & Album Posts
+// 🟢 BULLETPROOF INSIGHTS ENGINE: Fires isolated endpoints concurrently to prevent metric cross-contamination
 const getPostInsights = async (targetId) => {
     try {
-        const [stdRes, vidRes, clkRes] = await Promise.all([
-            fetchWithTimeout(`https://graph.facebook.com/v19.0/${targetId}/insights?metric=post_total_media_view_unique,post_media_view,post_impressions_unique,post_impressions&access_token=${FB_ACCESS_TOKEN}`, {}, 2000).catch(() => null),
+        const [mediaRes, legacyRes, vidRes, clkRes] = await Promise.all([
+            fetchWithTimeout(`https://graph.facebook.com/v19.0/${targetId}/insights?metric=post_total_media_view_unique,post_media_view&access_token=${FB_ACCESS_TOKEN}`, {}, 2000).catch(() => null),
+            fetchWithTimeout(`https://graph.facebook.com/v19.0/${targetId}/insights?metric=post_impressions_unique,post_impressions&access_token=${FB_ACCESS_TOKEN}`, {}, 2000).catch(() => null),
             fetchWithTimeout(`https://graph.facebook.com/v19.0/${targetId}/insights?metric=post_video_views&access_token=${FB_ACCESS_TOKEN}`, {}, 2000).catch(() => null),
             fetchWithTimeout(`https://graph.facebook.com/v19.0/${targetId}/insights?metric=post_clicks_unique,post_clicks&access_token=${FB_ACCESS_TOKEN}`, {}, 2000).catch(() => null)
         ]);
@@ -78,17 +79,37 @@ const getPostInsights = async (targetId) => {
         let reach = 0, impressions = 0, clicks = 0;
         let hasData = false;
 
-        if (stdRes) {
-            const d = await stdRes.json().catch(() => ({}));
+        // Track 1: Process Modern Graphic Media Channels (Photos/Albums)
+        if (mediaRes) {
+            const d = await mediaRes.json().catch(() => ({}));
             if (d.data && d.data.length > 0) {
                 const getM = (m) => d.data.find(x => x.name === m)?.values?.[0]?.value || 0;
-                // 🟢 Fallback mapping prioritizing the modern media view tokens for static graphics
-                impressions = getM('post_media_view') || getM('post_impressions') || 0;
-                reach = getM('post_total_media_view_unique') || getM('post_impressions_unique') || impressions;
-                if (impressions > 0) hasData = true;
+                const mImpressions = getM('post_media_view');
+                const mReach = getM('post_total_media_view_unique');
+                if (mImpressions > 0 || mReach > 0) {
+                    impressions = mImpressions;
+                    reach = mReach || mImpressions;
+                    hasData = true;
+                }
+            }
+        }
+
+        // Track 2: Process Legacy Feed Metrics (Standard Text/Status updates/Links)
+        if (legacyRes) {
+            const d = await legacyRes.json().catch(() => ({}));
+            if (d.data && d.data.length > 0) {
+                const getM = (m) => d.data.find(x => x.name === m)?.values?.[0]?.value || 0;
+                const lImpressions = getM('post_impressions');
+                const lReach = getM('post_impressions_unique');
+                if (lImpressions > 0 || lReach > 0) {
+                    impressions = impressions || lImpressions;
+                    reach = reach || lReach || lImpressions;
+                    hasData = true;
+                }
             }
         }
         
+        // Track 3: Process Video Engines (Reels/Video uploads)
         if (vidRes) {
             const d = await vidRes.json().catch(() => ({}));
             if (d.data && d.data.length > 0) {
@@ -102,6 +123,7 @@ const getPostInsights = async (targetId) => {
             }
         }
 
+        // Track 4: Process Clicks Data
         if (clkRes) {
             const d = await clkRes.json().catch(() => ({}));
             if (d.data && d.data.length > 0) {
@@ -164,6 +186,7 @@ app.post('*', async (req, res) => {
                     const totalShares = basicData.shares?.count || 0;
                     const fallbackEngagement = totalReactions + totalComments + totalShares;
 
+                    // Run the newly isolated parallel insights parser
                     let insights = await getPostInsights(canonicalId);
                     
                     if (!insights.hasData && graphApiId !== canonicalId) {
