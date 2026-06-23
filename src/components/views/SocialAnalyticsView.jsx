@@ -1,45 +1,24 @@
 // src/components/views/SocialAnalyticsView.jsx
-import React, { useState } from 'react';
-import { 
-  Facebook, BarChart3, Users, Eye, 
-  ThumbsUp, MessageCircle, Share2, MousePointerClick, RefreshCw, ExternalLink,
-  Link as LinkIcon, AlertCircle, Heart, ChevronLeft, ChevronRight
-} from 'lucide-react';
-import { formatDate } from '../../utils/constants';
+import React, { useState, useMemo } from 'react';
 
-const SocialAnalyticsView = () => {
+export default function SocialAnalyticsView() {
+    const [pastedLinks, setPastedLinks] = useState('');
     const [posts, setPosts] = useState([]);
     const [isSyncing, setIsSyncing] = useState(false);
     
-    // State to hold the pasted links
-    const [pastedLinks, setPastedLinks] = useState("");
-
-    // --- PAGINATION STATE ---
+    // Search & Pagination State
+    const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const postsPerPage = 5;
 
-    // --- AGGREGATED STATS (Calculated from ALL posts) ---
-    const validPosts = posts.filter(p => p.metrics !== null && !p.error);
-    const totalReach = validPosts.reduce((sum, p) => sum + p.metrics.reach, 0);
-    const totalImpressions = validPosts.reduce((sum, p) => sum + p.metrics.impressions, 0);
-    const totalEngagement = validPosts.reduce((sum, p) => sum + p.metrics.engagement, 0);
-    const totalClicks = validPosts.reduce((sum, p) => sum + p.metrics.clicks, 0);
-
-    // --- PAGINATION LOGIC ---
-    const indexOfLastPost = currentPage * postsPerPage;
-    const indexOfFirstPost = indexOfLastPost - postsPerPage;
-    // This slices the main array to only show the 5 posts for the current page
-    const currentPosts = posts.slice(indexOfFirstPost, indexOfLastPost);
-    const totalPages = Math.ceil(posts.length / postsPerPage);
-
+    // 🟢 CORE API SYNC CONNECTION
     const handleSyncLinks = async () => {
-    if (!pastedLinks.trim()) return alert("Please paste at least one Facebook link!");
-    
-    const linkArray = pastedLinks.split('\n').map(l => l.trim()).filter(l => l !== "");
-    
+        if (!pastedLinks.trim()) return alert("Please paste at least one Facebook link!");
+        
+        const linkArray = pastedLinks.split('\n').map(l => l.trim()).filter(l => l !== "");
+        
         setIsSyncing(true);
         try {
-            // Direct absolute function delivery path targeting to eliminate proxy intercept gaps
             const response = await fetch('/.netlify/functions/api', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -62,191 +41,221 @@ const SocialAnalyticsView = () => {
         }
     };
 
+    // 🟢 DYNAMIC SEARCH FILTER
+    // Filters posts locally in real-time by message content or link text
+    const filteredPosts = useMemo(() => {
+        return posts.filter(post => {
+            const content = (post.message || '').toLowerCase();
+            const url = (post.permalink || '').toLowerCase();
+            const query = searchTerm.toLowerCase();
+            return content.includes(query) || url.includes(query);
+        });
+    }, [posts, searchTerm]);
+
+    // 🟢 LIVE METRIC AGGREGATIONS
+    // Recalculates summary blocks on the fly based on filtered results
+    const totals = useMemo(() => {
+        return filteredPosts.reduce((acc, post) => {
+            if (post.metrics) {
+                acc.reach += post.metrics.reach || 0;
+                acc.impressions += post.metrics.impressions || 0;
+                acc.engagement += post.metrics.engagement || 0;
+                acc.clicks += post.metrics.clicks || 0;
+            }
+            return acc;
+        }, { reach: 0, impressions: 0, engagement: 0, clicks: 0 });
+    }, [filteredPosts]);
+
+    // 🟢 GOOGLE SHEETS COMPATIBLE EXPORT ENGINE
+    const handleExportToSheets = () => {
+        if (filteredPosts.length === 0) return alert("No data available to export!");
+
+        // Define clean tabular column headers
+        const headers = ["Post Content", "Link", "Posted At", "Reach", "Impressions", "Engagement", "Link Clicks", "Reactions", "Comments", "Shares"];
+        
+        // Format rows and escape quote characters safely
+        const csvRows = filteredPosts.map(post => {
+            const safeMessage = (post.message || 'Video / Photo Post').replace(/"/g, '""');
+            const safeUrl = (post.permalink || '').replace(/"/g, '""');
+            const date = post.postedAt ? new Date(post.postedAt).toLocaleDateString() : 'N/A';
+            
+            return [
+                `"${safeMessage}"`,
+                `"${safeUrl}"`,
+                `"${date}"`,
+                post.metrics?.reach || 0,
+                post.metrics?.impressions || 0,
+                post.metrics?.engagement || 0,
+                post.metrics?.clicks || 0,
+                post.metrics?.reactions || 0,
+                post.metrics?.comments || 0,
+                post.metrics?.shares || 0
+            ].join(',');
+        });
+
+        // Combine arrays with a UTF-8 Byte Order Mark (BOM) to support regional text characters natively
+        const csvContent = "\uFEFF" + [headers.join(','), ...csvRows].join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `FB_Analytics_Export_${new Date().toISOString().slice(0,10)}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    // 🟢 PAGINATION SPLITTING CALCULATOR
+    const indexOfLastPost = currentPage * postsPerPage;
+    const indexOfFirstPost = indexOfLastPost - postsPerPage;
+    const currentPosts = filteredPosts.slice(indexOfFirstPost, indexOfLastPost);
+    const totalPages = Math.ceil(filteredPosts.length / postsPerPage) || 1;
+
     return (
-        <div className="flex flex-col h-full overflow-y-auto bg-gray-50 p-8 font-sans relative">
-            {/* HEADER */}
-            <div className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-4xl font-black text-gray-800 flex items-center gap-3">
-                        <div className="bg-blue-600 text-white p-2.5 rounded-xl shadow-lg shadow-blue-200">
-                            <Facebook size={32} />
-                        </div>
-                        Custom Post Tracker
-                    </h1>
-                    <p className="text-gray-500 mt-2 font-medium text-base">Paste specific Facebook post links to track their performance.</p>
-                </div>
+        <div className="p-6 bg-gray-50 min-h-screen overflow-y-auto">
+            {/* Header Layout Component */}
+            <div className="mb-6">
+                <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                    🔵 Custom Post Tracker
+                </h1>
+                <p className="text-gray-500 text-sm">Paste specific Facebook post links to track their performance metrics natively.</p>
             </div>
 
-            {/* LINK INPUT COMMAND CENTER */}
-            <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 mb-8">
-                <label className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-3 uppercase tracking-wider">
-                    <LinkIcon size={18} className="text-blue-500"/> Paste Facebook Links (One per line)
-                </label>
-                <div className="flex flex-col md:flex-row gap-5">
-                    <textarea 
-                        className="flex-1 bg-gray-50 border border-gray-200 rounded-xl p-5 text-base outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition resize-none custom-scrollbar"
-                        placeholder="https://www.facebook.com/YourPage/posts/123456789&#10;https://www.facebook.com/YourPage/posts/987654321"
+            {/* Link Input Dashboard Card */}
+            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-6 flex gap-4 items-start">
+                <div className="flex-1">
+                    <label className="block text-xs font-bold text-blue-600 mb-2 tracking-wider uppercase">
+                        🔗 Paste Facebook Links (One Per Line)
+                    </label>
+                    <textarea
                         rows={4}
+                        className="w-full border border-gray-200 rounded-lg p-3 text-sm focus:outline-none focus:border-blue-500 font-mono"
+                        placeholder="https://www.facebook.com/yourpage/posts/..."
                         value={pastedLinks}
                         onChange={(e) => setPastedLinks(e.target.value)}
                     />
-                    <button 
-                        onClick={handleSyncLinks}
-                        disabled={isSyncing || !pastedLinks.trim()}
-                        className="flex flex-col items-center justify-center gap-2 bg-blue-600 text-white px-8 py-4 rounded-xl font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-200 disabled:opacity-50 disabled:cursor-not-allowed shrink-0 w-full md:w-56 text-lg"
+                </div>
+                <button
+                    onClick={handleSyncLinks}
+                    disabled={isSyncing}
+                    className="mt-6 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg text-sm flex flex-col items-center justify-center gap-1 transition shadow-sm disabled:opacity-50 min-w-[140px]"
+                >
+                    <span>{isSyncing ? 'Pulling Data...' : 'Fetch Analytics'}</span>
+                </button>
+            </div>
+
+            {/* Upper Performance Aggregate Statistics Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
+                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-1">Total Reach</span>
+                    <span className="text-2xl font-black text-gray-800">{totals.reach.toLocaleString()}</span>
+                </div>
+                <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
+                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-1">Impressions</span>
+                    <span className="text-2xl font-black text-gray-800">{totals.impressions.toLocaleString()}</span>
+                </div>
+                <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
+                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-1">Engagement</span>
+                    <span className="text-2xl font-black text-gray-800">{totals.engagement.toLocaleString()}</span>
+                </div>
+                <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
+                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-1">Link Clicks</span>
+                    <span className="text-2xl font-black text-gray-800">{totals.clicks.toLocaleString()}</span>
+                </div>
+            </div>
+
+            {/* Interactive Data Control Strip */}
+            <div className="bg-white border border-gray-100 rounded-t-xl p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div className="flex items-center gap-2">
+                    <h2 className="text-base font-bold text-gray-800">Synced Posts Performance</h2>
+                    <span className="bg-gray-100 text-gray-600 text-xs font-semibold px-2 py-0.5 rounded-full">
+                        Showing {filteredPosts.length > 0 ? indexOfFirstPost + 1 : 0}-{Math.min(indexOfLastPost, filteredPosts.length)} of {filteredPosts.length}
+                    </span>
+                </div>
+                
+                {/* 🟢 SEARCH BOX & EXPORT UTILITIES COMPONENT LAYOUT */}
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                    <input
+                        type="text"
+                        placeholder="Search text or links..."
+                        className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 w-full sm:w-64"
+                        value={searchTerm}
+                        onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+                    />
+                    <button
+                        onClick={handleExportToSheets}
+                        className="bg-green-600 hover:bg-green-700 text-white font-semibold px-4 py-2 rounded-lg text-sm transition flex items-center justify-center gap-2 shadow-sm"
                     >
-                        <RefreshCw size={28} className={isSyncing ? "animate-spin" : ""} />
-                        {isSyncing ? "Pulling Data..." : "Fetch Analytics"}
+                        📊 Export to Sheets / CSV
                     </button>
                 </div>
             </div>
 
-            {/* KPI CARDS */}
-            {validPosts.length > 0 && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-5">
-                        <div className="w-16 h-16 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
-                            <Users size={28} />
-                        </div>
-                        <div>
-                            <p className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-1">Total Reach</p>
-                            <p className="text-4xl font-black text-gray-800">{totalReach.toLocaleString()}</p>
-                        </div>
-                    </div>
+            {/* Bounded Scroll Container to Prevent Pagination Clipping */}
+            <div className="bg-white border-x border-gray-100 overflow-x-auto overflow-y-auto max-h-[calc(100vh-380px)]">
+                <table className="min-w-full divide-y divide-gray-100 text-sm">
+                    <thead className="bg-gray-50 text-gray-500 font-bold text-xs uppercase tracking-wider sticky top-0 z-10">
+                        <tr>
+                            <th className="px-6 py-3 text-left">Post Content</th>
+                            <th className="px-6 py-3 text-center">Reach</th>
+                            <th className="px-6 py-3 text-center">Impressions</th>
+                            <th className="px-6 py-3 text-center">Interactions</th>
+                            <th className="px-6 py-3 text-center">Clicks</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 text-gray-700">
+                        {currentPosts.map((post, i) => (
+                            <tr key={i} className="hover:bg-gray-50/50 transition">
+                                <td className="px-6 py-4 max-w-md">
+                                    <div className="font-semibold text-gray-900 line-clamp-2 mb-1">{post.message || 'Video / Photo Post'}</div>
+                                    <div className="text-xs text-gray-400 flex items-center gap-2">
+                                        <span>{post.postedAt ? new Date(post.postedAt).toLocaleDateString() : 'Date N/A'}</span>
+                                        <a href={post.permalink} target="_blank" rel="noreferrer" className="text-blue-500 hover:underline font-medium">View Post ↗</a>
+                                    </div>
+                                    {post.error && <div className="text-xs text-red-500 font-medium mt-1">⚠️ {post.error}</div>}
+                                </td>
+                                <td className="px-6 py-4 text-center font-bold text-gray-900">{(post.metrics?.reach || 0).toLocaleString()}</td>
+                                <td className="px-6 py-4 text-center font-bold text-gray-900">{(post.metrics?.impressions || 0).toLocaleString()}</td>
+                                <td className="px-6 py-4">
+                                    <div className="flex items-center justify-center gap-2 text-xs font-semibold">
+                                        <span className="bg-pink-50 text-pink-600 px-2 py-1 rounded-md">👍 {post.metrics?.reactions || 0}</span>
+                                        <span className="bg-blue-50 text-blue-600 px-2 py-1 rounded-md">💬 {post.metrics?.comments || 0}</span>
+                                        <span className="bg-green-50 text-green-600 px-2 py-1 rounded-md">🔄 {post.metrics?.shares || 0}</span>
+                                    </div>
+                                </td>
+                                <td className="px-6 py-4 text-center font-bold text-amber-600">{(post.metrics?.clicks || 0).toLocaleString()}</td>
+                            </tr>
+                        ))}
+                        {filteredPosts.length === 0 && (
+                            <tr>
+                                <td colSpan={5} className="px-6 py-12 text-center text-gray-400 font-medium">No synced record tracking profiles match your criteria.</td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
+            </div>
 
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-5">
-                        <div className="w-16 h-16 rounded-full bg-sky-50 text-sky-600 flex items-center justify-center shrink-0">
-                            <Eye size={28} />
-                        </div>
-                        <div>
-                            <p className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-1">Impressions</p>
-                            <p className="text-4xl font-black text-gray-800">{totalImpressions.toLocaleString()}</p>
-                        </div>
-                    </div>
-
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-5">
-                        <div className="w-16 h-16 rounded-full bg-pink-50 text-pink-600 flex items-center justify-center shrink-0">
-                            <Heart size={28} />
-                        </div>
-                        <div>
-                            <p className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-1">Engagement</p>
-                            <p className="text-4xl font-black text-gray-800">{totalEngagement.toLocaleString()}</p>
-                        </div>
-                    </div>
-
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-5">
-                        <div className="w-16 h-16 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
-                            <MousePointerClick size={28} />
-                        </div>
-                        <div>
-                            <p className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-1">Link Clicks</p>
-                            <p className="text-4xl font-black text-gray-800">{totalClicks.toLocaleString()}</p>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* POSTS DATA TABLE */}
-            {posts.length > 0 && (
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex-1 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                    <div className="px-8 py-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-                        <h3 className="text-xl font-black text-gray-800 flex items-center gap-2">
-                            <BarChart3 className="text-blue-600" size={24}/> Synced Posts Performance
-                        </h3>
-                        <span className="text-sm font-bold text-gray-500 bg-white px-3 py-1 rounded-full border border-gray-200 shadow-sm">
-                            Showing {indexOfFirstPost + 1}-{Math.min(indexOfLastPost, posts.length)} of {posts.length}
-                        </span>
-                    </div>
-                    
-                    <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-250px)]">
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead>
-                                <tr>
-                                    <th className="px-8 py-5 w-1/3">Post Content</th>
-                                    <th className="px-6 py-5 text-right">Reach</th>
-                                    <th className="px-6 py-5 text-right">Impressions</th>
-                                    <th className="px-6 py-5 text-center">Interactions</th>
-                                    <th className="px-6 py-5 text-center">Clicks</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {currentPosts.map((post, idx) => (
-                                    <tr key={post.id || idx} className="hover:bg-blue-50/30 transition-colors group">
-                                        {post.error ? (
-                                            <td colSpan="5" className="px-8 py-6">
-                                                <div className="flex items-center gap-3 text-red-500 font-medium">
-                                                    <AlertCircle size={20} />
-                                                    <div className="flex flex-col">
-                                                        <span>Error loading URL: <a href={post.url} target="_blank" rel="noreferrer" className="underline break-all">{post.url}</a></span>
-                                                        <span className="text-xs text-red-400">{post.error}</span>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                        ) : (
-                                            <>
-                                                <td className="px-8 py-6">
-                                                    <p className="text-base font-bold text-gray-800 line-clamp-2 mb-2 group-hover:text-blue-600 transition-colors">
-                                                        {post.message || 'Facebook Post / Video'}
-                                                    </p>
-                                                    <div className="flex items-center gap-4 text-sm font-semibold text-gray-400">
-                                                        <span>{post.postedAt ? formatDate(post.postedAt) : 'Recent Post'}</span>
-                                                        <a href={post.permalink} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-blue-500 hover:underline">
-                                                            View Post <ExternalLink size={14} />
-                                                        </a>
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-6 text-right font-black text-gray-700 text-lg">
-                                                    {(post.metrics?.reach ?? 0).toLocaleString()}
-                                                </td>
-                                                <td className="px-6 py-6 text-right font-black text-gray-700 text-lg">
-                                                    {(post.metrics?.impressions ?? 0).toLocaleString()}
-                                                </td>
-                                                <td className="px-6 py-6">
-                                                    <div className="flex items-center justify-center gap-4 text-sm font-bold text-gray-500">
-                                                        <span className="flex items-center gap-1.5 text-pink-600 bg-pink-50 px-2.5 py-1.5 rounded-md"><ThumbsUp size={16}/> {post.metrics?.reactions ?? 0}</span>
-                                                        <span className="flex items-center gap-1.5 text-indigo-600 bg-indigo-50 px-2.5 py-1.5 rounded-md"><MessageCircle size={16}/> {post.metrics?.comments ?? 0}</span>
-                                                        <span className="flex items-center gap-1.5 text-emerald-600 bg-emerald-50 px-2.5 py-1.5 rounded-md"><Share2 size={16}/> {post.metrics?.shares ?? 0}</span>
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-6 text-center font-black text-amber-600 text-lg">
-                                                    {(post.metrics?.clicks ?? 0).toLocaleString()}
-                                                </td>
-                                            </>
-                                        )}
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    {/* PAGINATION CONTROLS */}
-                    {totalPages > 1 && (
-                        <div className="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3">
-                            <button 
-                                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                                disabled={currentPage === 1}
-                                className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-bold text-gray-600 hover:bg-gray-100 hover:text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
-                            >
-                                <ChevronLeft size={16} /> Previous
-                            </button>
-                            
-                            <span className="text-sm font-bold text-gray-500">
-                                Page <span className="text-blue-600">{currentPage}</span> of {totalPages}
-                            </span>
-                            
-                            <button 
-                                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                                disabled={currentPage === totalPages}
-                                className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-bold text-gray-600 hover:bg-gray-100 hover:text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
-                            >
-                                Next <ChevronRight size={16} />
-                            </button>
-                        </div>
-                    )}
-                </div>
-            )}
+            {/* Anchored Persistent Pagination Panel */}
+            <div className="bg-white border border-gray-100 rounded-b-xl px-4 py-3 flex items-center justify-between">
+                <button
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className="border border-gray-200 rounded-lg px-4 py-2 text-xs font-bold text-gray-600 hover:bg-gray-50 transition disabled:opacity-40"
+                >
+                    ❮ Previous
+                </button>
+                <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">
+                    Page <span className="text-blue-600">{currentPage}</span> of {totalPages}
+                </span>
+                <button
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    className="border border-gray-200 rounded-lg px-4 py-2 text-xs font-bold text-gray-600 hover:bg-gray-50 transition disabled:opacity-40"
+                >
+                    Next ❯
+                </button>
+            </div>
         </div>
     );
-};
-
-export default SocialAnalyticsView;
+}
