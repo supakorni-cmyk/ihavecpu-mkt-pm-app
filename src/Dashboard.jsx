@@ -31,14 +31,13 @@ import FacebookPostTrackerViews from './components/views/FacebookPostTrackerView
 import AddTaskModal from './components/modals/AddTaskModal';
 import EditTaskModal from './components/modals/EditTaskModal';
 import RequirementSheetModal from './components/modals/RequirementModal';
-import TaskDetailModal from './components/modals/TaskDetailModal'; // 🟢 IMPORTED
-import FacebookPostTrackerViews from './components/views/FacebookPostTrackerViews';
+import TaskDetailModal from './components/modals/TaskDetailModal'; 
 
 export default function Dashboard() {
   const { currentUser, logout } = useAuth();
   const navigate = useNavigate();
   
-  // 🟢 SINGLE HOOK CALL
+  // SINGLE HOOK CALL
   const data = useTaskData(currentUser);
 
   // --- STATE ---
@@ -49,7 +48,7 @@ export default function Dashboard() {
   const [selectedTaskId, setSelectedTaskId] = useState(null); // For Edit
   const [activeRequirementId, setActiveRequirementId] = useState(null);
   
-  // 🟢 DEEP LINK STATE
+  // DEEP LINK STATE
   const [deepLinkTask, setDeepLinkTask] = useState(null);
 
   // --- DERIVED STATE ---
@@ -61,7 +60,7 @@ export default function Dashboard() {
   const handleLogout = async () => { await logout(); navigate('/'); };
   const handlePlayMood = (mood) => { setPlayerMood(mood); setPlayerMode('mini'); };
 
-  // 🟢 DEEP LINK HANDLER (On Load)
+  // DEEP LINK HANDLER (On Load)
   useEffect(() => {
     if (data.tasks.length > 0) {
       const params = new URLSearchParams(window.location.search);
@@ -70,7 +69,7 @@ export default function Dashboard() {
       if (targetId) {
         const foundTask = data.tasks.find(t => t.id === targetId);
         if (foundTask) {
-          console.log("🔗 Deep Link Found for:", foundTask.title);
+          console.log("Deep Link Found for:", foundTask.title);
           setDeepLinkTask(foundTask);
           
           // Optional: Clean URL
@@ -81,7 +80,7 @@ export default function Dashboard() {
   }, [data.tasks]);
 
   return (
-  <div className="flex flex-col md:flex-row min-h-screen w-full bg-gray-50 font-sans overflow-y-auto">
+    <div className="flex flex-col md:flex-row min-h-screen w-full bg-gray-50 font-sans overflow-y-auto">
       
       <Sidebar 
         currentView={currentView} 
@@ -181,16 +180,16 @@ export default function Dashboard() {
 
         {currentView === 'my-email' && (
           <MyEmailView 
-          currentUser={currentUser}
+            currentUser={currentUser}
           />
         )}
 
         {currentView === 'selfheal' && (
-            <SelfHealView 
-                onPlay={handlePlayMood} 
-                currentMoodId={playerMood?.id} 
-                currentUser={currentUser}
-            />
+          <SelfHealView 
+            onPlay={handlePlayMood} 
+            currentMoodId={playerMood?.id} 
+            currentUser={currentUser}
+          />
         )}
         
         {currentView === 'report' && (
@@ -199,10 +198,10 @@ export default function Dashboard() {
       </main>
 
       <GlobalPlayer 
-          mood={playerMood} 
-          mode={playerMode} 
-          setMode={setPlayerMode} 
-          onClose={() => { setPlayerMode('hidden'); setPlayerMood(null); }} 
+        mood={playerMood} 
+        mode={playerMode} 
+        setMode={setPlayerMode} 
+        onClose={() => { setPlayerMode('hidden'); setPlayerMood(null); }} 
       />
 
       {/* MODALS */}
@@ -229,19 +228,19 @@ export default function Dashboard() {
         />
       )}
 
-      {/* 🟢 DEEP LINK READ-ONLY MODAL */}
+      {/* DEEP LINK READ-ONLY MODAL */}
       {deepLinkTask && (
         <TaskDetailModal 
-            task={deepLinkTask}
-            onClose={() => setDeepLinkTask(null)}
-            onEdit={() => {
-                setSelectedTaskId(deepLinkTask.id); // Open Edit Modal
-                setDeepLinkTask(null); // Close Read-Only
-            }}
-            onDelete={() => {
-                data.deleteTask(deepLinkTask.id);
-                setDeepLinkTask(null);
-            }}
+          task={deepLinkTask}
+          onClose={() => setDeepLinkTask(null)}
+          onEdit={() => {
+            setSelectedTaskId(deepLinkTask.id); 
+            setDeepLinkTask(null); 
+          }}
+          onDelete={() => {
+            data.deleteTask(deepLinkTask.id);
+            setDeepLinkTask(null);
+          }}
         />
       )}
     </div>
