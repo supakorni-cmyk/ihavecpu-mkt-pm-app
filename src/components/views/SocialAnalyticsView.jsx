@@ -40,7 +40,7 @@ const SocialAnalyticsView = () => {
         setIsSyncing(true);
         try {
             // Direct absolute function delivery path targeting to eliminate proxy intercept gaps
-            const response = await fetch('//.netlify/functions/api', {
+            const response = await fetch('/.netlify/functions/api', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ links: linkArray })
