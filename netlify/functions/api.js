@@ -66,11 +66,11 @@ const chunkArray = (array, size) => {
     return chunks;
 };
 
-// 🟢 INSIGHTS PARSER HELPER: Queries endpoints separately in parallel to prevent metric rejections
+// 🟢 INSIGHTS PARSER HELPER: Updated with modern Meta API Metrics for Photo & Album Posts
 const getPostInsights = async (targetId) => {
     try {
         const [stdRes, vidRes, clkRes] = await Promise.all([
-            fetchWithTimeout(`https://graph.facebook.com/v19.0/${targetId}/insights?metric=post_impressions_unique,post_impressions&access_token=${FB_ACCESS_TOKEN}`, {}, 2000).catch(() => null),
+            fetchWithTimeout(`https://graph.facebook.com/v19.0/${targetId}/insights?metric=post_total_media_view_unique,post_media_view,post_impressions_unique,post_impressions&access_token=${FB_ACCESS_TOKEN}`, {}, 2000).catch(() => null),
             fetchWithTimeout(`https://graph.facebook.com/v19.0/${targetId}/insights?metric=post_video_views&access_token=${FB_ACCESS_TOKEN}`, {}, 2000).catch(() => null),
             fetchWithTimeout(`https://graph.facebook.com/v19.0/${targetId}/insights?metric=post_clicks_unique,post_clicks&access_token=${FB_ACCESS_TOKEN}`, {}, 2000).catch(() => null)
         ]);
@@ -82,8 +82,9 @@ const getPostInsights = async (targetId) => {
             const d = await stdRes.json().catch(() => ({}));
             if (d.data && d.data.length > 0) {
                 const getM = (m) => d.data.find(x => x.name === m)?.values?.[0]?.value || 0;
-                impressions = getM('post_impressions');
-                reach = getM('post_impressions_unique');
+                // 🟢 Fallback mapping prioritizing the modern media view tokens for static graphics
+                impressions = getM('post_media_view') || getM('post_impressions') || 0;
+                reach = getM('post_total_media_view_unique') || getM('post_impressions_unique') || impressions;
                 if (impressions > 0) hasData = true;
             }
         }
@@ -163,10 +164,8 @@ app.post('*', async (req, res) => {
                     const totalShares = basicData.shares?.count || 0;
                     const fallbackEngagement = totalReactions + totalComments + totalShares;
 
-                    // 🟢 RUN SEPARATED INSIGHT QUERIES IN PARALLEL
                     let insights = await getPostInsights(canonicalId);
                     
-                    // Fallback to the alternative structural ID if the primary returns empty
                     if (!insights.hasData && graphApiId !== canonicalId) {
                         insights = await getPostInsights(graphApiId);
                     }
