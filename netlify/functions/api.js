@@ -5,18 +5,17 @@ const serverless = require('serverless-http');
 
 const app = express();
 
-// Open up CORS cleanly for serverless routing validation
+// Enable clean CORS mapping for the serverless pipeline execution
 app.use(cors({ origin: '*' }));
 app.use(express.json());
 
 const FB_ACCESS_TOKEN = process.env.FB_ACCESS_TOKEN;
 let CACHED_PAGE_ID = null;
 
-// Fail-fast timeout controller to prevent hitting Netlify's strict 10s function wall
+// ⚡ FAIL-FAST TIMEOUT HELPER: Keeps operations moving within Netlify's strict 10s engine cutoff window
 const fetchWithTimeout = async (url, options = {}, timeout = 2500) => {
-    // Fallback wrapper check for older Node environments
     if (typeof fetch !== 'function') {
-        throw new Error("Node version mismatch on serverless environment. Please set NODE_VERSION to 20 in Netlify.");
+        throw new Error("Runtime runtime container mismatch. Please ensure NODE_VERSION is configured as 20 inside Netlify.");
     }
     const controller = new AbortController();
     const id = setTimeout(() => controller.abort(), timeout);
@@ -30,11 +29,14 @@ const fetchWithTimeout = async (url, options = {}, timeout = 2500) => {
     }
 };
 
+// 🔎 URL-Decoding Scraper (Your unmodified tracking logic with added cloud protection layers)
 const resolveAndExtractId = async (inputUrl) => {
     try {
+        // Step 1: Structural check for direct raw/unmasked canonical formats
         let match = inputUrl.match(/(?:posts\/|videos\/|reel\/|watch\/?\?v=|fbid=|story_fbid=|\/p\/)(pfbid[a-zA-Z0-9]+|\d{10,})/i);
         if (match && match[1]) return match[1];
 
+        // Step 2: Cloud Bypass Layer - Request Graph API to extract its own shortcut link natively
         try {
             const encodedUrl = encodeURIComponent(inputUrl);
             const apiRes = await fetchWithTimeout(`https://graph.facebook.com/v19.0/?id=${encodedUrl}&access_token=${FB_ACCESS_TOKEN}`, {}, 2000);
@@ -42,12 +44,13 @@ const resolveAndExtractId = async (inputUrl) => {
             if (apiData.og_object && apiData.og_object.id) return apiData.og_object.id;
             if (apiData.id && /^\d+$/.test(apiData.id)) return apiData.id;
         } catch (e) {
-            console.warn("API resolution skipped.");
+            console.warn("Natively resolved tracking query timed out or was bypassed.");
         }
 
+        // Step 3: Manual HTML Trace Fallback (Runs within strict network budgets)
         const manualRes = await fetchWithTimeout(inputUrl, {
             redirect: 'manual', 
-            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
         }, 2000);
         
         if (manualRes.status >= 300 && manualRes.status < 400) {
@@ -58,15 +61,34 @@ const resolveAndExtractId = async (inputUrl) => {
                 if (match && match[1]) return match[1];
             }
         }
+
+        const curlRes = await fetchWithTimeout(inputUrl, {
+            redirect: 'follow',
+            headers: { 'User-Agent': 'curl/7.68.0' }
+        }, 2000);
+        
+        const decodedFinalUrl = decodeURIComponent(curlRes.url);
+        match = decodedFinalUrl.match(/(?:posts\/|videos\/|reel\/|watch\/?\?v=|fbid=|story_fbid=|\/p\/)(pfbid[a-zA-Z0-9]+|\d{10,})/i);
+        if (match && match[1]) return match[1];
+
+        const html = await curlRes.text();
+        const decodedHtml = decodeURIComponent(html);
+        match = decodedHtml.match(/(?:posts\/|videos\/|reel\/|watch\/?\?v=|fbid=|story_fbid=|\/p\/)(pfbid[a-zA-Z0-9]+|\d{10,})/i) ||
+                html.match(/(?:top_level_post_id|story_fbid|post_id|video_id)":"?(pfbid[a-zA-Z0-9]+|\d{10,})"?/i);
+                
+        if (match && match[1]) return match[1];
+
         return null;
     } catch (error) {
+        console.error("URL Resolution Trace Error:", error.message);
         return null;
     }
 };
 
-// Intercept wildcard POST routing explicitly
+// 🟢 CATCH-ALL POST ROUTER: Captures incoming frontend traffic safely to bypass any deployment path deviations
 app.post('*', async (req, res) => {
     const { links } = req.body;
+    
     if (!links || !Array.isArray(links)) {
         return res.status(400).json({ error: "Please provide an array of links." });
     }
@@ -78,13 +100,14 @@ app.post('*', async (req, res) => {
                 const meData = await meRes.json();
                 if (meData.id) CACHED_PAGE_ID = meData.id;
             } catch (err) {
-                console.warn("Profile fetch skipped.");
+                console.warn("Base validation profile identification tracking deferred.");
             }
         }
 
         const fetchPromises = links.map(async (url) => {
             try {
                 let extractedId = await resolveAndExtractId(url);
+                
                 if (!extractedId) return { url, error: "Could not unmask Post ID inside cloud networks.", metrics: null };
 
                 let graphApiId = extractedId;
@@ -92,6 +115,7 @@ app.post('*', async (req, res) => {
                     graphApiId = `${CACHED_PAGE_ID}_${extractedId}`; 
                 }
 
+                // STEP 1: Process Base Post Interactions Data
                 let basicDataUrl = `https://graph.facebook.com/v19.0/${graphApiId}?fields=id,message,created_time,shares,reactions.summary(total_count),comments.summary(total_count)&access_token=${FB_ACCESS_TOKEN}`;
                 let basicRes = await fetchWithTimeout(basicDataUrl, {}, 2000);
                 let basicData = await basicRes.json();
@@ -110,6 +134,7 @@ app.post('*', async (req, res) => {
                 const totalShares = basicData.shares?.count || 0;
                 const fallbackEngagement = totalReactions + totalComments + totalShares;
 
+                // STEP 2: Process Private Insights Matrix
                 let reach = 0, impressions = 0, clicks = 0;
 
                 const impressionEndpoints = [
@@ -162,7 +187,7 @@ app.post('*', async (req, res) => {
                     }
                 };
             } catch (postError) {
-                return { url, error: `Link processing timeout: ${postError.message}`, metrics: null };
+                return { url, error: `Link evaluation timeline exception: ${postError.message}`, metrics: null };
             }
         });
 

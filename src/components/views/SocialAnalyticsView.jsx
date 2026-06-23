@@ -33,19 +33,19 @@ const SocialAnalyticsView = () => {
     const totalPages = Math.ceil(posts.length / postsPerPage);
 
     const handleSyncLinks = async () => {
-        if (!pastedLinks.trim()) return alert("Please paste at least one Facebook link!");
-        
-        const linkArray = pastedLinks.split('\n').map(l => l.trim()).filter(l => l !== "");
-        
+    if (!pastedLinks.trim()) return alert("Please paste at least one Facebook link!");
+    
+    const linkArray = pastedLinks.split('\n').map(l => l.trim()).filter(l => l !== "");
+    
         setIsSyncing(true);
         try {
-            const response = await fetch('/.netlify/functions/api', {
+            // Direct absolute function delivery path targeting to eliminate proxy intercept gaps
+            const response = await fetch('//.netlify/functions/api', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ links: linkArray })
             });
             
-            // 🟢 DYNAMIC ERROR PARSER: Extract the real JSON error from the server if it fails
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
                 throw new Error(errorData.error || `Server responded with status ${response.status}`);
@@ -56,7 +56,6 @@ const SocialAnalyticsView = () => {
             setCurrentPage(1); 
         } catch (error) {
             console.error("Failed to sync Facebook data:", error);
-            // 🟢 DYNAMIC ALERT: Display the real error message instead of the old hardcoded text
             alert(`Sync Failed: ${error.message}`);
         } finally {
             setIsSyncing(false);
@@ -159,9 +158,9 @@ const SocialAnalyticsView = () => {
                         </span>
                     </div>
                     
-                    <div className="overflow-x-auto custom-scrollbar">
-                        <table className="w-full text-base text-left">
-                            <thead className="text-sm text-gray-400 uppercase bg-white border-b border-gray-100 font-bold">
+                    <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-250px)]">
+                        <table className="min-w-full divide-y divide-gray-200">
+                            <thead>
                                 <tr>
                                     <th className="px-8 py-5 w-1/3">Post Content</th>
                                     <th className="px-6 py-5 text-right">Reach</th>
@@ -170,7 +169,7 @@ const SocialAnalyticsView = () => {
                                     <th className="px-6 py-5 text-center">Clicks</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-50 bg-white">
+                            <tbody>
                                 {currentPosts.map((post, idx) => (
                                     <tr key={post.id || idx} className="hover:bg-blue-50/30 transition-colors group">
                                         {post.error ? (
@@ -222,7 +221,7 @@ const SocialAnalyticsView = () => {
 
                     {/* PAGINATION CONTROLS */}
                     {totalPages > 1 && (
-                        <div className="px-8 py-4 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
+                        <div className="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3">
                             <button 
                                 onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                                 disabled={currentPage === 1}
