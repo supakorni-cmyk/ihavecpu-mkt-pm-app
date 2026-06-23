@@ -1,7 +1,7 @@
-// src/components/views/FacebookPostTrackerViews.jsx
+// src/components/views/FacebookPostTrackerView.jsx
 import React, { useState, useMemo } from 'react';
 
-export default function FacebookPostTrackerViews() {
+export default function FacebookPostTrackerView() {
     const [pastedLinks, setPastedLinks] = useState('');
     const [posts, setPosts] = useState([]);
     const [isSyncing, setIsSyncing] = useState(false);
@@ -27,7 +27,6 @@ export default function FacebookPostTrackerViews() {
             setPosts(data);
             setCurrentPage(1); 
         } catch (error) {
-            console.error("Failed to sync Facebook data:", error);
             alert(`Sync Failed: ${error.message}`);
         } finally {
             setIsSyncing(false);
@@ -38,8 +37,7 @@ export default function FacebookPostTrackerViews() {
         return posts.filter(post => {
             const content = (post.message || '').toLowerCase();
             const url = (post.permalink || '').toLowerCase();
-            const query = searchTerm.toLowerCase();
-            return content.includes(query) || url.includes(query);
+            return content.includes(searchTerm.toLowerCase()) || url.includes(searchTerm.toLowerCase());
         });
     }, [posts, searchTerm]);
 
@@ -60,10 +58,8 @@ export default function FacebookPostTrackerViews() {
         const headers = ["Post Content", "Link", "Posted At", "Reach", "Impressions", "Engagement", "Link Clicks", "Reactions", "Comments", "Shares"];
         const csvRows = filteredPosts.map(post => {
             const safeMessage = (post.message || 'Video / Photo Post').replace(/"/g, '""');
-            const safeUrl = (post.permalink || '').replace(/"/g, '""');
-            const date = post.postedAt ? new Date(post.postedAt).toLocaleDateString() : 'N/A';
             return [
-                `"${safeMessage}"`, `"${safeUrl}"`, `"${date}"`,
+                `"${safeMessage}"`, `"${post.permalink || ''}"`, `"${post.postedAt ? new Date(post.postedAt).toLocaleDateString() : 'N/A'}"`,
                 post.metrics?.reach || 0, post.metrics?.impressions || 0, post.metrics?.engagement || 0,
                 post.metrics?.clicks || 0, post.metrics?.reactions || 0, post.metrics?.comments || 0, post.metrics?.shares || 0
             ].join(',');
@@ -73,10 +69,8 @@ export default function FacebookPostTrackerViews() {
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.setAttribute("href", url);
-        link.setAttribute("download", `FB_Analytics_Export_${new Date().toISOString().slice(0,10)}.csv`);
-        document.body.appendChild(link);
+        link.setAttribute("download", `FB_Analytics_Export.csv`);
         link.click();
-        document.body.removeChild(link);
     };
 
     const indexOfLastPost = currentPage * postsPerPage;
@@ -85,119 +79,97 @@ export default function FacebookPostTrackerViews() {
     const totalPages = Math.ceil(filteredPosts.length / postsPerPage) || 1;
 
     return (
-        <div className="p-6 bg-gray-50 min-h-screen overflow-y-auto">
+        <div className="p-6 bg-slate-50 min-h-screen overflow-y-auto w-full text-slate-800">
             <div className="mb-6">
-                <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">🔵 Custom Post Tracker</h1>
-                <p className="text-gray-500 text-sm">Paste specific Facebook post links to track their performance metrics natively.</p>
+                <h1 className="text-2xl font-black text-slate-800 flex items-center gap-2 tracking-tight">📊 Custom Post Link Tracker</h1>
+                <p className="text-slate-500 text-sm mt-0.5">Paste specific Facebook post links to evaluate custom batch outputs manually.</p>
             </div>
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-6 flex gap-4 items-start">
+            <div className="bg-white p-4 rounded-2xl border border-slate-200/60 mb-6 flex flex-col sm:flex-row gap-4 items-stretch shadow-sm">
                 <div className="flex-1">
-                    <label className="block text-xs font-bold text-blue-600 mb-2 tracking-wider uppercase">🔗 Paste Facebook Links (One Per Line)</label>
                     <textarea
-                        rows={4}
-                        className="w-full border border-gray-200 rounded-lg p-3 text-sm focus:outline-none focus:border-blue-500 font-mono"
-                        placeholder="https://www.facebook.com/yourpage/posts/..."
+                        rows={3}
+                        className="w-full border border-slate-200 rounded-xl p-3 text-sm focus:outline-none focus:border-blue-500 font-mono bg-slate-50/50"
+                        placeholder="Paste Facebook URLs here (one per line)..."
                         value={pastedLinks}
                         onChange={(e) => setPastedLinks(e.target.value)}
                     />
                 </div>
                 <button
                     onClick={handleSyncLinks} disabled={isSyncing}
-                    className="mt-6 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg text-sm flex flex-col items-center justify-center gap-1 transition shadow-sm disabled:opacity-50 min-w-[140px]"
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-8 rounded-xl text-sm transition shadow-sm disabled:opacity-50 flex items-center justify-center min-w-[160px]"
                 >
-                    <span>{isSyncing ? 'Pulling Data...' : 'Fetch Analytics'}</span>
+                    {isSyncing ? 'Syncing API...' : 'Fetch Analytics'}
                 </button>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
-                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-1">Total Reach</span>
-                    <span className="text-2xl font-black text-gray-800">{totals.reach.toLocaleString()}</span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Total Reach</span>
+                    <span className="text-2xl font-black text-slate-800">{totals.reach.toLocaleString()}</span>
                 </div>
-                <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
-                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-1">Impressions</span>
-                    <span className="text-2xl font-black text-gray-800">{totals.impressions.toLocaleString()}</span>
+                <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Impressions</span>
+                    <span className="text-2xl font-black text-slate-800">{totals.impressions.toLocaleString()}</span>
                 </div>
-                <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
-                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-1">Engagement</span>
-                    <span className="text-2xl font-black text-gray-800">{totals.engagement.toLocaleString()}</span>
+                <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Interactions</span>
+                    <span className="text-2xl font-black text-slate-800">{totals.engagement.toLocaleString()}</span>
                 </div>
-                <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
-                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-1">Link Clicks</span>
-                    <span className="text-2xl font-black text-gray-800">{totals.clicks.toLocaleString()}</span>
+                <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Link Clicks</span>
+                    <span className="text-2xl font-black text-slate-800">{totals.clicks.toLocaleString()}</span>
                 </div>
             </div>
-            <div className="bg-white border border-gray-100 rounded-t-xl p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                <div className="flex items-center gap-2">
-                    <h2 className="text-base font-bold text-gray-800">Synced Posts Performance</h2>
-                    <span className="bg-gray-100 text-gray-600 text-xs font-semibold px-2 py-0.5 rounded-full">
-                        Showing {filteredPosts.length > 0 ? indexOfFirstPost + 1 : 0}-{Math.min(indexOfLastPost, filteredPosts.length)} of {filteredPosts.length}
-                    </span>
-                </div>
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <div className="bg-white border border-slate-200/80 rounded-t-2xl p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <span className="text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-full">Showing {filteredPosts.length > 0 ? indexOfFirstPost + 1 : 0}-{Math.min(indexOfLastPost, filteredPosts.length)} of {filteredPosts.length} Records</span>
+                <div className="flex items-center gap-3 w-full md:w-auto">
                     <input
-                        type="text" placeholder="Search text or links..."
-                        className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 w-full sm:w-64"
-                        value={searchTerm}
-                        onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+                        type="text" placeholder="Search..."
+                        className="border border-slate-200 rounded-xl px-4 py-2 text-xs focus:outline-none focus:border-blue-500 bg-slate-50/50 w-full md:w-56"
+                        value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
                     />
-                    <button onClick={handleExportToSheets} className="bg-green-600 hover:bg-green-700 text-white font-semibold px-4 py-2 rounded-lg text-sm transition flex items-center justify-center gap-2 shadow-sm">
-                        📊 Export to Sheets / CSV
-                    </button>
+                    <button onClick={handleExportToSheets} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2 rounded-xl text-xs whitespace-nowrap shadow-sm">📊 Open in Sheets</button>
                 </div>
             </div>
-            <div className="bg-white border-x border-gray-100 overflow-x-auto overflow-y-auto max-h-[calc(100vh-380px)]">
-                <table className="min-w-full divide-y divide-gray-100 text-sm">
-                    <thead className="bg-gray-50 text-gray-500 font-bold text-xs uppercase tracking-wider sticky top-0 z-10">
+            <div className="bg-white border-x border-slate-200/80 overflow-x-auto overflow-y-auto max-h-[calc(100vh-360px)]">
+                <table className="min-w-full divide-y divide-slate-100 text-sm">
+                    <thead className="bg-slate-50/80 text-slate-400 font-bold text-xs uppercase tracking-wider sticky top-0 z-10">
                         <tr>
-                            <th className="px-6 py-3 text-left">Post Content</th>
-                            <th className="px-6 py-3 text-center">Reach</th>
-                            <th className="px-6 py-3 text-center">Impressions</th>
-                            <th className="px-6 py-3 text-center">Interactions</th>
-                            <th className="px-6 py-3 text-center">Clicks</th>
+                            <th className="px-6 py-3.5 text-left">Post Details</th>
+                            <th className="px-6 py-3.5 text-center">Reach</th>
+                            <th className="px-6 py-3.5 text-center">Impressions</th>
+                            <th className="px-6 py-3.5 text-center">Engagement</th>
+                            <th className="px-6 py-3.5 text-center">Clicks</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-100 text-gray-700">
+                    <tbody className="divide-y divide-slate-100 text-slate-700">
                         {currentPosts.map((post, i) => (
-                            <tr key={i} className="hover:bg-gray-50/50 transition">
+                            <tr key={i} className="hover:bg-slate-50/50 transition">
                                 <td className="px-6 py-4 max-w-md">
-                                    <div className="font-semibold text-gray-900 line-clamp-2 mb-1">{post.message || 'Video / Photo Post'}</div>
-                                    <div className="text-xs text-gray-400 flex items-center gap-2">
+                                    <div className="font-bold text-slate-800 line-clamp-2 mb-1">{post.message}</div>
+                                    <div className="text-xs text-slate-400 flex items-center gap-2">
                                         <span>{post.postedAt ? new Date(post.postedAt).toLocaleDateString() : 'Date N/A'}</span>
-                                        <a href={post.permalink} target="_blank" rel="noreferrer" className="text-blue-500 hover:underline font-medium">View Post ↗</a>
+                                        <a href={post.permalink} target="_blank" rel="noreferrer" className="text-blue-600 font-semibold">Open Post ↗</a>
                                     </div>
-                                    {post.error && <div className="text-xs text-red-500 font-medium mt-1">⚠️ {post.error}</div>}
                                 </td>
-                                <td className="px-6 py-4 text-center font-bold text-gray-900">{(post.metrics?.reach || 0).toLocaleString()}</td>
-                                <td className="px-6 py-4 text-center font-bold text-gray-900">{(post.metrics?.impressions || 0).toLocaleString()}</td>
+                                <td className="px-6 py-4 text-center font-black">{(post.metrics?.reach || 0).toLocaleString()}</td>
+                                <td className="px-6 py-4 text-center font-black">{(post.metrics?.impressions || 0).toLocaleString()}</td>
                                 <td className="px-6 py-4">
-                                    <div className="flex items-center justify-center gap-2 text-xs font-semibold">
-                                        <span className="bg-pink-50 text-pink-600 px-2 py-1 rounded-md">👍 {post.metrics?.reactions || 0}</span>
-                                        <span className="bg-blue-50 text-blue-600 px-2 py-1 rounded-md">💬 {post.metrics?.comments || 0}</span>
-                                        <span className="bg-green-50 text-green-600 px-2 py-1 rounded-md">🔄 {post.metrics?.shares || 0}</span>
+                                    <div className="flex items-center justify-center gap-2 text-[10px] font-bold">
+                                        <span className="bg-rose-50 text-rose-600 px-2 py-0.5 rounded border border-rose-100">👍 {post.metrics?.reactions || 0}</span>
+                                        <span className="bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded border border-indigo-100">💬 {post.metrics?.comments || 0}</span>
+                                        <span className="bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded border border-emerald-100">🔄 {post.metrics?.shares || 0}</span>
                                     </div>
                                 </td>
-                                <td className="px-6 py-4 text-center font-bold text-amber-600">{(post.metrics?.clicks || 0).toLocaleString()}</td>
+                                <td className="px-6 py-4 text-center font-black text-amber-600">{(post.metrics?.clicks || 0).toLocaleString()}</td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
             </div>
-            <div className="bg-white border border-gray-100 rounded-b-xl px-4 py-3 flex items-center justify-between">
-                <button
-                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1}
-                    className="border border-gray-200 rounded-lg px-4 py-2 text-xs font-bold text-gray-600 hover:bg-gray-50 transition disabled:opacity-40"
-                >
-                    ❮ Previous
-                </button>
-                <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">
-                    Page <span className="text-blue-600">{currentPage}</span> of {totalPages}
-                </span>
-                <button
-                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages}
-                    className="border border-gray-200 rounded-lg px-4 py-2 text-xs font-bold text-gray-600 hover:bg-gray-50 transition disabled:opacity-40"
-                >
-                    Next ❯
-                </button>
+            <div className="bg-white border border-slate-200/80 rounded-b-2xl px-5 py-3 flex items-center justify-between shadow-sm">
+                <button onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1} className="border border-slate-200 rounded-xl px-4 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-40">Previous</button>
+                <span className="text-xs font-bold text-slate-400 uppercase">Page {currentPage} of {totalPages}</span>
+                <button onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages} className="border border-slate-200 rounded-xl px-4 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-40">Next</button>
             </div>
         </div>
     );

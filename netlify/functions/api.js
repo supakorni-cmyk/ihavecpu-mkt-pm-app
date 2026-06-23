@@ -12,7 +12,7 @@ let CACHED_PAGE_ID = null;
 
 const fetchWithTimeout = async (url, options = {}, timeout = 3500) => {
     if (typeof fetch !== 'function') {
-        throw new Error("Runtime container version mismatch. Please ensure NODE_VERSION is configured as 20 inside Netlify.");
+        throw new Error("Runtime container node version mismatch. Ensure NODE_VERSION is 20 in Netlify.");
     }
     const controller = new AbortController();
     const id = setTimeout(() => controller.abort(), timeout);
@@ -66,7 +66,6 @@ const chunkArray = (array, size) => {
     return chunks;
 };
 
-// 🟢 BULLETPROOF INSIGHTS ENGINE: Fires isolated endpoints concurrently to prevent metric cross-contamination
 const getPostInsights = async (targetId) => {
     try {
         const [mediaRes, legacyRes, vidRes, clkRes] = await Promise.all([
@@ -79,37 +78,25 @@ const getPostInsights = async (targetId) => {
         let reach = 0, impressions = 0, clicks = 0;
         let hasData = false;
 
-        // Track 1: Process Modern Graphic Media Channels (Photos/Albums)
         if (mediaRes) {
             const d = await mediaRes.json().catch(() => ({}));
             if (d.data && d.data.length > 0) {
                 const getM = (m) => d.data.find(x => x.name === m)?.values?.[0]?.value || 0;
-                const mImpressions = getM('post_media_view');
-                const mReach = getM('post_total_media_view_unique');
-                if (mImpressions > 0 || mReach > 0) {
-                    impressions = mImpressions;
-                    reach = mReach || mImpressions;
-                    hasData = true;
-                }
+                impressions = getM('post_media_view');
+                reach = getM('post_total_media_view_unique') || impressions;
+                if (impressions > 0) hasData = true;
             }
         }
 
-        // Track 2: Process Legacy Feed Metrics (Standard Text/Status updates/Links)
-        if (legacyRes) {
+        if (legacyRes && !hasData) {
             const d = await legacyRes.json().catch(() => ({}));
             if (d.data && d.data.length > 0) {
                 const getM = (m) => d.data.find(x => x.name === m)?.values?.[0]?.value || 0;
-                const lImpressions = getM('post_impressions');
-                const lReach = getM('post_impressions_unique');
-                if (lImpressions > 0 || lReach > 0) {
-                    impressions = impressions || lImpressions;
-                    reach = reach || lReach || lImpressions;
-                    hasData = true;
-                }
+                impressions = getM('post_impressions');
+                reach = getM('post_impressions_unique') || impressions;
             }
         }
         
-        // Track 3: Process Video Engines (Reels/Video uploads)
         if (vidRes) {
             const d = await vidRes.json().catch(() => ({}));
             if (d.data && d.data.length > 0) {
@@ -118,32 +105,72 @@ const getPostInsights = async (targetId) => {
                 if (videoViews > 0) {
                     impressions = impressions || videoViews;
                     reach = reach || impressions;
-                    hasData = true;
                 }
             }
         }
 
-        // Track 4: Process Clicks Data
         if (clkRes) {
             const d = await clkRes.json().catch(() => ({}));
             if (d.data && d.data.length > 0) {
                 const getM = (m) => d.data.find(x => x.name === m)?.values?.[0]?.value || 0;
                 clicks = getM('post_clicks_unique') || getM('post_clicks') || 0;
-                hasData = true;
             }
         }
 
-        return { reach, impressions, clicks, hasData };
+        return { reach, impressions, clicks };
     } catch (e) {
-        return { reach: 0, impressions: 0, clicks: 0, hasData: false };
+        return { reach: 0, impressions: 0, clicks: 0 };
     }
 };
 
+// 🟢 ROUTE A: GET Protocol - Handles Automated Page Feed Extraction
+app.get('*', async (req, res) => {
+    try {
+        if (!FB_ACCESS_TOKEN) return res.status(401).json({ error: "Missing token config." });
+
+        const feedUrl = `https://graph.facebook.com/v19.0/me/feed?fields=id,message,created_time,permalink_url,shares,reactions.summary(total_count),comments.summary(total_count)&limit=30&access_token=${FB_ACCESS_TOKEN}`;
+        const feedResponse = await fetchWithTimeout(feedUrl, {}, 3000);
+        const feedData = await feedResponse.json();
+
+        if (feedData.error) return res.status(500).json({ error: feedData.error.message });
+        if (!feedData.data || feedData.data.length === 0) return res.json([]);
+
+        const fetchPromises = feedData.data.map(async (post) => {
+            const totalReactions = post.reactions?.summary?.total_count || 0;
+            const totalComments = post.comments?.summary?.total_count || 0;
+            const totalShares = post.shares?.count || 0;
+            const baseEngagement = totalReactions + totalComments + totalShares;
+
+            const insights = await getPostInsights(post.id);
+
+            return {
+                id: post.id,
+                message: post.message || 'Photo / Media Layout Update',
+                postedAt: post.created_time,
+                permalink: post.permalink_url,
+                metrics: {
+                    reach: insights.reach,
+                    impressions: insights.impressions,
+                    engagement: baseEngagement + insights.clicks,
+                    clicks: insights.clicks,
+                    reactions: totalReactions,
+                    comments: totalComments,
+                    shares: totalShares
+                }
+            };
+        });
+
+        const finalResults = await Promise.all(fetchPromises);
+        res.json(finalResults);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 🟢 ROUTE B: POST Protocol - Handles Custom Pasted Links Processing
 app.post('*', async (req, res) => {
     const { links } = req.body;
-    if (!links || !Array.isArray(links)) {
-        return res.status(400).json({ error: "Please provide an array of links." });
-    }
+    if (!links || !Array.isArray(links)) return res.status(400).json({ error: "Provide links array." });
 
     try {
         if (!CACHED_PAGE_ID && FB_ACCESS_TOKEN) {
@@ -161,7 +188,7 @@ app.post('*', async (req, res) => {
             const chunkPromises = chunk.map(async (url) => {
                 try {
                     let extractedId = await resolveAndExtractId(url);
-                    if (!extractedId) return { url, error: "Could not unmask Post ID.", metrics: null };
+                    if (!extractedId) return { url, error: "Unmask failed.", metrics: null };
 
                     let graphApiId = extractedId;
                     if (CACHED_PAGE_ID && !extractedId.startsWith(`${CACHED_PAGE_ID}_`)) {
@@ -186,12 +213,7 @@ app.post('*', async (req, res) => {
                     const totalShares = basicData.shares?.count || 0;
                     const fallbackEngagement = totalReactions + totalComments + totalShares;
 
-                    // Run the newly isolated parallel insights parser
-                    let insights = await getPostInsights(canonicalId);
-                    
-                    if (!insights.hasData && graphApiId !== canonicalId) {
-                        insights = await getPostInsights(graphApiId);
-                    }
+                    const insights = await getPostInsights(canonicalId);
 
                     return {
                         id: canonicalId, 
@@ -209,16 +231,14 @@ app.post('*', async (req, res) => {
                         }
                     };
                 } catch (postError) {
-                    return { url, error: `Connection limit reached: ${postError.message}`, metrics: null };
+                    return { url, error: postError.message, metrics: null };
                 }
             });
 
             const chunkResults = await Promise.all(chunkPromises);
             finalResults = finalResults.concat(chunkResults);
         }
-
         res.json(finalResults);
-
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
