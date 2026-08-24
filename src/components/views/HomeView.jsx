@@ -30,10 +30,10 @@ const INITIAL_TEAM = [
     { id: 6, name: 'แบงค์กี้', email: 'panarin.b@ihavecpu.com', role: 'Asst.CEO', avatar: SYSTEM_AVATARS.panarin}, 
     { id: 1, name: 'เป้ ไข่หมุน', email: 'jittikorn.m@ihavecpu.com', role: 'Marketing Manager', avatar: SYSTEM_AVATARS.jittikorn },
     { id: 7, name: 'AHZUMI', email: 'sutharat@ihavecpu.com', role:'Online Business Manager', avatar: SYSTEM_AVATARS.sutharat},
-    { id: 2, name: 'SPARKIEZZ', email: 'supakorn.i@ihavecpu.com', role: 'Assistant Manager', avatar: SYSTEM_AVATARS.supakorn },
-    { id: 3, name: 'อียุ้ยคนสวย', email: 'sophisa.p@ihavecpu.com', role: 'Assistant Manager', avatar: SYSTEM_AVATARS.sophisa },
-    { id: 4, name: 'สมรักษ์ คำสิงห์', email: 'somruk.m@ihavecpu.com', role: 'Graphic Head', avatar: SYSTEM_AVATARS.somruk },
-    { id: 5, name: 'มดตะนอยร้อยแรงม้า', email: 'nichapa.w@ihavecpu.com', role: 'Marketing Coordinator', avatar: SYSTEM_AVATARS.nichapa}
+    { id: 2, name: 'บูม', email: 'supakorn.i@ihavecpu.com', role: 'Assistant Manager', avatar: SYSTEM_AVATARS.supakorn },
+    { id: 3, name: 'ยุ้ย', email: 'sophisa.p@ihavecpu.com', role: 'Assistant Manager', avatar: SYSTEM_AVATARS.sophisa },
+    { id: 4, name: 'สมรักษ์', email: 'somruk.m@ihavecpu.com', role: 'Graphic Head', avatar: SYSTEM_AVATARS.somruk },
+    { id: 5, name: 'มดตะนอย', email: 'nichapa.w@ihavecpu.com', role: 'Marketing Coordinator', avatar: SYSTEM_AVATARS.nichapa}
 ];
 
 // Fallback color palette if a tag has no mapped color
