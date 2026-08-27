@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { 
   X, Calendar, Clock, MapPin, Tag, User,
   FileText, Link as LinkIcon, ExternalLink, 
-  CheckSquare, Pencil, Trash2, Layers, CornerDownRight, BarChartHorizontal 
+  CheckSquare, Pencil, Trash2, Layers, CornerDownRight, BarChartHorizontal, Activity
 } from 'lucide-react';
 import { TAG_COLORS, formatDate, COLUMNS } from '../../utils/constants';
 
@@ -38,6 +38,8 @@ export default function TaskDetailModal({ task, onClose, onEdit, onDelete, tasks
       const col = COLUMNS.find(c => c.id === statusId);
       return col ? col.title : statusId;
   };
+
+  const logs = Array.isArray(task.logs) ? task.logs : [];
 
   return (
     <>
@@ -76,7 +78,7 @@ export default function TaskDetailModal({ task, onClose, onEdit, onDelete, tasks
               <div className="mb-6 mt-2">
                   <h2 className="text-2xl font-black text-gray-800 leading-tight mb-4">{task.title}</h2>
                   
-                  {/* 🟢 EXPANDED META GRID: TASK LEADER, TASK STATUS & DEADLINE */}
+                  {/* META GRID */}
                   <div className="bg-gray-50 p-4 rounded-xl border border-gray-200/60 grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-6 text-sm text-gray-600 font-semibold">
                       <div className="flex items-center gap-2">
                           <User size={16} className="text-blue-500 shrink-0"/>
@@ -133,7 +135,7 @@ export default function TaskDetailModal({ task, onClose, onEdit, onDelete, tasks
               </div>
 
               {reqs.length > 0 && (
-                  <div className="mb-4">
+                  <div className="mb-6">
                       <h4 className="font-bold text-gray-800 text-sm mb-3 flex items-center gap-2"><CheckSquare size={18} className="text-gray-400"/> Requirements ({completedReqs}/{reqs.length})</h4>
                       <div className="space-y-2">
                           {reqs.map(req => (
@@ -145,6 +147,33 @@ export default function TaskDetailModal({ task, onClose, onEdit, onDelete, tasks
                       </div>
                   </div>
               )}
+
+              {/* 🟢 TASK ACTIVITY LOG SECTION */}
+              <div className="mb-6">
+                  <h4 className="font-bold text-gray-800 text-sm mb-3 flex items-center gap-2">
+                      <Activity size={18} className="text-indigo-500"/> Activity Log ({logs.length})
+                  </h4>
+                  <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar bg-gray-50 p-3 rounded-xl border border-gray-200/60">
+                      {logs.length > 0 ? (
+                          logs.map((log, idx) => (
+                              <div key={idx} className="flex justify-between items-center text-xs py-1.5 border-b border-gray-200/50 last:border-0">
+                                  <div className="flex items-center gap-2 truncate pr-2">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0"></span>
+                                      <span className="font-bold text-gray-800">{log.user || 'System'}</span>
+                                      <span className="text-gray-600 truncate">{log.action}</span>
+                                  </div>
+                                  <span className="text-[10px] text-gray-400 shrink-0">
+                                      {log.timestamp ? new Date(log.timestamp).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}
+                                  </span>
+                              </div>
+                          ))
+                      ) : (
+                          <p className="text-xs text-gray-400 italic py-1">
+                              {task.updatedAt ? `Last updated by ${task.updatedBy || 'System'} on ${new Date(task.updatedAt).toLocaleString('en-GB')}` : 'No activity logs recorded yet.'}
+                          </p>
+                      )}
+                  </div>
+              </div>
 
               {task.isMainTask && (
                   <div className="mt-8 pt-6 border-t border-gray-100">
