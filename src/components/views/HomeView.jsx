@@ -271,7 +271,7 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 mb-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
+      {/* <div className="grid grid-cols-1 gap-6 mb-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
         <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-8 rounded-2xl border border-blue-100 shadow-sm flex justify-between items-center relative overflow-hidden group h-full max-w-2xl">
             <div className="absolute -right-6 -top-6 text-white opacity-50 group-hover:scale-110 transition-transform duration-700">{weatherData ? getWeatherIcon(weatherData.weathercode) : <CloudRain size={140} />}</div>
             <div className="relative z-10 flex flex-col h-full justify-center"><h4 className="text-sm font-bold text-blue-500 uppercase tracking-wider mb-2 flex items-center gap-1.5"><MapPin size={16}/> {locationName}</h4><div className="text-5xl font-black text-gray-800 tracking-tighter">{weatherData ? `${weatherData.temperature}°C` : '--°C'}</div><p className="text-base font-medium text-gray-600 mt-2">{weatherData ? getWeatherCondition(weatherData.weathercode) : 'Loading...'}</p></div>
@@ -281,7 +281,7 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
                 )}
             </div>
         </div>
-      </div>
+      </div> */}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
         <div className="bg-indigo-600 text-white p-8 rounded-2xl shadow-lg shadow-indigo-200"><div className="flex justify-between items-start mb-4"><div className="p-3 bg-indigo-500/50 rounded-xl"><Briefcase size={28}/></div><span className="text-sm font-bold bg-indigo-500/50 px-3 py-1 rounded">Active</span></div><div className="text-5xl font-black mb-2">{pendingTasks}</div><div className="text-indigo-100 text-base font-medium">Pending Tasks</div></div>
