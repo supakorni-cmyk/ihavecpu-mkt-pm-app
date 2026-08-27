@@ -2,7 +2,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { 
+<<<<<<< HEAD
   MoreHorizontal, Plus, Trash2, CheckSquare, Clock, Heart, FileText, X, Copy, MapPin, Search, Filter, XCircle, User, Briefcase, ChevronDown, PlusCircle, Upload, FileJson, Pencil, Wand2, RefreshCw
+=======
+  MoreHorizontal, Plus, Trash2, CheckSquare, Clock, Heart, FileText, X, Copy, MapPin, Search, Filter, XCircle, User, Briefcase, ChevronDown, PlusCircle, Upload, FileJson, Pencil, Wand2
+>>>>>>> ae51598f66f9258ff9b5b09d3c2d3ce500394f04
 } from 'lucide-react';
 import { COLUMNS, TAG_COLORS, formatDate } from '../../utils/constants';
 
@@ -17,11 +21,14 @@ const DEFAULT_WORKSPACES = [
     id: 'marketing',
     name: 'Marketing Workspace',
     columns: COLUMNS
+<<<<<<< HEAD
   },
   {
     id: 'graphic_designer',
     name: 'Graphic Designer Workspace',
     columns: COLUMNS
+=======
+>>>>>>> ae51598f66f9258ff9b5b09d3c2d3ce500394f04
   }
 ];
 
@@ -34,6 +41,7 @@ const COLOR_OPTIONS = [
   { label: 'Red', value: 'text-red-600 bg-red-100' },
 ];
 
+<<<<<<< HEAD
 const BoardView = ({ tasks = [], onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTask, onBatchAddTasks }) => {
   // 🟢 PERSISTENT WORKSPACES STATE WITH DEFAULTS
   const [workspaces, setWorkspaces] = useState(() => {
@@ -49,11 +57,20 @@ const BoardView = ({ tasks = [], onAddTaskClick, onUpdateTask, onDeleteTask, onM
         return parsed;
       }
       return DEFAULT_WORKSPACES;
+=======
+const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTask, onBatchAddTasks }) => {
+  // PERSISTENT WORKSPACES STATE
+  const [workspaces, setWorkspaces] = useState(() => {
+    try {
+      const saved = localStorage.getItem('app_workspaces');
+      return saved ? JSON.parse(saved) : DEFAULT_WORKSPACES;
+>>>>>>> ae51598f66f9258ff9b5b09d3c2d3ce500394f04
     } catch (e) {
       return DEFAULT_WORKSPACES;
     }
   });
 
+<<<<<<< HEAD
   // 🟢 PERSISTENT ACTIVE WORKSPACE ID STATE
   const [activeWorkspaceId, setActiveWorkspaceId] = useState(() => {
     try {
@@ -65,15 +82,31 @@ const BoardView = ({ tasks = [], onAddTaskClick, onUpdateTask, onDeleteTask, onM
   });
 
   // Save workspaces to localStorage
+=======
+  // PERSISTENT ACTIVE WORKSPACE ID STATE
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState(() => {
+    try {
+      const saved = localStorage.getItem('app_active_workspace_id');
+      return saved || 'marketing';
+    } catch (e) {
+      return 'marketing';
+    }
+  });
+
+>>>>>>> ae51598f66f9258ff9b5b09d3c2d3ce500394f04
   useEffect(() => {
     localStorage.setItem('app_workspaces', JSON.stringify(workspaces));
   }, [workspaces]);
 
+<<<<<<< HEAD
   // Save active workspace selection
+=======
+>>>>>>> ae51598f66f9258ff9b5b09d3c2d3ce500394f04
   useEffect(() => {
     localStorage.setItem('app_active_workspace_id', activeWorkspaceId);
   }, [activeWorkspaceId]);
 
+<<<<<<< HEAD
   // 🟢 AUTO-HEALING ENGINE: Detect orphaned workspace IDs from imported tasks and restore missing workspaces
   useEffect(() => {
     if (!tasks || tasks.length === 0) return;
@@ -109,6 +142,8 @@ const BoardView = ({ tasks = [], onAddTaskClick, onUpdateTask, onDeleteTask, onM
     });
   }, [tasks]);
 
+=======
+>>>>>>> ae51598f66f9258ff9b5b09d3c2d3ce500394f04
   const [isWorkspaceMenuOpen, setIsWorkspaceMenuOpen] = useState(false);
   const [isNewWorkspaceModalOpen, setIsNewWorkspaceModalOpen] = useState(false);
   const [isTrelloModalOpen, setIsTrelloModalOpen] = useState(false);
@@ -126,7 +161,11 @@ const BoardView = ({ tasks = [], onAddTaskClick, onUpdateTask, onDeleteTask, onM
     return workspaces.find(w => w.id === activeWorkspaceId) || workspaces[0];
   }, [workspaces, activeWorkspaceId]);
 
+<<<<<<< HEAD
   // 🟢 SMART WORKSPACE FILTERING: Matches workspace ID or auto-assigns legacy tasks
+=======
+  // Strict workspace task filtering
+>>>>>>> ae51598f66f9258ff9b5b09d3c2d3ce500394f04
   const filteredTasks = useMemo(() => {
     return tasks.filter(task => {
         const taskWorkspace = task.workspaceId || 'marketing';
@@ -150,7 +189,11 @@ const BoardView = ({ tasks = [], onAddTaskClick, onUpdateTask, onDeleteTask, onM
 
   const isFiltered = searchQuery !== "" || selectedCategory !== "All";
 
+<<<<<<< HEAD
   // Batch convert 'GREEN' & 'TRELLO' tags in active workspace
+=======
+  // BATCH CONVERT 'GREEN' & 'TRELLO' TAGS TO 'ARTWORK/PROMOTION'
+>>>>>>> ae51598f66f9258ff9b5b09d3c2d3ce500394f04
   const handleBatchFixWorkspaceTags = () => {
     const targetTasks = tasks.filter(t => (t.workspaceId || 'marketing') === activeWorkspaceId);
     let count = 0;
@@ -1023,6 +1066,7 @@ const ExportEventModal = ({ tasks, onClose }) => {
   );
 };
 
+// 🟢 FIXED COLUMN DIMENSIONS: Fixed width (w-[320px] shrink-0) prevents squishing and enforces horizontal scrolling
 const BoardColumn = ({ column, tasks, onTaskClick, onDeleteTask }) => {
   return (
     <div className="w-[320px] shrink-0 flex flex-col h-full rounded-2xl bg-white/50 backdrop-blur-sm border border-white shadow-sm">

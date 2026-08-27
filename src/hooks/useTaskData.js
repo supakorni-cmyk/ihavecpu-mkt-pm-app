@@ -64,7 +64,7 @@ export const useTaskData = (currentUser) => {
   // --- 2. EMAIL NOTIFICATION ---
   const sendEmailNotification = async (subject, data) => {
     const MAIN_EMAIL = "supakorn.i@ihavecpu.com"; 
-    const CC_EMAILS = "mkt@ihavecpu.com,suchada.t@ihavecpu.com"; 
+    const CC_EMAILS = "mkt@ihavecpu.com"; 
 
     const cleanDataPayload = {};
     Object.keys(data).forEach(key => {

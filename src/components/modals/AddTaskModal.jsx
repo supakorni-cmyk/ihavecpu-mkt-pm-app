@@ -8,12 +8,12 @@ import {
 import { COLUMNS, TAG_COLORS } from '../../utils/constants';
 
 const INITIAL_TEAM = [
-    { name: 'แบงค์กี้', email: 'panarin.b@ihavecpu.com' }, 
-    { name: 'เป้ ไข่หมุน', email: 'jittikorn.m@ihavecpu.com' }, 
-    { name: 'SPARKIEZZ', email: 'supakorn.i@ihavecpu.com' }, 
-    { name: 'อียุ้ยคนสวย', email: 'sophisa.p@ihavecpu.com' }, 
-    { name: 'สมรักษ์ คำสิงห์', email: 'somruk.m@ihavecpu.com' }, 
-    { name: 'มดตะนอยร้อยแรงม้า', email: 'nichapa.w@ihavecpu.com'}
+    { name: 'Panarin Boonsri', email: 'panarin.b@ihavecpu.com' }, 
+    { name: 'Jittikorn Maneekum', email: 'jittikorn.m@ihavecpu.com' }, 
+    { name: 'Supakorn Intayanon ', email: 'supakorn.i@ihavecpu.com' }, 
+    { name: 'Sophisa Phromduang', email: 'sophisa.p@ihavecpu.com' }, 
+    { name: 'Somruk Mangsa', email: 'somruk.m@ihavecpu.com' }, 
+    { name: 'Nichapa Wangsuk', email: 'nichapa.w@ihavecpu.com'}
 ];
 
 export default function AddTaskModal({ onClose, onAdd, initialDate, tasks = [] }) { 
