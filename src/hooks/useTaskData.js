@@ -459,13 +459,26 @@ export const useTaskData = (currentUser) => {
   // --- 8. CRUD HELPERS ---
   const addTask = async (task) => {
     try {
+        const nowIso = new Date().toISOString();
+        const userEmail = currentUser?.email || 'System';
+        
+        const initialLog = {
+          timestamp: nowIso,
+          user: userEmail,
+          action: 'Created task'
+        };
+
         const cleanedTask = cleanData({ 
             ...task, 
-            createdAt: new Date().toISOString(),
+            createdAt: nowIso,
+            updatedAt: nowIso,
+            updatedBy: userEmail,
+            logs: [initialLog],
             notified7Days: false,
             notified2Days: false,
             notified0Day: false
         });
+
         const docRef = await addDoc(collection(db, "tasks"), cleanedTask);
         const taskWithId = { ...cleanedTask, id: docRef.id };
         await sendEmailNotification(`New Task Assigned: ${task.title}`, { 
@@ -478,13 +491,35 @@ export const useTaskData = (currentUser) => {
     } catch (error) { console.error("Error adding task:", error); }
   };
 
-  // --- AUTOMATED UPDATE TASK ---
+  // --- AUTOMATED UPDATE TASK WITH LOGS ---
   const updateTask = async (id, updates) => {
     try {
         const oldTask = tasks.find(t => t.id === id);
         if (!oldTask) return;
         
-        const cleanedUpdates = cleanData(updates);
+        const userEmail = currentUser?.email || 'User';
+        const nowIso = new Date().toISOString();
+        
+        let actionDesc = 'Updated task details';
+        if (updates.status && updates.status !== oldTask.status) {
+          actionDesc = `Changed status to "${updates.status.toUpperCase()}"`;
+        } else if (updates.taskLeader && updates.taskLeader !== oldTask.taskLeader) {
+          actionDesc = `Reassigned leader to ${updates.taskLeader}`;
+        }
+
+        const newLog = {
+          timestamp: nowIso,
+          user: userEmail,
+          action: actionDesc
+        };
+
+        const existingLogs = Array.isArray(oldTask.logs) ? oldTask.logs : [];
+        const cleanedUpdates = cleanData({
+          ...updates,
+          updatedAt: nowIso,
+          updatedBy: userEmail,
+          logs: [newLog, ...existingLogs]
+        });
 
         if (oldTask.isMainTask && updates.deadline && oldTask.deadline && updates.deadline !== oldTask.deadline) {
             const oldTime = new Date(oldTask.deadline).getTime();
@@ -544,15 +579,38 @@ export const useTaskData = (currentUser) => {
     }
   };
 
-  const moveTask = async (taskId, newStatus) => { try { await updateDoc(doc(db, "tasks", taskId), { status: newStatus }); const task = tasks.find(t => t.id === taskId); const updatedTask = { ...task, status: newStatus }; if (newStatus === 'canceled') await sendLinePush(updatedTask, "🚫 Task Canceled", "#9CA3AF"); else await sendLinePush(updatedTask, "🔄 Status Updated", "#3B82F6"); } catch (error) { console.error("Error moving task:", error); } };
+  const moveTask = async (taskId, newStatus) => { 
+    try { 
+      const task = tasks.find(t => t.id === taskId);
+      const userEmail = currentUser?.email || 'User';
+      const nowIso = new Date().toISOString();
+
+      const newLog = {
+        timestamp: nowIso,
+        user: userEmail,
+        action: `Moved task status to "${newStatus.toUpperCase()}"`
+      };
+
+      const existingLogs = Array.isArray(task?.logs) ? task.logs : [];
+
+      await updateDoc(doc(db, "tasks", taskId), { 
+        status: newStatus,
+        updatedAt: nowIso,
+        updatedBy: userEmail,
+        logs: [newLog, ...existingLogs]
+      }); 
+
+      const updatedTask = { ...task, status: newStatus }; 
+      if (newStatus === 'canceled') await sendLinePush(updatedTask, "🚫 Task Canceled", "#9CA3AF"); 
+      else await sendLinePush(updatedTask, "🔄 Status Updated", "#3B82F6"); 
+    } catch (error) { console.error("Error moving task:", error); } 
+  };
   
-  // 🟢 ALLOW SKIPPING WINDOW.CONFIRM FOR BATCH DELETIONS
   const deleteTask = async (id, skipConfirm = false) => { 
     if (!skipConfirm && !confirm("Delete task?")) return; 
     try { await deleteDoc(doc(db, "tasks", id)); } catch (error) { console.error(error); } 
   };
 
-  // 🟢 BATCH DELETE FIRESTORE HELPER
   const batchDeleteTasks = async (ids = []) => {
     if (!ids || ids.length === 0) return;
     try {

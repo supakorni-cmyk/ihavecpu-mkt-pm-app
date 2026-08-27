@@ -17,6 +17,11 @@ const DEFAULT_WORKSPACES = [
     id: 'marketing',
     name: 'Marketing Workspace',
     columns: COLUMNS
+  },
+  {
+    id: 'graphic_designer',
+    name: 'Graphic Designer Workspace',
+    columns: COLUMNS
   }
 ];
 
@@ -30,7 +35,6 @@ const COLOR_OPTIONS = [
 ];
 
 const BoardView = ({ tasks = [], onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTask, onBatchAddTasks, onBatchDeleteTasks }) => {
-  // 🟢 FIXED: Respects user-deleted workspaces from localStorage
   const [workspaces, setWorkspaces] = useState(() => {
     try {
       const saved = localStorage.getItem('app_workspaces');
@@ -40,7 +44,6 @@ const BoardView = ({ tasks = [], onAddTaskClick, onUpdateTask, onDeleteTask, onM
     }
   });
 
-  // PERSISTENT ACTIVE WORKSPACE ID STATE
   const [activeWorkspaceId, setActiveWorkspaceId] = useState(() => {
     try {
       const saved = localStorage.getItem('app_active_workspace_id');
@@ -58,7 +61,6 @@ const BoardView = ({ tasks = [], onAddTaskClick, onUpdateTask, onDeleteTask, onM
     localStorage.setItem('app_active_workspace_id', activeWorkspaceId);
   }, [activeWorkspaceId]);
 
-  // AUTO-HEALING ENGINE (Only triggers if existing tasks in database reference an unmapped workspace)
   useEffect(() => {
     if (!tasks || tasks.length === 0) return;
 
@@ -110,7 +112,6 @@ const BoardView = ({ tasks = [], onAddTaskClick, onUpdateTask, onDeleteTask, onM
     return workspaces.find(w => w.id === activeWorkspaceId) || workspaces[0];
   }, [workspaces, activeWorkspaceId]);
 
-  // Strict workspace task filtering
   const filteredTasks = useMemo(() => {
     return tasks.filter(task => {
         const taskWorkspace = task.workspaceId || 'marketing';
@@ -134,7 +135,6 @@ const BoardView = ({ tasks = [], onAddTaskClick, onUpdateTask, onDeleteTask, onM
 
   const isFiltered = searchQuery !== "" || selectedCategory !== "All";
 
-  // BATCH CONVERT 'GREEN' & 'TRELLO' TAGS
   const handleBatchFixWorkspaceTags = () => {
     const targetTasks = tasks.filter(t => (t.workspaceId || 'marketing') === activeWorkspaceId);
     let count = 0;
@@ -166,7 +166,6 @@ const BoardView = ({ tasks = [], onAddTaskClick, onUpdateTask, onDeleteTask, onM
     alert(`Successfully converted ${count} task tags to "ARTWORK/PROMOTION" in ${activeWorkspace.name}!`);
   };
 
-  // SINGLE CONFIRMATION BATCH DELETE
   const handleDeleteTrelloTasks = () => {
     const trelloTasks = tasks.filter(task => {
       const matchesWorkspace = (task.workspaceId || 'marketing') === activeWorkspaceId;
@@ -287,7 +286,6 @@ const BoardView = ({ tasks = [], onAddTaskClick, onUpdateTask, onDeleteTask, onM
             </h2>
             <div className="h-8 w-px bg-gray-200 hidden xl:block"></div>
             
-            {/* WORKSPACE SELECTOR DROPDOWN */}
             <div className="relative">
               <button
                 onClick={() => setIsWorkspaceMenuOpen(!isWorkspaceMenuOpen)}
@@ -1072,6 +1070,17 @@ const TaskCard = ({ task, index, onClick, onDelete }) => {
   
   const displayDate = task.startTime ? new Date(task.startTime).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute:'2-digit' }) : formatDate(task.deadline);
   
+  // Format last update date and time
+  const formatUpdateDateTime = (isoString) => {
+    if (!isoString) return null;
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return null;
+    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  };
+
+  const lastUpdatedText = formatUpdateDateTime(task.updatedAt || task.createdAt);
+  const lastUpdatedUser = task.updatedBy || 'System';
+
   const getSafeTagStyle = (tagStr) => {
       if (!tagStr) return 'bg-gray-100 text-gray-500';
       const theme = (TAG_COLORS[tagStr] || '').toLowerCase();
@@ -1168,11 +1177,20 @@ const TaskCard = ({ task, index, onClick, onDelete }) => {
                     </div>
                 )}
                 
-                <div className="flex items-center justify-between pt-2 border-t border-gray-50">
-                    <div className="flex items-center gap-1.5 text-gray-400 text-xs font-medium">
-                        <Clock size={12} />
-                        <span>{displayDate}</span>
+                {/* 🟢 CARD FOOTER: DUE DATE & LAST UPDATE METADATA */}
+                <div className="flex flex-col gap-1.5 pt-2 border-t border-gray-50">
+                    <div className="flex items-center justify-between text-gray-400 text-xs font-medium">
+                        <div className="flex items-center gap-1.5">
+                            <Clock size={12} />
+                            <span>Due: {displayDate}</span>
+                        </div>
                     </div>
+
+                    {lastUpdatedText && (
+                        <div className="text-[10px] text-gray-400 font-medium truncate pt-1 border-t border-gray-100/50">
+                            Last update by <span className="text-gray-700 font-bold">{lastUpdatedUser}</span> on {lastUpdatedText}
+                        </div>
+                    )}
                 </div>
             </div>
         )}
