@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { 
-  MoreHorizontal, Plus, Trash2, CheckSquare, Clock, Heart, FileText, X, Copy, MapPin, Search, Filter, XCircle, User, Briefcase, ChevronDown, PlusCircle, Upload, FileJson, Pencil, Wand2, RefreshCw
+  MoreHorizontal, Plus, Trash2, CheckSquare, Clock, Heart, FileText, X, Copy, MapPin, Search, Filter, XCircle, User, Briefcase, ChevronDown, PlusCircle, Upload, FileJson, Pencil, Wand2
 } from 'lucide-react';
 import { COLUMNS, TAG_COLORS, formatDate } from '../../utils/constants';
 
@@ -35,13 +35,12 @@ const COLOR_OPTIONS = [
 ];
 
 const BoardView = ({ tasks = [], onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTask, onBatchAddTasks }) => {
-  // 🟢 PERSISTENT WORKSPACES STATE WITH DEFAULTS
+  // PERSISTENT WORKSPACES STATE
   const [workspaces, setWorkspaces] = useState(() => {
     try {
       const saved = localStorage.getItem('app_workspaces');
       if (saved) {
         const parsed = JSON.parse(saved);
-        // Ensure Graphic Designer Workspace exists in defaults
         const hasGraphicDesigner = parsed.some(w => w.id === 'graphic_designer' || w.name.toLowerCase().includes('graphic'));
         if (!hasGraphicDesigner) {
           parsed.push({ id: 'graphic_designer', name: 'Graphic Designer Workspace', columns: COLUMNS });
@@ -54,7 +53,7 @@ const BoardView = ({ tasks = [], onAddTaskClick, onUpdateTask, onDeleteTask, onM
     }
   });
 
-  // 🟢 PERSISTENT ACTIVE WORKSPACE ID STATE
+  // PERSISTENT ACTIVE WORKSPACE ID STATE
   const [activeWorkspaceId, setActiveWorkspaceId] = useState(() => {
     try {
       const saved = localStorage.getItem('app_active_workspace_id');
@@ -64,17 +63,15 @@ const BoardView = ({ tasks = [], onAddTaskClick, onUpdateTask, onDeleteTask, onM
     }
   });
 
-  // Save workspaces to localStorage
   useEffect(() => {
     localStorage.setItem('app_workspaces', JSON.stringify(workspaces));
   }, [workspaces]);
 
-  // Save active workspace selection
   useEffect(() => {
     localStorage.setItem('app_active_workspace_id', activeWorkspaceId);
   }, [activeWorkspaceId]);
 
-  // 🟢 AUTO-HEALING ENGINE: Detect orphaned workspace IDs from imported tasks and restore missing workspaces
+  // AUTO-HEALING ENGINE
   useEffect(() => {
     if (!tasks || tasks.length === 0) return;
 
@@ -126,7 +123,7 @@ const BoardView = ({ tasks = [], onAddTaskClick, onUpdateTask, onDeleteTask, onM
     return workspaces.find(w => w.id === activeWorkspaceId) || workspaces[0];
   }, [workspaces, activeWorkspaceId]);
 
-  // 🟢 SMART WORKSPACE FILTERING: Matches workspace ID or auto-assigns legacy tasks
+  // Strict workspace task filtering
   const filteredTasks = useMemo(() => {
     return tasks.filter(task => {
         const taskWorkspace = task.workspaceId || 'marketing';
@@ -150,7 +147,7 @@ const BoardView = ({ tasks = [], onAddTaskClick, onUpdateTask, onDeleteTask, onM
 
   const isFiltered = searchQuery !== "" || selectedCategory !== "All";
 
-  // Batch convert 'GREEN' & 'TRELLO' tags in active workspace
+  // BATCH CONVERT 'GREEN' & 'TRELLO' TAGS
   const handleBatchFixWorkspaceTags = () => {
     const targetTasks = tasks.filter(t => (t.workspaceId || 'marketing') === activeWorkspaceId);
     let count = 0;
@@ -180,6 +177,26 @@ const BoardView = ({ tasks = [], onAddTaskClick, onUpdateTask, onDeleteTask, onM
     });
 
     alert(`Successfully converted ${count} task tags to "ARTWORK/PROMOTION" in ${activeWorkspace.name}!`);
+  };
+
+  // 🟢 BATCH DELETE ALL IMPORTED TRELLO TASKS IN ACTIVE WORKSPACE
+  const handleDeleteTrelloTasks = () => {
+    const trelloTasks = tasks.filter(task => {
+      const matchesWorkspace = (task.workspaceId || 'marketing') === activeWorkspaceId;
+      const isTrelloTask = (task.id && String(task.id).startsWith('trello_')) || task.taskLeader === 'Trello Import';
+      return matchesWorkspace && isTrelloTask;
+    });
+
+    if (trelloTasks.length === 0) {
+      return alert(`No imported Trello tasks found in "${activeWorkspace.name}".`);
+    }
+
+    if (window.confirm(`Are you sure you want to delete ALL ${trelloTasks.length} imported Trello task(s) from "${activeWorkspace.name}"?`)) {
+      trelloTasks.forEach(task => {
+        if (onDeleteTask) onDeleteTask(task.id);
+      });
+      alert(`Deleted ${trelloTasks.length} Trello task(s).`);
+    }
   };
 
   const tasksByColumn = useMemo(() => {
@@ -366,7 +383,7 @@ const BoardView = ({ tasks = [], onAddTaskClick, onUpdateTask, onDeleteTask, onM
               )}
             </div>
 
-            <div className="flex items-center gap-2 flex-1">
+            <div className="flex items-center gap-2 flex-1 flex-wrap">
                 <div className="relative group">
                     <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-indigo-500 transition-colors"/>
                     <input 
@@ -391,13 +408,21 @@ const BoardView = ({ tasks = [], onAddTaskClick, onUpdateTask, onDeleteTask, onM
                     </select>
                 </div>
 
-                {/* QUICK BATCH TAG CONVERTER BUTTON */}
                 <button
                   onClick={handleBatchFixWorkspaceTags}
                   className="flex items-center gap-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 px-3 py-2 rounded-full text-xs font-bold transition shadow-sm whitespace-nowrap"
                   title="Convert GREEN and TRELLO tags in active workspace to ARTWORK/PROMOTION"
                 >
                   <Wand2 size={13} /> Fix Tags to Artwork
+                </button>
+
+                {/* 🟢 BUTTON TO DELETE ALL TRELLO IMPORTS IN CURRENT WORKSPACE */}
+                <button
+                  onClick={handleDeleteTrelloTasks}
+                  className="flex items-center gap-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 px-3 py-2 rounded-full text-xs font-bold transition shadow-sm whitespace-nowrap"
+                  title="Delete all imported Trello tasks in this workspace"
+                >
+                  <Trash2 size={13} /> Delete Trello Imports
                 </button>
 
                 {isFiltered && (
@@ -428,7 +453,7 @@ const BoardView = ({ tasks = [], onAddTaskClick, onUpdateTask, onDeleteTask, onM
         </div>
       </header>
 
-      {/* 🟢 FULLY SCROLLABLE BOARD CONTAINER WITH VISIBLE HORIZONTAL SCROLLBAR */}
+      {/* FULLY SCROLLABLE BOARD CONTAINER */}
       <DragDropContext onDragEnd={onDragEnd}>
         <div className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden px-6 pb-6 pt-6 [&::-webkit-scrollbar]:h-3.5 [&::-webkit-scrollbar-track]:bg-gray-200/80 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-indigo-400 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-indigo-600 transition-colors">
           <div className="flex gap-6 h-full w-max min-w-full">
