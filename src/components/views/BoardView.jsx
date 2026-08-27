@@ -1,8 +1,8 @@
 // src/components/views/BoardView.jsx
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { 
-  MoreHorizontal, Plus, Trash2, CheckSquare, Clock, Heart, FileText, X, Copy, MapPin, Search, Filter, XCircle, User
+  MoreHorizontal, Plus, Trash2, CheckSquare, Clock, Heart, FileText, X, Copy, MapPin, Search, Filter, XCircle, User, Briefcase, ChevronDown, PlusCircle, Upload, FileJson, Pencil, Wand2, RefreshCw
 } from 'lucide-react';
 import { COLUMNS, TAG_COLORS, formatDate } from '../../utils/constants';
 
@@ -12,7 +12,108 @@ import TaskDetailModal from '../modals/TaskDetailModal';
 
 const FILTER_CATEGORIES = ['All', 'OVERVIEW + PLANING', 'PROJECT','ARTWORK/PROMOTION', 'ARTWORK/BRAND', 'REVIEW / IT', 'REVIEW / OTHER', 'OFFLINE EVENT', 'GUEST SPEAKER', 'MEETING', 'EXPENSE', 'WEBSITE', 'INFLUENCER', 'ONLINE ADS', 'OFFLINE ADS'];
 
-const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTask }) => {
+const DEFAULT_WORKSPACES = [
+  {
+    id: 'marketing',
+    name: 'Marketing Workspace',
+    columns: COLUMNS
+  },
+  {
+    id: 'graphic_designer',
+    name: 'Graphic Designer Workspace',
+    columns: COLUMNS
+  }
+];
+
+const COLOR_OPTIONS = [
+  { label: 'Gray', value: 'text-gray-600 bg-gray-100' },
+  { label: 'Blue', value: 'text-blue-600 bg-blue-100' },
+  { label: 'Purple', value: 'text-purple-600 bg-purple-100' },
+  { label: 'Yellow', value: 'text-yellow-600 bg-yellow-100' },
+  { label: 'Green', value: 'text-green-600 bg-green-100' },
+  { label: 'Red', value: 'text-red-600 bg-red-100' },
+];
+
+const BoardView = ({ tasks = [], onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTask, onBatchAddTasks }) => {
+  // 🟢 PERSISTENT WORKSPACES STATE WITH DEFAULTS
+  const [workspaces, setWorkspaces] = useState(() => {
+    try {
+      const saved = localStorage.getItem('app_workspaces');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // Ensure Graphic Designer Workspace exists in defaults
+        const hasGraphicDesigner = parsed.some(w => w.id === 'graphic_designer' || w.name.toLowerCase().includes('graphic'));
+        if (!hasGraphicDesigner) {
+          parsed.push({ id: 'graphic_designer', name: 'Graphic Designer Workspace', columns: COLUMNS });
+        }
+        return parsed;
+      }
+      return DEFAULT_WORKSPACES;
+    } catch (e) {
+      return DEFAULT_WORKSPACES;
+    }
+  });
+
+  // 🟢 PERSISTENT ACTIVE WORKSPACE ID STATE
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState(() => {
+    try {
+      const saved = localStorage.getItem('app_active_workspace_id');
+      return saved || 'graphic_designer';
+    } catch (e) {
+      return 'graphic_designer';
+    }
+  });
+
+  // Save workspaces to localStorage
+  useEffect(() => {
+    localStorage.setItem('app_workspaces', JSON.stringify(workspaces));
+  }, [workspaces]);
+
+  // Save active workspace selection
+  useEffect(() => {
+    localStorage.setItem('app_active_workspace_id', activeWorkspaceId);
+  }, [activeWorkspaceId]);
+
+  // 🟢 AUTO-HEALING ENGINE: Detect orphaned workspace IDs from imported tasks and restore missing workspaces
+  useEffect(() => {
+    if (!tasks || tasks.length === 0) return;
+
+    setWorkspaces(prevWorkspaces => {
+      const existingIds = new Set(prevWorkspaces.map(w => w.id));
+      const missingIds = [];
+
+      tasks.forEach(task => {
+        const wsId = task.workspaceId;
+        if (wsId && !existingIds.has(wsId)) {
+          if (!missingIds.includes(wsId)) {
+            missingIds.push(wsId);
+          }
+        }
+      });
+
+      if (missingIds.length === 0) return prevWorkspaces;
+
+      const restored = [...prevWorkspaces];
+      missingIds.forEach(wsId => {
+        const isGraphicDesigner = wsId.toLowerCase().includes('graphic') || wsId.toLowerCase().includes('designer');
+        const name = isGraphicDesigner ? 'Graphic Designer Workspace' : `Restored Workspace (${wsId.slice(-4)})`;
+        
+        restored.push({
+          id: wsId,
+          name: name,
+          columns: COLUMNS
+        });
+      });
+
+      return restored;
+    });
+  }, [tasks]);
+
+  const [isWorkspaceMenuOpen, setIsWorkspaceMenuOpen] = useState(false);
+  const [isNewWorkspaceModalOpen, setIsNewWorkspaceModalOpen] = useState(false);
+  const [isTrelloModalOpen, setIsTrelloModalOpen] = useState(false);
+  const [editingWorkspace, setEditingWorkspace] = useState(null);
+
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null); 
   const [editingTask, setEditingTask] = useState(null);
@@ -21,8 +122,16 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
 
+  const activeWorkspace = useMemo(() => {
+    return workspaces.find(w => w.id === activeWorkspaceId) || workspaces[0];
+  }, [workspaces, activeWorkspaceId]);
+
+  // 🟢 SMART WORKSPACE FILTERING: Matches workspace ID or auto-assigns legacy tasks
   const filteredTasks = useMemo(() => {
     return tasks.filter(task => {
+        const taskWorkspace = task.workspaceId || 'marketing';
+        const matchesWorkspace = taskWorkspace === activeWorkspaceId;
+        
         const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase());
         let matchesCategory = true;
         if (selectedCategory !== 'All') {
@@ -30,9 +139,9 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
             const hasArrayTag = Array.isArray(task.tags) && task.tags.includes(selectedCategory);
             matchesCategory = hasSingleTag || hasArrayTag;
         }
-        return matchesSearch && matchesCategory;
+        return matchesWorkspace && matchesSearch && matchesCategory;
     });
-  }, [tasks, searchQuery, selectedCategory]);
+  }, [tasks, activeWorkspaceId, searchQuery, selectedCategory]);
 
   const clearFilters = () => {
       setSearchQuery("");
@@ -41,26 +150,58 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
 
   const isFiltered = searchQuery !== "" || selectedCategory !== "All";
 
-  const tasksByColumn = useMemo(() => {
-    const normalizeStatus = (status) => {
-      if (!status || status === 'pending') return 'todo';
-      if (status === 'completed') return 'done';
-      return status; 
-    };
+  // Batch convert 'GREEN' & 'TRELLO' tags in active workspace
+  const handleBatchFixWorkspaceTags = () => {
+    const targetTasks = tasks.filter(t => (t.workspaceId || 'marketing') === activeWorkspaceId);
+    let count = 0;
 
+    targetTasks.forEach(task => {
+      const currentTag = (task.tag || '').toUpperCase();
+      const currentTags = (task.tags || []).map(tg => (tg || '').toUpperCase());
+
+      const needsFix = currentTag === 'GREEN' || currentTag === 'TRELLO' || currentTags.includes('GREEN') || currentTags.includes('TRELLO');
+
+      if (needsFix && onUpdateTask) {
+        count++;
+        const newTags = (task.tags || []).map(tg => {
+          const upper = (tg || '').toUpperCase();
+          return (upper === 'GREEN' || upper === 'TRELLO') ? 'ARTWORK/PROMOTION' : tg;
+        });
+
+        if (newTags.length === 0 || !newTags.includes('ARTWORK/PROMOTION')) {
+          newTags.push('ARTWORK/PROMOTION');
+        }
+
+        onUpdateTask(task.id, {
+          tag: 'ARTWORK/PROMOTION',
+          tags: Array.from(new Set(newTags))
+        });
+      }
+    });
+
+    alert(`Successfully converted ${count} task tags to "ARTWORK/PROMOTION" in ${activeWorkspace.name}!`);
+  };
+
+  const tasksByColumn = useMemo(() => {
+    const activeCols = activeWorkspace.columns;
     const grouped = {};
-    COLUMNS.forEach(col => grouped[col.id] = []);
+    activeCols.forEach(col => grouped[col.id] = []);
+
+    const firstColId = activeCols[0]?.id || 'todo';
 
     filteredTasks.forEach(task => {
-      const status = normalizeStatus(task.status);
+      let status = task.status;
+      if (!status || status === 'pending') status = 'todo';
+      if (status === 'completed') status = 'done';
+
       if (grouped[status]) {
         grouped[status].push(task);
       } else {
-        grouped['todo'].push(task);
+        grouped[firstColId]?.push(task);
       }
     });
     return grouped;
-  }, [filteredTasks]);
+  }, [filteredTasks, activeWorkspace]);
 
   const onDragEnd = (result) => {
     const { destination, source, draggableId } = result;
@@ -83,15 +224,148 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
       }
   };
 
+  const handleCreateWorkspace = (newWorkspace) => {
+    setWorkspaces(prev => [...prev, newWorkspace]);
+    setActiveWorkspaceId(newWorkspace.id);
+    setIsNewWorkspaceModalOpen(false);
+  };
+
+  const handleUpdateWorkspace = (updatedWorkspace) => {
+    setWorkspaces(prev => prev.map(w => w.id === updatedWorkspace.id ? updatedWorkspace : w));
+    setEditingWorkspace(null);
+  };
+
+  const handleDeleteWorkspace = (workspaceId, e) => {
+    e.stopPropagation();
+    if (workspaces.length <= 1) {
+      return alert("A minimum of one workspace is required.");
+    }
+    
+    const targetWs = workspaces.find(w => w.id === workspaceId);
+    if (!window.confirm(`Are you sure you want to delete "${targetWs?.name || 'this workspace'}"?`)) {
+      return;
+    }
+
+    const remainingWorkspaces = workspaces.filter(w => w.id !== workspaceId);
+    setWorkspaces(remainingWorkspaces);
+
+    if (activeWorkspaceId === workspaceId) {
+      setActiveWorkspaceId(remainingWorkspaces[0].id);
+    }
+  };
+
+  const handleImportTrelloBoard = (importedWorkspace, importedTasks, targetWorkspaceId) => {
+    if (importedWorkspace) {
+      setWorkspaces(prev => [...prev, importedWorkspace]);
+      setActiveWorkspaceId(importedWorkspace.id);
+    } else if (targetWorkspaceId) {
+      setActiveWorkspaceId(targetWorkspaceId);
+    }
+    
+    if (onBatchAddTasks && importedTasks.length > 0) {
+      onBatchAddTasks(importedTasks);
+    }
+    setIsTrelloModalOpen(false);
+  };
+
   return (
-    <div className="flex flex-col h-full w-full relative bg-gray-50">
-      <header className="px-6 py-4 border-b border-gray-200 bg-white shadow-sm z-10 flex flex-col xl:flex-row justify-between xl:items-center gap-4">
-        <div className="flex items-center gap-4">
+    <div className="flex flex-col h-full w-full relative bg-gray-50 overflow-hidden">
+      <header className="px-6 py-4 border-b border-gray-200 bg-white shadow-sm z-10 flex flex-col xl:flex-row justify-between xl:items-center gap-4 shrink-0">
+        <div className="flex flex-wrap items-center gap-4">
             <h2 className="text-2xl font-black text-gray-800 flex items-center gap-2 whitespace-nowrap">
             WE LOVE OUR JOB <Heart size={24} className="text-red-600 fill-red-600 animate-pulse" />
             </h2>
             <div className="h-8 w-px bg-gray-200 hidden xl:block"></div>
             
+            {/* WORKSPACE SELECTOR DROPDOWN */}
+            <div className="relative">
+              <button
+                onClick={() => setIsWorkspaceMenuOpen(!isWorkspaceMenuOpen)}
+                className="flex items-center gap-2 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 font-bold px-3 py-2 rounded-xl text-sm transition"
+              >
+                <Briefcase size={16} />
+                <span>{activeWorkspace.name}</span>
+                <ChevronDown size={14} />
+              </button>
+
+              {isWorkspaceMenuOpen && (
+                <div 
+                  className="absolute left-0 mt-2 w-72 bg-white border border-gray-200 rounded-2xl shadow-xl z-50 py-2"
+                >
+                  <div className="px-3 py-1.5 text-xs font-bold text-gray-400 uppercase tracking-wider">
+                    Workspaces
+                  </div>
+                  
+                  <div className="max-h-60 overflow-y-auto px-1">
+                    {workspaces.map(ws => (
+                      <div
+                        key={ws.id}
+                        className={`w-full flex items-center justify-between px-3 py-2 text-sm font-semibold rounded-xl hover:bg-indigo-50 transition group/ws cursor-pointer ${
+                          ws.id === activeWorkspaceId ? 'text-indigo-600 font-bold bg-indigo-50/50' : 'text-gray-700'
+                        }`}
+                        onClick={() => {
+                          setActiveWorkspaceId(ws.id);
+                          setIsWorkspaceMenuOpen(false);
+                        }}
+                      >
+                        <div className="flex items-center gap-2 truncate pr-2">
+                          <span className="truncate">{ws.name}</span>
+                          <span className="text-[10px] text-gray-400 font-normal">({ws.columns.length})</span>
+                        </div>
+
+                        <div className="flex items-center gap-1 opacity-80 group-hover/ws:opacity-100 transition-opacity">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingWorkspace(ws);
+                              setIsWorkspaceMenuOpen(false);
+                            }}
+                            className="p-1 hover:bg-indigo-100 text-gray-400 hover:text-indigo-600 rounded-lg transition"
+                            title="Edit Workspace"
+                          >
+                            <Pencil size={13} />
+                          </button>
+
+                          {workspaces.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={(e) => handleDeleteWorkspace(ws.id, e)}
+                              className="p-1 hover:bg-red-100 text-gray-400 hover:text-red-600 rounded-lg transition"
+                              title="Delete Workspace"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="border-t border-gray-100 mt-2 pt-2 px-2 flex flex-col gap-1">
+                    <button
+                      onClick={() => {
+                        setIsNewWorkspaceModalOpen(true);
+                        setIsWorkspaceMenuOpen(false);
+                      }}
+                      className="w-full text-left px-3 py-2 text-xs font-bold text-indigo-600 hover:bg-indigo-50 rounded-xl flex items-center gap-2 transition"
+                    >
+                      <PlusCircle size={14} /> Create Blank Workspace
+                    </button>
+                    <button
+                      onClick={() => {
+                        setIsTrelloModalOpen(true);
+                        setIsWorkspaceMenuOpen(false);
+                      }}
+                      className="w-full text-left px-3 py-2 text-xs font-bold text-blue-600 hover:bg-blue-50 rounded-xl flex items-center gap-2 transition"
+                    >
+                      <FileJson size={14} /> Import Trello Board (.json)
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="flex items-center gap-2 flex-1">
                 <div className="relative group">
                     <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-indigo-500 transition-colors"/>
@@ -117,6 +391,15 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
                     </select>
                 </div>
 
+                {/* QUICK BATCH TAG CONVERTER BUTTON */}
+                <button
+                  onClick={handleBatchFixWorkspaceTags}
+                  className="flex items-center gap-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 px-3 py-2 rounded-full text-xs font-bold transition shadow-sm whitespace-nowrap"
+                  title="Convert GREEN and TRELLO tags in active workspace to ARTWORK/PROMOTION"
+                >
+                  <Wand2 size={13} /> Fix Tags to Artwork
+                </button>
+
                 {isFiltered && (
                     <button 
                         onClick={clearFilters}
@@ -135,8 +418,9 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
           >
             <FileText size={16} /> <span className="hidden sm:inline">Export P.Pao</span>
           </button>
+          
           <button 
-            onClick={onAddTaskClick} 
+            onClick={() => onAddTaskClick(activeWorkspaceId)} 
             className="flex items-center gap-2 bg-gray-900 text-white px-5 py-2.5 rounded-full font-bold hover:bg-black transition shadow-lg shadow-gray-200 text-sm transform hover:scale-105 active:scale-95"
           >
             <Plus size={16} /> New Task
@@ -144,10 +428,11 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
         </div>
       </header>
 
+      {/* 🟢 FULLY SCROLLABLE BOARD CONTAINER WITH VISIBLE HORIZONTAL SCROLLBAR */}
       <DragDropContext onDragEnd={onDragEnd}>
-        <div className="flex-1 overflow-x-auto overflow-y-hidden px-6 pb-4 pt-6">
-          <div className="flex gap-6 h-full min-w-full">
-            {COLUMNS.map((col) => (
+        <div className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden px-6 pb-6 pt-6 [&::-webkit-scrollbar]:h-3.5 [&::-webkit-scrollbar-track]:bg-gray-200/80 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-indigo-400 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-indigo-600 transition-colors">
+          <div className="flex gap-6 h-full w-max min-w-full">
+            {activeWorkspace.columns.map((col) => (
               <BoardColumn 
                 key={col.id}
                 column={col}
@@ -159,6 +444,30 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
           </div>
         </div>
       </DragDropContext>
+
+      {isNewWorkspaceModalOpen && (
+        <CreateWorkspaceModal 
+          onClose={() => setIsNewWorkspaceModalOpen(false)}
+          onCreate={handleCreateWorkspace}
+        />
+      )}
+
+      {editingWorkspace && (
+        <EditWorkspaceModal
+          workspace={editingWorkspace}
+          onClose={() => setEditingWorkspace(null)}
+          onSave={handleUpdateWorkspace}
+        />
+      )}
+
+      {isTrelloModalOpen && (
+        <ImportTrelloModal 
+          activeWorkspace={activeWorkspace}
+          workspaces={workspaces}
+          onClose={() => setIsTrelloModalOpen(false)}
+          onImport={handleImportTrelloBoard}
+        />
+      )}
 
       {isExportOpen && <ExportEventModal tasks={tasks} onClose={() => setIsExportOpen(false)} />}
       
@@ -191,6 +500,487 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
               }}
           />
       )}
+    </div>
+  );
+};
+
+const ImportTrelloModal = ({ activeWorkspace, workspaces, onClose, onImport }) => {
+  const [trelloFile, setTrelloFile] = useState(null);
+  const [parsedData, setParsedData] = useState(null);
+  const [importDestination, setImportDestination] = useState('current');
+  const [customWorkspaceName, setCustomWorkspaceName] = useState('');
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const json = JSON.parse(event.target.result);
+        if (!json.lists || !json.cards) {
+          return alert("Invalid Trello JSON format. Ensure you exported your board from the Trello menu.");
+        }
+
+        setParsedData(json);
+        setCustomWorkspaceName(json.name || 'Imported Trello Board');
+        setTrelloFile(file);
+      } catch (err) {
+        alert("Failed to parse JSON file: " + err.message);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleProcessImport = () => {
+    if (!parsedData) return;
+
+    let targetWorkspaceId = activeWorkspace.id;
+    let newWorkspaceObj = null;
+
+    if (importDestination === 'new') {
+      targetWorkspaceId = `ws_trello_${Date.now()}`;
+      const colors = [
+        'text-[#0052CC] bg-[#DEEBFF]',
+        'text-[#00875A] bg-[#E3FCEF]',
+        'text-[#FFAB00] bg-[#FFF0B3]',
+        'text-[#FF5630] bg-[#FFBDAD]',
+        'text-[#5243AA] bg-[#EAE6FF]'
+      ];
+
+      const activeLists = parsedData.lists.filter(l => !l.closed);
+      const columns = activeLists.map((list, idx) => ({
+        id: list.id,
+        title: list.name,
+        color: colors[idx % colors.length]
+      }));
+
+      newWorkspaceObj = {
+        id: targetWorkspaceId,
+        name: customWorkspaceName.trim() || 'Imported Trello Workspace',
+        columns: columns.length > 0 ? columns : COLUMNS
+      };
+    }
+
+    const listToColumnIdMap = {};
+    if (importDestination === 'current') {
+      const activeLists = parsedData.lists.filter(l => !l.closed);
+      activeLists.forEach(list => {
+        const matchedCol = activeWorkspace.columns.find(col => 
+          col.title.toLowerCase() === list.name.toLowerCase() ||
+          col.id.toLowerCase() === list.name.toLowerCase()
+        );
+        listToColumnIdMap[list.id] = matchedCol ? matchedCol.id : (activeWorkspace.columns[0]?.id || 'todo');
+      });
+    } else {
+      parsedData.lists.forEach(list => {
+        listToColumnIdMap[list.id] = list.id;
+      });
+    }
+
+    const checklistMap = {};
+    (parsedData.checklists || []).forEach(ch => {
+      checklistMap[ch.id] = ch.checkItems || [];
+    });
+
+    const activeCards = parsedData.cards.filter(c => !c.closed);
+    const importedTasks = activeCards.map((card, idx) => {
+      const requirements = [];
+      (card.idChecklists || []).forEach(chId => {
+        const items = checklistMap[chId] || [];
+        items.forEach(item => {
+          requirements.push({
+            id: `req_${item.id}`,
+            title: item.name,
+            isDone: item.state === 'complete'
+          });
+        });
+      });
+
+      let imageUrl = '';
+      if (card.attachments && card.attachments.length > 0) {
+        const imageAtt = card.attachments.find(a => a.mimeType && a.mimeType.startsWith('image/'));
+        if (imageAtt) imageUrl = imageAtt.url;
+      }
+
+      const rawLabels = (card.labels || []).map(l => l.name || l.color).filter(Boolean);
+      const mappedTags = rawLabels.map(tag => {
+        const upper = tag.toUpperCase();
+        return (upper === 'GREEN' || upper === 'TRELLO') ? 'ARTWORK/PROMOTION' : tag;
+      });
+
+      const finalTags = mappedTags.length > 0 ? mappedTags : ['ARTWORK/PROMOTION'];
+
+      return {
+        id: `trello_${card.id}_${Date.now()}_${idx}`,
+        workspaceId: targetWorkspaceId,
+        title: card.name,
+        description: card.desc || '',
+        status: listToColumnIdMap[card.idList] || activeWorkspace.columns[0]?.id || 'todo',
+        deadline: card.due || null,
+        startTime: null,
+        tag: finalTags[0],
+        tags: finalTags,
+        requirements: requirements,
+        imageUrl: imageUrl,
+        taskLeader: 'Trello Import',
+        isPao: false
+      };
+    });
+
+    onImport(newWorkspaceObj, importedTasks, targetWorkspaceId);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+          <h3 className="text-lg font-black text-gray-800 flex items-center gap-2">
+            <FileJson size={18} className="text-blue-600" /> Import Trello Board
+          </h3>
+          <button onClick={onClose} className="p-1.5 hover:bg-gray-200 rounded-full transition"><X size={18}/></button>
+        </div>
+
+        <div className="p-6 flex flex-col gap-5">
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Upload Trello JSON File</label>
+            <input 
+              type="file" 
+              accept=".json"
+              onChange={handleFileUpload}
+              className="w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer border border-gray-200 rounded-xl p-1"
+            />
+          </div>
+
+          {parsedData && (
+            <div className="bg-blue-50/60 border border-blue-100 rounded-xl p-4 flex flex-col gap-3">
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Import Destination</label>
+                <div className="flex flex-col gap-2">
+                  <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 cursor-pointer">
+                    <input 
+                      type="radio" 
+                      name="destination"
+                      value="current"
+                      checked={importDestination === 'current'}
+                      onChange={() => setImportDestination('current')}
+                      className="text-blue-600 focus:ring-blue-500"
+                    />
+                    <span>Import into Current Workspace (<strong>{activeWorkspace.name}</strong>)</span>
+                  </label>
+                  <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 cursor-pointer">
+                    <input 
+                      type="radio" 
+                      name="destination"
+                      value="new"
+                      checked={importDestination === 'new'}
+                      onChange={() => setImportDestination('new')}
+                      className="text-blue-600 focus:ring-blue-500"
+                    />
+                    <span>Create a Brand New Workspace</span>
+                  </label>
+                </div>
+              </div>
+
+              {importDestination === 'new' && (
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">New Workspace Name</label>
+                  <input 
+                    type="text"
+                    value={customWorkspaceName}
+                    onChange={(e) => setCustomWorkspaceName(e.target.value)}
+                    className="w-full border border-blue-200 rounded-lg px-3 py-1.5 text-sm font-semibold outline-none focus:border-blue-500 bg-white"
+                  />
+                </div>
+              )}
+
+              <div className="flex items-center justify-between text-xs font-bold text-gray-600 pt-2 border-t border-blue-100">
+                <span>Lists in JSON: <strong className="text-blue-700">{parsedData.lists.filter(l=>!l.closed).length}</strong></span>
+                <span>Cards to Import: <strong className="text-blue-700">{parsedData.cards.filter(c=>!c.closed).length}</strong></span>
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-3 pt-3 border-t border-gray-100">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-sm font-bold text-gray-600 hover:bg-gray-100 rounded-xl transition"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={!parsedData}
+              onClick={handleProcessImport}
+              className="px-5 py-2 text-sm font-bold bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40 rounded-xl transition shadow-md flex items-center gap-2"
+            >
+              <Upload size={16} /> Import Tasks
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const EditWorkspaceModal = ({ workspace, onClose, onSave }) => {
+  const [workspaceName, setWorkspaceName] = useState(workspace.name);
+  const [columns, setColumns] = useState(workspace.columns || []);
+
+  const handleAddColumn = () => {
+    const id = `col_${Date.now()}`;
+    setColumns(prev => [...prev, { id, title: 'New Status', color: 'text-purple-600 bg-purple-100' }]);
+  };
+
+  const handleRemoveColumn = (index) => {
+    if (columns.length <= 1) return alert("A workspace must have at least one column status.");
+    setColumns(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleColumnChange = (index, field, value) => {
+    setColumns(prev => prev.map((col, i) => {
+      if (i === index) {
+        const updated = { ...col, [field]: value };
+        if (field === 'title') {
+          updated.id = col.id.startsWith('col_') ? (value.toLowerCase().replace(/\s+/g, '_') || col.id) : col.id;
+        }
+        return updated;
+      }
+      return col;
+    }));
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!workspaceName.trim()) return alert("Please enter a workspace name.");
+    
+    const updatedWorkspace = {
+      ...workspace,
+      name: workspaceName.trim(),
+      columns: columns.map(c => ({
+        ...c,
+        title: c.title.trim() || 'Untitled Status'
+      }))
+    };
+    onSave(updatedWorkspace);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+          <h3 className="text-lg font-black text-gray-800 flex items-center gap-2">
+            <Pencil size={18} className="text-indigo-600" /> Edit Workspace
+          </h3>
+          <button onClick={onClose} className="p-1.5 hover:bg-gray-200 rounded-full transition"><X size={18}/></button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-5 max-h-[75vh] overflow-y-auto">
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Workspace Name</label>
+            <input 
+              type="text"
+              className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-indigo-500 font-semibold"
+              value={workspaceName}
+              onChange={(e) => setWorkspaceName(e.target.value)}
+              required
+            />
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Process Statuses (Columns)</label>
+              <button
+                type="button"
+                onClick={handleAddColumn}
+                className="text-xs font-bold text-indigo-600 hover:underline flex items-center gap-1"
+              >
+                <Plus size={14} /> Add Column
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              {columns.map((col, idx) => (
+                <div key={idx} className="flex items-center gap-2 bg-gray-50 p-2 rounded-xl border border-gray-200">
+                  <input 
+                    type="text"
+                    value={col.title}
+                    onChange={(e) => handleColumnChange(idx, 'title', e.target.value)}
+                    className="flex-1 bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-sm font-semibold outline-none focus:border-indigo-500"
+                    placeholder="Status Name"
+                  />
+                  <select
+                    value={col.color || 'text-gray-600 bg-gray-100'}
+                    onChange={(e) => handleColumnChange(idx, 'color', e.target.value)}
+                    className="bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs font-medium outline-none"
+                  >
+                    {COLOR_OPTIONS.map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveColumn(idx)}
+                    className="p-1.5 text-gray-400 hover:text-red-500 transition"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-3 border-t border-gray-100">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-sm font-bold text-gray-600 hover:bg-gray-100 rounded-xl transition"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-5 py-2 text-sm font-bold bg-indigo-600 text-white hover:bg-indigo-700 rounded-xl transition shadow-md"
+            >
+              Save Changes
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+const CreateWorkspaceModal = ({ onClose, onCreate }) => {
+  const [workspaceName, setWorkspaceName] = useState('');
+  const [columns, setColumns] = useState([
+    { id: 'todo', title: 'To Do', color: 'text-gray-600 bg-gray-100' },
+    { id: 'in_progress', title: 'In Progress', color: 'text-blue-600 bg-blue-100' },
+    { id: 'done', title: 'Done', color: 'text-green-600 bg-green-100' }
+  ]);
+
+  const handleAddColumn = () => {
+    const id = `col_${Date.now()}`;
+    setColumns(prev => [...prev, { id, title: 'New Status', color: 'text-purple-600 bg-purple-100' }]);
+  };
+
+  const handleRemoveColumn = (index) => {
+    if (columns.length <= 1) return alert("A workspace must have at least one column status.");
+    setColumns(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleColumnChange = (index, field, value) => {
+    setColumns(prev => prev.map((col, i) => {
+      if (i === index) {
+        const updated = { ...col, [field]: value };
+        if (field === 'title') {
+          updated.id = value.toLowerCase().replace(/\s+/g, '_') || col.id;
+        }
+        return updated;
+      }
+      return col;
+    }));
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!workspaceName.trim()) return alert("Please enter a workspace name.");
+    
+    const newWorkspace = {
+      id: `ws_${Date.now()}`,
+      name: workspaceName.trim(),
+      columns: columns.map(c => ({
+        ...c,
+        title: c.title.trim() || 'Untitled Status'
+      }))
+    };
+    onCreate(newWorkspace);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+          <h3 className="text-lg font-black text-gray-800 flex items-center gap-2">
+            <Briefcase size={18} className="text-indigo-600" /> Create Workspace
+          </h3>
+          <button onClick={onClose} className="p-1.5 hover:bg-gray-200 rounded-full transition"><X size={18}/></button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-5 max-h-[75vh] overflow-y-auto">
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Workspace Name</label>
+            <input 
+              type="text"
+              placeholder="e.g. Design Workspace, QA Team"
+              className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-indigo-500 font-semibold"
+              value={workspaceName}
+              onChange={(e) => setWorkspaceName(e.target.value)}
+              required
+            />
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Process Statuses (Columns)</label>
+              <button
+                type="button"
+                onClick={handleAddColumn}
+                className="text-xs font-bold text-indigo-600 hover:underline flex items-center gap-1"
+              >
+                <Plus size={14} /> Add Column
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              {columns.map((col, idx) => (
+                <div key={idx} className="flex items-center gap-2 bg-gray-50 p-2 rounded-xl border border-gray-200">
+                  <input 
+                    type="text"
+                    value={col.title}
+                    onChange={(e) => handleColumnChange(idx, 'title', e.target.value)}
+                    className="flex-1 bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-sm font-semibold outline-none focus:border-indigo-500"
+                    placeholder="Status Name"
+                  />
+                  <select
+                    value={col.color}
+                    onChange={(e) => handleColumnChange(idx, 'color', e.target.value)}
+                    className="bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs font-medium outline-none"
+                  >
+                    {COLOR_OPTIONS.map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveColumn(idx)}
+                    className="p-1.5 text-gray-400 hover:text-red-500 transition"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-3 border-t border-gray-100">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-sm font-bold text-gray-600 hover:bg-gray-100 rounded-xl transition"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-5 py-2 text-sm font-bold bg-indigo-600 text-white hover:bg-indigo-700 rounded-xl transition shadow-md"
+            >
+              Create & Switch
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 };
@@ -235,11 +1025,11 @@ const ExportEventModal = ({ tasks, onClose }) => {
 
 const BoardColumn = ({ column, tasks, onTaskClick, onDeleteTask }) => {
   return (
-    <div className="flex-1 min-w-[300px] flex flex-col h-full rounded-2xl bg-white/50 backdrop-blur-sm border border-white shadow-sm">
+    <div className="w-[320px] shrink-0 flex flex-col h-full rounded-2xl bg-white/50 backdrop-blur-sm border border-white shadow-sm">
       <div className="flex items-center justify-between mb-4 p-4 border-b border-gray-100">
         <div className="flex items-center gap-2">
-            <h3 className="text-gray-700 font-black text-sm uppercase tracking-wider">{column.title}</h3>
-            <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${column.color.replace('text-', 'bg-').replace('50', '100')} ${column.color.split(' ')[1]}`}>{tasks.length}</span>
+            <h3 className="text-gray-700 font-black text-sm uppercase tracking-wider truncate max-w-[200px]">{column.title}</h3>
+            <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${column.color?.replace('text-', 'bg-').replace('50', '100') || 'bg-gray-100'} ${column.color?.split(' ')[1] || 'text-gray-700'}`}>{tasks.length}</span>
         </div>
         <MoreHorizontal size={16} className="text-gray-300 hover:text-gray-600 cursor-pointer" />
       </div>
@@ -338,7 +1128,6 @@ const TaskCard = ({ task, index, onClick, onDelete }) => {
                 
                 <h4 className="text-gray-800 font-semibold text-sm mb-2 leading-relaxed line-clamp-2">{task.title}</h4>
                 
-                {/* 🟢 NEW CARD ELEMENT: TASK LEADER SUB-INDICATOR */}
                 <div className="flex items-center gap-1.5 text-xs font-bold text-gray-500 mb-2">
                     <User size={12} className="text-gray-400" />
                     <span>Leader: <span className="text-gray-700">{task.taskLeader || 'Unassigned'}</span></span>
