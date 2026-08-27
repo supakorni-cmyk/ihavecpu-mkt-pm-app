@@ -218,8 +218,8 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
   };
 
   return (
-    <div className="flex flex-col h-full w-full relative bg-gray-50">
-      <header className="px-6 py-4 border-b border-gray-200 bg-white shadow-sm z-10 flex flex-col xl:flex-row justify-between xl:items-center gap-4">
+    <div className="flex flex-col h-full w-full relative bg-gray-50 overflow-hidden">
+      <header className="px-6 py-4 border-b border-gray-200 bg-white shadow-sm z-10 flex flex-col xl:flex-row justify-between xl:items-center gap-4 shrink-0">
         <div className="flex flex-wrap items-center gap-4">
             <h2 className="text-2xl font-black text-gray-800 flex items-center gap-2 whitespace-nowrap">
             WE LOVE OUR JOB <Heart size={24} className="text-red-600 fill-red-600 animate-pulse" />
@@ -377,9 +377,9 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
         </div>
       </header>
 
-      {/* 🟢 CUSTOM VISIBLE HORIZONTAL SCROLLBAR WRAPPER */}
+      {/* 🟢 FULLY SCROLLABLE BOARD CONTAINER WITH VISIBLE HORIZONTAL SCROLLBAR */}
       <DragDropContext onDragEnd={onDragEnd}>
-        <div className="flex-1 overflow-x-auto overflow-y-hidden px-6 pb-6 pt-6 [&::-webkit-scrollbar]:h-2.5 [&::-webkit-scrollbar-track]:bg-gray-200/60 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-400 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-gray-500 transition-colors">
+        <div className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden px-6 pb-6 pt-6 [&::-webkit-scrollbar]:h-3.5 [&::-webkit-scrollbar-track]:bg-gray-200/80 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-indigo-400 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-indigo-600 transition-colors">
           <div className="flex gap-6 h-full w-max min-w-full">
             {activeWorkspace.columns.map((col) => (
               <BoardColumn 
@@ -972,12 +972,13 @@ const ExportEventModal = ({ tasks, onClose }) => {
   );
 };
 
+// 🟢 FIXED COLUMN DIMENSIONS: Fixed width (w-[320px] shrink-0) prevents squishing and enforces horizontal scrolling
 const BoardColumn = ({ column, tasks, onTaskClick, onDeleteTask }) => {
   return (
-    <div className="flex-1 min-w-[300px] flex flex-col h-full rounded-2xl bg-white/50 backdrop-blur-sm border border-white shadow-sm">
+    <div className="w-[320px] shrink-0 flex flex-col h-full rounded-2xl bg-white/50 backdrop-blur-sm border border-white shadow-sm">
       <div className="flex items-center justify-between mb-4 p-4 border-b border-gray-100">
         <div className="flex items-center gap-2">
-            <h3 className="text-gray-700 font-black text-sm uppercase tracking-wider">{column.title}</h3>
+            <h3 className="text-gray-700 font-black text-sm uppercase tracking-wider truncate max-w-[200px]">{column.title}</h3>
             <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${column.color?.replace('text-', 'bg-').replace('50', '100') || 'bg-gray-100'} ${column.color?.split(' ')[1] || 'text-gray-700'}`}>{tasks.length}</span>
         </div>
         <MoreHorizontal size={16} className="text-gray-300 hover:text-gray-600 cursor-pointer" />
