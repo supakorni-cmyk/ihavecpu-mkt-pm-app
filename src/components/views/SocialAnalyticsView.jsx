@@ -9,19 +9,19 @@ export default function SocialAnalyticsView() {
     const [searchTerm, setSearchTerm] = useState('');
     const [savedPlans, setSavedPlans] = useState({});
     
-    // 🟢 View Tab: 'overview' | 'comments'
+    // View Tab: 'overview' | 'comments'
     const [mainViewTab, setMainViewTab] = useState('overview');
 
-    // 🟢 Platform Selector: 'overall' | 'facebook' | 'youtube'
+    // Platform Selector: 'overall' | 'facebook' | 'youtube'
     const [activePlatform, setActivePlatform] = useState('overall');
     
-    // 🟢 Date Range Selector: '4months' | 'all'
+    // Date Range Selector: '4months' | 'all'
     const [dateRange, setDateRange] = useState('4months');
 
-    // 🟢 Comment Sentiment Filter: 'all' | 'Good' | 'Neutral' | 'Bad'
+    // Comment Sentiment Filter: 'all' | 'Good' | 'Neutral' | 'Bad'
     const [sentimentFilter, setSentimentFilter] = useState('all');
 
-    // 🟢 1. FETCH LIVE FACEBOOK DATA
+    // 🟢 1. FETCH LIVE FACEBOOK DATA (Parses Graph API nested structures)
     const fetchFacebookData = async () => {
         try {
             const response = await fetch('/.netlify/functions/api');
@@ -34,44 +34,33 @@ export default function SocialAnalyticsView() {
         }
     };
 
-    // 🟢 2. FETCH LIVE YOUTUBE DATA
+    // 🟢 2. FETCH REAL YOUTUBE DATA (YouTube Data API v3 standard parser)
     const fetchYouTubeData = async () => {
         try {
             const response = await fetch('/.netlify/functions/youtube');
-            if (!response.ok) throw new Error("YouTube function unavailable");
+            if (!response.ok) {
+                console.warn("YouTube Netlify function returned status:", response.status);
+                return [];
+            }
             const data = await response.json();
-            return Array.isArray(data) ? data : [];
-        } catch (error) {
-            console.warn("YouTube API fallback active:", error);
-            return [
-                {
-                    id: 'yt_1',
-                    platform: 'youtube',
-                    title: 'iHAVECPU RTX 5080 Extreme PC Build & Full Review',
-                    permalink: 'https://youtube.com',
-                    postedAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
-                    metrics: { impressions: 145000, engagement: 12400, reach: 98000 },
-                    comments: [
-                        { id: 'c1', user: 'Somchai PC', text: "Awesome build! Great cable management.", sentiment: "Good", date: new Date(Date.now() - 9 * 24 * 60 * 60 * 1000).toISOString() },
-                        { id: 'c2', user: 'GamerTH', text: "Very informative review, thanks!", sentiment: "Good", date: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString() },
-                        { id: 'c3', user: 'TechGuy', text: "Price is a bit high though.", sentiment: "Neutral", date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString() },
-                        { id: 'c4', user: 'User99', text: "Audio quality was quiet in the middle of the video.", sentiment: "Bad", date: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString() }
-                    ]
+            if (!Array.isArray(data)) return [];
+
+            return data.map(item => ({
+                id: item.id?.videoId || item.id || `yt_${Math.random()}`,
+                platform: 'youtube',
+                title: item.snippet?.title || item.title || 'YouTube Video',
+                permalink: item.permalink || (item.id?.videoId ? `https://www.youtube.com/watch?v=${item.id.videoId}` : (item.id ? `https://www.youtube.com/watch?v=${item.id}` : 'https://youtube.com')),
+                postedAt: item.snippet?.publishedAt || item.postedAt || item.publishedAt,
+                metrics: {
+                    impressions: Number(item.statistics?.viewCount || item.metrics?.impressions || 0),
+                    engagement: Number(item.statistics?.likeCount || item.metrics?.engagement || 0),
+                    reach: Number(item.statistics?.viewCount || item.metrics?.reach || 0)
                 },
-                {
-                    id: 'yt_2',
-                    platform: 'youtube',
-                    title: 'Top 5 Gaming Laptops Under 30,000 THB 2026',
-                    permalink: 'https://youtube.com',
-                    postedAt: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString(),
-                    metrics: { impressions: 320000, engagement: 28500, reach: 210000 },
-                    comments: [
-                        { id: 'c5', user: 'Kla_Pro', text: "Love this recommendation list!", sentiment: "Good", date: new Date(Date.now() - 44 * 24 * 60 * 60 * 1000).toISOString() },
-                        { id: 'c6', user: 'AnonUser', text: "Bought option #2 thanks to your recommendation!", sentiment: "Good", date: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString() },
-                        { id: 'c7', user: 'ReviewLover', text: "Can you review Lenovo IdeaPad next week?", sentiment: "Neutral", date: new Date(Date.now() - 35 * 24 * 60 * 60 * 1000).toISOString() }
-                    ]
-                }
-            ];
+                comments: item.comments || item.commentThreads || []
+            }));
+        } catch (error) {
+            console.error("YouTube API Fetch Error:", error);
+            return [];
         }
     };
 
@@ -97,7 +86,6 @@ export default function SocialAnalyticsView() {
         return d;
     }, []);
 
-    // Helper Date Formatter
     const formatDateDisplay = (isoString) => {
         if (!isoString) return 'Date N/A';
         const d = new Date(isoString);
@@ -117,7 +105,7 @@ export default function SocialAnalyticsView() {
 
         if (dateRange === '4months') {
             combined = combined.filter(item => {
-                const itemDate = new Date(item.postedAt || item.created_time || 0);
+                const itemDate = new Date(item.postedAt || item.created_time || item.snippet?.publishedAt || 0);
                 return itemDate >= fourMonthsAgoDate;
             });
         }
@@ -129,7 +117,7 @@ export default function SocialAnalyticsView() {
     const processedContent = useMemo(() => {
         const query = searchTerm.toLowerCase();
         const filtered = rawFilteredDataset.filter(item => {
-            const content = (item.message || item.title || '').toLowerCase();
+            const content = (item.message || item.title || item.snippet?.title || '').toLowerCase();
             const url = (item.permalink || '').toLowerCase();
             return content.includes(query) || url.includes(query);
         });
@@ -145,11 +133,10 @@ export default function SocialAnalyticsView() {
 
     const latest5Posts = useMemo(() => {
         return [...rawFilteredDataset]
-            .sort((a, b) => new Date(b.postedAt || b.created_time) - new Date(a.postedAt || a.created_time))
+            .sort((a, b) => new Date(b.postedAt || b.created_time || b.snippet?.publishedAt) - new Date(a.postedAt || a.created_time || a.snippet?.publishedAt))
             .slice(0, 5);
     }, [rawFilteredDataset]);
 
-    // Average Views
     const averageViews = useMemo(() => {
         if (rawFilteredDataset.length === 0) return 0;
         const total = rawFilteredDataset.reduce((sum, p) => sum + (p.metrics?.impressions || 0), 0);
@@ -161,7 +148,6 @@ export default function SocialAnalyticsView() {
         return rawFilteredDataset.filter(post => (post.metrics?.impressions || 0) >= averageViews * 2).length;
     }, [rawFilteredDataset, averageViews]);
 
-    // Aggregated Metrics
     const overallStats = useMemo(() => {
         return rawFilteredDataset.reduce((acc, item) => {
             if (item.metrics) {
@@ -173,47 +159,58 @@ export default function SocialAnalyticsView() {
         }, { views: 0, engagements: 0, reachs: 0 });
     }, [rawFilteredDataset]);
 
-    // 🟢 4. EXTRACT ALL COMMENTS FOR USER COMMENTS TAB
+    // 🟢 4. UNIVERSAL COMMENT PARSER (Handles FB Graph API `comments.data` & YouTube `commentThreads`)
     const extractedComments = useMemo(() => {
         const commentList = [];
         rawFilteredDataset.forEach(item => {
-            const itemTitle = item.message || item.title || 'Untitled Post';
-            const platform = item.platform || 'facebook';
-            const postDate = item.postedAt || item.created_time;
+            const itemTitle = item.message || item.title || item.snippet?.title || 'Untitled Content';
+            const platform = item.platform || (item.kind?.includes('youtube') ? 'youtube' : 'facebook');
+            const postDate = item.postedAt || item.created_time || item.snippet?.publishedAt;
 
-            const comments = Array.isArray(item.comments) ? item.comments : [];
-            comments.forEach((c, idx) => {
-                const text = c.text || c.message || '';
+            let rawComments = [];
+            if (Array.isArray(item.comments)) {
+                rawComments = item.comments;
+            } else if (item.comments?.data && Array.isArray(item.comments.data)) {
+                rawComments = item.comments.data; // Facebook Graph API nested format
+            } else if (Array.isArray(item.commentThreads)) {
+                rawComments = item.commentThreads; // YouTube Data API v3 format
+            }
+
+            rawComments.forEach((c, idx) => {
+                const text = c.text || c.message || c.snippet?.topLevelComment?.snippet?.textDisplay || c.textDisplay || '';
+                const user = c.user || c.author || c.from?.name || c.snippet?.topLevelComment?.snippet?.authorDisplayName || c.authorDisplayName || (platform === 'youtube' ? 'YouTube User' : 'Facebook User');
+                const commentDate = c.date || c.created_time || c.publishedAt || c.snippet?.topLevelComment?.snippet?.publishedAt || postDate;
+                
                 let sentiment = c.sentiment;
-
                 if (!sentiment) {
                     const lowerText = text.toLowerCase();
-                    if (lowerText.includes('love') || lowerText.includes('great') || lowerText.includes('good') || lowerText.includes('awesome') || lowerText.includes('ชอบ') || lowerText.includes('ดี')) {
+                    if (lowerText.includes('love') || lowerText.includes('great') || lowerText.includes('good') || lowerText.includes('awesome') || lowerText.includes('ชอบ') || lowerText.includes('ดี') || lowerText.includes('สวย')) {
                         sentiment = 'Good';
-                    } else if (lowerText.includes('bad') || lowerText.includes('poor') || lowerText.includes('slow') || lowerText.includes('แย่') || lowerText.includes('แพง')) {
+                    } else if (lowerText.includes('bad') || lowerText.includes('poor') || lowerText.includes('slow') || lowerText.includes('แย่') || lowerText.includes('แพง') || lowerText.includes('ห่วย')) {
                         sentiment = 'Bad';
                     } else {
                         sentiment = 'Neutral';
                     }
                 }
 
-                commentList.push({
-                    id: c.id || `${item.id}_cmt_${idx}`,
-                    user: c.user || c.author || 'User',
-                    text: text,
-                    sentiment: sentiment,
-                    postTitle: itemTitle,
-                    postUrl: item.permalink,
-                    platform: platform,
-                    date: c.date || postDate
-                });
+                if (text.trim()) {
+                    commentList.push({
+                        id: c.id || `${item.id}_cmt_${idx}`,
+                        user: user,
+                        text: text,
+                        sentiment: sentiment,
+                        postTitle: itemTitle,
+                        postUrl: item.permalink || (item.id ? `https://youtube.com/watch?v=${item.id}` : '#'),
+                        platform: platform,
+                        date: commentDate
+                    });
+                }
             });
         });
 
         return commentList;
     }, [rawFilteredDataset]);
 
-    // Filter Comments by Search Query & Sentiment Grade
     const filteredUserComments = useMemo(() => {
         return extractedComments.filter(c => {
             const matchesQuery = c.text.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -225,7 +222,6 @@ export default function SocialAnalyticsView() {
         });
     }, [extractedComments, searchTerm, sentimentFilter]);
 
-    // Sentiment Metrics
     const sentimentStats = useMemo(() => {
         let good = 0;
         let neutral = 0;
@@ -249,7 +245,6 @@ export default function SocialAnalyticsView() {
         };
     }, [extractedComments]);
 
-    // SVG Trendline
     const generateTrendlinePath = (metricKey) => {
         if (rawFilteredDataset.length < 2) return "M0,15 Q50,15 100,15"; 
         const sample = [...rawFilteredDataset].slice(-8).reverse(); 
@@ -297,7 +292,7 @@ export default function SocialAnalyticsView() {
                 </div>
             </div>
 
-            {/* 🟢 MAIN VIEW TABS: Overview vs User Comments */}
+            {/* MAIN VIEW TABS */}
             <div className="max-w-3xl mx-auto mb-4 flex border-b border-slate-200">
                 <button
                     onClick={() => setMainViewTab('overview')}
@@ -321,7 +316,7 @@ export default function SocialAnalyticsView() {
                 </button>
             </div>
 
-            {/* 🟢 PLATFORM & DATE CONTROLS BAR */}
+            {/* PLATFORM & DATE CONTROLS BAR */}
             <div className="max-w-3xl mx-auto mb-6 flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-2.5 rounded-2xl border border-slate-100 shadow-sm">
                 <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl w-full sm:w-auto">
                     <button
@@ -358,7 +353,7 @@ export default function SocialAnalyticsView() {
                 </div>
             </div>
 
-            {/* 🟢 VIEW TAB 1: ANALYTICS OVERVIEW */}
+            {/* TAB 1: OVERVIEW VIEW */}
             {mainViewTab === 'overview' && (
                 <>
                     {/* KPI CARDS */}
@@ -451,7 +446,7 @@ export default function SocialAnalyticsView() {
                         </div>
                     </div>
 
-                    {/* TOP 5 TRENDING BOARD WITH PUBLISH DATES */}
+                    {/* TOP 5 TRENDING BOARD */}
                     <div className="max-w-3xl mx-auto bg-white border border-slate-100 rounded-2xl shadow-sm p-5 sm:p-6 mb-6">
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 pb-4 mb-4">
                             <div>
@@ -468,9 +463,7 @@ export default function SocialAnalyticsView() {
                                 const formattedViews = viewsRaw >= 1000000 ? `${(viewsRaw / 1000000).toFixed(1)}M` : viewsRaw >= 1000 ? `${(viewsRaw / 1000).toFixed(1)}K` : viewsRaw;
                                 const isPlanned = savedPlans[post.id] || false;
                                 const platformName = post.platform === 'youtube' ? 'YouTube' : 'Facebook';
-                                
-                                // 🟢 POST / VIDEO PUBLISH DATE
-                                const publishDate = formatDateDisplay(post.postedAt || post.created_time);
+                                const publishDate = formatDateDisplay(post.postedAt || post.created_time || post.snippet?.publishedAt);
 
                                 return (
                                     <div key={index} className="flex items-center justify-between py-4 first:pt-1 last:pb-1 group hover:bg-slate-50/50 px-2 -mx-2 rounded-xl transition duration-150">
@@ -480,11 +473,10 @@ export default function SocialAnalyticsView() {
                                                     {platformName}
                                                 </span>
                                                 <span className="font-bold text-slate-800 text-[13px] leading-snug line-clamp-1">
-                                                    {post.message || post.title || '"Multimedia Content Update"'}
+                                                    {post.message || post.title || post.snippet?.title || '"Multimedia Content Update"'}
                                                 </span>
                                             </div>
                                             
-                                            {/* 🟢 DATES & METRICS DISPLAY */}
                                             <div className="text-[11px] font-bold text-slate-500 flex items-center gap-2 flex-wrap">
                                                 <span className="text-[#D85C2E] font-extrabold">{formattedViews} Views</span>
                                                 <span className="text-slate-300 font-normal">·</span>
@@ -514,7 +506,7 @@ export default function SocialAnalyticsView() {
                         </div>
                     </div>
 
-                    {/* 5 LATEST POSTS / VIDEOS TIMELINE */}
+                    {/* 5 LATEST UPDATES TIMELINE */}
                     <div className="max-w-3xl mx-auto bg-white border border-slate-100 rounded-2xl shadow-sm p-5 sm:p-6">
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 pb-4 mb-4">
                             <div>
@@ -532,7 +524,7 @@ export default function SocialAnalyticsView() {
                                 const formattedViews = viewsRaw >= 1000000 ? `${(viewsRaw / 1000000).toFixed(1)}M` : viewsRaw >= 1000 ? `${(viewsRaw / 1000).toFixed(1)}K` : viewsRaw;
                                 const isPlanned = savedPlans[`latest_${post.id}`] || false;
                                 const platformName = post.platform === 'youtube' ? 'YouTube' : 'Facebook';
-                                const publishDate = formatDateDisplay(post.postedAt || post.created_time);
+                                const publishDate = formatDateDisplay(post.postedAt || post.created_time || post.snippet?.publishedAt);
 
                                 return (
                                     <div key={index} className="flex items-center justify-between py-4 first:pt-1 last:pb-1 group hover:bg-slate-50/50 px-2 -mx-2 rounded-xl transition duration-150">
@@ -542,11 +534,10 @@ export default function SocialAnalyticsView() {
                                                     {platformName}
                                                 </span>
                                                 <span className="font-bold text-slate-800 text-[13px] leading-snug line-clamp-1">
-                                                    {post.message || post.title || '"Multimedia Content Update"'}
+                                                    {post.message || post.title || post.snippet?.title || '"Multimedia Content Update"'}
                                                 </span>
                                             </div>
                                             
-                                            {/* 🟢 PUBLISH DATE DISPLAY */}
                                             <div className="text-[11px] font-bold text-slate-500 flex items-center gap-2 flex-wrap">
                                                 <span className="text-[#D85C2E] font-extrabold">{formattedViews} Views</span>
                                                 <span className="text-slate-300 font-normal">·</span>
@@ -574,14 +565,14 @@ export default function SocialAnalyticsView() {
                 </>
             )}
 
-            {/* 🟢 VIEW TAB 2: USER COMMENTS TAB */}
+            {/* TAB 2: USER COMMENTS TAB */}
             {mainViewTab === 'comments' && (
                 <div className="max-w-3xl mx-auto bg-white border border-slate-100 rounded-2xl shadow-sm p-5 sm:p-6">
                     
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-100 pb-4 mb-4">
                         <div>
                             <h2 className="text-base font-black text-slate-900 tracking-tight">Audience Comments & Sentiment Grades</h2>
-                            <p className="text-xs font-bold text-slate-400 mt-0.5">Showing comments from posts/videos within the previous 4 months</p>
+                            <p className="text-xs font-bold text-slate-400 mt-0.5">Displaying user comments extracted from posts and videos in the past 4 months</p>
                         </div>
 
                         {/* SENTIMENT GRADE FILTER BUTTONS */}
@@ -619,7 +610,7 @@ export default function SocialAnalyticsView() {
                             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                             <input
                                 type="text"
-                                placeholder="Search comments by user, text, or post title..."
+                                placeholder="Search comments by user name, text, or post title..."
                                 className="pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-indigo-500 w-full bg-slate-50/50 font-medium"
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -654,18 +645,15 @@ export default function SocialAnalyticsView() {
                                             </span>
                                         </div>
 
-                                        {/* SENTIMENT GRADE BADGE */}
                                         <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full border flex items-center gap-1 uppercase ${badgeStyle}`}>
                                             <IconComponent size={10} /> {comment.sentiment}
                                         </span>
                                     </div>
 
-                                    {/* COMMENT TEXT */}
                                     <p className="text-xs text-slate-700 leading-relaxed font-medium mb-2 bg-slate-50/80 p-3 rounded-xl border border-slate-100">
                                         "{comment.text}"
                                     </p>
 
-                                    {/* PARENT POST REF */}
                                     <div className="flex items-center justify-between text-[11px] text-slate-400 font-semibold">
                                         <span className="truncate max-w-[350px]">
                                             On: <strong className="text-slate-600">{comment.postTitle}</strong>
