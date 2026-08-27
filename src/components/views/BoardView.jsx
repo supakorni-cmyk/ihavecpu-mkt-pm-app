@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { 
-  MoreHorizontal, Plus, Trash2, CheckSquare, Clock, Heart, FileText, X, Copy, MapPin, Search, Filter, XCircle, User
+  MoreHorizontal, Plus, Trash2, CheckSquare, Clock, Heart, FileText, X, Copy, MapPin, Search, Filter, XCircle, User, Briefcase, ChevronDown, PlusCircle
 } from 'lucide-react';
 import { COLUMNS, TAG_COLORS, formatDate } from '../../utils/constants';
 
@@ -12,7 +12,29 @@ import TaskDetailModal from '../modals/TaskDetailModal';
 
 const FILTER_CATEGORIES = ['All', 'OVERVIEW + PLANING', 'PROJECT','ARTWORK/PROMOTION', 'ARTWORK/BRAND', 'REVIEW / IT', 'REVIEW / OTHER', 'OFFLINE EVENT', 'GUEST SPEAKER', 'MEETING', 'EXPENSE', 'WEBSITE', 'INFLUENCER', 'ONLINE ADS', 'OFFLINE ADS'];
 
+const DEFAULT_WORKSPACES = [
+  {
+    id: 'marketing',
+    name: 'Marketing Workspace',
+    columns: COLUMNS
+  }
+];
+
+const COLOR_OPTIONS = [
+  { label: 'Gray', value: 'text-gray-600 bg-gray-100' },
+  { label: 'Blue', value: 'text-blue-600 bg-blue-100' },
+  { label: 'Purple', value: 'text-purple-600 bg-purple-100' },
+  { label: 'Yellow', value: 'text-yellow-600 bg-yellow-100' },
+  { label: 'Green', value: 'text-green-600 bg-green-100' },
+  { label: 'Red', value: 'text-red-600 bg-red-100' },
+];
+
 const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTask }) => {
+  const [workspaces, setWorkspaces] = useState(DEFAULT_WORKSPACES);
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState('marketing');
+  const [isWorkspaceMenuOpen, setIsWorkspaceMenuOpen] = useState(false);
+  const [isNewWorkspaceModalOpen, setIsNewWorkspaceModalOpen] = useState(false);
+
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null); 
   const [editingTask, setEditingTask] = useState(null);
@@ -21,8 +43,14 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
 
+  const activeWorkspace = useMemo(() => {
+    return workspaces.find(w => w.id === activeWorkspaceId) || workspaces[0];
+  }, [workspaces, activeWorkspaceId]);
+
   const filteredTasks = useMemo(() => {
     return tasks.filter(task => {
+        // Workspace filtering (if tasks carry workspaceId; otherwise default to active)
+        const matchesWorkspace = !task.workspaceId || task.workspaceId === activeWorkspaceId;
         const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase());
         let matchesCategory = true;
         if (selectedCategory !== 'All') {
@@ -30,9 +58,9 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
             const hasArrayTag = Array.isArray(task.tags) && task.tags.includes(selectedCategory);
             matchesCategory = hasSingleTag || hasArrayTag;
         }
-        return matchesSearch && matchesCategory;
+        return matchesWorkspace && matchesSearch && matchesCategory;
     });
-  }, [tasks, searchQuery, selectedCategory]);
+  }, [tasks, activeWorkspaceId, searchQuery, selectedCategory]);
 
   const clearFilters = () => {
       setSearchQuery("");
@@ -42,25 +70,25 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
   const isFiltered = searchQuery !== "" || selectedCategory !== "All";
 
   const tasksByColumn = useMemo(() => {
-    const normalizeStatus = (status) => {
-      if (!status || status === 'pending') return 'todo';
-      if (status === 'completed') return 'done';
-      return status; 
-    };
-
+    const activeCols = activeWorkspace.columns;
     const grouped = {};
-    COLUMNS.forEach(col => grouped[col.id] = []);
+    activeCols.forEach(col => grouped[col.id] = []);
+
+    const firstColId = activeCols[0]?.id || 'todo';
 
     filteredTasks.forEach(task => {
-      const status = normalizeStatus(task.status);
+      let status = task.status;
+      if (!status || status === 'pending') status = 'todo';
+      if (status === 'completed') status = 'done';
+
       if (grouped[status]) {
         grouped[status].push(task);
       } else {
-        grouped['todo'].push(task);
+        grouped[firstColId]?.push(task);
       }
     });
     return grouped;
-  }, [filteredTasks]);
+  }, [filteredTasks, activeWorkspace]);
 
   const onDragEnd = (result) => {
     const { destination, source, draggableId } = result;
@@ -83,15 +111,64 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
       }
   };
 
+  const handleCreateWorkspace = (newWorkspace) => {
+    setWorkspaces(prev => [...prev, newWorkspace]);
+    setActiveWorkspaceId(newWorkspace.id);
+    setIsNewWorkspaceModalOpen(false);
+  };
+
   return (
     <div className="flex flex-col h-full w-full relative bg-gray-50">
       <header className="px-6 py-4 border-b border-gray-200 bg-white shadow-sm z-10 flex flex-col xl:flex-row justify-between xl:items-center gap-4">
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-4">
             <h2 className="text-2xl font-black text-gray-800 flex items-center gap-2 whitespace-nowrap">
             WE LOVE OUR JOB <Heart size={24} className="text-red-600 fill-red-600 animate-pulse" />
             </h2>
             <div className="h-8 w-px bg-gray-200 hidden xl:block"></div>
             
+            {/* WORKSPACE SELECTOR DROPDOWN */}
+            <div className="relative">
+              <button
+                onClick={() => setIsWorkspaceMenuOpen(!isWorkspaceMenuOpen)}
+                className="flex items-center gap-2 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 font-bold px-3 py-2 rounded-xl text-sm transition"
+              >
+                <Briefcase size={16} />
+                <span>{activeWorkspace.name}</span>
+                <ChevronDown size={14} />
+              </button>
+
+              {isWorkspaceMenuOpen && (
+                <div 
+                  className="absolute left-0 mt-2 w-64 bg-white border border-gray-200 rounded-2xl shadow-xl z-50 py-2"
+                  onClick={() => setIsWorkspaceMenuOpen(false)}
+                >
+                  <div className="px-3 py-1.5 text-xs font-bold text-gray-400 uppercase tracking-wider">
+                    Workspaces
+                  </div>
+                  {workspaces.map(ws => (
+                    <button
+                      key={ws.id}
+                      onClick={() => setActiveWorkspaceId(ws.id)}
+                      className={`w-full text-left px-4 py-2 text-sm font-semibold flex items-center justify-between hover:bg-indigo-50 transition ${
+                        ws.id === activeWorkspaceId ? 'text-indigo-600 font-bold bg-indigo-50/50' : 'text-gray-700'
+                      }`}
+                    >
+                      <span className="truncate">{ws.name}</span>
+                      <span className="text-xs text-gray-400 font-normal">({ws.columns.length} status)</span>
+                    </button>
+                  ))}
+                  <div className="border-t border-gray-100 mt-2 pt-2 px-2">
+                    <button
+                      onClick={() => setIsNewWorkspaceModalOpen(true)}
+                      className="w-full text-left px-3 py-2 text-xs font-bold text-indigo-600 hover:bg-indigo-50 rounded-xl flex items-center gap-2 transition"
+                    >
+                      <PlusCircle size={14} /> Create New Workspace
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="flex items-center gap-2 flex-1">
                 <div className="relative group">
                     <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-indigo-500 transition-colors"/>
@@ -147,7 +224,7 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
       <DragDropContext onDragEnd={onDragEnd}>
         <div className="flex-1 overflow-x-auto overflow-y-hidden px-6 pb-4 pt-6">
           <div className="flex gap-6 h-full min-w-full">
-            {COLUMNS.map((col) => (
+            {activeWorkspace.columns.map((col) => (
               <BoardColumn 
                 key={col.id}
                 column={col}
@@ -159,6 +236,13 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
           </div>
         </div>
       </DragDropContext>
+
+      {isNewWorkspaceModalOpen && (
+        <CreateWorkspaceModal 
+          onClose={() => setIsNewWorkspaceModalOpen(false)}
+          onCreate={handleCreateWorkspace}
+        />
+      )}
 
       {isExportOpen && <ExportEventModal tasks={tasks} onClose={() => setIsExportOpen(false)} />}
       
@@ -191,6 +275,139 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
               }}
           />
       )}
+    </div>
+  );
+};
+
+const CreateWorkspaceModal = ({ onClose, onCreate }) => {
+  const [workspaceName, setWorkspaceName] = useState('');
+  const [columns, setColumns] = useState([
+    { id: 'todo', title: 'To Do', color: 'text-gray-600 bg-gray-100' },
+    { id: 'in_progress', title: 'In Progress', color: 'text-blue-600 bg-blue-100' },
+    { id: 'done', title: 'Done', color: 'text-green-600 bg-green-100' }
+  ]);
+
+  const handleAddColumn = () => {
+    const id = `col_${Date.now()}`;
+    setColumns(prev => [...prev, { id, title: 'New Status', color: 'text-purple-600 bg-purple-100' }]);
+  };
+
+  const handleRemoveColumn = (index) => {
+    if (columns.length <= 1) return alert("A workspace must have at least one column status.");
+    setColumns(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleColumnChange = (index, field, value) => {
+    setColumns(prev => prev.map((col, i) => {
+      if (i === index) {
+        const updated = { ...col, [field]: value };
+        if (field === 'title') {
+          updated.id = value.toLowerCase().replace(/\s+/g, '_') || col.id;
+        }
+        return updated;
+      }
+      return col;
+    }));
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!workspaceName.trim()) return alert("Please enter a workspace name.");
+    
+    const newWorkspace = {
+      id: `ws_${Date.now()}`,
+      name: workspaceName.trim(),
+      columns: columns.map(c => ({
+        ...c,
+        title: c.title.trim() || 'Untitled Status'
+      }))
+    };
+    onCreate(newWorkspace);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+          <h3 className="text-lg font-black text-gray-800 flex items-center gap-2">
+            <Briefcase size={18} className="text-indigo-600" /> Create Workspace
+          </h3>
+          <button onClick={onClose} className="p-1.5 hover:bg-gray-200 rounded-full transition"><X size={18}/></button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-5 max-h-[75vh] overflow-y-auto">
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Workspace Name</label>
+            <input 
+              type="text"
+              placeholder="e.g. Design Workspace, QA Team"
+              className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-indigo-500 font-semibold"
+              value={workspaceName}
+              onChange={(e) => setWorkspaceName(e.target.value)}
+              required
+            />
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Process Statuses (Columns)</label>
+              <button
+                type="button"
+                onClick={handleAddColumn}
+                className="text-xs font-bold text-indigo-600 hover:underline flex items-center gap-1"
+              >
+                <Plus size={14} /> Add Column
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              {columns.map((col, idx) => (
+                <div key={idx} className="flex items-center gap-2 bg-gray-50 p-2 rounded-xl border border-gray-200">
+                  <input 
+                    type="text"
+                    value={col.title}
+                    onChange={(e) => handleColumnChange(idx, 'title', e.target.value)}
+                    className="flex-1 bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-sm font-semibold outline-none focus:border-indigo-500"
+                    placeholder="Status Name"
+                  />
+                  <select
+                    value={col.color}
+                    onChange={(e) => handleColumnChange(idx, 'color', e.target.value)}
+                    className="bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs font-medium outline-none"
+                  >
+                    {COLOR_OPTIONS.map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveColumn(idx)}
+                    className="p-1.5 text-gray-400 hover:text-red-500 transition"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-3 border-t border-gray-100">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-sm font-bold text-gray-600 hover:bg-gray-100 rounded-xl transition"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-5 py-2 text-sm font-bold bg-indigo-600 text-white hover:bg-indigo-700 rounded-xl transition shadow-md"
+            >
+              Create & Switch
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 };
@@ -239,7 +456,7 @@ const BoardColumn = ({ column, tasks, onTaskClick, onDeleteTask }) => {
       <div className="flex items-center justify-between mb-4 p-4 border-b border-gray-100">
         <div className="flex items-center gap-2">
             <h3 className="text-gray-700 font-black text-sm uppercase tracking-wider">{column.title}</h3>
-            <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${column.color.replace('text-', 'bg-').replace('50', '100')} ${column.color.split(' ')[1]}`}>{tasks.length}</span>
+            <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${column.color?.replace('text-', 'bg-').replace('50', '100') || 'bg-gray-100'} ${column.color?.split(' ')[1] || 'text-gray-700'}`}>{tasks.length}</span>
         </div>
         <MoreHorizontal size={16} className="text-gray-300 hover:text-gray-600 cursor-pointer" />
       </div>
@@ -338,7 +555,6 @@ const TaskCard = ({ task, index, onClick, onDelete }) => {
                 
                 <h4 className="text-gray-800 font-semibold text-sm mb-2 leading-relaxed line-clamp-2">{task.title}</h4>
                 
-                {/* 🟢 NEW CARD ELEMENT: TASK LEADER SUB-INDICATOR */}
                 <div className="flex items-center gap-1.5 text-xs font-bold text-gray-500 mb-2">
                     <User size={12} className="text-gray-400" />
                     <span>Leader: <span className="text-gray-700">{task.taskLeader || 'Unassigned'}</span></span>
