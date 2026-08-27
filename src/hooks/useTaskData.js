@@ -11,7 +11,8 @@ import {
   query, 
   orderBy,
   where,
-  runTransaction 
+  runTransaction,
+  writeBatch 
 } from 'firebase/firestore';
 
 export const useTaskData = (currentUser) => {
@@ -485,7 +486,6 @@ export const useTaskData = (currentUser) => {
         
         const cleanedUpdates = cleanData(updates);
 
-        // 🤖 AUTOMATION 1: CASCADING DEADLINES
         if (oldTask.isMainTask && updates.deadline && oldTask.deadline && updates.deadline !== oldTask.deadline) {
             const oldTime = new Date(oldTask.deadline).getTime();
             const newTime = new Date(updates.deadline).getTime();
@@ -501,7 +501,6 @@ export const useTaskData = (currentUser) => {
             console.log(`⏱️ Shifted deadlines for ${subtasks.length} subtasks.`);
         }
 
-        // 🤖 AUTOMATION 2: REVIEW & APPROVAL HANDOFF
         if (updates.status === 'review' && oldTask.status !== 'review') {
             const mergedTask = { ...oldTask, ...updates };
             if (mergedTask.finalFile) {
@@ -509,21 +508,17 @@ export const useTaskData = (currentUser) => {
             }
         }
 
-        // 🟢 Update the actual document
         await updateDoc(doc(db, "tasks", id), cleanedUpdates);
         
-        // 🤖 AUTOMATION 3: SMART STATUS SYNC
         if (oldTask.parentTaskId && updates.status) {
             const parent = tasks.find(t => t.id === oldTask.parentTaskId);
             const siblings = tasks.filter(t => t.parentTaskId === oldTask.parentTaskId && t.id !== id);
             
             if (parent) {
-                // 🟢 UPDATED: Changed identifier targeting from 'in-progress' to 'on-process'
                 if (updates.status === 'on-process' && parent.status === 'todo') {
                     await updateDoc(doc(db, "tasks", parent.id), { status: 'on-process' });
                 }
                 
-                // Scenario B: If completing a subtask, check if ALL subtasks are done
                 if (updates.status === 'done' || updates.status === 'completed') {
                     const allSiblingsDone = siblings.every(s => s.status === 'done' || s.status === 'completed');
                     if (allSiblingsDone && parent.status !== 'done' && parent.status !== 'completed') {
@@ -534,7 +529,6 @@ export const useTaskData = (currentUser) => {
             }
         }
         
-        // Standard notification metrics
         const changedFields = [];
         if (updates.startTime && updates.startTime !== oldTask.startTime) changedFields.push("Start Time");
         if (updates.endTime && updates.endTime !== oldTask.endTime) changedFields.push("End Time");
@@ -551,7 +545,27 @@ export const useTaskData = (currentUser) => {
   };
 
   const moveTask = async (taskId, newStatus) => { try { await updateDoc(doc(db, "tasks", taskId), { status: newStatus }); const task = tasks.find(t => t.id === taskId); const updatedTask = { ...task, status: newStatus }; if (newStatus === 'canceled') await sendLinePush(updatedTask, "🚫 Task Canceled", "#9CA3AF"); else await sendLinePush(updatedTask, "🔄 Status Updated", "#3B82F6"); } catch (error) { console.error("Error moving task:", error); } };
-  const deleteTask = async (id) => { if(!confirm("Delete task?")) return; try { await deleteDoc(doc(db, "tasks", id)); } catch (error) { console.error(error); } };
+  
+  // 🟢 ALLOW SKIPPING WINDOW.CONFIRM FOR BATCH DELETIONS
+  const deleteTask = async (id, skipConfirm = false) => { 
+    if (!skipConfirm && !confirm("Delete task?")) return; 
+    try { await deleteDoc(doc(db, "tasks", id)); } catch (error) { console.error(error); } 
+  };
+
+  // 🟢 BATCH DELETE FIRESTORE HELPER
+  const batchDeleteTasks = async (ids = []) => {
+    if (!ids || ids.length === 0) return;
+    try {
+      const batch = writeBatch(db);
+      ids.forEach(id => {
+        batch.delete(doc(db, "tasks", id));
+      });
+      await batch.commit();
+      console.log(`✅ Batch deleted ${ids.length} tasks successfully.`);
+    } catch (error) {
+      console.error("Error batch deleting tasks:", error);
+    }
+  };
 
   const addTransaction = async (t) => { try { await addDoc(collection(db, "transactions"), cleanData({ ...t, createdAt: new Date().toISOString() })); } catch (e) { console.error(e); } };
   const updateTransaction = async (id, u) => { try { await updateDoc(doc(db, "transactions", id), cleanData(u)); } catch (e) { console.error(e); } };
@@ -575,7 +589,7 @@ export const useTaskData = (currentUser) => {
   const activeNotifications = useMemo(() => notifications.filter(n => { if (!n.taskId) return true; const task = tasks.find(t => t.id === n.taskId); return !task || (task.status !== 'canceled'); }), [notifications, tasks]);
 
   return {
-    tasks, addTask, updateTask, deleteTask, moveTask,
+    tasks, addTask, updateTask, deleteTask, batchDeleteTasks, moveTask,
     transactions, addTransaction, deleteTransaction, updateTransaction,
     leaves, addLeave, deleteLeave,
     otRecords, addOTRecord, deleteOTRecord, updateOTStatus,

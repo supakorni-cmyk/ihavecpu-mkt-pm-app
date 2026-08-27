@@ -72,7 +72,6 @@ export default function Dashboard() {
           console.log("Deep Link Found for:", foundTask.title);
           setDeepLinkTask(foundTask);
           
-          // Optional: Clean URL
           window.history.replaceState({}, document.title, window.location.pathname);
         }
       }
@@ -106,13 +105,12 @@ export default function Dashboard() {
           <BoardView 
             tasks={data.tasks} 
             onAddTaskClick={(workspaceId) => {
-              // You can pass the workspaceId to your modal so new tasks get tagged correctly
               setIsAddModalOpen(true);
             }}
             onBatchAddTasks={(newTasks) => {
-              // Add all imported Trello tasks to your state/database
               newTasks.forEach(task => data.addTask(task));
             }}
+            onBatchDeleteTasks={data.batchDeleteTasks}
             onTaskClick={setSelectedTaskId}
             onUpdateTask={data.updateTask}
             onDeleteTask={data.deleteTask}
