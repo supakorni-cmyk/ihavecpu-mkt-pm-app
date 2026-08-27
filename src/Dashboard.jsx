@@ -105,7 +105,14 @@ export default function Dashboard() {
         {currentView === 'board' && (
           <BoardView 
             tasks={data.tasks} 
-            onAddTaskClick={() => setIsAddModalOpen(true)}
+            onAddTaskClick={(workspaceId) => {
+              // You can pass the workspaceId to your modal so new tasks get tagged correctly
+              setIsAddModalOpen(true);
+            }}
+            onBatchAddTasks={(newTasks) => {
+              // Add all imported Trello tasks to your state/database
+              newTasks.forEach(task => data.addTask(task));
+            }}
             onTaskClick={setSelectedTaskId}
             onUpdateTask={data.updateTask}
             onDeleteTask={data.deleteTask}
