@@ -34,7 +34,7 @@ const COLOR_OPTIONS = [
   { label: 'Red', value: 'text-red-600 bg-red-100' },
 ];
 
-const BoardView = ({ tasks = [], onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTask, onBatchAddTasks }) => {
+const BoardView = ({ tasks = [], onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTask, onBatchAddTasks, onBatchDeleteTasks }) => {
   // PERSISTENT WORKSPACES STATE
   const [workspaces, setWorkspaces] = useState(() => {
     try {
@@ -179,7 +179,7 @@ const BoardView = ({ tasks = [], onAddTaskClick, onUpdateTask, onDeleteTask, onM
     alert(`Successfully converted ${count} task tags to "ARTWORK/PROMOTION" in ${activeWorkspace.name}!`);
   };
 
-  // 🟢 BATCH DELETE ALL IMPORTED TRELLO TASKS IN ACTIVE WORKSPACE
+  // 🟢 SINGLE CONFIRMATION BATCH DELETE
   const handleDeleteTrelloTasks = () => {
     const trelloTasks = tasks.filter(task => {
       const matchesWorkspace = (task.workspaceId || 'marketing') === activeWorkspaceId;
@@ -191,10 +191,18 @@ const BoardView = ({ tasks = [], onAddTaskClick, onUpdateTask, onDeleteTask, onM
       return alert(`No imported Trello tasks found in "${activeWorkspace.name}".`);
     }
 
-    if (window.confirm(`Are you sure you want to delete ALL ${trelloTasks.length} imported Trello task(s) from "${activeWorkspace.name}"?`)) {
-      trelloTasks.forEach(task => {
-        if (onDeleteTask) onDeleteTask(task.id);
-      });
+    // Single confirm prompt asked only once
+    const confirmed = window.confirm(`Are you sure you want to delete ALL ${trelloTasks.length} imported Trello task(s) from "${activeWorkspace.name}"?`);
+
+    if (confirmed) {
+      const idsToDelete = trelloTasks.map(t => t.id);
+
+      if (onBatchDeleteTasks) {
+        onBatchDeleteTasks(idsToDelete);
+      } else if (onDeleteTask) {
+        // Pass skipConfirm = true as 2nd parameter to suppress per-task confirmation prompts
+        idsToDelete.forEach(id => onDeleteTask(id, true));
+      }
       alert(`Deleted ${trelloTasks.length} Trello task(s).`);
     }
   };
@@ -416,7 +424,6 @@ const BoardView = ({ tasks = [], onAddTaskClick, onUpdateTask, onDeleteTask, onM
                   <Wand2 size={13} /> Fix Tags to Artwork
                 </button>
 
-                {/* 🟢 BUTTON TO DELETE ALL TRELLO IMPORTS IN CURRENT WORKSPACE */}
                 <button
                   onClick={handleDeleteTrelloTasks}
                   className="flex items-center gap-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 px-3 py-2 rounded-full text-xs font-bold transition shadow-sm whitespace-nowrap"
