@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { 
-  MoreHorizontal, Plus, Trash2, CheckSquare, Clock, Heart, FileText, X, Copy, MapPin, Search, Filter, XCircle, User, Briefcase, ChevronDown, PlusCircle, Upload, FileJson, Pencil
+  MoreHorizontal, Plus, Trash2, CheckSquare, Clock, Heart, FileText, X, Copy, MapPin, Search, Filter, XCircle, User, Briefcase, ChevronDown, PlusCircle, Upload, FileJson, Pencil, Wand2
 } from 'lucide-react';
 import { COLUMNS, TAG_COLORS, formatDate } from '../../utils/constants';
 
@@ -99,6 +99,38 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
 
   const isFiltered = searchQuery !== "" || selectedCategory !== "All";
 
+  // BATCH CONVERT 'GREEN' & 'TRELLO' TAGS TO 'ARTWORK/PROMOTION'
+  const handleBatchFixWorkspaceTags = () => {
+    const targetTasks = tasks.filter(t => (t.workspaceId || 'marketing') === activeWorkspaceId);
+    let count = 0;
+
+    targetTasks.forEach(task => {
+      const currentTag = (task.tag || '').toUpperCase();
+      const currentTags = (task.tags || []).map(tg => (tg || '').toUpperCase());
+
+      const needsFix = currentTag === 'GREEN' || currentTag === 'TRELLO' || currentTags.includes('GREEN') || currentTags.includes('TRELLO');
+
+      if (needsFix && onUpdateTask) {
+        count++;
+        const newTags = (task.tags || []).map(tg => {
+          const upper = (tg || '').toUpperCase();
+          return (upper === 'GREEN' || upper === 'TRELLO') ? 'ARTWORK/PROMOTION' : tg;
+        });
+
+        if (newTags.length === 0 || !newTags.includes('ARTWORK/PROMOTION')) {
+          newTags.push('ARTWORK/PROMOTION');
+        }
+
+        onUpdateTask(task.id, {
+          tag: 'ARTWORK/PROMOTION',
+          tags: Array.from(new Set(newTags))
+        });
+      }
+    });
+
+    alert(`Successfully converted ${count} task tags to "ARTWORK/PROMOTION" in ${activeWorkspace.name}!`);
+  };
+
   const tasksByColumn = useMemo(() => {
     const activeCols = activeWorkspace.columns;
     const grouped = {};
@@ -171,7 +203,6 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
     }
   };
 
-  // TRELLO IMPORT HANDLER
   const handleImportTrelloBoard = (importedWorkspace, importedTasks, targetWorkspaceId) => {
     if (importedWorkspace) {
       setWorkspaces(prev => [...prev, importedWorkspace]);
@@ -195,7 +226,7 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
             </h2>
             <div className="h-8 w-px bg-gray-200 hidden xl:block"></div>
             
-            {/* WORKSPACE SELECTOR DROPDOWN WITH EDIT & DELETE OPTIONS */}
+            {/* WORKSPACE SELECTOR DROPDOWN */}
             <div className="relative">
               <button
                 onClick={() => setIsWorkspaceMenuOpen(!isWorkspaceMenuOpen)}
@@ -231,7 +262,6 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
                           <span className="text-[10px] text-gray-400 font-normal">({ws.columns.length})</span>
                         </div>
 
-                        {/* EDIT & DELETE ACTIONS */}
                         <div className="flex items-center gap-1 opacity-80 group-hover/ws:opacity-100 transition-opacity">
                           <button
                             type="button"
@@ -310,6 +340,15 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
                     </select>
                 </div>
 
+                {/* QUICK BATCH TAG CONVERTER BUTTON */}
+                <button
+                  onClick={handleBatchFixWorkspaceTags}
+                  className="flex items-center gap-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 px-3 py-2 rounded-full text-xs font-bold transition shadow-sm whitespace-nowrap"
+                  title="Convert GREEN and TRELLO tags in active workspace to ARTWORK/PROMOTION"
+                >
+                  <Wand2 size={13} /> Fix Tags to Artwork
+                </button>
+
                 {isFiltered && (
                     <button 
                         onClick={clearFilters}
@@ -338,9 +377,10 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
         </div>
       </header>
 
+      {/* 🟢 CUSTOM VISIBLE HORIZONTAL SCROLLBAR WRAPPER */}
       <DragDropContext onDragEnd={onDragEnd}>
-        <div className="flex-1 overflow-x-auto overflow-y-hidden px-6 pb-4 pt-6">
-          <div className="flex gap-6 h-full min-w-full">
+        <div className="flex-1 overflow-x-auto overflow-y-hidden px-6 pb-6 pt-6 [&::-webkit-scrollbar]:h-2.5 [&::-webkit-scrollbar-track]:bg-gray-200/60 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-400 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-gray-500 transition-colors">
+          <div className="flex gap-6 h-full w-max min-w-full">
             {activeWorkspace.columns.map((col) => (
               <BoardColumn 
                 key={col.id}
@@ -413,7 +453,226 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
   );
 };
 
-// 🟢 EDIT WORKSPACE DETAILS MODAL
+const ImportTrelloModal = ({ activeWorkspace, workspaces, onClose, onImport }) => {
+  const [trelloFile, setTrelloFile] = useState(null);
+  const [parsedData, setParsedData] = useState(null);
+  const [importDestination, setImportDestination] = useState('current');
+  const [customWorkspaceName, setCustomWorkspaceName] = useState('');
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const json = JSON.parse(event.target.result);
+        if (!json.lists || !json.cards) {
+          return alert("Invalid Trello JSON format. Ensure you exported your board from the Trello menu.");
+        }
+
+        setParsedData(json);
+        setCustomWorkspaceName(json.name || 'Imported Trello Board');
+        setTrelloFile(file);
+      } catch (err) {
+        alert("Failed to parse JSON file: " + err.message);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleProcessImport = () => {
+    if (!parsedData) return;
+
+    let targetWorkspaceId = activeWorkspace.id;
+    let newWorkspaceObj = null;
+
+    if (importDestination === 'new') {
+      targetWorkspaceId = `ws_trello_${Date.now()}`;
+      const colors = [
+        'text-[#0052CC] bg-[#DEEBFF]',
+        'text-[#00875A] bg-[#E3FCEF]',
+        'text-[#FFAB00] bg-[#FFF0B3]',
+        'text-[#FF5630] bg-[#FFBDAD]',
+        'text-[#5243AA] bg-[#EAE6FF]'
+      ];
+
+      const activeLists = parsedData.lists.filter(l => !l.closed);
+      const columns = activeLists.map((list, idx) => ({
+        id: list.id,
+        title: list.name,
+        color: colors[idx % colors.length]
+      }));
+
+      newWorkspaceObj = {
+        id: targetWorkspaceId,
+        name: customWorkspaceName.trim() || 'Imported Trello Workspace',
+        columns: columns.length > 0 ? columns : COLUMNS
+      };
+    }
+
+    const listToColumnIdMap = {};
+    if (importDestination === 'current') {
+      const activeLists = parsedData.lists.filter(l => !l.closed);
+      activeLists.forEach(list => {
+        const matchedCol = activeWorkspace.columns.find(col => 
+          col.title.toLowerCase() === list.name.toLowerCase() ||
+          col.id.toLowerCase() === list.name.toLowerCase()
+        );
+        listToColumnIdMap[list.id] = matchedCol ? matchedCol.id : (activeWorkspace.columns[0]?.id || 'todo');
+      });
+    } else {
+      parsedData.lists.forEach(list => {
+        listToColumnIdMap[list.id] = list.id;
+      });
+    }
+
+    const checklistMap = {};
+    (parsedData.checklists || []).forEach(ch => {
+      checklistMap[ch.id] = ch.checkItems || [];
+    });
+
+    const activeCards = parsedData.cards.filter(c => !c.closed);
+    const importedTasks = activeCards.map((card, idx) => {
+      const requirements = [];
+      (card.idChecklists || []).forEach(chId => {
+        const items = checklistMap[chId] || [];
+        items.forEach(item => {
+          requirements.push({
+            id: `req_${item.id}`,
+            title: item.name,
+            isDone: item.state === 'complete'
+          });
+        });
+      });
+
+      let imageUrl = '';
+      if (card.attachments && card.attachments.length > 0) {
+        const imageAtt = card.attachments.find(a => a.mimeType && a.mimeType.startsWith('image/'));
+        if (imageAtt) imageUrl = imageAtt.url;
+      }
+
+      const rawLabels = (card.labels || []).map(l => l.name || l.color).filter(Boolean);
+      const mappedTags = rawLabels.map(tag => {
+        const upper = tag.toUpperCase();
+        return (upper === 'GREEN' || upper === 'TRELLO') ? 'ARTWORK/PROMOTION' : tag;
+      });
+
+      const finalTags = mappedTags.length > 0 ? mappedTags : ['ARTWORK/PROMOTION'];
+
+      return {
+        id: `trello_${card.id}_${Date.now()}_${idx}`,
+        workspaceId: targetWorkspaceId,
+        title: card.name,
+        description: card.desc || '',
+        status: listToColumnIdMap[card.idList] || activeWorkspace.columns[0]?.id || 'todo',
+        deadline: card.due || null,
+        startTime: null,
+        tag: finalTags[0],
+        tags: finalTags,
+        requirements: requirements,
+        imageUrl: imageUrl,
+        taskLeader: 'Trello Import',
+        isPao: false
+      };
+    });
+
+    onImport(newWorkspaceObj, importedTasks, targetWorkspaceId);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+          <h3 className="text-lg font-black text-gray-800 flex items-center gap-2">
+            <FileJson size={18} className="text-blue-600" /> Import Trello Board
+          </h3>
+          <button onClick={onClose} className="p-1.5 hover:bg-gray-200 rounded-full transition"><X size={18}/></button>
+        </div>
+
+        <div className="p-6 flex flex-col gap-5">
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Upload Trello JSON File</label>
+            <input 
+              type="file" 
+              accept=".json"
+              onChange={handleFileUpload}
+              className="w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer border border-gray-200 rounded-xl p-1"
+            />
+          </div>
+
+          {parsedData && (
+            <div className="bg-blue-50/60 border border-blue-100 rounded-xl p-4 flex flex-col gap-3">
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Import Destination</label>
+                <div className="flex flex-col gap-2">
+                  <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 cursor-pointer">
+                    <input 
+                      type="radio" 
+                      name="destination"
+                      value="current"
+                      checked={importDestination === 'current'}
+                      onChange={() => setImportDestination('current')}
+                      className="text-blue-600 focus:ring-blue-500"
+                    />
+                    <span>Import into Current Workspace (<strong>{activeWorkspace.name}</strong>)</span>
+                  </label>
+                  <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 cursor-pointer">
+                    <input 
+                      type="radio" 
+                      name="destination"
+                      value="new"
+                      checked={importDestination === 'new'}
+                      onChange={() => setImportDestination('new')}
+                      className="text-blue-600 focus:ring-blue-500"
+                    />
+                    <span>Create a Brand New Workspace</span>
+                  </label>
+                </div>
+              </div>
+
+              {importDestination === 'new' && (
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">New Workspace Name</label>
+                  <input 
+                    type="text"
+                    value={customWorkspaceName}
+                    onChange={(e) => setCustomWorkspaceName(e.target.value)}
+                    className="w-full border border-blue-200 rounded-lg px-3 py-1.5 text-sm font-semibold outline-none focus:border-blue-500 bg-white"
+                  />
+                </div>
+              )}
+
+              <div className="flex items-center justify-between text-xs font-bold text-gray-600 pt-2 border-t border-blue-100">
+                <span>Lists in JSON: <strong className="text-blue-700">{parsedData.lists.filter(l=>!l.closed).length}</strong></span>
+                <span>Cards to Import: <strong className="text-blue-700">{parsedData.cards.filter(c=>!c.closed).length}</strong></span>
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-3 pt-3 border-t border-gray-100">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-sm font-bold text-gray-600 hover:bg-gray-100 rounded-xl transition"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={!parsedData}
+              onClick={handleProcessImport}
+              className="px-5 py-2 text-sm font-bold bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40 rounded-xl transition shadow-md flex items-center gap-2"
+            >
+              <Upload size={16} /> Import Tasks
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const EditWorkspaceModal = ({ workspace, onClose, onSave }) => {
   const [workspaceName, setWorkspaceName] = useState(workspace.name);
   const [columns, setColumns] = useState(workspace.columns || []);
@@ -670,220 +929,6 @@ const CreateWorkspaceModal = ({ onClose, onCreate }) => {
             </button>
           </div>
         </form>
-      </div>
-    </div>
-  );
-};
-
-const ImportTrelloModal = ({ activeWorkspace, workspaces, onClose, onImport }) => {
-  const [trelloFile, setTrelloFile] = useState(null);
-  const [parsedData, setParsedData] = useState(null);
-  const [importDestination, setImportDestination] = useState('current');
-  const [customWorkspaceName, setCustomWorkspaceName] = useState('');
-
-  const handleFileUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const json = JSON.parse(event.target.result);
-        if (!json.lists || !json.cards) {
-          return alert("Invalid Trello JSON format. Ensure you exported your board from the Trello menu.");
-        }
-
-        setParsedData(json);
-        setCustomWorkspaceName(json.name || 'Imported Trello Board');
-        setTrelloFile(file);
-      } catch (err) {
-        alert("Failed to parse JSON file: " + err.message);
-      }
-    };
-    reader.readAsText(file);
-  };
-
-  const handleProcessImport = () => {
-    if (!parsedData) return;
-
-    let targetWorkspaceId = activeWorkspace.id;
-    let newWorkspaceObj = null;
-
-    if (importDestination === 'new') {
-      targetWorkspaceId = `ws_trello_${Date.now()}`;
-      const colors = [
-        'text-[#0052CC] bg-[#DEEBFF]',
-        'text-[#00875A] bg-[#E3FCEF]',
-        'text-[#FFAB00] bg-[#FFF0B3]',
-        'text-[#FF5630] bg-[#FFBDAD]',
-        'text-[#5243AA] bg-[#EAE6FF]'
-      ];
-
-      const activeLists = parsedData.lists.filter(l => !l.closed);
-      const columns = activeLists.map((list, idx) => ({
-        id: list.id,
-        title: list.name,
-        color: colors[idx % colors.length]
-      }));
-
-      newWorkspaceObj = {
-        id: targetWorkspaceId,
-        name: customWorkspaceName.trim() || 'Imported Trello Workspace',
-        columns: columns.length > 0 ? columns : COLUMNS
-      };
-    }
-
-    const listToColumnIdMap = {};
-    if (importDestination === 'current') {
-      const activeLists = parsedData.lists.filter(l => !l.closed);
-      activeLists.forEach(list => {
-        const matchedCol = activeWorkspace.columns.find(col => 
-          col.title.toLowerCase() === list.name.toLowerCase() ||
-          col.id.toLowerCase() === list.name.toLowerCase()
-        );
-        listToColumnIdMap[list.id] = matchedCol ? matchedCol.id : (activeWorkspace.columns[0]?.id || 'todo');
-      });
-    } else {
-      parsedData.lists.forEach(list => {
-        listToColumnIdMap[list.id] = list.id;
-      });
-    }
-
-    const checklistMap = {};
-    (parsedData.checklists || []).forEach(ch => {
-      checklistMap[ch.id] = ch.checkItems || [];
-    });
-
-    const activeCards = parsedData.cards.filter(c => !c.closed);
-    const importedTasks = activeCards.map((card, idx) => {
-      const requirements = [];
-      (card.idChecklists || []).forEach(chId => {
-        const items = checklistMap[chId] || [];
-        items.forEach(item => {
-          requirements.push({
-            id: `req_${item.id}`,
-            title: item.name,
-            isDone: item.state === 'complete'
-          });
-        });
-      });
-
-      let imageUrl = '';
-      if (card.attachments && card.attachments.length > 0) {
-        const imageAtt = card.attachments.find(a => a.mimeType && a.mimeType.startsWith('image/'));
-        if (imageAtt) imageUrl = imageAtt.url;
-      }
-
-      const cardTags = (card.labels || []).map(l => l.name || l.color).filter(Boolean);
-
-      return {
-        id: `trello_${card.id}_${Date.now()}_${idx}`,
-        workspaceId: targetWorkspaceId,
-        title: card.name,
-        description: card.desc || '',
-        status: listToColumnIdMap[card.idList] || activeWorkspace.columns[0]?.id || 'todo',
-        deadline: card.due || null,
-        startTime: null,
-        tag: cardTags[0] || 'TRELLO',
-        tags: cardTags.length > 0 ? cardTags : ['TRELLO'],
-        requirements: requirements,
-        imageUrl: imageUrl,
-        taskLeader: 'Trello Import',
-        isPao: false
-      };
-    });
-
-    onImport(newWorkspaceObj, importedTasks, targetWorkspaceId);
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
-        <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-          <h3 className="text-lg font-black text-gray-800 flex items-center gap-2">
-            <FileJson size={18} className="text-blue-600" /> Import Trello Board
-          </h3>
-          <button onClick={onClose} className="p-1.5 hover:bg-gray-200 rounded-full transition"><X size={18}/></button>
-        </div>
-
-        <div className="p-6 flex flex-col gap-5">
-          <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Upload Trello JSON File</label>
-            <input 
-              type="file" 
-              accept=".json"
-              onChange={handleFileUpload}
-              className="w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer border border-gray-200 rounded-xl p-1"
-            />
-          </div>
-
-          {parsedData && (
-            <div className="bg-blue-50/60 border border-blue-100 rounded-xl p-4 flex flex-col gap-3">
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Import Destination</label>
-                <div className="flex flex-col gap-2">
-                  <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 cursor-pointer">
-                    <input 
-                      type="radio" 
-                      name="destination"
-                      value="current"
-                      checked={importDestination === 'current'}
-                      onChange={() => setImportDestination('current')}
-                      className="text-blue-600 focus:ring-blue-500"
-                    />
-                    <span>Import into Current Workspace (<strong>{activeWorkspace.name}</strong>)</span>
-                  </label>
-                  <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 cursor-pointer">
-                    <input 
-                      type="radio" 
-                      name="destination"
-                      value="new"
-                      checked={importDestination === 'new'}
-                      onChange={() => setImportDestination('new')}
-                      className="text-blue-600 focus:ring-blue-500"
-                    />
-                    <span>Create a Brand New Workspace</span>
-                  </label>
-                </div>
-              </div>
-
-              {importDestination === 'new' && (
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">New Workspace Name</label>
-                  <input 
-                    type="text"
-                    value={customWorkspaceName}
-                    onChange={(e) => setCustomWorkspaceName(e.target.value)}
-                    className="w-full border border-blue-200 rounded-lg px-3 py-1.5 text-sm font-semibold outline-none focus:border-blue-500 bg-white"
-                  />
-                </div>
-              )}
-
-              <div className="flex items-center justify-between text-xs font-bold text-gray-600 pt-2 border-t border-blue-100">
-                <span>Lists in JSON: <strong className="text-blue-700">{parsedData.lists.filter(l=>!l.closed).length}</strong></span>
-                <span>Cards to Import: <strong className="text-blue-700">{parsedData.cards.filter(c=>!c.closed).length}</strong></span>
-              </div>
-            </div>
-          )}
-
-          <div className="flex justify-end gap-3 pt-3 border-t border-gray-100">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-sm font-bold text-gray-600 hover:bg-gray-100 rounded-xl transition"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              disabled={!parsedData}
-              onClick={handleProcessImport}
-              className="px-5 py-2 text-sm font-bold bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40 rounded-xl transition shadow-md flex items-center gap-2"
-            >
-              <Upload size={16} /> Import Tasks
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   );
