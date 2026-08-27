@@ -1,5 +1,5 @@
 // src/components/views/BoardView.jsx
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { 
   MoreHorizontal, Plus, Trash2, CheckSquare, Clock, Heart, FileText, X, Copy, MapPin, Search, Filter, XCircle, User, Briefcase, ChevronDown, PlusCircle
@@ -30,8 +30,36 @@ const COLOR_OPTIONS = [
 ];
 
 const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTask }) => {
-  const [workspaces, setWorkspaces] = useState(DEFAULT_WORKSPACES);
-  const [activeWorkspaceId, setActiveWorkspaceId] = useState('marketing');
+  // 🟢 PERSISTENT WORKSPACES: Load saved workspaces from localStorage or default
+  const [workspaces, setWorkspaces] = useState(() => {
+    try {
+      const saved = localStorage.getItem('app_workspaces');
+      return saved ? JSON.parse(saved) : DEFAULT_WORKSPACES;
+    } catch (e) {
+      return DEFAULT_WORKSPACES;
+    }
+  });
+
+  // 🟢 PERSISTENT ACTIVE WORKSPACE ID: Load saved selection from localStorage or default
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState(() => {
+    try {
+      const saved = localStorage.getItem('app_active_workspace_id');
+      return saved || 'marketing';
+    } catch (e) {
+      return 'marketing';
+    }
+  });
+
+  // 🟢 SAVE TO LOCALSTORAGE ON WORKSPACE CHANGES
+  useEffect(() => {
+    localStorage.setItem('app_workspaces', JSON.stringify(workspaces));
+  }, [workspaces]);
+
+  // 🟢 SAVE TO LOCALSTORAGE ON ACTIVE WORKSPACE SELECTION CHANGES
+  useEffect(() => {
+    localStorage.setItem('app_active_workspace_id', activeWorkspaceId);
+  }, [activeWorkspaceId]);
+
   const [isWorkspaceMenuOpen, setIsWorkspaceMenuOpen] = useState(false);
   const [isNewWorkspaceModalOpen, setIsNewWorkspaceModalOpen] = useState(false);
 
@@ -47,7 +75,7 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
     return workspaces.find(w => w.id === activeWorkspaceId) || workspaces[0];
   }, [workspaces, activeWorkspaceId]);
 
-  // 🟢 STRICT WORKSPACE FILTERING: Default untagged/legacy tasks to 'marketing'
+  // Strict workspace filtering: Default legacy tasks to 'marketing'
   const filteredTasks = useMemo(() => {
     return tasks.filter(task => {
         const taskWorkspace = task.workspaceId || 'marketing';
@@ -156,7 +184,7 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
                       }`}
                     >
                       <span className="truncate">{ws.name}</span>
-                      <span className="text-xs text-gray-400 font-normal">({ws.columns.length} status)</span>
+                      {/* <span className="text-xs text-gray-400 font-normal">({ws.columns.length} status)</span> */}
                     </button>
                   ))}
                   <div className="border-t border-gray-100 mt-2 pt-2 px-2">
@@ -215,7 +243,6 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
             <FileText size={16} /> <span className="hidden sm:inline">Export P.Pao</span>
           </button>
           
-          {/* 🟢 Pass activeWorkspaceId so newly created tasks are tagged to the current workspace */}
           <button 
             onClick={() => onAddTaskClick(activeWorkspaceId)} 
             className="flex items-center gap-2 bg-gray-900 text-white px-5 py-2.5 rounded-full font-bold hover:bg-black transition shadow-lg shadow-gray-200 text-sm transform hover:scale-105 active:scale-95"
