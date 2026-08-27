@@ -17,11 +17,6 @@ const DEFAULT_WORKSPACES = [
     id: 'marketing',
     name: 'Marketing Workspace',
     columns: COLUMNS
-  },
-  {
-    id: 'graphic_designer',
-    name: 'Graphic Designer Workspace',
-    columns: COLUMNS
   }
 ];
 
@@ -35,19 +30,11 @@ const COLOR_OPTIONS = [
 ];
 
 const BoardView = ({ tasks = [], onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTask, onBatchAddTasks, onBatchDeleteTasks }) => {
-  // PERSISTENT WORKSPACES STATE
+  // 🟢 FIXED: Respects user-deleted workspaces from localStorage
   const [workspaces, setWorkspaces] = useState(() => {
     try {
       const saved = localStorage.getItem('app_workspaces');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        const hasGraphicDesigner = parsed.some(w => w.id === 'graphic_designer' || w.name.toLowerCase().includes('graphic'));
-        if (!hasGraphicDesigner) {
-          parsed.push({ id: 'graphic_designer', name: 'Graphic Designer Workspace', columns: COLUMNS });
-        }
-        return parsed;
-      }
-      return DEFAULT_WORKSPACES;
+      return saved ? JSON.parse(saved) : DEFAULT_WORKSPACES;
     } catch (e) {
       return DEFAULT_WORKSPACES;
     }
@@ -57,9 +44,9 @@ const BoardView = ({ tasks = [], onAddTaskClick, onUpdateTask, onDeleteTask, onM
   const [activeWorkspaceId, setActiveWorkspaceId] = useState(() => {
     try {
       const saved = localStorage.getItem('app_active_workspace_id');
-      return saved || 'graphic_designer';
+      return saved || 'marketing';
     } catch (e) {
-      return 'graphic_designer';
+      return 'marketing';
     }
   });
 
@@ -71,7 +58,7 @@ const BoardView = ({ tasks = [], onAddTaskClick, onUpdateTask, onDeleteTask, onM
     localStorage.setItem('app_active_workspace_id', activeWorkspaceId);
   }, [activeWorkspaceId]);
 
-  // AUTO-HEALING ENGINE
+  // AUTO-HEALING ENGINE (Only triggers if existing tasks in database reference an unmapped workspace)
   useEffect(() => {
     if (!tasks || tasks.length === 0) return;
 
@@ -179,7 +166,7 @@ const BoardView = ({ tasks = [], onAddTaskClick, onUpdateTask, onDeleteTask, onM
     alert(`Successfully converted ${count} task tags to "ARTWORK/PROMOTION" in ${activeWorkspace.name}!`);
   };
 
-  // 🟢 SINGLE CONFIRMATION BATCH DELETE
+  // SINGLE CONFIRMATION BATCH DELETE
   const handleDeleteTrelloTasks = () => {
     const trelloTasks = tasks.filter(task => {
       const matchesWorkspace = (task.workspaceId || 'marketing') === activeWorkspaceId;
@@ -191,7 +178,6 @@ const BoardView = ({ tasks = [], onAddTaskClick, onUpdateTask, onDeleteTask, onM
       return alert(`No imported Trello tasks found in "${activeWorkspace.name}".`);
     }
 
-    // Single confirm prompt asked only once
     const confirmed = window.confirm(`Are you sure you want to delete ALL ${trelloTasks.length} imported Trello task(s) from "${activeWorkspace.name}"?`);
 
     if (confirmed) {
@@ -200,7 +186,6 @@ const BoardView = ({ tasks = [], onAddTaskClick, onUpdateTask, onDeleteTask, onM
       if (onBatchDeleteTasks) {
         onBatchDeleteTasks(idsToDelete);
       } else if (onDeleteTask) {
-        // Pass skipConfirm = true as 2nd parameter to suppress per-task confirmation prompts
         idsToDelete.forEach(id => onDeleteTask(id, true));
       }
       alert(`Deleted ${trelloTasks.length} Trello task(s).`);
