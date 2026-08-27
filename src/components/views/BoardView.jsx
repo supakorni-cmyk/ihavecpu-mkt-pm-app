@@ -47,10 +47,12 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
     return workspaces.find(w => w.id === activeWorkspaceId) || workspaces[0];
   }, [workspaces, activeWorkspaceId]);
 
+  // 🟢 STRICT WORKSPACE FILTERING: Default untagged/legacy tasks to 'marketing'
   const filteredTasks = useMemo(() => {
     return tasks.filter(task => {
-        // Workspace filtering (if tasks carry workspaceId; otherwise default to active)
-        const matchesWorkspace = !task.workspaceId || task.workspaceId === activeWorkspaceId;
+        const taskWorkspace = task.workspaceId || 'marketing';
+        const matchesWorkspace = taskWorkspace === activeWorkspaceId;
+        
         const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase());
         let matchesCategory = true;
         if (selectedCategory !== 'All') {
@@ -212,8 +214,10 @@ const BoardView = ({ tasks, onAddTaskClick, onUpdateTask, onDeleteTask, onMoveTa
           >
             <FileText size={16} /> <span className="hidden sm:inline">Export P.Pao</span>
           </button>
+          
+          {/* 🟢 Pass activeWorkspaceId so newly created tasks are tagged to the current workspace */}
           <button 
-            onClick={onAddTaskClick} 
+            onClick={() => onAddTaskClick(activeWorkspaceId)} 
             className="flex items-center gap-2 bg-gray-900 text-white px-5 py-2.5 rounded-full font-bold hover:bg-black transition shadow-lg shadow-gray-200 text-sm transform hover:scale-105 active:scale-95"
           >
             <Plus size={16} /> New Task
