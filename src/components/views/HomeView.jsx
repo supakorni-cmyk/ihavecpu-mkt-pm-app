@@ -22,18 +22,18 @@ const SYSTEM_AVATARS = {
   sutharat:'/avatars/ahzumi.jpg', 
   supakorn: '/avatars/boom.jpg', 
   sophisa: '/avatars/yui.jpg', 
-  somruk: '/avatars/somruk.png', 
+  somruk: '/avatars/somruk.jpg', 
   nichapa: '/avatars/mod.jpg' 
 };
 
 const INITIAL_TEAM = [
-    { id: 6, name: 'แบงค์กี้', email: 'panarin.b@ihavecpu.com', role: 'Asst.CEO', avatar: SYSTEM_AVATARS.panarin}, 
-    { id: 1, name: 'เป้ ไข่หมุน', email: 'jittikorn.m@ihavecpu.com', role: 'Marketing Manager', avatar: SYSTEM_AVATARS.jittikorn },
-    { id: 7, name: 'AHZUMI', email: 'sutharat@ihavecpu.com', role:'Online Business Manager', avatar: SYSTEM_AVATARS.sutharat},
-    { id: 2, name: 'บูม', email: 'supakorn.i@ihavecpu.com', role: 'Assistant Manager', avatar: SYSTEM_AVATARS.supakorn },
-    { id: 3, name: 'ยุ้ย', email: 'sophisa.p@ihavecpu.com', role: 'Assistant Manager', avatar: SYSTEM_AVATARS.sophisa },
-    { id: 4, name: 'สมรักษ์', email: 'somruk.m@ihavecpu.com', role: 'Graphic Head', avatar: SYSTEM_AVATARS.somruk },
-    { id: 5, name: 'มดตะนอย', email: 'nichapa.w@ihavecpu.com', role: 'Marketing Coordinator', avatar: SYSTEM_AVATARS.nichapa}
+    { id: 6, name: 'Panarin Boonsri', email: 'panarin.b@ihavecpu.com', role: 'Asst.CEO', avatar: SYSTEM_AVATARS.panarin}, 
+    { id: 1, name: 'Jittikorn Maneekum', email: 'jittikorn.m@ihavecpu.com', role: 'Advertising', avatar: SYSTEM_AVATARS.jittikorn },
+    { id: 7, name: 'Sutharat Suthanithee', email: 'sutharat@ihavecpu.com', role:'Online Business Manager', avatar: SYSTEM_AVATARS.sutharat},
+    { id: 2, name: 'Supakorn Intayanon', email: 'supakorn.i@ihavecpu.com', role: 'Assistant Manager', avatar: SYSTEM_AVATARS.supakorn },
+    { id: 3, name: 'Sophisa Phromduang', email: 'sophisa.p@ihavecpu.com', role: 'Assistant Manager', avatar: SYSTEM_AVATARS.sophisa },
+    { id: 4, name: 'Somruk Mangsa', email: 'somruk.m@ihavecpu.com', role: 'Graphic Head', avatar: SYSTEM_AVATARS.somruk },
+    { id: 5, name: 'Nichapa Wangsuk', email: 'nichapa.w@ihavecpu.com', role: 'Marketing Coordinator', avatar: SYSTEM_AVATARS.nichapa}
 ];
 
 // Fallback color palette if a tag has no mapped color
@@ -133,46 +133,46 @@ const HomeView = ({ tasks, currentUser, notifications = [], markNotificationRead
     });
   }, [tasks, team]);
 
-  // --- WEATHER FORECAST ---
-  useEffect(() => {
-      const fetchWeather = async (lat, lon, locName) => {
-          try {
-              const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&timezone=auto`);
-              const weatherJson = await weatherRes.json();
-              if (weatherJson && weatherJson.current_weather) setWeatherData(weatherJson.current_weather);
-              setLocationName(locName);
-          } catch (error) { setLocationName("Unknown Location"); }
-      };
+//   // --- WEATHER FORECAST ---
+//   useEffect(() => {
+//       const fetchWeather = async (lat, lon, locName) => {
+//           try {
+//               const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&timezone=auto`);
+//               const weatherJson = await weatherRes.json();
+//               if (weatherJson && weatherJson.current_weather) setWeatherData(weatherJson.current_weather);
+//               setLocationName(locName);
+//           } catch (error) { setLocationName("Unknown Location"); }
+//       };
 
-      if ("geolocation" in navigator) {
-          navigator.geolocation.getCurrentPosition(
-              async (position) => {
-                  const lat = position.coords.latitude; const lon = position.coords.longitude;
-                  try {
-                      const geoRes = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`);
-                      const geoData = await geoRes.json();
-                      fetchWeather(lat, lon, geoData.city || geoData.locality || "Current Location");
-                  } catch (e) { fetchWeather(lat, lon, "Current Location"); }
-              },
-              () => fetchWeather(14.0208, 100.5250, "Pathum Thani"),
-              { timeout: 10000 }
-          );
-      } else { fetchWeather(14.0208, 100.5250, "Pathum Thani"); }
-  }, []);
+//       if ("geolocation" in navigator) {
+//           navigator.geolocation.getCurrentPosition(
+//               async (position) => {
+//                   const lat = position.coords.latitude; const lon = position.coords.longitude;
+//                   try {
+//                       const geoRes = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`);
+//                       const geoData = await geoRes.json();
+//                       fetchWeather(lat, lon, geoData.city || geoData.locality || "Current Location");
+//                   } catch (e) { fetchWeather(lat, lon, "Current Location"); }
+//               },
+//               () => fetchWeather(14.0208, 100.5250, "Pathum Thani"),
+//               { timeout: 10000 }
+//           );
+//       } else { fetchWeather(14.0208, 100.5250, "Pathum Thani"); }
+//   }, []);
 
-  const getWeatherIcon = (code) => {
-      if (code === 0) return <Sun className="text-yellow-500" size={36} />; 
-      if (code > 0 && code < 4) return <CloudRain className="text-gray-400" size={36} />; 
-      if (code >= 51 && code <= 67) return <Droplets className="text-blue-400" size={36} />; 
-      return <CloudRain className="text-gray-500" size={36} />; 
-  };
+//   const getWeatherIcon = (code) => {
+//       if (code === 0) return <Sun className="text-yellow-500" size={36} />; 
+//       if (code > 0 && code < 4) return <CloudRain className="text-gray-400" size={36} />; 
+//       if (code >= 51 && code <= 67) return <Droplets className="text-blue-400" size={36} />; 
+//       return <CloudRain className="text-gray-500" size={36} />; 
+//   };
 
-  const getWeatherCondition = (code) => {
-      if (code === 0) return "Clear Sky";
-      if (code === 1 || code === 2 || code === 3) return "Partly Cloudy";
-      if (code >= 51 && code <= 67) return "Raining";
-      return "Cloudy";
-  };
+//   const getWeatherCondition = (code) => {
+//       if (code === 0) return "Clear Sky";
+//       if (code === 1 || code === 2 || code === 3) return "Partly Cloudy";
+//       if (code >= 51 && code <= 67) return "Raining";
+//       return "Cloudy";
+//   };
 
   // --- COLOR MAPPERS ---
   const getSafeTagStyle = (tagStr) => {
