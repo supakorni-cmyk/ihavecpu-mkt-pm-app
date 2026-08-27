@@ -123,13 +123,17 @@ const getPostInsights = async (targetId) => {
     }
 };
 
-// 🟢 ROUTE A: GET Protocol - Handles Automated Page Feed Extraction
+// 🟢 ROUTE A: GET Protocol - Automated Page Feed Extraction (4-Month History & Comments)
 app.get('*', async (req, res) => {
     try {
         if (!FB_ACCESS_TOKEN) return res.status(401).json({ error: "Missing token config." });
 
-        const feedUrl = `https://graph.facebook.com/v19.0/me/feed?fields=id,message,created_time,permalink_url,shares,reactions.summary(total_count),comments.summary(total_count)&limit=30&access_token=${FB_ACCESS_TOKEN}`;
-        const feedResponse = await fetchWithTimeout(feedUrl, {}, 3000);
+        // Calculate Unix timestamp for 4 months ago (approx 120 days)
+        const fourMonthsAgoSec = Math.floor((Date.now() - (120 * 24 * 60 * 60 * 1000)) / 1000);
+
+        // Fields request expanded comments data (id, message, created_time, from)
+        const feedUrl = `https://graph.facebook.com/v19.0/me/feed?fields=id,message,created_time,permalink_url,shares,reactions.summary(true),comments.summary(true).limit(25){id,message,created_time,from}&since=${fourMonthsAgoSec}&limit=100&access_token=${FB_ACCESS_TOKEN}`;
+        const feedResponse = await fetchWithTimeout(feedUrl, {}, 3500);
         const feedData = await feedResponse.json();
 
         if (feedData.error) return res.status(500).json({ error: feedData.error.message });
@@ -141,6 +145,15 @@ app.get('*', async (req, res) => {
             const totalShares = post.shares?.count || 0;
             const baseEngagement = totalReactions + totalComments + totalShares;
 
+            // Format comments list
+            const rawComments = post.comments?.data || [];
+            const commentsList = rawComments.map(c => ({
+                id: c.id,
+                text: c.message || '',
+                user: c.from?.name || 'Facebook User',
+                date: c.created_time
+            }));
+
             const insights = await getPostInsights(post.id);
 
             return {
@@ -148,6 +161,7 @@ app.get('*', async (req, res) => {
                 message: post.message || 'Photo / Media Layout Update',
                 postedAt: post.created_time,
                 permalink: post.permalink_url,
+                comments: commentsList,
                 metrics: {
                     reach: insights.reach,
                     impressions: insights.impressions,
@@ -167,7 +181,7 @@ app.get('*', async (req, res) => {
     }
 });
 
-// 🟢 ROUTE B: POST Protocol - Handles Custom Pasted Links Processing
+// 🟢 ROUTE B: POST Protocol - Custom Pasted Links Processing (with Comments Extraction)
 app.post('*', async (req, res) => {
     const { links } = req.body;
     if (!links || !Array.isArray(links)) return res.status(400).json({ error: "Provide links array." });
@@ -195,12 +209,13 @@ app.post('*', async (req, res) => {
                         graphApiId = `${CACHED_PAGE_ID}_${extractedId}`; 
                     }
 
-                    let basicDataUrl = `https://graph.facebook.com/v19.0/${graphApiId}?fields=id,message,created_time,shares,reactions.summary(total_count),comments.summary(total_count)&access_token=${FB_ACCESS_TOKEN}`;
+                    const commentFields = `fields=id,message,created_time,shares,reactions.summary(true),comments.summary(true).limit(25){id,message,created_time,from}`;
+                    let basicDataUrl = `https://graph.facebook.com/v19.0/${graphApiId}?${commentFields}&access_token=${FB_ACCESS_TOKEN}`;
                     let basicRes = await fetchWithTimeout(basicDataUrl, {}, 2500);
                     let basicData = await basicRes.json();
 
                     if (basicData.error) {
-                        basicDataUrl = `https://graph.facebook.com/v19.0/${extractedId}?fields=id,message,created_time,shares,reactions.summary(total_count),comments.summary(total_count)&access_token=${FB_ACCESS_TOKEN}`;
+                        basicDataUrl = `https://graph.facebook.com/v19.0/${extractedId}?${commentFields}&access_token=${FB_ACCESS_TOKEN}`;
                         basicRes = await fetchWithTimeout(basicDataUrl, {}, 2500);
                         basicData = await basicRes.json();
                     }
@@ -213,6 +228,14 @@ app.post('*', async (req, res) => {
                     const totalShares = basicData.shares?.count || 0;
                     const fallbackEngagement = totalReactions + totalComments + totalShares;
 
+                    const rawComments = basicData.comments?.data || [];
+                    const commentsList = rawComments.map(c => ({
+                        id: c.id,
+                        text: c.message || '',
+                        user: c.from?.name || 'Facebook User',
+                        date: c.created_time
+                    }));
+
                     const insights = await getPostInsights(canonicalId);
 
                     return {
@@ -220,6 +243,7 @@ app.post('*', async (req, res) => {
                         message: basicData.message || 'Video / Photo Post',
                         postedAt: basicData.created_time,
                         permalink: url,
+                        comments: commentsList,
                         metrics: {
                             reach: insights.reach,
                             impressions: insights.impressions,
