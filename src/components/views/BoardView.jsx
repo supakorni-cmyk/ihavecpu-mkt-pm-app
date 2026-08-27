@@ -492,6 +492,7 @@ const BoardView = ({ tasks = [], onAddTaskClick, onUpdateTask, onDeleteTask, onM
             onEdit={() => { setEditingTask(selectedTask); setSelectedTask(null); }}
             onDelete={() => { if(onDeleteTask) onDeleteTask(selectedTask.id); setSelectedTask(null); }}
             onSelectTask={(taskId) => { const t = tasks.find(x => x.id === taskId); if (t) setSelectedTask(t); }}
+            onUpdateTask={onUpdateTask}
         />
       )}
 

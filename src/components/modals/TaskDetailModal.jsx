@@ -3,14 +3,16 @@ import React, { useState } from 'react';
 import { 
   X, Calendar, Clock, MapPin, Tag, User,
   FileText, Link as LinkIcon, ExternalLink, 
-  CheckSquare, Pencil, Trash2, Layers, CornerDownRight, BarChartHorizontal, Activity
+  CheckSquare, Pencil, Trash2, Layers, CornerDownRight, BarChartHorizontal, Activity,
+  MessageSquare, Send
 } from 'lucide-react';
 import { TAG_COLORS, formatDate, COLUMNS } from '../../utils/constants';
 
 import GanttChartModal from './GanttChartModal.jsx';
 
-export default function TaskDetailModal({ task, onClose, onEdit, onDelete, tasks = [], onSelectTask }) {
+export default function TaskDetailModal({ task, onClose, onEdit, onDelete, tasks = [], onSelectTask, onUpdateTask, currentUser }) {
   const [showGantt, setShowGantt] = useState(false);
+  const [commentText, setCommentText] = useState('');
 
   if (!task) return null;
 
@@ -40,6 +42,27 @@ export default function TaskDetailModal({ task, onClose, onEdit, onDelete, tasks
   };
 
   const logs = Array.isArray(task.logs) ? task.logs : [];
+  const comments = Array.isArray(task.comments) ? task.comments : [];
+
+  // 🟢 HANDLER: POST NEW COMMENT
+  const handleSendComment = () => {
+    if (!commentText.trim()) return;
+
+    const newCommentObj = {
+      id: `cmt_${Date.now()}`,
+      user: currentUser?.email || task.taskLeader || 'User',
+      text: commentText.trim(),
+      timestamp: new Date().toISOString()
+    };
+
+    const updatedComments = [newCommentObj, ...comments];
+
+    if (onUpdateTask) {
+      onUpdateTask(task.id, { comments: updatedComments });
+    }
+
+    setCommentText('');
+  };
 
   return (
     <>
@@ -148,7 +171,52 @@ export default function TaskDetailModal({ task, onClose, onEdit, onDelete, tasks
                   </div>
               )}
 
-              {/* 🟢 TASK ACTIVITY LOG SECTION */}
+              {/* 🟢 TASK COMMENTS SECTION */}
+              <div className="mb-6">
+                  <h4 className="font-bold text-gray-800 text-sm mb-3 flex items-center gap-2">
+                      <MessageSquare size={18} className="text-indigo-500"/> Comments ({comments.length})
+                  </h4>
+
+                  {/* Comment Input */}
+                  <div className="flex gap-2 mb-4">
+                      <input 
+                          type="text" 
+                          placeholder="Write a comment..." 
+                          value={commentText}
+                          onChange={(e) => setCommentText(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && handleSendComment()}
+                          className="flex-1 px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-xl outline-none focus:bg-white focus:border-indigo-500 transition font-medium"
+                      />
+                      <button 
+                          onClick={handleSendComment}
+                          disabled={!commentText.trim()}
+                          className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1 shrink-0"
+                      >
+                          <Send size={13} /> Comment
+                      </button>
+                  </div>
+
+                  {/* Comments Timeline */}
+                  <div className="space-y-2.5 max-h-52 overflow-y-auto custom-scrollbar">
+                      {comments.length > 0 ? (
+                          comments.map((c, idx) => (
+                              <div key={c.id || idx} className="bg-gray-50 p-3 rounded-xl border border-gray-100 text-xs">
+                                  <div className="flex justify-between items-center mb-1">
+                                      <span className="font-bold text-gray-800">{c.user || c.author || 'User'}</span>
+                                      <span className="text-[10px] text-gray-400">
+                                          {c.timestamp ? new Date(c.timestamp).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}
+                                      </span>
+                                  </div>
+                                  <p className="text-gray-700 leading-relaxed whitespace-pre-line">{c.text || c.message}</p>
+                              </div>
+                          ))
+                      ) : (
+                          <p className="text-xs text-gray-400 italic py-1">No comments posted yet.</p>
+                      )}
+                  </div>
+              </div>
+
+              {/* TASK ACTIVITY LOG SECTION */}
               <div className="mb-6">
                   <h4 className="font-bold text-gray-800 text-sm mb-3 flex items-center gap-2">
                       <Activity size={18} className="text-indigo-500"/> Activity Log ({logs.length})
